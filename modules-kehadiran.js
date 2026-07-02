@@ -1510,12 +1510,18 @@ async function loadDailyTasks(filter) {
             (currentUser.nama || '').toLowerCase().trim())
     );
   else if (filter === 'team-report') {
-    const myDept2 = (currentUser.departemen || '').toLowerCase().trim();
-    filtered = _dailyTaskData.filter(
-      (t) =>
-        (t.type === 'report' || (t.title && t.title.includes('Daily Report'))) &&
-        ((t.departemen || '').toLowerCase().trim() === myDept2 || !t.departemen)
-    );
+    if (hasHeadLevelAccess()) {
+      filtered = _dailyTaskData.filter(
+        (t) => t.type === 'report' || (t.title && t.title.includes('Daily Report'))
+      );
+    } else {
+      const myDept2 = (currentUser.departemen || '').toLowerCase().trim();
+      filtered = _dailyTaskData.filter(
+        (t) =>
+          (t.type === 'report' || (t.title && t.title.includes('Daily Report'))) &&
+          ((t.departemen || '').toLowerCase().trim() === myDept2 || !t.departemen)
+      );
+    }
     // Apply date range filter
     const drFrom = document.getElementById('reportDateFrom')?.value || '';
     const drTo = document.getElementById('reportDateTo')?.value || '';
@@ -1947,7 +1953,7 @@ async function loadDailyTasks(filter) {
   }
 
   // ── TRACKER STATS for report tab at leader+ ────────────────────
-  if (filter === 'report' && (hasAccess(2) || hasHeadLevelAccess())) {
+  if (filter === 'report') {
     // Build grouped tracker per category
     var reportOnlyItems = filtered.filter(function (t) {
       return t.type === 'report' || (t.title && t.title.includes('Daily Report'));
@@ -4635,9 +4641,9 @@ async function loadWeeklyReports(divFilter) {
                   '</div></div>';
               html += '</div>';
             });
-            if (hasAccess(2) || hasHeadLevelAccess()) html += _buildReportTrackerStats(userRows);
+            html += _buildReportTrackerStats(userRows);
           });
-        if (hasAccess(2) || hasHeadLevelAccess()) html += _buildReportTrackerStats(rows);
+        html += _buildReportTrackerStats(rows);
         html += '</div>';
       });
     listEl.innerHTML = html;

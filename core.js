@@ -362,7 +362,7 @@ function hasAccess(minLevel) {
 function hasHeadLevelAccess() {
   if (hasAccess(4)) return true;
   var posisi = (currentUser?.posisi || '').toUpperCase();
-  return posisi.includes('HEAD');
+  return posisi.includes('HEAD') || posisi.includes('KEPALA');
 }
 
 function renderLogin() {
