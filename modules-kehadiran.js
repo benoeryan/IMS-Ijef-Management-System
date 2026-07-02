@@ -1323,7 +1323,7 @@ async function renderDailyTask() {
     tabs += '<div class="tab" onclick="filterDailyTasks(\'overdue\')">Terlambat</div>';
   }
   tabs += '<div class="tab" onclick="filterDailyTasks(\'report\')">📝 Daily Report</div>';
-  if (hasAccess(2)) {
+  if (hasAccess(2) || hasHeadLevelAccess()) {
     // Leader+ can see team reports
     tabs += '<div class="tab" onclick="filterDailyTasks(\'team-report\')">📊 Report Tim</div>';
   }
@@ -1344,7 +1344,7 @@ async function renderDailyTask() {
     tabs +=
       '<div class="tab" onclick="filterDailyTasks(\'history-assigned\')">📊 History Tugas</div>';
   }
-  if (hasAccess(2)) {
+  if (hasAccess(2) || hasHeadLevelAccess()) {
     // Leader/Manager/Head/BOD can view weekly reports
     tabs += '<div class="tab" onclick="loadWeeklyReports()">📈 Laporan Mingguan</div>';
   }
@@ -1947,7 +1947,7 @@ async function loadDailyTasks(filter) {
   }
 
   // ── TRACKER STATS for report tab at leader+ ────────────────────
-  if (filter === 'report' && hasAccess(2)) {
+  if (filter === 'report' && (hasAccess(2) || hasHeadLevelAccess())) {
     // Build grouped tracker per category
     var reportOnlyItems = filtered.filter(function (t) {
       return t.type === 'report' || (t.title && t.title.includes('Daily Report'));
@@ -4635,9 +4635,9 @@ async function loadWeeklyReports(divFilter) {
                   '</div></div>';
               html += '</div>';
             });
-            if (hasAccess(2)) html += _buildReportTrackerStats(userRows);
+            if (hasAccess(2) || hasHeadLevelAccess()) html += _buildReportTrackerStats(userRows);
           });
-        if (hasAccess(2)) html += _buildReportTrackerStats(rows);
+        if (hasAccess(2) || hasHeadLevelAccess()) html += _buildReportTrackerStats(rows);
         html += '</div>';
       });
     listEl.innerHTML = html;
