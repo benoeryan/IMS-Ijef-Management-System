@@ -1327,7 +1327,7 @@ async function renderDailyTask() {
     // Leader+ can see team reports
     tabs += '<div class="tab" onclick="filterDailyTasks(\'team-report\')">📊 Report Tim</div>';
   }
-  if (hasAccess(4)) {
+  if (hasHeadLevelAccess()) {
     // Head+ sees all divisions
     tabs += '<div class="tab" onclick="filterDailyTasks(\'all-report\')">🏢 Semua Divisi</div>';
   }
@@ -1433,7 +1433,7 @@ async function loadDailyTasks(filter) {
       } else if (hasAccess(5)) {
         // BOD: sees all reports (gabungan semua divisi), no tasks
         if (t.type === 'report') _dailyTaskData.push({ id: d.id, ...t });
-      } else if (hasAccess(4)) {
+      } else if (hasHeadLevelAccess()) {
         // Head: own data + all divisions reports + own dept tasks + all assigned tasks in dept
         if (t.userId === myId || t.assignedBy === myId) {
           _dailyTaskData.push({ id: d.id, ...t });
@@ -1522,7 +1522,7 @@ async function loadDailyTasks(filter) {
     if (drFrom) filtered = filtered.filter((t) => (t.tanggal || '') >= drFrom);
     if (drTo) filtered = filtered.filter((t) => (t.tanggal || '') <= drTo);
     // Apply division filter (Head/BOD only)
-    if (hasAccess(4) && window._teamReportDivFilter) {
+    if (hasHeadLevelAccess() && window._teamReportDivFilter) {
       filtered = filtered.filter((t) =>
         (t.departemen || '').toUpperCase().includes(window._teamReportDivFilter)
       );
@@ -1609,23 +1609,23 @@ async function loadDailyTasks(filter) {
     if (filter === 'team-report') {
       // Team report: Head/BOD get division+category, Manager gets category only
       dateFilterHtml += `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">`;
-      if (hasAccess(4)) {
+      if (hasHeadLevelAccess()) {
         dateFilterHtml += `<button class="btn btn-xs ${!window._teamReportDivFilter ? 'btn-primary' : 'btn-outline'}" onclick="window._teamReportDivFilter='';window._teamReportCatFilter='';loadDailyTasks('team-report')">Semua</button>
         <button class="btn btn-xs ${window._teamReportDivFilter === 'ACADEMIC' ? 'btn-primary' : 'btn-outline'}" onclick="window._teamReportDivFilter='ACADEMIC';window._teamReportCatFilter='';loadDailyTasks('team-report')">📚 ACADEMIC</button>
         <button class="btn btn-xs ${window._teamReportDivFilter === 'OFFICE' ? 'btn-primary' : 'btn-outline'}" onclick="window._teamReportDivFilter='OFFICE';window._teamReportCatFilter='';loadDailyTasks('team-report')">🏢 OFFICE</button>`;
       }
       let trCatOpts = '<option value="">Semua Kategori</option>';
-      if (hasAccess(4) && window._teamReportDivFilter === 'ACADEMIC') {
+      if (hasHeadLevelAccess() && window._teamReportDivFilter === 'ACADEMIC') {
         ['Siswa', 'Sensei', 'Curriculum', 'TSK-Job', 'Tanpa Kategori'].forEach((c) => {
           trCatOpts += `<option value="${c}" ${window._teamReportCatFilter === c ? 'selected' : ''}>${c}</option>`;
         });
-      } else if (hasAccess(4) && window._teamReportDivFilter === 'OFFICE') {
+      } else if (hasHeadLevelAccess() && window._teamReportDivFilter === 'OFFICE') {
         ['HR & Legal', 'Document', "Facility's", 'Finance', 'Marketing & Sales', 'Promosi'].forEach(
           (c) => {
             trCatOpts += `<option value="${c}" ${window._teamReportCatFilter === c ? 'selected' : ''}>${c}</option>`;
           }
         );
-      } else if (hasAccess(4)) {
+      } else if (hasHeadLevelAccess()) {
         // Head/BOD with no division filter: show all
         [
           'Siswa',
@@ -4369,7 +4369,7 @@ async function loadWeeklyReports(divFilter) {
       return;
     }
     // Manager/Leader: only see own division. HEAD/Admin see all.
-    if (!hasAccess(4)) {
+    if (!hasHeadLevelAccess()) {
       var myDept = (currentUser.departemen || '').toUpperCase().trim();
       if (myDept) {
         items = items.filter(function (r) {
@@ -4533,115 +4533,111 @@ async function loadWeeklyReports(divFilter) {
           ' (' +
           rows.length +
           ' data)</div>';
+        var byPic = {};
         rows.forEach(function (r) {
-          var tgl = r.tanggal || r.bulan || '-';
-          var kat = r.kategori || '-';
-          var aktivitas = r.aktivitas || '';
-          var progressText = String(r.progress || '').trim();
-          var progressNum = parseInt(progressText, 10);
-          var hasProgressNum = !isNaN(progressNum);
-          if (hasProgressNum) progressNum = Math.max(0, Math.min(100, progressNum));
-          var progressColor = hasProgressNum
-            ? progressNum >= 100
-              ? '#2e7d32'
-              : progressNum >= 70
-                ? '#f57f17'
-                : '#c62828'
-            : '#1565c0';
-          var kendala = r.kendala || r.case_desc || '';
-          var solusi = r.solusi || r.solution || '';
-          var rencana = r.rencanaBesok || r.planning || '';
-          var pic = r.targetUserName || r.pic || r.nama || '-';
-          var komentar = r.komentar || r.keterangan || '';
-          html +=
-            '<div style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff">';
-          html += '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">';
-          if (currentUser.role !== 'bod') {
-            html +=
-              '<input type="checkbox" class="wr-check" value="' +
-              r.id +
-              '" data-col="' +
-              (r.col || 'hrd_daily_tasks') +
-              '">';
-          }
-          html += '<div style="flex:1"><div class="fw-700">' + escHtml(pic) + '</div>';
-          html +=
-            '<div class="text-xs" style="color:#666">📅 ' +
-            escHtml(tgl) +
-            ' | 🏢 ' +
-            escHtml(div) +
-            ' | 🏷️ ' +
-            escHtml(kat) +
-            '</div></div></div>';
-          if (progressText) {
-            html +=
-              '<div style="margin-bottom:8px;padding:8px;background:#f8f9ff;border-radius:8px;border:1px solid #dfe7ff">';
-            html +=
-              '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div class="text-xs fw-700" style="color:#1565c0">📈 Progress Tracker</div><div style="font-size:.8rem;font-weight:700;color:' +
-              progressColor +
-              '">' +
-              escHtml(progressText) +
-              (hasProgressNum && progressText.indexOf('%') === -1 ? '%' : '') +
-              '</div></div>';
-            if (hasProgressNum) {
-              html +=
-                '<div style="height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:6px"><div style="height:100%;width:' +
-                progressNum +
-                '%;background:' +
-                progressColor +
-                ';border-radius:999px"></div></div>';
-            }
-            html += '</div>';
-          }
-          if (aktivitas)
-            html +=
-              '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#1565c0">📋 Aktivitas</div><div style="padding:8px;background:#f8f9ff;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
-              escHtml(aktivitas) +
-              '</div></div>';
-          if (kendala)
-            html +=
-              '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#e65100">⚠️ Kendala / Case</div><div style="padding:8px;background:#fff8e1;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
-              escHtml(kendala) +
-              '</div></div>';
-          if (solusi)
-            html +=
-              '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#2e7d32">💡 Solusi / Tindakan</div><div style="padding:8px;background:#e8f5e9;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
-              escHtml(solusi) +
-              '</div></div>';
-          if (rencana)
-            html +=
-              '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#6a1b9a">🌟 Planning & Target</div><div style="padding:8px;background:#f3e5f5;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
-              escHtml(rencana) +
-              '</div></div>';
-          if (komentar)
-            html +=
-              '<div><div class="text-xs fw-700" style="color:#555">💬 Keterangan</div><div style="padding:8px;background:#f5f5f5;border-radius:6px;font-size:.82rem;margin-top:4px">' +
-              escHtml(komentar) +
-              '</div></div>';
-          html += '</div>';
+          var picKey = r.targetUserName || r.pic || r.nama || '-';
+          if (!byPic[picKey]) byPic[picKey] = [];
+          byPic[picKey].push(r);
         });
-        // ── TRACKER STATS per division for leader+ ────────────────
-        if (hasAccess(2)) {
-          var wrKendala = 0, wrTanpaKendala = 0, wrTotalPct = 0;
-          rows.forEach(function (r) {
-            if ((r.kendala || r.case_desc || '').trim()) wrKendala++;
-            else wrTanpaKendala++;
-            var p = parseInt(r.progress, 10) || 0;
-            if (!isNaN(p)) wrTotalPct += Math.max(0, Math.min(100, p));
+        Object.keys(byPic)
+          .sort()
+          .forEach(function (pic) {
+            var userRows = byPic[pic];
+            html +=
+              '<div style="padding:8px 12px;margin:10px 0 8px;background:#f4f6ff;border-radius:8px;border-left:4px solid #5c6bc0;font-weight:700;font-size:.82rem;color:#3949ab">👤 ' +
+              escHtml(pic) +
+              ' (' +
+              userRows.length +
+              ' report)</div>';
+            userRows.forEach(function (r) {
+              var tgl = r.tanggal || r.bulan || '-';
+              var kat = r.kategori || '-';
+              var aktivitas = r.aktivitas || '';
+              var progressText = String(r.progress || '').trim();
+              var progressNum = parseInt(progressText, 10);
+              var hasProgressNum = !isNaN(progressNum);
+              if (hasProgressNum) progressNum = Math.max(0, Math.min(100, progressNum));
+              var progressColor = hasProgressNum
+                ? progressNum >= 100
+                  ? '#2e7d32'
+                  : progressNum >= 70
+                    ? '#f57f17'
+                    : '#c62828'
+                : '#1565c0';
+              var kendala = r.kendala || r.case_desc || '';
+              var solusi = r.solusi || r.solution || '';
+              var rencana = r.rencanaBesok || r.planning || '';
+              var komentar = r.komentar || r.keterangan || '';
+              html +=
+                '<div style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff">';
+              html += '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">';
+              if (currentUser.role !== 'bod') {
+                html +=
+                  '<input type="checkbox" class="wr-check" value="' +
+                  r.id +
+                  '" data-col="' +
+                  (r.col || 'hrd_daily_tasks') +
+                  '">';
+              }
+              html += '<div style="flex:1"><div class="fw-700">' + escHtml(pic) + '</div>';
+              html +=
+                '<div class="text-xs" style="color:#666">📅 ' +
+                escHtml(tgl) +
+                ' | 🏢 ' +
+                escHtml(div) +
+                ' | 🏷️ ' +
+                escHtml(kat) +
+                '</div></div></div>';
+              if (progressText) {
+                html +=
+                  '<div style="margin-bottom:8px;padding:8px;background:#f8f9ff;border-radius:8px;border:1px solid #dfe7ff">';
+                html +=
+                  '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div class="text-xs fw-700" style="color:#1565c0">📈 Progress Tracker</div><div style="font-size:.8rem;font-weight:700;color:' +
+                  progressColor +
+                  '">' +
+                  escHtml(progressText) +
+                  (hasProgressNum && progressText.indexOf('%') === -1 ? '%' : '') +
+                  '</div></div>';
+                if (hasProgressNum) {
+                  html +=
+                    '<div style="height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:6px"><div style="height:100%;width:' +
+                    progressNum +
+                    '%;background:' +
+                    progressColor +
+                    ';border-radius:999px"></div></div>';
+                }
+                html += '</div>';
+              }
+              if (aktivitas)
+                html +=
+                  '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#1565c0">📋 Aktivitas</div><div style="padding:8px;background:#f8f9ff;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
+                  escHtml(aktivitas) +
+                  '</div></div>';
+              if (kendala)
+                html +=
+                  '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#e65100">⚠️ Kendala / Case</div><div style="padding:8px;background:#fff8e1;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
+                  escHtml(kendala) +
+                  '</div></div>';
+              if (solusi)
+                html +=
+                  '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#2e7d32">💡 Solusi / Tindakan</div><div style="padding:8px;background:#e8f5e9;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
+                  escHtml(solusi) +
+                  '</div></div>';
+              if (rencana)
+                html +=
+                  '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#6a1b9a">🌟 Planning & Target</div><div style="padding:8px;background:#f3e5f5;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
+                  escHtml(rencana) +
+                  '</div></div>';
+              if (komentar)
+                html +=
+                  '<div><div class="text-xs fw-700" style="color:#555">💬 Keterangan</div><div style="padding:8px;background:#f5f5f5;border-radius:6px;font-size:.82rem;margin-top:4px">' +
+                  escHtml(komentar) +
+                  '</div></div>';
+              html += '</div>';
+            });
+            if (hasAccess(2)) html += _buildReportTrackerStats(userRows);
           });
-          var wrAvg = rows.length ? Math.round(wrTotalPct / rows.length) : 0;
-          var wrKendalaCov = rows.length ? Math.round((wrKendala / rows.length) * 100) : 0;
-          html +=
-            '<div style="padding:8px 12px;background:#f0faf4;border-radius:8px;margin-top:6px;font-size:.75rem;border:1px solid #c8e6c9">' +
-            '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px">' +
-            '<span>\u26a0\ufe0f Kendala: <b>' + wrKendala + '</b></span>' +
-            '<span>\u2705 Tanpa Kendala: <b>' + wrTanpaKendala + '</b></span>' +
-            '<span>\ud83d\udccb Total: <b>' + rows.length + '</b></span>' +
-            '</div>' +
-            '<div style="color:#2e7d32;font-weight:700">\ud83d\udcc8 Rata-rata Progress: ' + wrAvg + '%</div>' +
-            '<div style="color:#777;margin-top:2px">Coverage kendala: <b>' + wrKendalaCov + '%</b> laporan punya hambatan</div>' +
-            '</div>';
-        }
+        if (hasAccess(2)) html += _buildReportTrackerStats(rows);
         html += '</div>';
       });
     listEl.innerHTML = html;
@@ -4840,7 +4836,9 @@ function _buildReportTrackerStats(items) {
     tanpaKendala = 0,
     totalPct = 0;
   items.forEach(function (r) {
-    var p = Math.max(0, Math.min(100, parseInt(r.progress, 10) || 0));
+    var p = parseInt(String(r.progress || '').trim(), 10);
+    if (isNaN(p)) p = 0;
+    p = Math.max(0, Math.min(100, p));
     totalPct += p;
     if (p >= 100) {
       done++;
@@ -4849,7 +4847,7 @@ function _buildReportTrackerStats(items) {
       if (p >= 70) onTrack++;
       else needAttention++;
     }
-    if ((r.kendala || '').trim()) kendala++;
+    if ((r.kendala || r.case_desc || '').trim()) kendala++;
     else tanpaKendala++;
   });
   var total = items.length;
@@ -5082,18 +5080,18 @@ function _renderGroupedReportTracker(reports, filter) {
         var personKeys = Object.keys(byPerson).sort();
         personKeys.forEach(function (person) {
           var pItems = byPerson[person];
-          if (personKeys.length > 1) {
-            html +=
-              '<div style="padding:4px 0 4px 4px;font-size:.8rem;color:#555;font-weight:600">' +
-              '\ud83d\udc64 ' +
-              escHtml(person) +
-              '</div>';
-          }
+          html +=
+            '<div style="padding:6px 8px;margin:8px 0 6px;background:#fff;border:1px solid #e9eef6;border-radius:8px;font-size:.8rem;color:#555;font-weight:600">' +
+            '\ud83d\udc64 ' +
+            escHtml(person) +
+            ' (' +
+            pItems.length +
+            ')</div>';
           pItems.forEach(function (r) {
             html += _buildReportTrackerRow(r);
           });
+          html += _buildReportTrackerStats(pItems);
         });
-        html += _buildReportTrackerStats(catItems);
         html += '</div>';
       });
   }

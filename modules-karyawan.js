@@ -96,7 +96,7 @@ async function renderDashboard() {
   let widgetRight = `<div class="card" style="border-left:4px solid var(--accent)"><div class="card-title mb-8">👤 ${escHtml(currentUser.nama)}</div><div class="text-sm" style="color:#666">${escHtml(currentUser.posisi || currentUser.role)} • ${escHtml(currentUser.departemen || '-')}</div></div>`;
   widgetRight +=
     '<div class="card"><div class="card-title mb-8">⚡ Aksi Cepat</div><div class="flex flex-wrap gap-8"><button class="btn btn-sm" style="background:#0d47a1;color:#fff" onclick="navigateTo(\'daily-task\')">📋 Daily Task</button><button class="btn btn-primary btn-sm" onclick="navigateTo(\'absensi\')">📍 Absensi</button><button class="btn btn-info btn-sm" onclick="navigateTo(\'cuti\')">🏖️ Cuti</button><button class="btn btn-sm" style="background:#ff6f00;color:#fff" onclick="navigateTo(\'overtime\')">⏰ Overtime</button><button class="btn btn-success btn-sm" onclick="navigateTo(\'karyawan\')">👥 Karyawan</button><button class="btn btn-warning btn-sm" onclick="navigateTo(\'approval-center\')">✅ Approval</button><button class="btn btn-sm" style="background:#7b1fa2;color:#fff" onclick="navigateTo(\'penggajian\')">💰 Penggajian</button><button class="btn btn-sm" style="background:#00796b;color:#fff" onclick="navigateTo(\'reimbursement\')">🧾 Reimburse</button><button class="btn btn-sm" style="background:#1565c0;color:#fff" onclick="navigateTo(\'meeting\')">📅 Meeting</button><button class="btn btn-sm" style="background:#4e342e;color:#fff" onclick="navigateTo(\'chat\')">💬 Obrolan</button><button class="btn btn-sm" style="background:#37474f;color:#fff" onclick="navigateTo(\'broadcast\')">📡 Broadcast</button></div></div>';
-  if (hasAccess(4)) {
+  if (hasHeadLevelAccess()) {
     widgetRight += `<div class="card" id="dashTeamReportSection">
       <div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
         <span>📊 Report Tim Hari Ini</span>
@@ -169,7 +169,7 @@ async function renderDashboard() {
       console.warn('Birthday widget error:', e);
     }
   }
-  if (hasAccess(4) && typeof loadPortalTeamReport === 'function') {
+  if (hasHeadLevelAccess() && typeof loadPortalTeamReport === 'function') {
     try {
       await loadPortalTeamReport('dashTeamReportList', '_dashboardTeamDivFilter');
     } catch (_e) {}
