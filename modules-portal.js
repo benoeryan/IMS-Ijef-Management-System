@@ -147,8 +147,10 @@ async function renderPortal() {
   }
 }
 
-async function loadPortalTeamReport() {
-  var listEl = document.getElementById('portalTeamReportList');
+async function loadPortalTeamReport(targetId, filterStateKey) {
+  var listId = targetId || 'portalTeamReportList';
+  var stateKey = filterStateKey || '_portalTeamDivFilter';
+  var listEl = document.getElementById(listId);
   if (!listEl) return;
   listEl.innerHTML = '<p class="text-sm" style="color:#999">Memuat...</p>';
   try {
@@ -174,7 +176,7 @@ async function loadPortalTeamReport() {
       );
     });
     // Build division filter tabs (Semua / Academic / Office)
-    var portalDivFilter = window._portalTeamDivFilter || 'all';
+    var portalDivFilter = window[stateKey] || 'all';
     var filteredReports = reports;
     if (portalDivFilter === 'academic') {
       filteredReports = reports.filter(function (r) {
@@ -197,9 +199,15 @@ async function loadPortalTeamReport() {
             (active
               ? 'background:var(--primary);color:#fff;font-weight:700'
               : 'background:#f0f0f0;color:#333') +
-            '" onclick="window._portalTeamDivFilter=\'' +
+            '" onclick="window[\'' +
+            stateKey +
+            '\']=\'' +
             div +
-            '\';loadPortalTeamReport()">' +
+            '\';loadPortalTeamReport(\'' +
+            listId +
+            '\',\'' +
+            stateKey +
+            '\')">' +
             label +
             '</button>'
           );

@@ -2020,6 +2020,9 @@ async function loadDailyTasks(filter) {
       t.priority === 'high' ? '#c62828' : t.priority === 'low' ? '#666' : '#f57f17';
     const priorityLabel =
       t.priority === 'high' ? 'Tinggi' : t.priority === 'low' ? 'Rendah' : 'Sedang';
+    const taskProgress = t.done ? 100 : Math.max(0, Math.min(100, parseInt(t.progress, 10) || 0));
+    const taskProgressColor = taskProgress >= 100 ? '#2e7d32' : taskProgress >= 50 ? '#f57f17' : '#c62828';
+    const taskActivity = (t.aktivitas || t.description || '').trim();
     const borderColor = t.done
       ? '#2e7d32'
       : isOverdue
@@ -2037,6 +2040,7 @@ async function loadDailyTasks(filter) {
     html += `</div>`;
     if (t.description)
       html += `<div style="font-size:.8rem;color:var(--text-light);margin-top:4px;white-space:pre-line;word-break:break-word;${t.done ? 'text-decoration:line-through' : ''}">${escHtml(t.description)}</div>`;
+    html += `<div style="margin-top:8px;padding:8px;background:#f8f9ff;border:1px solid #e0e7ff;border-radius:8px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><span style="font-size:.72rem;font-weight:700;color:#1565c0">📈 Tracker Aktivitas</span><span style="font-size:.75rem;font-weight:700;color:${taskProgressColor}">${taskProgress}%</span></div><div style="height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin:6px 0"><div style="height:100%;width:${taskProgress}%;background:${taskProgressColor};border-radius:999px"></div></div><div style="font-size:.78rem;color:#333;line-height:1.5">${escHtml(taskActivity || 'Belum ada update aktivitas.')}</div>${t.kendala ? `<div style="font-size:.72rem;color:#c62828;margin-top:5px">⚠️ ${escHtml(t.kendala)}</div>` : ''}${t.solusi ? `<div style="font-size:.72rem;color:#ef6c00;margin-top:4px">💡 ${escHtml(t.solusi)}</div>` : ''}</div>`;
     html += `<div style="font-size:.7rem;color:#999;margin-top:4px">`;
     if (isAdmin && t.targetUserName)
       html += `👤 Untuk: <strong>${escHtml(t.targetUserName)}</strong> | `;
@@ -2120,6 +2124,9 @@ function _showDailyTaskDetail(task) {
     task.priority === 'high' ? 'Tinggi' : task.priority === 'low' ? 'Rendah' : 'Sedang';
   const priorityColor =
     task.priority === 'high' ? '#c62828' : task.priority === 'low' ? '#666' : '#f57f17';
+  const trackerProgress = task.done ? 100 : Math.max(0, Math.min(100, parseInt(task.progress, 10) || 0));
+  const trackerColor = trackerProgress >= 100 ? '#2e7d32' : trackerProgress >= 50 ? '#f57f17' : '#c62828';
+  const trackerActivity = task.aktivitas || task.description || '-';
   const statusLabel = task.done
     ? '<span class="badge badge-success">Selesai</span>'
     : task.tanggal < todayStr()
@@ -2138,6 +2145,18 @@ function _showDailyTaskDetail(task) {
       ${task.targetUserName ? `<tr><td style="padding:8px;font-weight:700">Untuk</td><td style="padding:8px">${escHtml(task.targetUserName)}</td></tr>` : ''}
       ${task.doneAt ? `<tr><td style="padding:8px;font-weight:700">Selesai pada</td><td style="padding:8px">${formatDate(task.doneAt.split('T')[0])} ${task.doneAt.split('T')[1] ? task.doneAt.split('T')[1].substring(0, 5) : ''}</td></tr>` : ''}
     </table>
+    <div style="margin-top:16px;padding:14px;background:#f8f9ff;border-radius:10px;border:1px solid #dfe7ff">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <div class="fw-700" style="color:#1565c0">📈 Tracker Aktivitas</div>
+        <div style="font-weight:700;color:${trackerColor}">${trackerProgress}%</div>
+      </div>
+      <div style="height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin:8px 0 10px">
+        <div style="height:100%;width:${trackerProgress}%;background:${trackerColor};border-radius:999px"></div>
+      </div>
+      <div style="font-size:.82rem;color:#333;white-space:pre-wrap;line-height:1.6">📋 ${escHtml(trackerActivity)}</div>
+      ${task.kendala ? `<div style="font-size:.78rem;color:#c62828;margin-top:8px;white-space:pre-wrap">⚠️ Kendala: ${escHtml(task.kendala)}</div>` : ''}
+      ${task.solusi ? `<div style="font-size:.78rem;color:#ef6c00;margin-top:6px;white-space:pre-wrap">💡 Tindak Lanjut: ${escHtml(task.solusi)}</div>` : ''}
+    </div>
     ${task.attachments && task.attachments.length ? `<div style="margin-top:16px;padding:16px;background:#f8f9ff;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:var(--primary)">📎 Lampiran Eviden (${task.attachments.length} file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px">${task.attachments.map((a, i) => (a.type && a.type.startsWith('image/') ? `<div style="text-align:center;cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><img src="${a.data}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.6rem;color:#666;margin-top:4px">${escHtml(a.name || 'Foto ' + (i + 1))}</div></div>` : `<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:12px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><div style="font-size:2rem">${a.name && a.name.endsWith('.pdf') ? '📕' : a.name && a.name.match(/\\.docx?$/) ? '📘' : a.name && a.name.match(/\\.xlsx?$/) ? '📗' : '📄'}</div><div style="font-size:.6rem;color:#333;margin-top:4px;text-align:center;word-break:break-all">${escHtml(a.name)}</div><div style="font-size:.6rem;color:#1565c0;margin-top:4px">👁️ Lihat</div></div>`)).join('')}</div></div>` : ''}
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end"><a href="${buildGCalUrl(task)}" target="_blank" class="btn btn-sm btn-info" style="text-decoration:none">📅 Tambah ke Google Calendar</a><button class="btn btn-sm btn-outline" onclick="closeModalDirect()">Tutup</button></div>`);
 }
@@ -2230,6 +2249,9 @@ async function modalAddTask() {
     ${catHtml}
     <div class="form-group"><label>Judul Task *</label><input class="form-control" id="dtTitle" placeholder="Contoh: Meeting dengan klien"></div>
     <div class="form-group"><label>Deskripsi</label><textarea class="form-control" id="dtDesc" rows="4" placeholder="Detail task...\n(Tekan Enter untuk baris baru)" style="white-space:pre-wrap"></textarea></div>
+    <div class="form-group"><label>Aktivitas / Update Progress</label><textarea class="form-control" id="dtAktivitas" rows="3" placeholder="Contoh: Follow up klien, revisi draft, koordinasi internal"></textarea></div>
+    <div class="grid-2"><div class="form-group"><label>Progress (%)</label><input class="form-control" type="number" id="dtProgress" value="0" min="0" max="100"></div><div class="form-group"><label>Kendala</label><input class="form-control" id="dtKendala" placeholder="Opsional"></div></div>
+    <div class="form-group"><label>Tindak Lanjut / Solusi</label><textarea class="form-control" id="dtSolusi" rows="2" placeholder="Opsional"></textarea></div>
     <div class="grid-2"><div class="form-group"><label>Tanggal *</label><input class="form-control" type="date" id="dtDate" value="${todayStr()}"></div><div class="form-group"><label>Waktu</label><input class="form-control" type="time" id="dtTime"></div></div>
     <div class="grid-2"><div class="form-group"><label>Prioritas</label><select class="form-control" id="dtPriority"><option value="medium">Sedang</option><option value="high">Tinggi</option><option value="low">Rendah</option></select></div><div class="form-group"><label>Pengingat</label><select class="form-control" id="dtReminder"><option value="">Tidak ada</option><option value="15 menit">15 menit</option><option value="30 menit">30 menit</option><option value="1 jam">1 jam</option><option value="1 hari">1 hari</option></select></div></div>
     <div class="form-group"><label>Ulangi</label><select class="form-control" id="dtRepeat"><option value="">Tidak</option><option value="daily">Setiap Hari</option><option value="weekly">Setiap Minggu</option><option value="monthly">Setiap Bulan</option></select></div>
@@ -2272,6 +2294,10 @@ async function simpanDailyTask() {
       await db.collection('hrd_daily_tasks').add({
         title: title,
         description: document.getElementById('dtDesc').value.trim(),
+        aktivitas: document.getElementById('dtAktivitas').value.trim(),
+        progress: Math.max(0, Math.min(100, parseInt(document.getElementById('dtProgress').value, 10) || 0)),
+        kendala: document.getElementById('dtKendala').value.trim(),
+        solusi: document.getElementById('dtSolusi').value.trim(),
         tanggal: tanggal,
         waktu: document.getElementById('dtTime').value || '',
         priority: document.getElementById('dtPriority').value,
@@ -2345,6 +2371,9 @@ async function editDailyTask(id) {
     ${reassignHtml}
     <div class="form-group"><label>Judul *</label><input class="form-control" id="dtEditTitle" value="${escHtml(task.title)}"></div>
     <div class="form-group"><label>Deskripsi</label><textarea class="form-control" id="dtEditDesc" rows="4" style="white-space:pre-wrap">${escHtml(task.description || '')}</textarea></div>
+    <div class="form-group"><label>Aktivitas / Update Progress</label><textarea class="form-control" id="dtEditAktivitas" rows="3" style="white-space:pre-wrap">${escHtml(task.aktivitas || '')}</textarea></div>
+    <div class="grid-2"><div class="form-group"><label>Progress (%)</label><input class="form-control" type="number" id="dtEditProgress" value="${Math.max(0, Math.min(100, parseInt(task.progress, 10) || 0))}" min="0" max="100"></div><div class="form-group"><label>Kendala</label><input class="form-control" id="dtEditKendala" value="${escHtml(task.kendala || '')}"></div></div>
+    <div class="form-group"><label>Tindak Lanjut / Solusi</label><textarea class="form-control" id="dtEditSolusi" rows="2" style="white-space:pre-wrap">${escHtml(task.solusi || '')}</textarea></div>
     <div class="grid-2"><div class="form-group"><label>Tanggal *</label><input class="form-control" type="date" id="dtEditDate" value="${task.tanggal}"></div><div class="form-group"><label>Waktu</label><input class="form-control" type="time" id="dtEditTime" value="${task.waktu || ''}"></div></div>
     <div class="grid-2"><div class="form-group"><label>Prioritas</label><select class="form-control" id="dtEditPriority"><option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>Sedang</option><option value="high" ${task.priority === 'high' ? 'selected' : ''}>Tinggi</option><option value="low" ${task.priority === 'low' ? 'selected' : ''}>Rendah</option></select></div><div class="form-group"><label>Pengingat</label><select class="form-control" id="dtEditReminder"><option value="" ${!task.reminder ? 'selected' : ''}>Tidak ada</option><option value="15 menit" ${task.reminder === '15 menit' ? 'selected' : ''}>15 menit</option><option value="30 menit" ${task.reminder === '30 menit' ? 'selected' : ''}>30 menit</option><option value="1 jam" ${task.reminder === '1 jam' ? 'selected' : ''}>1 jam</option><option value="1 hari" ${task.reminder === '1 hari' ? 'selected' : ''}>1 hari</option></select></div></div>
     <div class="form-group"><label>Ulangi</label><select class="form-control" id="dtEditRepeat"><option value="" ${!task.repeat ? 'selected' : ''}>Tidak</option><option value="daily" ${task.repeat === 'daily' ? 'selected' : ''}>Setiap Hari</option><option value="weekly" ${task.repeat === 'weekly' ? 'selected' : ''}>Setiap Minggu</option><option value="monthly" ${task.repeat === 'monthly' ? 'selected' : ''}>Setiap Bulan</option></select></div>
@@ -2358,6 +2387,10 @@ async function updateDailyTask(id) {
   const updateData = {
     title,
     description: document.getElementById('dtEditDesc').value.trim(),
+    aktivitas: document.getElementById('dtEditAktivitas').value.trim(),
+    progress: Math.max(0, Math.min(100, parseInt(document.getElementById('dtEditProgress').value, 10) || 0)),
+    kendala: document.getElementById('dtEditKendala').value.trim(),
+    solusi: document.getElementById('dtEditSolusi').value.trim(),
     tanggal,
     waktu: document.getElementById('dtEditTime').value || '',
     priority: document.getElementById('dtEditPriority').value,
@@ -4503,7 +4536,18 @@ async function loadWeeklyReports(divFilter) {
         rows.forEach(function (r) {
           var tgl = r.tanggal || r.bulan || '-';
           var kat = r.kategori || '-';
-          var aktivitas = r.aktivitas || r.progress || '';
+          var aktivitas = r.aktivitas || '';
+          var progressText = String(r.progress || '').trim();
+          var progressNum = parseInt(progressText, 10);
+          var hasProgressNum = !isNaN(progressNum);
+          if (hasProgressNum) progressNum = Math.max(0, Math.min(100, progressNum));
+          var progressColor = hasProgressNum
+            ? progressNum >= 100
+              ? '#2e7d32'
+              : progressNum >= 70
+                ? '#f57f17'
+                : '#c62828'
+            : '#1565c0';
           var kendala = r.kendala || r.case_desc || '';
           var solusi = r.solusi || r.solution || '';
           var rencana = r.rencanaBesok || r.planning || '';
@@ -4529,9 +4573,29 @@ async function loadWeeklyReports(divFilter) {
             ' | 🏷️ ' +
             escHtml(kat) +
             '</div></div></div>';
+          if (progressText) {
+            html +=
+              '<div style="margin-bottom:8px;padding:8px;background:#f8f9ff;border-radius:8px;border:1px solid #dfe7ff">';
+            html +=
+              '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div class="text-xs fw-700" style="color:#1565c0">📈 Progress Tracker</div><div style="font-size:.8rem;font-weight:700;color:' +
+              progressColor +
+              '">' +
+              escHtml(progressText) +
+              (hasProgressNum && progressText.indexOf('%') === -1 ? '%' : '') +
+              '</div></div>';
+            if (hasProgressNum) {
+              html +=
+                '<div style="height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:6px"><div style="height:100%;width:' +
+                progressNum +
+                '%;background:' +
+                progressColor +
+                ';border-radius:999px"></div></div>';
+            }
+            html += '</div>';
+          }
           if (aktivitas)
             html +=
-              '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#1565c0">📋 Aktivitas / Progress</div><div style="padding:8px;background:#f8f9ff;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
+              '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#1565c0">📋 Aktivitas</div><div style="padding:8px;background:#f8f9ff;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
               escHtml(aktivitas) +
               '</div></div>';
           if (kendala)
