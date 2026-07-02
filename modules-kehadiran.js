@@ -2040,7 +2040,15 @@ async function loadDailyTasks(filter) {
     html += `</div>`;
     if (t.description)
       html += `<div style="font-size:.8rem;color:var(--text-light);margin-top:4px;white-space:pre-line;word-break:break-word;${t.done ? 'text-decoration:line-through' : ''}">${escHtml(t.description)}</div>`;
-    html += `<div style="margin-top:8px;padding:8px;background:#f8f9ff;border:1px solid #e0e7ff;border-radius:8px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><span style="font-size:.72rem;font-weight:700;color:#1565c0">📈 Tracker Aktivitas</span><span style="font-size:.75rem;font-weight:700;color:${taskProgressColor}">${taskProgress}%</span></div><div style="height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin:6px 0"><div style="height:100%;width:${taskProgress}%;background:${taskProgressColor};border-radius:999px"></div></div><div style="font-size:.78rem;color:#333;line-height:1.5">${escHtml(taskActivity || 'Belum ada update aktivitas.')}</div>${t.kendala ? `<div style="font-size:.72rem;color:#c62828;margin-top:5px">⚠️ ${escHtml(t.kendala)}</div>` : ''}${t.solusi ? `<div style="font-size:.72rem;color:#ef6c00;margin-top:4px">💡 ${escHtml(t.solusi)}</div>` : ''}</div>`;
+    html += `<div style="margin-top:8px;padding:8px;background:#f8f9ff;border:1px solid #e0e7ff;border-radius:8px">`;
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><span style="font-size:.72rem;font-weight:700;color:#1565c0">📈 Tracker Aktivitas</span><span style="font-size:.75rem;font-weight:700;color:${taskProgressColor}">${taskProgress}%</span></div>`;
+    html += `<div style="height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin:6px 0"><div style="height:100%;width:${taskProgress}%;background:${taskProgressColor};border-radius:999px"></div></div>`;
+    html += `<div style="font-size:.78rem;color:#333;line-height:1.5">${escHtml(taskActivity || 'Belum ada update aktivitas.')}</div>`;
+    if (t.kendala)
+      html += `<div style="font-size:.72rem;color:#c62828;margin-top:5px">⚠️ ${escHtml(t.kendala)}</div>`;
+    if (t.solusi)
+      html += `<div style="font-size:.72rem;color:#ef6c00;margin-top:4px">💡 ${escHtml(t.solusi)}</div>`;
+    html += `</div>`;
     html += `<div style="font-size:.7rem;color:#999;margin-top:4px">`;
     if (isAdmin && t.targetUserName)
       html += `👤 Untuk: <strong>${escHtml(t.targetUserName)}</strong> | `;
