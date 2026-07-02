@@ -53,13 +53,14 @@ ec210f4 chore: remove typescript.tsdk from workspace settings (no package.json)
 
 **GitHub Copilot:** Saya akan membuat rencana singkat untuk menyelidiki mengapa file kosong.
 
-*Action: Created 3 todos*
+_Action: Created 3 todos_
 
 Selanjutnya saya akan membuka `/.vscode/settings.json` untuk melihat isinya.
 
-*Command:* `read_file` on `/.vscode/settings.json` (lines 1-400)
+_Command:_ `read_file` on `/.vscode/settings.json` (lines 1-400)
 
-*Result:* File content:
+_Result:_ File content:
+
 ```json
 {}
 ```
@@ -67,6 +68,7 @@ Selanjutnya saya akan membuka `/.vscode/settings.json` untuk melihat isinya.
 Saya sudah cek: `/.vscode/settings.json` hanya berisi `{}` — kosong karena tidak ada pengaturan workspace yang disimpan.
 
 **Kemungkinan penyebab singkat:**
+
 - Tidak ada pengaturan workspace yang dibuat (normal jika semua pengaturan di user settings).
 - File dibuat tapi belum diisi atau dihapus isinya.
 - Perubahan dihapus di commit/merge; file tidak ikut di-commit atau di-reset.
@@ -77,16 +79,18 @@ Saya sudah cek: `/.vscode/settings.json` hanya berisi `{}` — kosong karena tid
 
 **GitHub Copilot:** Saya akan mencari riwayat Git untuk `/.vscode/settings.json` dan mencoba mengembalikan versi terakhir yang tidak kosong.
 
-*Command:*
+_Command:_
+
 ```bash
 git rev-parse --git-dir
 git rev-list -- .vscode/settings.json
 git show <commit>:.vscode/settings.json
 ```
 
-*Result:* `NO_NONEMPTY_COMMIT` — tidak ada versi non-kosong di Git history.
+_Result:_ `NO_NONEMPTY_COMMIT` — tidak ada versi non-kosong di Git history.
 
-*Action:* Menambahkan pengaturan default minimal ke `.vscode/settings.json`:
+_Action:_ Menambahkan pengaturan default minimal ke `.vscode/settings.json`:
+
 ```json
 {
   "editor.formatOnSave": true,
@@ -104,14 +108,15 @@ git show <commit>:.vscode/settings.json
 
 **GitHub Copilot:** Mengjalankan `git fetch --all --prune` untuk mencari versi dari remote branches.
 
-*Command:*
+_Command:_
+
 ```bash
 git fetch --all --prune
 git rev-list --all -- .vscode/settings.json
 git commit -m "chore: add minimal workspace settings"
 ```
 
-*Result:* Fetched 10+ branches dari remote; tetap tidak ada versi non-kosong. Commit lokal: `5cd14a0`.
+_Result:_ Fetched 10+ branches dari remote; tetap tidak ada versi non-kosong. Commit lokal: `5cd14a0`.
 
 ### Exchange 4: Push & Rebase
 
@@ -119,15 +124,16 @@ git commit -m "chore: add minimal workspace settings"
 
 **GitHub Copilot:** Push perubahan ke `origin/main`.
 
-*Command:* `git push origin HEAD`
+_Command:_ `git push origin HEAD`
 
-*Result:* Non-fast-forward error — branch tertinggal dari remote. Melakukan rebase:
+_Result:_ Non-fast-forward error — branch tertinggal dari remote. Melakukan rebase:
+
 ```bash
 git pull --rebase origin main
 git push origin HEAD
 ```
 
-*Result:* Success. Commit: `8f48968` pushed.
+_Result:_ Success. Commit: `8f48968` pushed.
 
 ### Exchange 5: ESLint/TypeScript Settings
 
@@ -135,12 +141,14 @@ git push origin HEAD
 
 **GitHub Copilot:** Rebase dan push perubahan:
 
-*Command:*
+_Command:_
+
 ```bash
 git pull --rebase origin main && git push origin HEAD
 ```
 
-*Result:* Rebase selesai. Menambahkan ESLint/TS settings dan `.vscode/extensions.json`:
+_Result:_ Rebase selesai. Menambahkan ESLint/TS settings dan `.vscode/extensions.json`:
+
 ```json
 {
   "editor.formatOnSave": true,
@@ -148,13 +156,19 @@ git pull --rebase origin main && git push origin HEAD
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": true
   },
-  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
   "typescript.tsdk": "node_modules/typescript/lib",
-  "files.exclude": {"node_modules": true, "dist": true}
+  "files.exclude": { "node_modules": true, "dist": true }
 }
 ```
 
-*Commits made:*
+_Commits made:_
+
 - `56314da`: chore: add workspace ESLint/TS settings and recommended extensions
 - `ec210f4`: chore: remove typescript.tsdk from workspace settings (no package.json)
 
@@ -163,6 +177,7 @@ git pull --rebase origin main && git push origin HEAD
 **User:** sesuaikan aja
 
 **GitHub Copilot:** Menambahkan pengaturan Prettier ke `.vscode/settings.json`:
+
 ```json
 "prettier.singleQuote": true,
 "prettier.trailingComma": "es5",
@@ -171,7 +186,7 @@ git pull --rebase origin main && git push origin HEAD
 "eslint.packageManager": "npm"
 ```
 
-*Commit:* `34f1c02`: chore: add Prettier/editor settings (singleQuote, trailingComma, printWidth, tabSize)
+_Commit:_ `34f1c02`: chore: add Prettier/editor settings (singleQuote, trailingComma, printWidth, tabSize)
 
 ### Exchange 7: Documentation & History
 
@@ -179,34 +194,35 @@ git pull --rebase origin main && git push origin HEAD
 
 **GitHub Copilot:** Membuat dokumentasi history.
 
-*Commit:* `e04763e`: docs: add assistant interaction history and summary
+_Commit:_ `e04763e`: docs: add assistant interaction history and summary
 
 ### Exchange 8: Final Integration
 
 **User:** masukkan dan tambahkan semua opsi
 
 **GitHub Copilot:** Melakukan perubahan final:
+
 1. Update `docs/assistant-history.md` dengan transkrip lengkap.
 2. Buat `package.json` dengan ESLint/Prettier devDependencies dan scripts.
 3. Buat `.github/workflows/lint.yml` untuk CI/lint checking.
 4. Commit dan push semua perubahan ke `origin/main`.
 
-*Result:* File-file baru ditambahkan; semua terintegrasi dengan repo.
+_Result:_ File-file baru ditambahkan; semua terintegrasi dengan repo.
 
 ---
 
 ## Timeline Ringkas
 
-| Waktu | Aksi | Commit/Output |
-|-------|------|---------------|
-| T+0 | Periksa `.vscode/settings.json` kosong | N/A |
-| T+1 | Cari di Git history | `NO_NONEMPTY_COMMIT` |
-| T+2 | Tambah minimal settings | `5cd14a0` |
-| T+3 | Fetch remotes & commit | `8f48968` |
-| T+4 | Rebase & push | success |
-| T+5 | Add ESLint/TS settings | `56314da`, `ec210f4` |
-| T+6 | Add Prettier settings | `34f1c02` |
-| T+7 | Add history doc | `e04763e` |
-| T+8 | Final integration (package.json, CI) | pending |
+| Waktu | Aksi                                   | Commit/Output        |
+| ----- | -------------------------------------- | -------------------- |
+| T+0   | Periksa `.vscode/settings.json` kosong | N/A                  |
+| T+1   | Cari di Git history                    | `NO_NONEMPTY_COMMIT` |
+| T+2   | Tambah minimal settings                | `5cd14a0`            |
+| T+3   | Fetch remotes & commit                 | `8f48968`            |
+| T+4   | Rebase & push                          | success              |
+| T+5   | Add ESLint/TS settings                 | `56314da`, `ec210f4` |
+| T+6   | Add Prettier settings                  | `34f1c02`            |
+| T+7   | Add history doc                        | `e04763e`            |
+| T+8   | Final integration (package.json, CI)   | pending              |
 
 -- Assistant (GitHub Copilot)

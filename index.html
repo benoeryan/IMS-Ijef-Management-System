@@ -37,7 +37,7 @@
         --radius: 10px;
       }
       body {
-        font-family: 'Segoe UI', system-ui, sans-serif;
+        font-family: "Segoe UI", system-ui, sans-serif;
         background: var(--bg);
         color: var(--text);
         font-size: 14px;
@@ -124,7 +124,12 @@
         left: 0;
         width: var(--sidebar-w);
         height: 100vh;
-        background: linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 60%, #2d1010 100%);
+        background: linear-gradient(
+          180deg,
+          #0a0a0a 0%,
+          #1a1a1a 60%,
+          #2d1010 100%
+        );
         color: #fff;
         overflow-y: auto;
         z-index: 200;
@@ -463,7 +468,7 @@
         font-size: 1.1rem;
         cursor: pointer;
         transition: all 0.2s;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
       }
       .zoom-btn:hover {
         background: var(--primary);
@@ -687,7 +692,12 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 40%, #2d1010 100%);
+        background: linear-gradient(
+          135deg,
+          #0a0a0a 0%,
+          #1a1a1a 40%,
+          #2d1010 100%
+        );
       }
       .login-box {
         background: #fff;
@@ -960,9 +970,17 @@
     <div id="app"></div>
     <div class="toast-container" id="toastContainer"></div>
     <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
-      <div class="modal" id="modalContent" onclick="event.stopPropagation()"></div>
+      <div
+        class="modal"
+        id="modalContent"
+        onclick="event.stopPropagation()"
+      ></div>
     </div>
-    <div class="overlay-sidebar" id="overlaySidebar" onclick="toggleSidebar()"></div>
+    <div
+      class="overlay-sidebar"
+      id="overlaySidebar"
+      onclick="toggleSidebar()"
+    ></div>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -984,9 +1002,9 @@
     <script src="absensi-ijef.js?v=7.2" charset="utf-8"></script>
     <script src="modules-test-kesehatan.js?v=7.0" charset="utf-8"></script>
     <script>
-      if ('serviceWorker' in navigator) {
+      if ("serviceWorker" in navigator) {
         navigator.serviceWorker
-          .register('/sw.js', { updateViaCache: 'none' })
+          .register("/sw.js", { updateViaCache: "none" })
           .then(function (reg) {
             reg.update();
           })

@@ -1,5 +1,5 @@
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
 
 admin.initializeApp();
 
@@ -7,20 +7,20 @@ const db = admin.firestore();
 const messaging = admin.messaging();
 
 // App URL for click_action
-const APP_URL = 'https://hr-legal-app.netlify.app';
-const APP_ICON = 'https://hr-legal-app.netlify.app/icons/icon-192x192.png';
+const APP_URL = "https://hr-legal-app.netlify.app";
+const APP_ICON = "https://hr-legal-app.netlify.app/icons/icon-192x192.png";
 
 function normalizeWaNumber(raw) {
-  if (!raw) return '';
-  const digits = String(raw).replace(/\D/g, '');
-  if (!digits) return '';
-  if (digits.startsWith('62')) return digits;
-  if (digits.startsWith('0')) return `62${digits.slice(1)}`;
+  if (!raw) return "";
+  const digits = String(raw).replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("62")) return digits;
+  if (digits.startsWith("0")) return `62${digits.slice(1)}`;
   return digits;
 }
 
 function parseWaNumbers(raw) {
-  const items = Array.isArray(raw) ? raw : String(raw || '').split(/[\n,;]+/);
+  const items = Array.isArray(raw) ? raw : String(raw || "").split(/[\n,;]+/);
   const seen = new Set();
   const out = [];
   items.forEach((it) => {
@@ -35,23 +35,23 @@ function parseWaNumbers(raw) {
 function getConfiguredWaRecipients(cfg = {}) {
   const fromList = parseWaNumbers(cfg.whatsappList || []);
   if (fromList.length) return fromList;
-  return parseWaNumbers(cfg.whatsapp || cfg.telepon || '');
+  return parseWaNumbers(cfg.whatsapp || cfg.telepon || "");
 }
 
 function getJakartaDateParts(date = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Jakarta',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
     hour12: false,
   }).formatToParts(date);
 
   const map = {};
   parts.forEach((p) => {
-    if (p.type !== 'literal') map[p.type] = p.value;
+    if (p.type !== "literal") map[p.type] = p.value;
   });
 
   return {
@@ -62,7 +62,7 @@ function getJakartaDateParts(date = new Date()) {
 }
 
 function parseTimeToMinuteOfDay(timeStr) {
-  const m = String(timeStr || '').match(/^(\d{2}):(\d{2})$/);
+  const m = String(timeStr || "").match(/^(\d{2}):(\d{2})$/);
   if (!m) return 18 * 60;
   const hh = Number(m[1]);
   const mm = Number(m[2]);
@@ -71,16 +71,16 @@ function parseTimeToMinuteOfDay(timeStr) {
 }
 
 function buildDailyReportSummaryMessage(reportDate, reports) {
-  const dayNameRaw = new Intl.DateTimeFormat('id-ID', {
-    weekday: 'long',
-    timeZone: 'Asia/Jakarta',
+  const dayNameRaw = new Intl.DateTimeFormat("id-ID", {
+    weekday: "long",
+    timeZone: "Asia/Jakarta",
   }).format(new Date(`${reportDate}T00:00:00+07:00`));
   const dayName = dayNameRaw.charAt(0).toUpperCase() + dayNameRaw.slice(1);
-  const dateStr = new Intl.DateTimeFormat('id-ID', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'Asia/Jakarta',
+  const dateStr = new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
   }).format(new Date(`${reportDate}T00:00:00+07:00`));
 
   let totalDone = 0;
@@ -93,7 +93,7 @@ function buildDailyReportSummaryMessage(reportDate, reports) {
 
   const byDept = {};
   reports.forEach((r) => {
-    const dept = r.departemen || 'LAINNYA';
+    const dept = r.departemen || "LAINNYA";
     if (!byDept[dept]) byDept[dept] = [];
     byDept[dept].push(r);
 
@@ -109,14 +109,14 @@ function buildDailyReportSummaryMessage(reportDate, reports) {
       else totalNeedAttention++;
     }
 
-    if ((r.kendala || '').trim()) totalKendala++;
+    if ((r.kendala || "").trim()) totalKendala++;
     else totalTanpaKendala++;
   });
 
   let text = `📋 REPORT HARIAN IJEF\n📅 ${dayName}, ${dateStr}\n\n`;
 
   if (!reports.length) {
-    text += '⚠️ Tidak ada report masuk hari ini.';
+    text += "⚠️ Tidak ada report masuk hari ini.";
     return text;
   }
 
@@ -124,7 +124,7 @@ function buildDailyReportSummaryMessage(reportDate, reports) {
     .sort()
     .forEach((dept) => {
       const items = byDept[dept];
-      const icon = dept.includes('ACADEMIC') ? '📚' : '🏢';
+      const icon = dept.includes("ACADEMIC") ? "📚" : "🏢";
       let deptDone = 0;
       let deptProgress = 0;
       let deptOnTrack = 0;
@@ -134,23 +134,26 @@ function buildDailyReportSummaryMessage(reportDate, reports) {
       const deptKendalaNotes = [];
       text += `${icon} ${dept} (${items.length} report)\n`;
       items.forEach((r) => {
-        const nama = (r.targetUserName || r.nama || '-').toUpperCase();
+        const nama = (r.targetUserName || r.nama || "-").toUpperCase();
         let prog = parseInt(r.progress, 10);
         if (Number.isNaN(prog)) prog = 0;
         prog = Math.max(0, Math.min(100, prog));
-        const hasil = String(r.hasil || '').trim();
-        const kendala = String(r.kendala || '').trim();
-        const solusi = String(r.solusi || '').trim();
-        const aktivitas = String(r.aktivitas || '-')
-          .split('\n')[0]
+        const hasil = String(r.hasil || "").trim();
+        const kendala = String(r.kendala || "").trim();
+        const solusi = String(r.solusi || "").trim();
+        const aktivitas = String(r.aktivitas || "-")
+          .split("\n")[0]
           .substring(0, 80);
 
         text += `• ${nama}\n`;
         text += `  📈 Progress: ${prog}%\n`;
         text += `  📋 Aktivitas: ${aktivitas}\n`;
-        if (hasil) text += `  ✔ Hasil: ${hasil.split('\n')[0].substring(0, 100)}\n`;
-        if (kendala) text += `  ⚠ Kendala: ${kendala.split('\n')[0].substring(0, 100)}\n`;
-        if (solusi) text += `  💡 Tindak Lanjut: ${solusi.split('\n')[0].substring(0, 100)}\n`;
+        if (hasil)
+          text += `  ✔ Hasil: ${hasil.split("\n")[0].substring(0, 100)}\n`;
+        if (kendala)
+          text += `  ⚠ Kendala: ${kendala.split("\n")[0].substring(0, 100)}\n`;
+        if (solusi)
+          text += `  💡 Tindak Lanjut: ${solusi.split("\n")[0].substring(0, 100)}\n`;
 
         if (prog >= 100) {
           deptDone++;
@@ -162,7 +165,9 @@ function buildDailyReportSummaryMessage(reportDate, reports) {
 
         if (kendala) {
           deptKendala++;
-          deptKendalaNotes.push(`• ${nama}: ${kendala.split('\n')[0].substring(0, 80)}`);
+          deptKendalaNotes.push(
+            `• ${nama}: ${kendala.split("\n")[0].substring(0, 80)}`,
+          );
         } else {
           deptTanpaKendala++;
         }
@@ -174,35 +179,35 @@ function buildDailyReportSummaryMessage(reportDate, reports) {
               let p = parseInt(it.progress, 10);
               if (Number.isNaN(p)) p = 0;
               return acc + Math.max(0, Math.min(100, p));
-            }, 0) / items.length
+            }, 0) / items.length,
           )
         : 0;
-      text +=
-        `  📊 Dept: ✅ ${deptDone} | 🟡 On Track ${deptOnTrack} | 🔴 Perlu Atensi ${deptNeedAttention} | ⚠ ${deptKendala} | 📈 ${deptAvg}%\n`;
+      text += `  📊 Dept: ✅ ${deptDone} | 🟡 On Track ${deptOnTrack} | 🔴 Perlu Atensi ${deptNeedAttention} | ⚠ ${deptKendala} | 📈 ${deptAvg}%\n`;
       if (deptKendalaNotes.length) {
-        text += '  🚧 Kendala Utama:\n';
+        text += "  🚧 Kendala Utama:\n";
         deptKendalaNotes.slice(0, 3).forEach((k) => {
           text += `   ${k}\n`;
         });
       }
-      text += '\n';
+      text += "\n";
     });
 
   const avgProgress = Math.round(totalProgressValue / reports.length);
-  const highCoverage = Math.round(((totalDone + totalOnTrack) / reports.length) * 100);
+  const highCoverage = Math.round(
+    ((totalDone + totalOnTrack) / reports.length) * 100,
+  );
   const kendalaCoverage = Math.round((totalKendala / reports.length) * 100);
-  text +=
-    `📊 Total: ${reports.length} report | ✅ ${totalDone} done | ⏳ ${totalProgress} progress | 🟡 ${totalOnTrack} on track | 🔴 ${totalNeedAttention} perlu atensi | ⚠ ${totalKendala} kendala | ✅ ${totalTanpaKendala} tanpa kendala | 📈 rata-rata ${avgProgress}%\n`;
+  text += `📊 Total: ${reports.length} report | ✅ ${totalDone} done | ⏳ ${totalProgress} progress | 🟡 ${totalOnTrack} on track | 🔴 ${totalNeedAttention} perlu atensi | ⚠ ${totalKendala} kendala | ✅ ${totalTanpaKendala} tanpa kendala | 📈 rata-rata ${avgProgress}%\n`;
   text += `📊 Coverage: Progres tinggi ${highCoverage}% | Report dengan kendala ${kendalaCoverage}%`;
   return text;
 }
 
 async function loadDailyReportsForDate(reportDate) {
-  const snap = await db.collection('hrd_daily_tasks').get();
+  const snap = await db.collection("hrd_daily_tasks").get();
   const reports = [];
   snap.forEach((d) => {
     const data = d.data() || {};
-    if (data.type === 'report' && String(data.tanggal || '') === reportDate) {
+    if (data.type === "report" && String(data.tanggal || "") === reportDate) {
       reports.push(data);
     }
   });
@@ -215,7 +220,11 @@ async function loadDailyReportsForDate(reportDate) {
  * Returns an array of {token, docPath} objects for stale token cleanup.
  */
 async function getTokensForUser(userId) {
-  const devicesSnap = await db.collection('hrd_fcm_tokens').doc(userId).collection('devices').get();
+  const devicesSnap = await db
+    .collection("hrd_fcm_tokens")
+    .doc(userId)
+    .collection("devices")
+    .get();
   const tokens = [];
   devicesSnap.forEach((doc) => {
     const data = doc.data();
@@ -235,7 +244,7 @@ async function getTokensForUser(userId) {
  * Returns an array of {token, userId, docPath} objects.
  */
 async function getAllTokens() {
-  const devicesSnap = await db.collectionGroup('devices').get();
+  const devicesSnap = await db.collectionGroup("devices").get();
   const tokens = [];
   devicesSnap.forEach((deviceDoc) => {
     const data = deviceDoc.data();
@@ -256,20 +265,20 @@ async function getAllTokens() {
 async function sendToTokens(tokens, notification, data) {
   if (!tokens || tokens.length === 0) return;
 
-  const tokenStrings = tokens.map((t) => (typeof t === 'string' ? t : t.token));
+  const tokenStrings = tokens.map((t) => (typeof t === "string" ? t : t.token));
   if (tokenStrings.length === 0) return;
 
   const message = {
     notification: {
-      title: notification.title || 'Notifikasi',
-      body: notification.body || '',
+      title: notification.title || "Notifikasi",
+      body: notification.body || "",
       image: notification.icon || APP_ICON,
     },
     data: {
       click_action: data.click_action || APP_URL,
-      type: data.type || 'general',
-      title: notification.title || 'Notifikasi',
-      body: notification.body || '',
+      type: data.type || "general",
+      title: notification.title || "Notifikasi",
+      body: notification.body || "",
     },
     tokens: tokenStrings,
   };
@@ -285,8 +294,8 @@ async function sendToTokens(tokens, notification, data) {
       if (!resp.success) {
         const errorCode = resp.error?.code;
         if (
-          errorCode === 'messaging/invalid-registration-token' ||
-          errorCode === 'messaging/registration-token-not-registered'
+          errorCode === "messaging/invalid-registration-token" ||
+          errorCode === "messaging/registration-token-not-registered"
         ) {
           // Find the token entry that has docPath for direct deletion
           const tokenEntry = tokens[idx];
@@ -305,7 +314,7 @@ async function sendToTokens(tokens, notification, data) {
   }
 
   functions.logger.info(
-    `Sent notification: ${response.successCount} success, ${response.failureCount} failure.`
+    `Sent notification: ${response.successCount} success, ${response.failureCount} failure.`,
   );
 }
 
@@ -315,12 +324,12 @@ async function sendToTokens(tokens, notification, data) {
  * targetUser can be a user ID or a role string.
  */
 exports.onNotifikasiCreated = functions.firestore
-  .document('hrd_notifikasi/{docId}')
+  .document("hrd_notifikasi/{docId}")
   .onCreate(async (snap) => {
     const data = snap.data();
     const targetUser = data.targetUser;
-    const title = data.title || 'Notifikasi Baru';
-    const body = data.message || '';
+    const title = data.title || "Notifikasi Baru";
+    const body = data.message || "";
     const link = data.link || APP_URL;
 
     let tokens = [];
@@ -331,7 +340,10 @@ exports.onNotifikasiCreated = functions.firestore
       tokens = userTokens;
     } else {
       // targetUser might be a role - use collectionGroup query for efficiency
-      const devicesSnap = await db.collectionGroup('devices').where('role', '==', targetUser).get();
+      const devicesSnap = await db
+        .collectionGroup("devices")
+        .where("role", "==", targetUser)
+        .get();
       devicesSnap.forEach((deviceDoc) => {
         const deviceData = deviceDoc.data();
         if (deviceData.token) {
@@ -347,7 +359,7 @@ exports.onNotifikasiCreated = functions.firestore
     await sendToTokens(
       tokens,
       { title, body, icon: APP_ICON },
-      { click_action: link, type: 'notifikasi' }
+      { click_action: link, type: "notifikasi" },
     );
   });
 
@@ -356,18 +368,18 @@ exports.onNotifikasiCreated = functions.firestore
  * Sends push notification to ALL registered users.
  */
 exports.onBroadcastCreated = functions.firestore
-  .document('hrd_broadcast/{docId}')
+  .document("hrd_broadcast/{docId}")
   .onCreate(async (snap) => {
     const data = snap.data();
-    const title = 'Broadcast';
-    const body = data.message || '';
+    const title = "Broadcast";
+    const body = data.message || "";
 
     const tokens = await getAllTokens();
 
     await sendToTokens(
       tokens,
       { title, body, icon: APP_ICON },
-      { click_action: APP_URL, type: 'broadcast' }
+      { click_action: APP_URL, type: "broadcast" },
     );
   });
 
@@ -376,19 +388,19 @@ exports.onBroadcastCreated = functions.firestore
  * Sends push notification to the target user.
  */
 exports.onMeetingInviteCreated = functions.firestore
-  .document('hrd_meeting_invites/{docId}')
+  .document("hrd_meeting_invites/{docId}")
   .onCreate(async (snap) => {
     const data = snap.data();
     const targetUser = data.targetUser;
-    const title = data.title || 'Undangan Meeting';
+    const title = data.title || "Undangan Meeting";
     const body = `Anda diundang ke meeting: ${title}`;
 
     const userTokens = await getTokensForUser(targetUser);
 
     await sendToTokens(
       userTokens,
-      { title: 'Undangan Meeting', body, icon: APP_ICON },
-      { click_action: APP_URL, type: 'meeting_invite' }
+      { title: "Undangan Meeting", body, icon: APP_ICON },
+      { click_action: APP_URL, type: "meeting_invite" },
     );
   });
 
@@ -397,18 +409,18 @@ exports.onMeetingInviteCreated = functions.firestore
  * Sends push notification to ALL registered users.
  */
 exports.onPengumumanCreated = functions.firestore
-  .document('hrd_pengumuman/{docId}')
+  .document("hrd_pengumuman/{docId}")
   .onCreate(async (snap) => {
     const data = snap.data();
-    const title = data.judul || 'Pengumuman Baru';
-    const body = data.isi || '';
+    const title = data.judul || "Pengumuman Baru";
+    const body = data.isi || "";
 
     const tokens = await getAllTokens();
 
     await sendToTokens(
       tokens,
       { title, body, icon: APP_ICON },
-      { click_action: APP_URL, type: 'pengumuman' }
+      { click_action: APP_URL, type: "pengumuman" },
     );
   });
 
@@ -418,40 +430,40 @@ exports.onPengumumanCreated = functions.firestore
  * registered admin/sender number managed by the gateway account.
  */
 exports.onWaOutboxCreated = functions.firestore
-  .document('hrd_wa_outbox/{docId}')
+  .document("hrd_wa_outbox/{docId}")
   .onCreate(async (snap) => {
     const data = snap.data() || {};
     const docRef = snap.ref;
 
-    const targetNumber = normalizeWaNumber(data.targetNumber || data.to || '');
-    const message = String(data.message || '').trim();
+    const targetNumber = normalizeWaNumber(data.targetNumber || data.to || "");
+    const message = String(data.message || "").trim();
 
     if (!targetNumber || !message) {
       await docRef.set(
         {
-          status: 'failed',
+          status: "failed",
           failedAt: new Date().toISOString(),
-          error: 'targetNumber atau message kosong.',
+          error: "targetNumber atau message kosong.",
         },
-        { merge: true }
+        { merge: true },
       );
       return;
     }
 
-    const cfgSnap = await db.collection('hrd_settings').doc('perusahaan').get();
+    const cfgSnap = await db.collection("hrd_settings").doc("perusahaan").get();
     const cfg = cfgSnap.exists ? cfgSnap.data() || {} : {};
-    const provider = String(cfg.waProvider || 'fonnte').toLowerCase();
-    const apiUrl = String(cfg.waApiUrl || '').trim();
-    const apiToken = String(cfg.waApiToken || '').trim();
+    const provider = String(cfg.waProvider || "fonnte").toLowerCase();
+    const apiUrl = String(cfg.waApiUrl || "").trim();
+    const apiToken = String(cfg.waApiToken || "").trim();
 
     if (!apiUrl || !apiToken) {
       await docRef.set(
         {
-          status: 'failed',
+          status: "failed",
           failedAt: new Date().toISOString(),
-          error: 'WA gateway belum dikonfigurasi (waApiUrl/waApiToken).',
+          error: "WA gateway belum dikonfigurasi (waApiUrl/waApiToken).",
         },
-        { merge: true }
+        { merge: true },
       );
       return;
     }
@@ -459,14 +471,14 @@ exports.onWaOutboxCreated = functions.firestore
     let requestBody;
     let headers;
 
-    if (provider === 'fonnte') {
+    if (provider === "fonnte") {
       requestBody = {
         target: targetNumber,
         message,
-        countryCode: '62',
+        countryCode: "62",
       };
       headers = {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         Authorization: apiToken,
       };
     } else {
@@ -475,55 +487,55 @@ exports.onWaOutboxCreated = functions.firestore
         message,
       };
       headers = {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         Authorization: `Bearer ${apiToken}`,
       };
     }
 
     try {
       const resp = await fetch(apiUrl, {
-        method: 'POST',
+        method: "POST",
         headers,
         body: JSON.stringify(requestBody),
       });
 
       const raw = await resp.text();
-      const responseSnippet = raw ? raw.slice(0, 500) : '';
+      const responseSnippet = raw ? raw.slice(0, 500) : "";
 
       if (!resp.ok) {
         await docRef.set(
           {
-            status: 'failed',
+            status: "failed",
             failedAt: new Date().toISOString(),
             provider,
             httpStatus: resp.status,
             error: `Gateway error ${resp.status}`,
             responseSnippet,
           },
-          { merge: true }
+          { merge: true },
         );
         return;
       }
 
       await docRef.set(
         {
-          status: 'sent',
+          status: "sent",
           sentAt: new Date().toISOString(),
           provider,
           httpStatus: resp.status,
           responseSnippet,
         },
-        { merge: true }
+        { merge: true },
       );
     } catch (e) {
       await docRef.set(
         {
-          status: 'failed',
+          status: "failed",
           failedAt: new Date().toISOString(),
           provider,
-          error: e.message || 'Unknown WA gateway error',
+          error: e.message || "Unknown WA gateway error",
         },
-        { merge: true }
+        { merge: true },
       );
     }
   });
@@ -533,33 +545,50 @@ exports.onWaOutboxCreated = functions.firestore
  * Runs every 15 minutes and sends once per day at configured WIB time.
  */
 exports.autoQueueDailyReportWa = functions.pubsub
-  .schedule('every 15 minutes')
-  .timeZone('Asia/Jakarta')
+  .schedule("every 15 minutes")
+  .timeZone("Asia/Jakarta")
   .onRun(async () => {
-    const cfgSnap = await db.collection('hrd_settings').doc('perusahaan').get();
+    const cfgSnap = await db.collection("hrd_settings").doc("perusahaan").get();
     const cfg = cfgSnap.exists ? cfgSnap.data() || {} : {};
 
-    const enabled = typeof cfg.waAutoReportEnabled === 'boolean' ? cfg.waAutoReportEnabled : true;
+    const enabled =
+      typeof cfg.waAutoReportEnabled === "boolean"
+        ? cfg.waAutoReportEnabled
+        : true;
     if (!enabled) return null;
 
     const targetNumbers = getConfiguredWaRecipients(cfg);
     if (!targetNumbers.length) return null;
 
     const nowParts = getJakartaDateParts(new Date());
-    const targetMinute = parseTimeToMinuteOfDay(cfg.waAutoReportTime || '18:00');
+    const targetMinute = parseTimeToMinuteOfDay(
+      cfg.waAutoReportTime || "18:00",
+    );
     const nowMinute = nowParts.minuteOfDay;
 
     if (nowMinute < targetMinute) return null;
 
     const reportDate = nowParts.date;
-    const schedulerRef = db.collection('hrd_scheduler_state').doc('daily_report');
+    const schedulerRef = db
+      .collection("hrd_scheduler_state")
+      .doc("daily_report");
     const schedulerSnap = await schedulerRef.get();
-    const schedulerState = schedulerSnap.exists ? schedulerSnap.data() || {} : {};
-    if (schedulerState.lastQueuedDate === reportDate && schedulerState.status === 'queued') {
+    const schedulerState = schedulerSnap.exists
+      ? schedulerSnap.data() || {}
+      : {};
+    if (
+      schedulerState.lastQueuedDate === reportDate &&
+      schedulerState.status === "queued"
+    ) {
       return null;
     }
-    if (schedulerState.lastQueuedDate === reportDate && schedulerState.status === 'processing') {
-      const updatedAt = schedulerState.updatedAt ? new Date(schedulerState.updatedAt).getTime() : 0;
+    if (
+      schedulerState.lastQueuedDate === reportDate &&
+      schedulerState.status === "processing"
+    ) {
+      const updatedAt = schedulerState.updatedAt
+        ? new Date(schedulerState.updatedAt).getTime()
+        : 0;
       if (updatedAt && Date.now() - updatedAt < 30 * 60 * 1000) {
         return null;
       }
@@ -568,12 +597,12 @@ exports.autoQueueDailyReportWa = functions.pubsub
     await schedulerRef.set(
       {
         lastQueuedDate: reportDate,
-        status: 'processing',
+        status: "processing",
         targetMinute,
-        autoScheduleTime: cfg.waAutoReportTime || '18:00',
+        autoScheduleTime: cfg.waAutoReportTime || "18:00",
         updatedAt: new Date().toISOString(),
       },
-      { merge: true }
+      { merge: true },
     );
 
     const reports = await loadDailyReportsForDate(reportDate);
@@ -582,41 +611,44 @@ exports.autoQueueDailyReportWa = functions.pubsub
     const queueResults = [];
     for (let idx = 0; idx < targetNumbers.length; idx++) {
       const targetNumber = targetNumbers[idx];
-      const docId = `auto_daily_report_${reportDate}_${targetNumber}`.replace(/-/g, '_');
-      const docRef = db.collection('hrd_wa_outbox').doc(docId);
+      const docId = `auto_daily_report_${reportDate}_${targetNumber}`.replace(
+        /-/g,
+        "_",
+      );
+      const docRef = db.collection("hrd_wa_outbox").doc(docId);
       const existingDoc = await docRef.get();
       if (existingDoc.exists) {
-        queueResults.push({ targetNumber, status: 'exists' });
+        queueResults.push({ targetNumber, status: "exists" });
         continue;
       }
       await docRef.set({
         targetNumber,
         message,
-        type: 'daily_report_summary_auto',
-        requestedBy: 'system_scheduler',
-        requestedById: 'system',
+        type: "daily_report_summary_auto",
+        requestedBy: "system_scheduler",
+        requestedById: "system",
         createdAt,
-        status: 'queued',
+        status: "queued",
         reportDate,
-        autoScheduleTime: cfg.waAutoReportTime || '18:00',
+        autoScheduleTime: cfg.waAutoReportTime || "18:00",
       });
-      queueResults.push({ targetNumber, status: 'queued' });
+      queueResults.push({ targetNumber, status: "queued" });
     }
 
     const queuedCount = queueResults.filter(
-      (r) => r.status === 'queued' || r.status === 'exists'
+      (r) => r.status === "queued" || r.status === "exists",
     ).length;
     await schedulerRef.set(
       {
         lastQueuedDate: reportDate,
-        status: 'queued',
+        status: "queued",
         targetMinute,
-        autoScheduleTime: cfg.waAutoReportTime || '18:00',
+        autoScheduleTime: cfg.waAutoReportTime || "18:00",
         recipients: targetNumbers,
         queuedCount,
         updatedAt: new Date().toISOString(),
       },
-      { merge: true }
+      { merge: true },
     );
 
     return null;
