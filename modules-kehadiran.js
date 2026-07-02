@@ -1993,6 +1993,7 @@ async function loadDailyTasks(filter) {
       listEl.innerHTML = html;
       return;
     }
+  }
 
   // Add group headers for report views
   let lastGroup = '';
