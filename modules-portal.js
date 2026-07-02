@@ -32,7 +32,7 @@ async function renderPortal() {
     <div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center"><span>📋 Daily Task Hari Ini</span><button class="btn btn-xs btn-primary" onclick="navigateTo('daily-task')">Lihat Semua</button></div>
     <div id="portalDailyTaskList"><p class="text-sm" style="color:#999">Memuat...</p></div>
   </div>
-  ${hasAccess(4) ? `<!-- REPORT TIM SECTION (HEAD+) -->
+  ${hasHeadLevelAccess() ? `<!-- REPORT TIM SECTION (HEAD+) -->
   <div class="card" id="portalTeamReportSection">
     <div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center">
       <span>📊 Report Tim Hari Ini</span>
@@ -142,7 +142,7 @@ async function renderPortal() {
     }
   }
   // Load team report for HEAD+ users
-  if (hasAccess(4)) {
+  if (hasHeadLevelAccess()) {
     loadPortalTeamReport().catch(function () {});
   }
 }
