@@ -1331,16 +1331,16 @@ async function renderDailyTask() {
     // Head+ sees all divisions
     tabs += '<div class="tab" onclick="filterDailyTasks(\'all-report\')">🏢 Semua Divisi</div>';
   }
-  if (hasAccess(3)) {
+  if (hasAccess(3) || hasHeadLevelAccess()) {
     // Manager/Head/BOD can access report summary
     tabs += '<div class="tab" onclick="navigateTo(\'report-summary\')">📋 Rangkuman Report</div>';
   }
-  if (hasAccess(2) && !hasAccess(5)) {
-    // Leader/Manager/Head can assign tasks
+  if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) {
+    // Leader/Manager/Head (including HEAD-posisi) can assign tasks
     tabs += '<div class="tab" onclick="filterDailyTasks(\'assigned\')">📋 Ditugaskan</div>';
   }
-  if (hasAccess(2) && !hasAccess(5)) {
-    // Leader/Manager/Head can monitor assigned task history (not BOD)
+  if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) {
+    // Leader/Manager/Head (including HEAD-posisi) can monitor assigned task history (not BOD)
     tabs +=
       '<div class="tab" onclick="filterDailyTasks(\'history-assigned\')">📊 History Tugas</div>';
   }
@@ -1358,8 +1358,8 @@ async function renderDailyTask() {
   } else if (hasAccess(5)) {
     // BOD: view only, no actions
     addBtn = '';
-  } else if (hasAccess(2)) {
-    // Leader/Manager/Head: can add task + report
+  } else if (hasAccess(2) || hasHeadLevelAccess()) {
+    // Leader/Manager/Head (including HEAD-posisi staff): can add task + report
     addBtn =
       '<button class="btn btn-primary btn-sm" onclick="modalAddTaskChoice()">+ Tambah</button> <button class="btn btn-success btn-sm" onclick="modalImportWeeklyReport()">⬆️ Import Laporan</button>';
   } else {
@@ -1981,10 +1981,18 @@ async function loadDailyTasks(filter) {
           });
           html += _buildReportTrackerStats(catItems);
         });
+      // Overall summary tracker when there are multiple categories
+      if (Object.keys(byCatOwn).length > 1) {
+        html +=
+          '<div style="margin-top:14px;padding:10px 12px;background:#fafafa;border-radius:8px;border:1px solid #ddd;font-weight:700;font-size:.82rem;color:#555">' +
+          '\ud83d\udcca Ringkasan Semua Laporan Saya (' +
+          reportOnlyItems.length +
+          ')</div>';
+        html += _buildReportTrackerStats(reportOnlyItems);
+      }
       listEl.innerHTML = html;
       return;
     }
-  }
 
   // Add group headers for report views
   let lastGroup = '';
@@ -4646,6 +4654,15 @@ async function loadWeeklyReports(divFilter) {
         html += _buildReportTrackerStats(rows);
         html += '</div>';
       });
+    // Overall summary tracker for all filtered data across all divisions
+    if (Object.keys(groups).length > 0) {
+      html +=
+        '<div style="margin-top:20px;padding:10px 14px;background:#fafafa;border-radius:8px;border:1px solid #ddd;font-weight:700;font-size:.82rem;color:#555">' +
+        '\ud83d\udcca Ringkasan Keseluruhan Laporan Mingguan (' +
+        filtered.length +
+        ' data)</div>';
+      html += _buildReportTrackerStats(filtered);
+    }
     listEl.innerHTML = html;
   } catch (e) {
     listEl.innerHTML =
