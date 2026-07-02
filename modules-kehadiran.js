@@ -4533,22 +4533,24 @@ async function loadWeeklyReports(divFilter) {
           ' (' +
           rows.length +
           ' data)</div>';
-        var byPic = {};
+        var reportsByUser = {};
         rows.forEach(function (r) {
-          var picKey = r.targetUserName || r.pic || r.nama || '-';
-          if (!byPic[picKey]) byPic[picKey] = [];
-          byPic[picKey].push(r);
+          var userKey = r.targetUserName || r.pic || r.nama || '-';
+          if (!reportsByUser[userKey]) reportsByUser[userKey] = [];
+          reportsByUser[userKey].push(r);
         });
-        Object.keys(byPic)
+        Object.keys(reportsByUser)
           .sort()
           .forEach(function (pic) {
-            var userRows = byPic[pic];
+            var userRows = reportsByUser[pic];
             html +=
               '<div style="padding:8px 12px;margin:10px 0 8px;background:#f4f6ff;border-radius:8px;border-left:4px solid #5c6bc0;font-weight:700;font-size:.82rem;color:#3949ab">👤 ' +
               escHtml(pic) +
               ' (' +
               userRows.length +
-              ' report)</div>';
+              ' ' +
+              (userRows.length === 1 ? 'report' : 'reports') +
+              ')</div>';
             userRows.forEach(function (r) {
               var tgl = r.tanggal || r.bulan || '-';
               var kat = r.kategori || '-';
