@@ -1335,12 +1335,8 @@ async function renderDailyTask() {
     // Manager/Head/BOD can access report summary
     tabs += '<div class="tab" onclick="navigateTo(\'report-summary\')">📋 Rangkuman Report</div>';
   }
-  if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) {
-    // Leader/Manager/Head (including HEAD-posisi) can assign tasks
-    tabs += '<div class="tab" onclick="filterDailyTasks(\'assigned\')">📋 Ditugaskan</div>';
-  }
-  if (hasAccess(5) && !hasAccess(6)) {
-    // BOD: can monitor tasks they assigned to Head/Manager
+  if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5) || (hasAccess(5) && !hasAccess(6))) {
+    // Leader/Manager/Head and BOD can see tasks they assigned
     tabs += '<div class="tab" onclick="filterDailyTasks(\'assigned\')">📋 Ditugaskan</div>';
   }
   if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) {
