@@ -4583,8 +4583,8 @@ async function loadWeeklyReports(divFilter) {
                 : '#1565c0';
               var kendala = r.kendala || r.case_desc || '';
               var solusi = r.solusi || r.solution || '';
-              var rencana = r.rencanaBesok || r.planning || '';
-              var komentar = r.komentar || r.keterangan || '';
+              var rencana = r.rencanaBesok || r.rencana || r.planning || '';
+              var komentar = r.komentar || r.keterangan || r.komentarAtasan || '';
               var wrKey = (r.col || 'hrd_daily_tasks') + ':' + r.id;
               _weeklyReportLookup[wrKey] = r;
               var previewText = (aktivitas || kendala || solusi || rencana || komentar || '-').trim();
