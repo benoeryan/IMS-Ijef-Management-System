@@ -4350,6 +4350,7 @@ var _weeklyReportFilter = 'all';
 var _wrDateFrom = '';
 var _wrDateTo = '';
 var _weeklyReportLookup = {};
+var WEEKLY_REPORT_DEFAULT_COL = 'hrd_daily_tasks';
 async function loadWeeklyReports(divFilter) {
   if (divFilter !== undefined) _weeklyReportFilter = divFilter;
   document.querySelectorAll('#taskTabs .tab').forEach(function (t) {
@@ -4585,9 +4586,12 @@ async function loadWeeklyReports(divFilter) {
               var solusi = r.solusi || r.solution || '';
               var rencana = r.rencanaBesok || r.rencana || r.planning || '';
               var komentar = r.komentar || r.keterangan || r.komentarAtasan || '';
-              var wrKey = (r.col || 'hrd_daily_tasks') + ':' + r.id;
+              var wrKey = (r.col || WEEKLY_REPORT_DEFAULT_COL) + ':' + r.id;
               _weeklyReportLookup[wrKey] = r;
-              var previewText = (aktivitas || kendala || solusi || rencana || komentar || '-').trim();
+              var previewText = [aktivitas, kendala, solusi, rencana, komentar].find(function (txt) {
+                return txt && txt.trim();
+              });
+              if (!previewText) previewText = '-';
               if (previewText.length > 140) previewText = previewText.substring(0, 140) + '...';
               html +=
                 '<div style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff">';
@@ -4597,7 +4601,7 @@ async function loadWeeklyReports(divFilter) {
                   '<input type="checkbox" class="wr-check" value="' +
                   r.id +
                   '" data-col="' +
-                  (r.col || 'hrd_daily_tasks') +
+                  (r.col || WEEKLY_REPORT_DEFAULT_COL) +
                   '">';
               }
               html += '<div style="flex:1"><div class="fw-700">' + escHtml(pic) + '</div>';
@@ -4653,6 +4657,8 @@ function viewWeeklyReportItem(key) {
   var div = report.departemen || report.divisi || '-';
   var kat = report.kategori || '-';
   var progressText = String(report.progress || '-').trim() || '-';
+  var progressNum = parseInt(progressText, 10);
+  var hasProgressNum = !isNaN(progressNum);
   var aktivitas = report.aktivitas || report.description || '-';
   var kendala = report.kendala || report.case_desc || '';
   var solusi = report.solusi || report.solution || '';
@@ -4673,7 +4679,7 @@ function viewWeeklyReportItem(key) {
       '</div>' +
       '<div class="text-sm mt-4">📈 Progress: <b>' +
       escHtml(progressText) +
-      (progressText.indexOf('%') === -1 && progressText !== '-' ? '%' : '') +
+      (hasProgressNum && progressText.indexOf('%') === -1 ? '%' : '') +
       '</b></div>' +
       '</div>' +
       '<div class="mb-12"><div class="fw-700 mb-4" style="color:#1565c0">📋 Aktivitas</div><div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.84rem;white-space:pre-wrap;line-height:1.6">' +
