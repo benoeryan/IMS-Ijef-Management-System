@@ -92,6 +92,11 @@ async function renderDashboard() {
     });
   }
   widgetLeft += '</div>';
+  // BOD: Tugaskan Daily Task ke HEAD/Manager
+  if (isBOD) {
+    widgetLeft +=
+      '<div class="card" style="border-left:4px solid #0d47a1"><div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span>📋 Tugaskan Daily Task</span><div style="display:flex;gap:6px"><button class="btn btn-xs btn-primary" onclick="modalAddTask()">+ Tugaskan Task</button><button class="btn btn-xs btn-outline" onclick="navigateTo(\'daily-task\')">Lihat Semua</button></div></div><div id="dashBodTaskList"><p class="text-sm" style="color:#999">Memuat...</p></div></div>';
+  }
   // Right: Aksi Cepat + Info User
   let widgetRight = `<div class="card" style="border-left:4px solid var(--accent)"><div class="card-title mb-8">👤 ${escHtml(currentUser.nama)}</div><div class="text-sm" style="color:#666">${escHtml(currentUser.posisi || currentUser.role)} • ${escHtml(currentUser.departemen || '-')}</div></div>`;
   widgetRight +=
@@ -172,6 +177,44 @@ async function renderDashboard() {
   if (hasHeadLevelAccess() && typeof loadPortalTeamReport === 'function') {
     try {
       await loadPortalTeamReport('dashTeamReportList', '_dashboardTeamDivFilter');
+    } catch (_e) {}
+  }
+  // BOD: load assigned task list widget
+  if (isBOD) {
+    try {
+      const bodTaskSnap = await db.collection('hrd_daily_tasks').get();
+      const assignedByMe = [];
+      bodTaskSnap.forEach((d) => {
+        const t = d.data();
+        if (t.assignedBy === currentUser.id) assignedByMe.push({ id: d.id, ...t });
+      });
+      assignedByMe.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      const recent = assignedByMe.slice(0, 5);
+      const todayDate = todayStr();
+      const bodListEl = document.getElementById('dashBodTaskList');
+      if (bodListEl) {
+        if (!recent.length) {
+          bodListEl.innerHTML =
+            '<p class="text-sm" style="color:#999">Belum ada task yang ditugaskan ke HEAD/Manager.</p>';
+        } else {
+          let bhtml = '';
+          recent.forEach((t) => {
+            const isDone = t.done;
+            const isOverdue = !isDone && t.tanggal < todayDate;
+            const statusColor = isDone ? '#2e7d32' : isOverdue ? '#c62828' : '#1565c0';
+            const statusIcon = isDone ? '✅' : isOverdue ? '⚠️' : '📌';
+            bhtml +=
+              '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">' +
+              '<div style="flex:1">' +
+              '<div class="fw-700 text-sm">' + escHtml(t.title) + '</div>' +
+              '<div class="text-xs" style="color:#999">' + escHtml(t.targetUserName || '-') + ' &bull; ' + escHtml(formatDate(t.tanggal)) + '</div>' +
+              '</div>' +
+              '<span style="font-size:.75rem;color:' + statusColor + '">' + statusIcon + '</span>' +
+              '</div>';
+          });
+          bodListEl.innerHTML = bhtml;
+        }
+      }
     } catch (_e) {}
   }
   // Load Daily Task summary for dashboard
