@@ -4351,6 +4351,7 @@ var _wrDateFrom = '';
 var _wrDateTo = '';
 var _weeklyReportLookup = {};
 var WEEKLY_REPORT_DEFAULT_COL = 'hrd_daily_tasks';
+var WEEKLY_REPORT_PREVIEW_MAX_LENGTH = 140;
 async function loadWeeklyReports(divFilter) {
   if (divFilter !== undefined) _weeklyReportFilter = divFilter;
   document.querySelectorAll('#taskTabs .tab').forEach(function (t) {
@@ -4586,13 +4587,16 @@ async function loadWeeklyReports(divFilter) {
               var solusi = r.solusi || r.solution || '';
               var rencana = r.rencanaBesok || r.rencana || r.planning || '';
               var komentar = r.komentar || r.keterangan || r.komentarAtasan || '';
-              var wrKey = (r.col || WEEKLY_REPORT_DEFAULT_COL) + ':' + r.id;
+              var wrKey = (r.col || WEEKLY_REPORT_DEFAULT_COL) + '::' + r.id;
+              var wrKeyEncoded = encodeURIComponent(wrKey);
               _weeklyReportLookup[wrKey] = r;
               var previewText = [aktivitas, kendala, solusi, rencana, komentar].find(function (txt) {
                 return txt && txt.trim();
               });
               if (!previewText) previewText = '-';
-              if (previewText.length > 140) previewText = previewText.substring(0, 140) + '...';
+              if (previewText.length > WEEKLY_REPORT_PREVIEW_MAX_LENGTH)
+                previewText =
+                  previewText.substring(0, WEEKLY_REPORT_PREVIEW_MAX_LENGTH) + '...';
               html +=
                 '<div style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff">';
               html += '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">';
@@ -4620,7 +4624,7 @@ async function loadWeeklyReports(divFilter) {
                 escHtml(progressText || '-') +
                 (hasProgressNum && progressText.indexOf('%') === -1 ? '%' : '') +
                 '</div><button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem(\'' +
-                wrKey +
+                wrKeyEncoded +
                 '\')">👁️ View</button></div>';
               html +=
                 '<div style="font-size:.82rem;color:#333;line-height:1.5;background:#f8f9ff;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ' +
@@ -4650,6 +4654,7 @@ async function loadWeeklyReports(divFilter) {
 }
 
 function viewWeeklyReportItem(key) {
+  key = decodeURIComponent(key || '');
   var report = _weeklyReportLookup[key];
   if (!report) return toast('Data laporan tidak ditemukan', 'warning');
   var tgl = report.tanggal ? formatDate(report.tanggal) : report.bulan || '-';
