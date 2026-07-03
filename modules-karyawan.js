@@ -198,7 +198,7 @@ async function renderDashboard() {
             '<p class="text-sm" style="color:#999">Belum ada task yang ditugaskan ke HEAD/Manager.</p>';
         } else {
           let bhtml = '';
-          recent.forEach(function (t) {
+          recent.forEach((t) => {
             const isDone = t.done;
             const isOverdue = !isDone && t.tanggal < todayDate;
             const statusColor = isDone ? '#2e7d32' : isOverdue ? '#c62828' : '#1565c0';
