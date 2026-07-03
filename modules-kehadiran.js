@@ -1335,8 +1335,8 @@ async function renderDailyTask() {
     // Manager/Head/BOD can access report summary
     tabs += '<div class="tab" onclick="navigateTo(\'report-summary\')">📋 Rangkuman Report</div>';
   }
-  if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) {
-    // Leader/Manager/Head (including HEAD-posisi) can assign tasks
+  if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5) || (hasAccess(5) && !hasAccess(6))) {
+    // Leader/Manager/Head and BOD can see tasks they assigned
     tabs += '<div class="tab" onclick="filterDailyTasks(\'assigned\')">📋 Ditugaskan</div>';
   }
   if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) {
@@ -1356,8 +1356,8 @@ async function renderDailyTask() {
     addBtn =
       '<button class="btn btn-primary btn-sm" onclick="modalAddTaskChoice()">+ Tambah</button> <button class="btn btn-success btn-sm" onclick="modalImportWeeklyReport()">⬆️ Import Laporan</button>';
   } else if (hasAccess(5)) {
-    // BOD: view only, no actions
-    addBtn = '';
+    // BOD: can assign tasks to Head/Manager layer only
+    addBtn = '<button class="btn btn-primary btn-sm" onclick="modalAddTask()">+ Tambah Task</button>';
   } else if (hasAccess(2) || hasHeadLevelAccess()) {
     // Leader/Manager/Head (including HEAD-posisi staff): can add task + report
     addBtn =
@@ -1431,8 +1431,8 @@ async function loadDailyTasks(filter) {
         // Admin: all access
         _dailyTaskData.push({ id: d.id, ...t });
       } else if (hasAccess(5)) {
-        // BOD: sees all reports (gabungan semua divisi), no tasks
-        if (t.type === 'report') _dailyTaskData.push({ id: d.id, ...t });
+        // BOD: sees all reports + tasks assigned by BOD
+        if (t.type === 'report' || t.assignedBy === myId) _dailyTaskData.push({ id: d.id, ...t });
       } else if (hasHeadLevelAccess()) {
         // Head: own data + all divisions reports + own dept tasks + all assigned tasks in dept
         if (t.userId === myId || t.assignedBy === myId) {
@@ -2215,6 +2215,51 @@ async function modalAddTask() {
       assignHtml += checkboxes;
       assignHtml +=
         '</div><div class="text-xs" style="color:#999;margin-top:4px">Centang satu atau lebih anggota tim</div></div>';
+    } catch (_e) {
+      assignHtml = '';
+    }
+  } else if (hasAccess(5)) {
+    // BOD: can assign tasks to Head and Manager level users only
+    try {
+      const usersSnap = await db.collection('hrd_users').get();
+      let checkboxes = '';
+      usersSnap.forEach(function (d) {
+        var u = d.data();
+        if (u.status !== 'nonaktif' && d.id !== currentUser.id) {
+          const uRole = (u.role || '').toLowerCase();
+          const uPosisi = (u.posisi || '').toUpperCase();
+          const isHeadOrManager =
+            uRole === 'head' ||
+            uRole === 'manager' ||
+            uPosisi.includes('HEAD') ||
+            uPosisi.includes('KEPALA');
+          if (!isHeadOrManager) return;
+          checkboxes +=
+            '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">';
+          checkboxes +=
+            '<input type="checkbox" class="dt-assign-cb" value="' +
+            d.id +
+            '" data-nama="' +
+            escHtml(u.nama) +
+            '"> ';
+          checkboxes +=
+            '<span>' +
+            escHtml(u.nama) +
+            ' <span style="color:#999;font-size:.75rem">(' +
+            escHtml(u.role || '-') +
+            ' • ' +
+            escHtml(u.departemen || '-') +
+            ')</span></span></label>';
+        }
+      });
+      assignHtml = '<div class="form-group"><label>Tugaskan Ke (Head / Manager)</label>';
+      assignHtml +=
+        '<div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
+      assignHtml +=
+        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #eee;cursor:pointer"><input type="checkbox" id="dtAssignAll" onchange="document.querySelectorAll(\'.dt-assign-cb\').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="fw-700 text-sm">Pilih Semua</span></label>';
+      assignHtml += checkboxes || '<p class="text-sm" style="color:#999;padding:8px">Tidak ada Head/Manager ditemukan</p>';
+      assignHtml +=
+        '</div><div class="text-xs" style="color:#999;margin-top:4px">Hanya menampilkan karyawan layer Head dan Manager</div></div>';
     } catch (_e) {
       assignHtml = '';
     }
