@@ -4364,7 +4364,7 @@ async function loadWeeklyReports(divFilter) {
     var items = [];
     var snap = await db
       .collection('hrd_daily_tasks')
-      .where('source', '==', 'spreadsheet-import')
+      .where('type', '==', 'report')
       .get();
     snap.forEach(function (d) {
       items.push({ id: d.id, col: 'hrd_daily_tasks', ...d.data() });
