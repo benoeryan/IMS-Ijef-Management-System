@@ -4349,6 +4349,7 @@ async function submitWeeklyImport() {
 var _weeklyReportFilter = 'all';
 var _wrDateFrom = '';
 var _wrDateTo = '';
+var _weeklyReportLookup = {};
 async function loadWeeklyReports(divFilter) {
   if (divFilter !== undefined) _weeklyReportFilter = divFilter;
   document.querySelectorAll('#taskTabs .tab').forEach(function (t) {
@@ -4531,6 +4532,7 @@ async function loadWeeklyReports(divFilter) {
       listEl.innerHTML = html;
       return;
     }
+    _weeklyReportLookup = {};
     var groups = {};
     filtered.forEach(function (r) {
       var div = r.departemen || r.divisi || 'Tanpa Divisi';
@@ -4583,6 +4585,10 @@ async function loadWeeklyReports(divFilter) {
               var solusi = r.solusi || r.solution || '';
               var rencana = r.rencanaBesok || r.planning || '';
               var komentar = r.komentar || r.keterangan || '';
+              var wrKey = (r.col || 'hrd_daily_tasks') + ':' + r.id;
+              _weeklyReportLookup[wrKey] = r;
+              var previewText = (aktivitas || kendala || solusi || rencana || komentar || '-').trim();
+              if (previewText.length > 140) previewText = previewText.substring(0, 140) + '...';
               html +=
                 '<div style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff">';
               html += '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">';
@@ -4603,51 +4609,19 @@ async function loadWeeklyReports(divFilter) {
                 ' | 🏷️ ' +
                 escHtml(kat) +
                 '</div></div></div>';
-              if (progressText) {
-                html +=
-                  '<div style="margin-bottom:8px;padding:8px;background:#f8f9ff;border-radius:8px;border:1px solid #dfe7ff">';
-                html +=
-                  '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div class="text-xs fw-700" style="color:#1565c0">📈 Progress Tracker</div><div style="font-size:.8rem;font-weight:700;color:' +
-                  progressColor +
-                  '">' +
-                  escHtml(progressText) +
-                  (hasProgressNum && progressText.indexOf('%') === -1 ? '%' : '') +
-                  '</div></div>';
-                if (hasProgressNum) {
-                  html +=
-                    '<div style="height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:6px"><div style="height:100%;width:' +
-                    progressNum +
-                    '%;background:' +
-                    progressColor +
-                    ';border-radius:999px"></div></div>';
-                }
-                html += '</div>';
-              }
-              if (aktivitas)
-                html +=
-                  '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#1565c0">📋 Aktivitas</div><div style="padding:8px;background:#f8f9ff;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
-                  escHtml(aktivitas) +
-                  '</div></div>';
-              if (kendala)
-                html +=
-                  '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#e65100">⚠️ Kendala / Case</div><div style="padding:8px;background:#fff8e1;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
-                  escHtml(kendala) +
-                  '</div></div>';
-              if (solusi)
-                html +=
-                  '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#2e7d32">💡 Solusi / Tindakan</div><div style="padding:8px;background:#e8f5e9;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
-                  escHtml(solusi) +
-                  '</div></div>';
-              if (rencana)
-                html +=
-                  '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#6a1b9a">🌟 Planning & Target</div><div style="padding:8px;background:#f3e5f5;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
-                  escHtml(rencana) +
-                  '</div></div>';
-              if (komentar)
-                html +=
-                  '<div><div class="text-xs fw-700" style="color:#555">💬 Keterangan</div><div style="padding:8px;background:#f5f5f5;border-radius:6px;font-size:.82rem;margin-top:4px">' +
-                  escHtml(komentar) +
-                  '</div></div>';
+              html +=
+                '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px"><div style="font-size:.8rem;font-weight:700;color:' +
+                progressColor +
+                '">📈 Progress: ' +
+                escHtml(progressText || '-') +
+                (hasProgressNum && progressText.indexOf('%') === -1 ? '%' : '') +
+                '</div><button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem(\'' +
+                wrKey +
+                '\')">👁️ View</button></div>';
+              html +=
+                '<div style="font-size:.82rem;color:#333;line-height:1.5;background:#f8f9ff;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ' +
+                escHtml(previewText) +
+                '</div>';
               html += '</div>';
             });
             html += _buildReportTrackerStats(userRows);
@@ -4669,6 +4643,64 @@ async function loadWeeklyReports(divFilter) {
     listEl.innerHTML =
       '<p class="text-sm" style="color:#c62828">Gagal memuat: ' + escHtml(e.message) + '</p>';
   }
+}
+
+function viewWeeklyReportItem(key) {
+  var report = _weeklyReportLookup[key];
+  if (!report) return toast('Data laporan tidak ditemukan', 'warning');
+  var tgl = report.tanggal ? formatDate(report.tanggal) : report.bulan || '-';
+  var pic = report.targetUserName || report.pic || report.nama || '-';
+  var div = report.departemen || report.divisi || '-';
+  var kat = report.kategori || '-';
+  var progressText = String(report.progress || '-').trim() || '-';
+  var aktivitas = report.aktivitas || report.description || '-';
+  var kendala = report.kendala || report.case_desc || '';
+  var solusi = report.solusi || report.solution || '';
+  var rencana = report.rencanaBesok || report.rencana || report.planning || '';
+  var komentar = report.komentar || report.keterangan || report.komentarAtasan || '';
+  openModal(
+    '<div class="modal-title">👁️ Detail Laporan</div>' +
+      '<div style="background:#f8f9ff;padding:14px;border-radius:8px;margin-bottom:14px;border-left:4px solid #1565c0">' +
+      '<div class="fw-700" style="color:#1565c0">👤 ' +
+      escHtml(pic) +
+      '</div>' +
+      '<div class="text-sm mt-4">📅 ' +
+      escHtml(tgl) +
+      ' | 🏢 ' +
+      escHtml(div) +
+      ' | 📂 ' +
+      escHtml(kat) +
+      '</div>' +
+      '<div class="text-sm mt-4">📈 Progress: <b>' +
+      escHtml(progressText) +
+      (progressText.indexOf('%') === -1 && progressText !== '-' ? '%' : '') +
+      '</b></div>' +
+      '</div>' +
+      '<div class="mb-12"><div class="fw-700 mb-4" style="color:#1565c0">📋 Aktivitas</div><div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.84rem;white-space:pre-wrap;line-height:1.6">' +
+      escHtml(aktivitas) +
+      '</div></div>' +
+      (kendala
+        ? '<div class="mb-12"><div class="fw-700 mb-4" style="color:#e65100">⚠️ Kendala / Case</div><div style="background:#fff8e1;border-radius:8px;padding:10px;font-size:.84rem;white-space:pre-wrap">' +
+          escHtml(kendala) +
+          '</div></div>'
+        : '') +
+      (solusi
+        ? '<div class="mb-12"><div class="fw-700 mb-4" style="color:#2e7d32">💡 Solusi / Tindakan</div><div style="background:#e8f5e9;border-radius:8px;padding:10px;font-size:.84rem;white-space:pre-wrap">' +
+          escHtml(solusi) +
+          '</div></div>'
+        : '') +
+      (rencana
+        ? '<div class="mb-12"><div class="fw-700 mb-4" style="color:#6a1b9a">🌟 Planning & Target</div><div style="background:#f3e5f5;border-radius:8px;padding:10px;font-size:.84rem;white-space:pre-wrap">' +
+          escHtml(rencana) +
+          '</div></div>'
+        : '') +
+      (komentar
+        ? '<div class="mb-12"><div class="fw-700 mb-4" style="color:#555">💬 Keterangan</div><div style="background:#f5f5f5;border-radius:8px;padding:10px;font-size:.84rem;white-space:pre-wrap">' +
+          escHtml(komentar) +
+          '</div></div>'
+        : ''),
+    true
+  );
 }
 async function deleteSelectedWeeklyReports() {
   var checked = document.querySelectorAll('.wr-check:checked');
