@@ -4598,7 +4598,9 @@ async function loadWeeklyReports(divFilter) {
                 previewText =
                   previewText.substring(0, WEEKLY_REPORT_PREVIEW_MAX_LENGTH) + '...';
               html +=
-                '<div style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff">';
+                '<div style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;cursor:pointer" onclick="viewWeeklyReportItem(\'' +
+                wrKeyEncoded +
+                '\')">';
               html += '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">';
               if (currentUser.role !== 'bod') {
                 html +=
@@ -4606,7 +4608,7 @@ async function loadWeeklyReports(divFilter) {
                   r.id +
                   '" data-col="' +
                   (r.col || WEEKLY_REPORT_DEFAULT_COL) +
-                  '">';
+                  '" onclick="event.stopPropagation()">';
               }
               html += '<div style="flex:1"><div class="fw-700">' + escHtml(pic) + '</div>';
               html +=
