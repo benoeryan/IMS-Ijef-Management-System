@@ -359,6 +359,12 @@ function hasAccess(minLevel) {
   return (ROLES[currentUser?.role] || 0) >= minLevel;
 }
 
+function hasHeadLevelAccess() {
+  if (hasAccess(4)) return true;
+  var posisi = (currentUser?.posisi || '').toUpperCase();
+  return posisi.includes('HEAD') || posisi.includes('KEPALA');
+}
+
 function renderLogin() {
   const logo = localStorage.getItem('ims_company_logo');
   const logoHtml = logo

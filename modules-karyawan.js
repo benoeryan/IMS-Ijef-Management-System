@@ -92,10 +92,27 @@ async function renderDashboard() {
     });
   }
   widgetLeft += '</div>';
+  // BOD: Tugaskan Daily Task ke HEAD/Manager
+  if (isBOD) {
+    widgetLeft +=
+      '<div class="card" style="border-left:4px solid #0d47a1"><div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span>📋 Tugaskan Daily Task</span><div style="display:flex;gap:6px"><button class="btn btn-xs btn-primary" onclick="modalAddTask()">+ Tugaskan Task</button><button class="btn btn-xs btn-outline" onclick="navigateTo(\'daily-task\')">Lihat Semua</button></div></div><div id="dashBodTaskList"><p class="text-sm" style="color:#999">Memuat...</p></div></div>';
+  }
   // Right: Aksi Cepat + Info User
   let widgetRight = `<div class="card" style="border-left:4px solid var(--accent)"><div class="card-title mb-8">👤 ${escHtml(currentUser.nama)}</div><div class="text-sm" style="color:#666">${escHtml(currentUser.posisi || currentUser.role)} • ${escHtml(currentUser.departemen || '-')}</div></div>`;
   widgetRight +=
     '<div class="card"><div class="card-title mb-8">⚡ Aksi Cepat</div><div class="flex flex-wrap gap-8"><button class="btn btn-sm" style="background:#0d47a1;color:#fff" onclick="navigateTo(\'daily-task\')">📋 Daily Task</button><button class="btn btn-primary btn-sm" onclick="navigateTo(\'absensi\')">📍 Absensi</button><button class="btn btn-info btn-sm" onclick="navigateTo(\'cuti\')">🏖️ Cuti</button><button class="btn btn-sm" style="background:#ff6f00;color:#fff" onclick="navigateTo(\'overtime\')">⏰ Overtime</button><button class="btn btn-success btn-sm" onclick="navigateTo(\'karyawan\')">👥 Karyawan</button><button class="btn btn-warning btn-sm" onclick="navigateTo(\'approval-center\')">✅ Approval</button><button class="btn btn-sm" style="background:#7b1fa2;color:#fff" onclick="navigateTo(\'penggajian\')">💰 Penggajian</button><button class="btn btn-sm" style="background:#00796b;color:#fff" onclick="navigateTo(\'reimbursement\')">🧾 Reimburse</button><button class="btn btn-sm" style="background:#1565c0;color:#fff" onclick="navigateTo(\'meeting\')">📅 Meeting</button><button class="btn btn-sm" style="background:#4e342e;color:#fff" onclick="navigateTo(\'chat\')">💬 Obrolan</button><button class="btn btn-sm" style="background:#37474f;color:#fff" onclick="navigateTo(\'broadcast\')">📡 Broadcast</button></div></div>';
+  if (hasHeadLevelAccess()) {
+    widgetRight += `<div class="card" id="dashTeamReportSection">
+      <div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>📊 Report Tim Hari Ini</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-xs btn-outline" onclick="loadPortalTeamReport('dashTeamReportList','_dashboardTeamDivFilter')">🔄</button>
+          <button class="btn btn-xs btn-primary" onclick="navigateTo('daily-task')">Lihat Semua</button>
+        </div>
+      </div>
+      <div id="dashTeamReportList"><p class="text-sm" style="color:#999">Memuat...</p></div>
+    </div>`;
+  }
   // Laporan Keuangan link for specific users
   const _lkUsers = ['muhammad agus ryanda', 'siti sofuroh', 'irsan janwar wibawa', 'misriana'];
   if (_lkUsers.includes((currentUser.nama || '').toLowerCase())) {
@@ -156,6 +173,49 @@ async function renderDashboard() {
     } catch (e) {
       console.warn('Birthday widget error:', e);
     }
+  }
+  if (hasHeadLevelAccess() && typeof loadPortalTeamReport === 'function') {
+    try {
+      await loadPortalTeamReport('dashTeamReportList', '_dashboardTeamDivFilter');
+    } catch (_e) {}
+  }
+  // BOD: load assigned task list widget
+  if (isBOD) {
+    try {
+      const bodTaskSnap = await db.collection('hrd_daily_tasks').get();
+      const assignedByMe = [];
+      bodTaskSnap.forEach((d) => {
+        const t = d.data();
+        if (t.assignedBy === currentUser.id) assignedByMe.push({ id: d.id, ...t });
+      });
+      assignedByMe.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      const recent = assignedByMe.slice(0, 5);
+      const todayDate = todayStr();
+      const bodListEl = document.getElementById('dashBodTaskList');
+      if (bodListEl) {
+        if (!recent.length) {
+          bodListEl.innerHTML =
+            '<p class="text-sm" style="color:#999">Belum ada task yang ditugaskan ke HEAD/Manager.</p>';
+        } else {
+          let bhtml = '';
+          recent.forEach((t) => {
+            const isDone = t.done;
+            const isOverdue = !isDone && t.tanggal < todayDate;
+            const statusColor = isDone ? '#2e7d32' : isOverdue ? '#c62828' : '#1565c0';
+            const statusIcon = isDone ? '✅' : isOverdue ? '⚠️' : '📌';
+            bhtml +=
+              '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">' +
+              '<div style="flex:1">' +
+              '<div class="fw-700 text-sm">' + escHtml(t.title) + '</div>' +
+              '<div class="text-xs" style="color:#999">' + escHtml(t.targetUserName || '-') + ' &bull; ' + escHtml(formatDate(t.tanggal)) + '</div>' +
+              '</div>' +
+              '<span style="font-size:.75rem;color:' + statusColor + '">' + statusIcon + '</span>' +
+              '</div>';
+          });
+          bodListEl.innerHTML = bhtml;
+        }
+      }
+    } catch (_e) {}
   }
   // Load Daily Task summary for dashboard
   try {

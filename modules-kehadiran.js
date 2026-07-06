@@ -1323,29 +1323,29 @@ async function renderDailyTask() {
     tabs += '<div class="tab" onclick="filterDailyTasks(\'overdue\')">Terlambat</div>';
   }
   tabs += '<div class="tab" onclick="filterDailyTasks(\'report\')">📝 Daily Report</div>';
-  if (hasAccess(2)) {
+  if (hasAccess(2) || hasHeadLevelAccess()) {
     // Leader+ can see team reports
     tabs += '<div class="tab" onclick="filterDailyTasks(\'team-report\')">📊 Report Tim</div>';
   }
-  if (hasAccess(4)) {
+  if (hasHeadLevelAccess()) {
     // Head+ sees all divisions
     tabs += '<div class="tab" onclick="filterDailyTasks(\'all-report\')">🏢 Semua Divisi</div>';
   }
-  if (hasAccess(3)) {
+  if (hasAccess(3) || hasHeadLevelAccess()) {
     // Manager/Head/BOD can access report summary
     tabs += '<div class="tab" onclick="navigateTo(\'report-summary\')">📋 Rangkuman Report</div>';
   }
-  if (hasAccess(2) && !hasAccess(5)) {
-    // Leader/Manager/Head can assign tasks
+  if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5) || (hasAccess(5) && !hasAccess(6))) {
+    // Leader/Manager/Head and BOD can see tasks they assigned
     tabs += '<div class="tab" onclick="filterDailyTasks(\'assigned\')">📋 Ditugaskan</div>';
   }
-  if (hasAccess(2) && !hasAccess(5)) {
-    // Leader/Manager/Head can monitor assigned task history (not BOD)
+  if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) {
+    // Leader/Manager/Head (including HEAD-posisi) can monitor assigned task history (not BOD)
     tabs +=
       '<div class="tab" onclick="filterDailyTasks(\'history-assigned\')">📊 History Tugas</div>';
   }
-  if (hasAccess(3) && !hasAccess(5)) {
-    // Manager/Head only can view weekly reports (not BOD, not staff/leader)
+  if (hasAccess(2) || hasHeadLevelAccess()) {
+    // Leader/Manager/Head/BOD can view weekly reports
     tabs += '<div class="tab" onclick="loadWeeklyReports()">📈 Laporan Mingguan</div>';
   }
 
@@ -1356,10 +1356,10 @@ async function renderDailyTask() {
     addBtn =
       '<button class="btn btn-primary btn-sm" onclick="modalAddTaskChoice()">+ Tambah</button> <button class="btn btn-success btn-sm" onclick="modalImportWeeklyReport()">⬆️ Import Laporan</button>';
   } else if (hasAccess(5)) {
-    // BOD: view only, no actions
-    addBtn = '';
-  } else if (hasAccess(2)) {
-    // Leader/Manager/Head: can add task + report
+    // BOD: can assign tasks to Head/Manager layer only
+    addBtn = '<button class="btn btn-primary btn-sm" onclick="modalAddTask()">+ Tambah Task</button>';
+  } else if (hasAccess(2) || hasHeadLevelAccess()) {
+    // Leader/Manager/Head (including HEAD-posisi staff): can add task + report
     addBtn =
       '<button class="btn btn-primary btn-sm" onclick="modalAddTaskChoice()">+ Tambah</button> <button class="btn btn-success btn-sm" onclick="modalImportWeeklyReport()">⬆️ Import Laporan</button>';
   } else {
@@ -1431,9 +1431,9 @@ async function loadDailyTasks(filter) {
         // Admin: all access
         _dailyTaskData.push({ id: d.id, ...t });
       } else if (hasAccess(5)) {
-        // BOD: sees all reports (gabungan semua divisi), no tasks
-        if (t.type === 'report') _dailyTaskData.push({ id: d.id, ...t });
-      } else if (hasAccess(4)) {
+        // BOD: sees all reports + tasks assigned by BOD
+        if (t.type === 'report' || t.assignedBy === myId) _dailyTaskData.push({ id: d.id, ...t });
+      } else if (hasHeadLevelAccess()) {
         // Head: own data + all divisions reports + own dept tasks + all assigned tasks in dept
         if (t.userId === myId || t.assignedBy === myId) {
           _dailyTaskData.push({ id: d.id, ...t });
@@ -1510,19 +1510,25 @@ async function loadDailyTasks(filter) {
             (currentUser.nama || '').toLowerCase().trim())
     );
   else if (filter === 'team-report') {
-    const myDept2 = (currentUser.departemen || '').toLowerCase().trim();
-    filtered = _dailyTaskData.filter(
-      (t) =>
-        (t.type === 'report' || (t.title && t.title.includes('Daily Report'))) &&
-        ((t.departemen || '').toLowerCase().trim() === myDept2 || !t.departemen)
-    );
+    if (hasHeadLevelAccess()) {
+      filtered = _dailyTaskData.filter(
+        (t) => t.type === 'report' || (t.title && t.title.includes('Daily Report'))
+      );
+    } else {
+      const myDept2 = (currentUser.departemen || '').toLowerCase().trim();
+      filtered = _dailyTaskData.filter(
+        (t) =>
+          (t.type === 'report' || (t.title && t.title.includes('Daily Report'))) &&
+          ((t.departemen || '').toLowerCase().trim() === myDept2 || !t.departemen)
+      );
+    }
     // Apply date range filter
     const drFrom = document.getElementById('reportDateFrom')?.value || '';
     const drTo = document.getElementById('reportDateTo')?.value || '';
     if (drFrom) filtered = filtered.filter((t) => (t.tanggal || '') >= drFrom);
     if (drTo) filtered = filtered.filter((t) => (t.tanggal || '') <= drTo);
     // Apply division filter (Head/BOD only)
-    if (hasAccess(4) && window._teamReportDivFilter) {
+    if (hasHeadLevelAccess() && window._teamReportDivFilter) {
       filtered = filtered.filter((t) =>
         (t.departemen || '').toUpperCase().includes(window._teamReportDivFilter)
       );
@@ -1609,23 +1615,23 @@ async function loadDailyTasks(filter) {
     if (filter === 'team-report') {
       // Team report: Head/BOD get division+category, Manager gets category only
       dateFilterHtml += `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">`;
-      if (hasAccess(4)) {
+      if (hasHeadLevelAccess()) {
         dateFilterHtml += `<button class="btn btn-xs ${!window._teamReportDivFilter ? 'btn-primary' : 'btn-outline'}" onclick="window._teamReportDivFilter='';window._teamReportCatFilter='';loadDailyTasks('team-report')">Semua</button>
         <button class="btn btn-xs ${window._teamReportDivFilter === 'ACADEMIC' ? 'btn-primary' : 'btn-outline'}" onclick="window._teamReportDivFilter='ACADEMIC';window._teamReportCatFilter='';loadDailyTasks('team-report')">📚 ACADEMIC</button>
         <button class="btn btn-xs ${window._teamReportDivFilter === 'OFFICE' ? 'btn-primary' : 'btn-outline'}" onclick="window._teamReportDivFilter='OFFICE';window._teamReportCatFilter='';loadDailyTasks('team-report')">🏢 OFFICE</button>`;
       }
       let trCatOpts = '<option value="">Semua Kategori</option>';
-      if (hasAccess(4) && window._teamReportDivFilter === 'ACADEMIC') {
+      if (hasHeadLevelAccess() && window._teamReportDivFilter === 'ACADEMIC') {
         ['Siswa', 'Sensei', 'Curriculum', 'TSK-Job', 'Tanpa Kategori'].forEach((c) => {
           trCatOpts += `<option value="${c}" ${window._teamReportCatFilter === c ? 'selected' : ''}>${c}</option>`;
         });
-      } else if (hasAccess(4) && window._teamReportDivFilter === 'OFFICE') {
+      } else if (hasHeadLevelAccess() && window._teamReportDivFilter === 'OFFICE') {
         ['HR & Legal', 'Document', "Facility's", 'Finance', 'Marketing & Sales', 'Promosi'].forEach(
           (c) => {
             trCatOpts += `<option value="${c}" ${window._teamReportCatFilter === c ? 'selected' : ''}>${c}</option>`;
           }
         );
-      } else if (hasAccess(4)) {
+      } else if (hasHeadLevelAccess()) {
         // Head/BOD with no division filter: show all
         [
           'Siswa',
@@ -1938,6 +1944,57 @@ async function loadDailyTasks(filter) {
   }
   const isAdmin = hasAccess(3);
   let html = dateFilterHtml;
+
+  // ── TRACKER STYLE for team-report and all-report tabs ──────────
+  if (filter === 'team-report' || filter === 'all-report') {
+    html += _renderGroupedReportTracker(filtered, filter);
+    listEl.innerHTML = html;
+    return;
+  }
+
+  // ── TRACKER STATS for report tab at leader+ ────────────────────
+  if (filter === 'report') {
+    // Build grouped tracker per category
+    var reportOnlyItems = filtered.filter(function (t) {
+      return t.type === 'report' || (t.title && t.title.includes('Daily Report'));
+    });
+    if (reportOnlyItems.length) {
+      var byCatOwn = {};
+      reportOnlyItems.forEach(function (r) {
+        var cat = r.kategori || 'Tanpa Kategori';
+        if (!byCatOwn[cat]) byCatOwn[cat] = [];
+        byCatOwn[cat].push(r);
+      });
+      Object.keys(byCatOwn)
+        .sort()
+        .forEach(function (cat) {
+          var catItems = byCatOwn[cat];
+          html +=
+            '<div style="padding:10px 12px;margin:12px 0 8px;background:#e3f2fd;border-radius:8px;font-weight:700;font-size:.88rem;color:#1565c0;border-left:4px solid #1565c0">' +
+            '\ud83d\udcc2 ' +
+            escHtml(cat) +
+            ' (' +
+            catItems.length +
+            ')</div>';
+          catItems.forEach(function (r) {
+            html += _buildReportTrackerRow(r);
+          });
+          html += _buildReportTrackerStats(catItems);
+        });
+      // Overall summary tracker when there are multiple categories
+      if (Object.keys(byCatOwn).length > 1) {
+        html +=
+          '<div style="margin-top:14px;padding:10px 12px;background:#fafafa;border-radius:8px;border:1px solid #ddd;font-weight:700;font-size:.82rem;color:#555">' +
+          '\ud83d\udcca Ringkasan Semua Laporan Saya (' +
+          reportOnlyItems.length +
+          ')</div>';
+        html += _buildReportTrackerStats(reportOnlyItems);
+      }
+      listEl.innerHTML = html;
+      return;
+    }
+  }
+
   // Add group headers for report views
   let lastGroup = '';
   let lastSubGroup = '';
@@ -1947,30 +2004,6 @@ async function loadDailyTasks(filter) {
       if (group !== lastGroup) {
         lastGroup = group;
         html += `<div style="padding:10px 12px;margin:12px 0 8px;background:#e3f2fd;border-radius:8px;font-weight:700;font-size:.88rem;color:#1565c0;border-left:4px solid #1565c0">📂 ${escHtml(group)}</div>`;
-      }
-    } else if (_dailyTaskFilter === 'team-report' && t.type === 'report') {
-      const group = t.kategori || 'Tanpa Kategori';
-      if (group !== lastGroup) {
-        lastGroup = group;
-        lastSubGroup = '';
-        html += `<div style="padding:10px 12px;margin:16px 0 8px;background:#e8f5e9;border-radius:8px;font-weight:700;font-size:.92rem;color:#2e7d32;border-left:4px solid #2e7d32">📂 ${escHtml(group)}</div>`;
-      }
-      const sub = t.targetUserName || '-';
-      if (sub !== lastSubGroup) {
-        lastSubGroup = sub;
-        html += `<div style="padding:6px 12px;margin:4px 0;font-size:.8rem;color:#555;font-weight:600">👤 ${escHtml(sub)}</div>`;
-      }
-    } else if (_dailyTaskFilter === 'all-report' && t.type === 'report') {
-      const group = t.departemen || 'Tanpa Departemen';
-      const sub = t.kategori || 'Tanpa Kategori';
-      if (group !== lastGroup) {
-        lastGroup = group;
-        lastSubGroup = '';
-        html += `<div style="padding:12px 14px;margin:16px 0 8px;background:#1a1a1a;border-radius:8px;font-weight:700;font-size:.95rem;color:#fff">🏢 ${escHtml(group)}</div>`;
-      }
-      if (sub !== lastSubGroup) {
-        lastSubGroup = sub;
-        html += `<div style="padding:8px 12px;margin:4px 0 6px;background:#f3e5f5;border-radius:6px;font-size:.83rem;color:#7b1fa2;font-weight:700">📂 ${escHtml(sub)}</div>`;
       }
     }
     // Daily Report display
@@ -2002,6 +2035,9 @@ async function loadDailyTasks(filter) {
       t.priority === 'high' ? '#c62828' : t.priority === 'low' ? '#666' : '#f57f17';
     const priorityLabel =
       t.priority === 'high' ? 'Tinggi' : t.priority === 'low' ? 'Rendah' : 'Sedang';
+    const taskProgress = t.done ? 100 : Math.max(0, Math.min(100, parseInt(t.progress, 10) || 0));
+    const taskProgressColor = taskProgress >= 100 ? '#2e7d32' : taskProgress >= 50 ? '#f57f17' : '#c62828';
+    const taskActivity = (t.aktivitas || t.description || '').trim();
     const borderColor = t.done
       ? '#2e7d32'
       : isOverdue
@@ -2019,6 +2055,7 @@ async function loadDailyTasks(filter) {
     html += `</div>`;
     if (t.description)
       html += `<div style="font-size:.8rem;color:var(--text-light);margin-top:4px;white-space:pre-line;word-break:break-word;${t.done ? 'text-decoration:line-through' : ''}">${escHtml(t.description)}</div>`;
+    html += `<div style="margin-top:8px;padding:8px;background:#f8f9ff;border:1px solid #e0e7ff;border-radius:8px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><span style="font-size:.72rem;font-weight:700;color:#1565c0">📈 Tracker Aktivitas</span><span style="font-size:.75rem;font-weight:700;color:${taskProgressColor}">${taskProgress}%</span></div><div style="height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin:6px 0"><div style="height:100%;width:${taskProgress}%;background:${taskProgressColor};border-radius:999px"></div></div><div style="font-size:.78rem;color:#333;line-height:1.5">${escHtml(taskActivity || 'Belum ada update aktivitas.')}</div>${t.kendala ? `<div style="font-size:.72rem;color:#c62828;margin-top:5px">⚠️ ${escHtml(t.kendala)}</div>` : ''}${t.solusi ? `<div style="font-size:.72rem;color:#ef6c00;margin-top:4px">💡 ${escHtml(t.solusi)}</div>` : ''}</div>`;
     html += `<div style="font-size:.7rem;color:#999;margin-top:4px">`;
     if (isAdmin && t.targetUserName)
       html += `👤 Untuk: <strong>${escHtml(t.targetUserName)}</strong> | `;
@@ -2039,6 +2076,40 @@ async function loadDailyTasks(filter) {
       html += `<div style="display:flex;gap:4px;flex-wrap:wrap"><a href="${buildGCalUrl(t)}" target="_blank" class="btn btn-xs btn-info" title="Tambah ke Google Calendar" style="text-decoration:none">📅</a><button class="btn btn-xs btn-info" onclick="viewDailyTask('${t.id}')" title="Lihat">👁️</button></div></div>`;
     }
   });
+
+  // ── TASK COMPLETION TRACKER for leader+ on task tabs ───────────
+  var taskOnlyFilters = ['all', 'today', 'upcoming', 'done', 'overdue', 'assigned'];
+  if (taskOnlyFilters.includes(filter) && hasAccess(2) && filtered.length) {
+    var taskItems = filtered.filter(function (t) {
+      return t.type !== 'report';
+    });
+    if (taskItems.length) {
+      // Group by assignee/target or by dept for head+
+      var byGroup = {};
+      taskItems.forEach(function (t) {
+        var grpKey =
+          hasAccess(4) ? (t.departemen || 'Tanpa Departemen') : (t.targetUserName || t.assignedToName || 'Saya');
+        if (!byGroup[grpKey]) byGroup[grpKey] = [];
+        byGroup[grpKey].push(t);
+      });
+      var grpKeys = Object.keys(byGroup).sort();
+      if (grpKeys.length > 1 || (grpKeys.length === 1 && grpKeys[0] !== 'Saya')) {
+        html +=
+          '<div style="margin-top:16px;padding:10px 12px;background:#f8f9ff;border-radius:8px;border:1px solid #c8d8f0">' +
+          '<div style="font-weight:700;font-size:.82rem;color:#1565c0;margin-bottom:8px">\ud83d\udcca Ringkasan Penyelesaian Tugas</div>';
+        grpKeys.forEach(function (grpKey) {
+          var grpTasks = byGroup[grpKey];
+          html +=
+            '<div style="margin-bottom:6px;font-size:.8rem;font-weight:600;color:#333">' +
+            escHtml(grpKey) +
+            '</div>';
+          html += _buildTaskTrackerStats(grpTasks);
+        });
+        html += '</div>';
+      }
+    }
+  }
+
   listEl.innerHTML = html;
 }
 
@@ -2068,6 +2139,9 @@ function _showDailyTaskDetail(task) {
     task.priority === 'high' ? 'Tinggi' : task.priority === 'low' ? 'Rendah' : 'Sedang';
   const priorityColor =
     task.priority === 'high' ? '#c62828' : task.priority === 'low' ? '#666' : '#f57f17';
+  const trackerProgress = task.done ? 100 : Math.max(0, Math.min(100, parseInt(task.progress, 10) || 0));
+  const trackerColor = trackerProgress >= 100 ? '#2e7d32' : trackerProgress >= 50 ? '#f57f17' : '#c62828';
+  const trackerActivity = task.aktivitas || task.description || '-';
   const statusLabel = task.done
     ? '<span class="badge badge-success">Selesai</span>'
     : task.tanggal < todayStr()
@@ -2086,6 +2160,18 @@ function _showDailyTaskDetail(task) {
       ${task.targetUserName ? `<tr><td style="padding:8px;font-weight:700">Untuk</td><td style="padding:8px">${escHtml(task.targetUserName)}</td></tr>` : ''}
       ${task.doneAt ? `<tr><td style="padding:8px;font-weight:700">Selesai pada</td><td style="padding:8px">${formatDate(task.doneAt.split('T')[0])} ${task.doneAt.split('T')[1] ? task.doneAt.split('T')[1].substring(0, 5) : ''}</td></tr>` : ''}
     </table>
+    <div style="margin-top:16px;padding:14px;background:#f8f9ff;border-radius:10px;border:1px solid #dfe7ff">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <div class="fw-700" style="color:#1565c0">📈 Tracker Aktivitas</div>
+        <div style="font-weight:700;color:${trackerColor}">${trackerProgress}%</div>
+      </div>
+      <div style="height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin:8px 0 10px">
+        <div style="height:100%;width:${trackerProgress}%;background:${trackerColor};border-radius:999px"></div>
+      </div>
+      <div style="font-size:.82rem;color:#333;white-space:pre-wrap;line-height:1.6">📋 ${escHtml(trackerActivity)}</div>
+      ${task.kendala ? `<div style="font-size:.78rem;color:#c62828;margin-top:8px;white-space:pre-wrap">⚠️ Kendala: ${escHtml(task.kendala)}</div>` : ''}
+      ${task.solusi ? `<div style="font-size:.78rem;color:#ef6c00;margin-top:6px;white-space:pre-wrap">💡 Tindak Lanjut: ${escHtml(task.solusi)}</div>` : ''}
+    </div>
     ${task.attachments && task.attachments.length ? `<div style="margin-top:16px;padding:16px;background:#f8f9ff;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:var(--primary)">📎 Lampiran Eviden (${task.attachments.length} file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px">${task.attachments.map((a, i) => (a.type && a.type.startsWith('image/') ? `<div style="text-align:center;cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><img src="${a.data}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.6rem;color:#666;margin-top:4px">${escHtml(a.name || 'Foto ' + (i + 1))}</div></div>` : `<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:12px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><div style="font-size:2rem">${a.name && a.name.endsWith('.pdf') ? '📕' : a.name && a.name.match(/\\.docx?$/) ? '📘' : a.name && a.name.match(/\\.xlsx?$/) ? '📗' : '📄'}</div><div style="font-size:.6rem;color:#333;margin-top:4px;text-align:center;word-break:break-all">${escHtml(a.name)}</div><div style="font-size:.6rem;color:#1565c0;margin-top:4px">👁️ Lihat</div></div>`)).join('')}</div></div>` : ''}
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end"><a href="${buildGCalUrl(task)}" target="_blank" class="btn btn-sm btn-info" style="text-decoration:none">📅 Tambah ke Google Calendar</a><button class="btn btn-sm btn-outline" onclick="closeModalDirect()">Tutup</button></div>`);
 }
@@ -2129,6 +2215,51 @@ async function modalAddTask() {
       assignHtml += checkboxes;
       assignHtml +=
         '</div><div class="text-xs" style="color:#999;margin-top:4px">Centang satu atau lebih anggota tim</div></div>';
+    } catch (_e) {
+      assignHtml = '';
+    }
+  } else if (hasAccess(5)) {
+    // BOD: can assign tasks to Head and Manager level users only
+    try {
+      const usersSnap = await db.collection('hrd_users').get();
+      let checkboxes = '';
+      usersSnap.forEach(function (d) {
+        var u = d.data();
+        if (u.status !== 'nonaktif' && d.id !== currentUser.id) {
+          const uRole = (u.role || '').toLowerCase();
+          const uPosisi = (u.posisi || '').toUpperCase();
+          const isHeadOrManager =
+            uRole === 'head' ||
+            uRole === 'manager' ||
+            uPosisi.includes('HEAD') ||
+            uPosisi.includes('KEPALA');
+          if (!isHeadOrManager) return;
+          checkboxes +=
+            '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">';
+          checkboxes +=
+            '<input type="checkbox" class="dt-assign-cb" value="' +
+            d.id +
+            '" data-nama="' +
+            escHtml(u.nama) +
+            '"> ';
+          checkboxes +=
+            '<span>' +
+            escHtml(u.nama) +
+            ' <span style="color:#999;font-size:.75rem">(' +
+            escHtml(u.role || '-') +
+            ' • ' +
+            escHtml(u.departemen || '-') +
+            ')</span></span></label>';
+        }
+      });
+      assignHtml = '<div class="form-group"><label>Tugaskan Ke (Head / Manager)</label>';
+      assignHtml +=
+        '<div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
+      assignHtml +=
+        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #eee;cursor:pointer"><input type="checkbox" id="dtAssignAll" onchange="document.querySelectorAll(\'.dt-assign-cb\').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="fw-700 text-sm">Pilih Semua</span></label>';
+      assignHtml += checkboxes || '<p class="text-sm" style="color:#999;padding:8px">Tidak ada Head/Manager ditemukan</p>';
+      assignHtml +=
+        '</div><div class="text-xs" style="color:#999;margin-top:4px">Hanya menampilkan karyawan layer Head dan Manager</div></div>';
     } catch (_e) {
       assignHtml = '';
     }
@@ -2178,6 +2309,9 @@ async function modalAddTask() {
     ${catHtml}
     <div class="form-group"><label>Judul Task *</label><input class="form-control" id="dtTitle" placeholder="Contoh: Meeting dengan klien"></div>
     <div class="form-group"><label>Deskripsi</label><textarea class="form-control" id="dtDesc" rows="4" placeholder="Detail task...\n(Tekan Enter untuk baris baru)" style="white-space:pre-wrap"></textarea></div>
+    <div class="form-group"><label>Aktivitas / Update Progress</label><textarea class="form-control" id="dtAktivitas" rows="3" placeholder="Contoh: Follow up klien, revisi draft, koordinasi internal"></textarea></div>
+    <div class="grid-2"><div class="form-group"><label>Progress (%)</label><input class="form-control" type="number" id="dtProgress" value="0" min="0" max="100"></div><div class="form-group"><label>Kendala</label><input class="form-control" id="dtKendala" placeholder="Opsional"></div></div>
+    <div class="form-group"><label>Tindak Lanjut / Solusi</label><textarea class="form-control" id="dtSolusi" rows="2" placeholder="Opsional"></textarea></div>
     <div class="grid-2"><div class="form-group"><label>Tanggal *</label><input class="form-control" type="date" id="dtDate" value="${todayStr()}"></div><div class="form-group"><label>Waktu</label><input class="form-control" type="time" id="dtTime"></div></div>
     <div class="grid-2"><div class="form-group"><label>Prioritas</label><select class="form-control" id="dtPriority"><option value="medium">Sedang</option><option value="high">Tinggi</option><option value="low">Rendah</option></select></div><div class="form-group"><label>Pengingat</label><select class="form-control" id="dtReminder"><option value="">Tidak ada</option><option value="15 menit">15 menit</option><option value="30 menit">30 menit</option><option value="1 jam">1 jam</option><option value="1 hari">1 hari</option></select></div></div>
     <div class="form-group"><label>Ulangi</label><select class="form-control" id="dtRepeat"><option value="">Tidak</option><option value="daily">Setiap Hari</option><option value="weekly">Setiap Minggu</option><option value="monthly">Setiap Bulan</option></select></div>
@@ -2220,6 +2354,10 @@ async function simpanDailyTask() {
       await db.collection('hrd_daily_tasks').add({
         title: title,
         description: document.getElementById('dtDesc').value.trim(),
+        aktivitas: document.getElementById('dtAktivitas').value.trim(),
+        progress: Math.max(0, Math.min(100, parseInt(document.getElementById('dtProgress').value, 10) || 0)),
+        kendala: document.getElementById('dtKendala').value.trim(),
+        solusi: document.getElementById('dtSolusi').value.trim(),
         tanggal: tanggal,
         waktu: document.getElementById('dtTime').value || '',
         priority: document.getElementById('dtPriority').value,
@@ -2293,6 +2431,9 @@ async function editDailyTask(id) {
     ${reassignHtml}
     <div class="form-group"><label>Judul *</label><input class="form-control" id="dtEditTitle" value="${escHtml(task.title)}"></div>
     <div class="form-group"><label>Deskripsi</label><textarea class="form-control" id="dtEditDesc" rows="4" style="white-space:pre-wrap">${escHtml(task.description || '')}</textarea></div>
+    <div class="form-group"><label>Aktivitas / Update Progress</label><textarea class="form-control" id="dtEditAktivitas" rows="3" style="white-space:pre-wrap">${escHtml(task.aktivitas || '')}</textarea></div>
+    <div class="grid-2"><div class="form-group"><label>Progress (%)</label><input class="form-control" type="number" id="dtEditProgress" value="${Math.max(0, Math.min(100, parseInt(task.progress, 10) || 0))}" min="0" max="100"></div><div class="form-group"><label>Kendala</label><input class="form-control" id="dtEditKendala" value="${escHtml(task.kendala || '')}"></div></div>
+    <div class="form-group"><label>Tindak Lanjut / Solusi</label><textarea class="form-control" id="dtEditSolusi" rows="2" style="white-space:pre-wrap">${escHtml(task.solusi || '')}</textarea></div>
     <div class="grid-2"><div class="form-group"><label>Tanggal *</label><input class="form-control" type="date" id="dtEditDate" value="${task.tanggal}"></div><div class="form-group"><label>Waktu</label><input class="form-control" type="time" id="dtEditTime" value="${task.waktu || ''}"></div></div>
     <div class="grid-2"><div class="form-group"><label>Prioritas</label><select class="form-control" id="dtEditPriority"><option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>Sedang</option><option value="high" ${task.priority === 'high' ? 'selected' : ''}>Tinggi</option><option value="low" ${task.priority === 'low' ? 'selected' : ''}>Rendah</option></select></div><div class="form-group"><label>Pengingat</label><select class="form-control" id="dtEditReminder"><option value="" ${!task.reminder ? 'selected' : ''}>Tidak ada</option><option value="15 menit" ${task.reminder === '15 menit' ? 'selected' : ''}>15 menit</option><option value="30 menit" ${task.reminder === '30 menit' ? 'selected' : ''}>30 menit</option><option value="1 jam" ${task.reminder === '1 jam' ? 'selected' : ''}>1 jam</option><option value="1 hari" ${task.reminder === '1 hari' ? 'selected' : ''}>1 hari</option></select></div></div>
     <div class="form-group"><label>Ulangi</label><select class="form-control" id="dtEditRepeat"><option value="" ${!task.repeat ? 'selected' : ''}>Tidak</option><option value="daily" ${task.repeat === 'daily' ? 'selected' : ''}>Setiap Hari</option><option value="weekly" ${task.repeat === 'weekly' ? 'selected' : ''}>Setiap Minggu</option><option value="monthly" ${task.repeat === 'monthly' ? 'selected' : ''}>Setiap Bulan</option></select></div>
@@ -2306,6 +2447,10 @@ async function updateDailyTask(id) {
   const updateData = {
     title,
     description: document.getElementById('dtEditDesc').value.trim(),
+    aktivitas: document.getElementById('dtEditAktivitas').value.trim(),
+    progress: Math.max(0, Math.min(100, parseInt(document.getElementById('dtEditProgress').value, 10) || 0)),
+    kendala: document.getElementById('dtEditKendala').value.trim(),
+    solusi: document.getElementById('dtEditSolusi').value.trim(),
     tanggal,
     waktu: document.getElementById('dtEditTime').value || '',
     priority: document.getElementById('dtEditPriority').value,
@@ -2933,6 +3078,8 @@ function startTaskReminderCheck() {
 
 // ── DAILY REPORT AUTO-SUMMARY & WA SHARE ──────────────────────
 let _reportSummaryInterval = null;
+let _reportSummaryDivisionFilter = 'all';
+let _reportSummaryCache = {};
 
 function startReportSummaryScheduler() {
   if (_reportSummaryInterval) clearInterval(_reportSummaryInterval);
@@ -2989,21 +3136,38 @@ async function _loadReportSummaryForDate(dateVal) {
 
   const snap = await db.collection('hrd_daily_tasks').get();
 
-  // Filter reports for selected date
-  const reports = [];
+  // Build cache and collect reports for selected date
+  _reportSummaryCache = {};
+  const allReports = [];
   snap.forEach(function (d) {
     var t = d.data();
     if (t.type === 'report' && t.tanggal === dateVal) {
-      reports.push(t);
+      var rep = Object.assign({ id: d.id }, t);
+      allReports.push(rep);
+      _reportSummaryCache[d.id] = rep;
     }
   });
 
-  // Group by department
+  // Apply division filter
+  var reports = allReports;
+  if (_reportSummaryDivisionFilter === 'academic') {
+    reports = allReports.filter(function (r) {
+      return (r.departemen || '').toUpperCase() === 'ACADEMIC';
+    });
+  } else if (_reportSummaryDivisionFilter === 'office') {
+    reports = allReports.filter(function (r) {
+      return (r.departemen || '').toUpperCase() === 'OFFICE';
+    });
+  }
+
+  // Group by department then by category
   var byDept = {};
   reports.forEach(function (r) {
-    var dept = r.departemen || 'LAINNYA';
-    if (!byDept[dept]) byDept[dept] = [];
-    byDept[dept].push(r);
+    var dept = (r.departemen || 'LAINNYA').toUpperCase();
+    var kat = (r.kategori || 'UMUM').toUpperCase();
+    if (!byDept[dept]) byDept[dept] = {};
+    if (!byDept[dept][kat]) byDept[dept][kat] = [];
+    byDept[dept][kat].push(r);
   });
 
   // Build display + WA text
@@ -3034,7 +3198,10 @@ async function _loadReportSummaryForDate(dateVal) {
     Object.keys(byDept)
       .sort()
       .forEach(function (dept) {
-        var items = byDept[dept];
+        var katMap = byDept[dept];
+        var deptItems = Object.values(katMap).reduce(function (acc, arr) {
+          return acc.concat(arr);
+        }, []);
         var icon = dept.includes('ACADEMIC') ? '\ud83d\udcda' : '\ud83c\udfe2';
         var deptDone = 0;
         var deptProgress = 0;
@@ -3043,111 +3210,150 @@ async function _loadReportSummaryForDate(dateVal) {
         var deptKendala = 0;
         var deptTanpaKendala = 0;
         var deptKendalaNotes = [];
-        waText += icon + ' ' + dept + ' (' + items.length + ' report)\n';
+        waText += icon + ' ' + dept + ' (' + deptItems.length + ' report)\n';
         htmlContent +=
           '<div class="card mb-8"><div class="fw-700 mb-8">' +
           icon +
           ' ' +
           escHtml(dept) +
           ' (' +
-          items.length +
+          deptItems.length +
           ')</div>';
 
-        items.forEach(function (r) {
-          var nama = (r.targetUserName || r.nama || '-').toUpperCase();
-          var aktivitasRaw = (r.aktivitas || '-').trim();
-          var aktivitasFirst = aktivitasRaw.split('\n')[0].substring(0, 80);
-          var prog = parseInt(r.progress, 10);
-          if (isNaN(prog)) prog = 0;
-          prog = Math.max(0, Math.min(100, prog));
-          var status = prog >= 100 ? '\u2705' : prog + '%';
-          var hasil = (r.hasil || '').trim();
-          var kendala = (r.kendala || '').trim();
-          var solusi = (r.solusi || '').trim();
-          var aktivitasDisplay = aktivitasRaw.substring(0, 180);
-          var hasilDisplay = hasil.substring(0, 180);
-          var kendalaDisplay = kendala.substring(0, 180);
-          var solusiDisplay = solusi.substring(0, 180);
-          var progressColor = prog >= 100 ? '#2e7d32' : prog >= 50 ? '#f57f17' : '#c62828';
-
-          // WA text with detail
-          waText += '\u2022 ' + nama + '\n';
-          waText += '  \ud83d\udcc8 Progress: ' + prog + '%\n';
-          waText += '  \ud83d\udccb Aktivitas: ' + aktivitasFirst + '\n';
-          if (hasil) waText += '  \u2714 Hasil: ' + hasil.split('\n')[0].substring(0, 100) + '\n';
-          if (kendala)
-            waText += '  \u26a0 Kendala: ' + kendala.split('\n')[0].substring(0, 100) + '\n';
-          if (solusi)
-            waText +=
-              '  \ud83d\udca1 Tindak Lanjut: ' + solusi.split('\n')[0].substring(0, 100) + '\n';
-
-          // HTML display with detail
-          htmlContent +=
-            '<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:.85rem">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div>\u2022 <b>' +
-            escHtml(nama) +
-            '</b></div><div style="font-weight:700;color:' +
-            progressColor +
-            '">' +
-            status +
-            '</div></div>';
-          htmlContent +=
-            '<div style="padding-left:16px;font-size:.78rem;margin-top:4px"><div style="height:6px;background:#eee;border-radius:999px;overflow:hidden"><div style="height:100%;width:' +
-            Math.min(100, Math.max(0, prog)) +
-            '%;background:' +
-            progressColor +
-            '"></div></div><div style="margin-top:4px;color:#333">\ud83d\udccb Aktivitas: ' +
-            escHtml(aktivitasDisplay || '-') +
-            '</div></div>';
-          if (hasil)
+        // Render by category
+        Object.keys(katMap)
+          .sort()
+          .forEach(function (kat) {
+            var items = katMap[kat];
+            var katLabel = kat;
             htmlContent +=
-              '<div style="padding-left:16px;font-size:.78rem;color:#2e7d32;margin-top:2px">\u2714 Hasil: ' +
-              escHtml(hasilDisplay) +
-              '</div>';
-          if (kendala)
-            htmlContent +=
-              '<div style="padding-left:16px;font-size:.78rem;color:#c62828;margin-top:2px">\u26a0 Kendala: ' +
-              escHtml(kendalaDisplay) +
-              '</div>';
-          if (solusi)
-            htmlContent +=
-              '<div style="padding-left:16px;font-size:.78rem;color:#e65100;margin-top:2px">\ud83d\udca1 Tindak Lanjut: ' +
-              escHtml(solusiDisplay) +
-              '</div>';
-          htmlContent += '</div>';
+              '<div style="margin-bottom:12px;background:#f8f9ff;border-radius:8px;padding:10px 12px">' +
+              '<div style="font-weight:600;font-size:.82rem;color:#1565c0;margin-bottom:6px;border-bottom:1px solid #d0d9ff;padding-bottom:4px">' +
+              '\ud83d\udcc2 ' +
+              escHtml(katLabel) +
+              ' (' +
+              items.length +
+              ')</div>';
+            waText += '  \ud83d\udcc2 ' + katLabel + ' (' + items.length + ')\n';
 
-          if (prog >= 100) {
-            totalDone++;
-            deptDone++;
-          } else {
-            totalProgress++;
-            deptProgress++;
-            if (prog >= 70) {
-              totalOnTrack++;
-              deptOnTrack++;
-            } else {
-              totalNeedAttention++;
-              deptNeedAttention++;
-            }
-          }
-          if (kendala) {
-            totalKendala++;
-            deptKendala++;
-            deptKendalaNotes.push('• ' + nama + ': ' + kendala.split('\n')[0].substring(0, 80));
-          } else {
-            totalTanpaKendala++;
-            deptTanpaKendala++;
-          }
-          totalProgressValue += prog;
-        });
+            items.forEach(function (r) {
+              var nama = (r.targetUserName || r.nama || '-').toUpperCase();
+              var aktivitasRaw = (r.aktivitas || '-').trim();
+              var aktivitasFirst = aktivitasRaw.split('\n')[0].substring(0, 80);
+              var prog = parseInt(r.progress, 10);
+              if (isNaN(prog)) prog = 0;
+              prog = Math.max(0, Math.min(100, prog));
+              var status = prog >= 100 ? '\u2705' : prog + '%';
+              var hasil = (r.hasil || '').trim();
+              var kendala = (r.kendala || '').trim();
+              var solusi = (r.solusi || '').trim();
+              var aktivitasDisplay = aktivitasRaw.substring(0, 180);
+              var hasilDisplay = hasil.substring(0, 180);
+              var kendalaDisplay = kendala.substring(0, 180);
+              var solusiDisplay = solusi.substring(0, 180);
+              var progressColor = prog >= 100 ? '#2e7d32' : prog >= 50 ? '#f57f17' : '#c62828';
 
-        var deptAvg = items.length
+              // WA text with detail
+              waText += '    \u2022 ' + nama + '\n';
+              waText += '      \ud83d\udcc8 Progress: ' + prog + '%\n';
+              waText += '      \ud83d\udccb Aktivitas: ' + aktivitasFirst + '\n';
+              if (hasil)
+                waText += '      \u2714 Hasil: ' + hasil.split('\n')[0].substring(0, 100) + '\n';
+              if (kendala)
+                waText +=
+                  '      \u26a0 Kendala: ' + kendala.split('\n')[0].substring(0, 100) + '\n';
+              if (solusi)
+                waText +=
+                  '      \ud83d\udca1 Tindak Lanjut: ' +
+                  solusi.split('\n')[0].substring(0, 100) +
+                  '\n';
+
+              // HTML display — clickable row
+              htmlContent +=
+                '<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:.85rem;cursor:pointer;border-radius:6px;transition:background .15s" ' +
+                'onclick="viewReportFromSummary(\'' +
+                r.id +
+                '\')" ' +
+                'onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
+                '<div>\u2022 <b>' +
+                escHtml(nama) +
+                '</b></div>' +
+                '<div style="display:flex;align-items:center;gap:6px">' +
+                '<div style="font-weight:700;color:' +
+                progressColor +
+                '">' +
+                status +
+                '</div>' +
+                '<button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewReportFromSummary(\'' +
+                r.id +
+                '\')" style="padding:2px 7px;font-size:.7rem">\ud83d\udc41\ufe0f View</button>' +
+                '</div></div>';
+              htmlContent +=
+                '<div style="padding-left:16px;font-size:.78rem;margin-top:4px">' +
+                '<div style="height:6px;background:#eee;border-radius:999px;overflow:hidden">' +
+                '<div style="height:100%;width:' +
+                Math.min(100, Math.max(0, prog)) +
+                '%;background:' +
+                progressColor +
+                '"></div></div>' +
+                '<div style="margin-top:4px;color:#333">\ud83d\udccb Aktivitas: ' +
+                escHtml(aktivitasDisplay || '-') +
+                '</div></div>';
+              if (hasil)
+                htmlContent +=
+                  '<div style="padding-left:16px;font-size:.78rem;color:#2e7d32;margin-top:2px">\u2714 Hasil: ' +
+                  escHtml(hasilDisplay) +
+                  '</div>';
+              if (kendala)
+                htmlContent +=
+                  '<div style="padding-left:16px;font-size:.78rem;color:#c62828;margin-top:2px">\u26a0 Kendala: ' +
+                  escHtml(kendalaDisplay) +
+                  '</div>';
+              if (solusi)
+                htmlContent +=
+                  '<div style="padding-left:16px;font-size:.78rem;color:#e65100;margin-top:2px">\ud83d\udca1 Tindak Lanjut: ' +
+                  escHtml(solusiDisplay) +
+                  '</div>';
+              htmlContent += '</div>';
+
+              if (prog >= 100) {
+                totalDone++;
+                deptDone++;
+              } else {
+                totalProgress++;
+                deptProgress++;
+                if (prog >= 70) {
+                  totalOnTrack++;
+                  deptOnTrack++;
+                } else {
+                  totalNeedAttention++;
+                  deptNeedAttention++;
+                }
+              }
+              if (kendala) {
+                totalKendala++;
+                deptKendala++;
+                deptKendalaNotes.push(
+                  '• ' + nama + ': ' + kendala.split('\n')[0].substring(0, 80)
+                );
+              } else {
+                totalTanpaKendala++;
+                deptTanpaKendala++;
+              }
+              totalProgressValue += prog;
+            });
+
+            htmlContent += '</div>'; // end category block
+          });
+
+        var deptAvg = deptItems.length
           ? Math.round(
-              items.reduce(function (acc, it) {
+              deptItems.reduce(function (acc, it) {
                 var p = parseInt(it.progress, 10);
                 if (isNaN(p)) p = 0;
                 return acc + Math.max(0, Math.min(100, p));
-              }, 0) / items.length
+              }, 0) / deptItems.length
             )
           : 0;
         waText +=
@@ -3198,15 +3404,17 @@ async function _loadReportSummaryForDate(dateVal) {
         }
         htmlContent +=
           '<div style="padding-top:6px;font-size:.72rem;color:#777">Coverage kendala: <b>' +
-          (items.length ? Math.round((deptKendala / items.length) * 100) : 0) +
+          (deptItems.length ? Math.round((deptKendala / deptItems.length) * 100) : 0) +
           '%</b> report punya hambatan</div>';
         htmlContent +=
           '<div style="padding-top:4px;font-size:.72rem;color:#777">Coverage progres tinggi (Done + On Track): <b>' +
-          (items.length ? Math.round(((deptDone + deptOnTrack) / items.length) * 100) : 0) +
+          (deptItems.length
+            ? Math.round(((deptDone + deptOnTrack) / deptItems.length) * 100)
+            : 0) +
           '%</b></div>';
         htmlContent +=
           '<div style="padding-top:2px;font-size:.72rem;color:#777">Coverage progres rendah (Perlu Atensi): <b>' +
-          (items.length ? Math.round((deptNeedAttention / items.length) * 100) : 0) +
+          (deptItems.length ? Math.round((deptNeedAttention / deptItems.length) * 100) : 0) +
           '%</b></div>';
         htmlContent += '</div>';
       });
@@ -3241,6 +3449,29 @@ async function _loadReportSummaryForDate(dateVal) {
       kendalaCoverage +
       '%';
   }
+
+  // Build division filter tabs
+  var filterTabs =
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">' +
+    ['all', 'academic', 'office']
+      .map(function (div) {
+        var label = div === 'all' ? '🗂️ Semua' : div === 'academic' ? '📚 Academic' : '🏢 Office';
+        var active = _reportSummaryDivisionFilter === div;
+        return (
+          '<button class="btn btn-sm" ' +
+          'style="' +
+          (active
+            ? 'background:var(--primary);color:#fff;font-weight:700'
+            : 'background:#f0f0f0;color:#333') +
+          '" onclick="filterReportSummaryByDivision(\'' +
+          div +
+          '\')">' +
+          label +
+          '</button>'
+        );
+      })
+      .join('') +
+    '</div>';
 
   var summaryPage =
     '<div class="card mb-16">' +
@@ -3281,6 +3512,7 @@ async function _loadReportSummaryForDate(dateVal) {
     '</div>' +
     '</div>' +
     '</div>' +
+    filterTabs +
     htmlContent +
     '<textarea id="waShareText" style="display:none">' +
     escHtml(waText) +
@@ -3289,6 +3521,129 @@ async function _loadReportSummaryForDate(dateVal) {
   container.innerHTML = summaryPage;
   // Store raw waText for sharing (textarea has escaped HTML, we need raw)
   container.setAttribute('data-wa-text', waText);
+}
+
+function filterReportSummaryByDivision(div) {
+  _reportSummaryDivisionFilter = div;
+  var dateVal = (document.getElementById('summaryDate') || {}).value || todayStr();
+  _loadReportSummaryForDate(dateVal);
+}
+
+function viewReportFromSummary(id) {
+  var task = _reportSummaryCache[id];
+  if (!task) {
+    toast('Data report tidak ditemukan', 'warning');
+    return;
+  }
+  var moodMap = {
+    sangat_baik: '\ud83e\udd29 Sangat Baik',
+    baik: '\ud83d\ude0a Baik',
+    cukup: '\ud83d\ude10 Cukup',
+    kurang: '\ud83d\ude1f Kurang',
+    buruk: '\ud83d\ude1e Buruk',
+    sangat_buruk: '\ud83d\ude2b Sangat Buruk',
+  };
+  var moodLabel = moodMap[task.mood] || '\ud83d\ude10 ' + (task.mood || '-');
+  var progressColor =
+    task.progress >= 80 ? '#2e7d32' : task.progress >= 50 ? '#f57f17' : '#c62828';
+  openModal(
+    '<div class="modal-title">\ud83d\udcdd Daily Report</div>' +
+      '<div style="background:#f8f9ff;padding:16px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">' +
+      '<div class="fw-700" style="color:var(--primary)">' +
+      escHtml(task.targetUserName || task.nama || '-') +
+      '</div>' +
+      '<div class="text-sm" style="color:#666">\ud83d\udcc5 ' +
+      formatDate(task.tanggal) +
+      ' | \u23f0 ' +
+      (task.jamMasuk || '-') +
+      ' - ' +
+      (task.jamKeluar || '-') +
+      '</div>' +
+      '<div class="text-sm mt-4">\ud83c\udfe2 ' +
+      escHtml(task.departemen || '-') +
+      ' | \ud83d\udcc2 ' +
+      escHtml(task.kategori || '-') +
+      '</div>' +
+      '<div class="text-sm mt-4">Progress: <span style="color:' +
+      progressColor +
+      ';font-weight:700">' +
+      (task.progress || 0) +
+      '%</span> | Durasi: <b>' +
+      (task.durasi || '-') +
+      ' hari</b> | Mood: ' +
+      moodLabel +
+      '</div>' +
+      '</div>' +
+      '<div class="mb-16"><div class="fw-700 mb-4" style="color:var(--primary)">\ud83d\udccb Aktivitas</div>' +
+      '<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap;line-height:1.7">' +
+      escHtml(task.aktivitas || task.description || '-') +
+      '</div></div>' +
+      (task.hasil
+        ? '<div class="mb-16"><div class="fw-700 mb-4" style="color:#2e7d32">\u2705 Hasil / Output</div><div style="background:#f1f8e9;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">' +
+          escHtml(task.hasil) +
+          '</div></div>'
+        : '') +
+      (task.kendala
+        ? '<div class="mb-16"><div class="fw-700 mb-4" style="color:#c62828">\u26a0\ufe0f Kendala / Case</div><div style="background:#fff8f8;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">' +
+          escHtml(task.kendala) +
+          '</div></div>'
+        : '') +
+      (task.solusi
+        ? '<div class="mb-16"><div class="fw-700 mb-4" style="color:#ff6f00">\ud83d\udca1 Solusi / Tindakan</div><div style="background:#fff8e1;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">' +
+          escHtml(task.solusi) +
+          '</div></div>'
+        : '') +
+      (task.rencana
+        ? '<div class="mb-16"><div class="fw-700 mb-4" style="color:#1565c0">\ud83c\udf1f Rencana Besok</div><div style="background:#e3f2fd;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">' +
+          escHtml(task.rencana) +
+          '</div></div>'
+        : '') +
+      (task.komentarAtasan
+        ? '<div class="mb-16"><div class="fw-700 mb-4" style="color:#6a1b9a">\ud83d\udcac Komentar untuk Atasan</div><div style="background:#f3e5f5;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">' +
+          escHtml(task.komentarAtasan) +
+          '</div></div>'
+        : '') +
+      (task.komentarRekan
+        ? '<div class="mb-16"><div class="fw-700 mb-4" style="color:#00695c">\ud83e\udd1d Komentar untuk Rekan Kerja</div><div style="background:#e0f2f1;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">' +
+          escHtml(task.komentarRekan) +
+          '</div></div>'
+        : '') +
+      (task.attachments && task.attachments.length
+        ? '<div class="mb-16" style="padding:16px;background:#f8f9ff;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:#37474f">\ud83d\udcce Lampiran Eviden (' +
+          task.attachments.length +
+          ' file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px">' +
+          task.attachments
+            .map(function (a, i) {
+              return a.type && a.type.startsWith('image/')
+                ? '<div style="text-align:center;cursor:pointer" onclick="viewEviden(\'' +
+                    encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data })) +
+                    '\')"><img src="' +
+                    a.data +
+                    '" style="width:100%;height:100px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.6rem;color:#666;margin-top:4px">' +
+                    escHtml(a.name || 'Foto ' + (i + 1)) +
+                    '</div></div>'
+                : '<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:14px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden(\'' +
+                    encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data })) +
+                    '\')"><div style="font-size:2.5rem">' +
+                    (a.name && a.name.endsWith('.pdf')
+                      ? '\ud83d\udcd5'
+                      : a.name && a.name.match(/\.docx?$/)
+                        ? '\ud83d\udcd8'
+                        : a.name && a.name.match(/\.xlsx?$/)
+                          ? '\ud83d\udcd7'
+                          : '\ud83d\udcc4') +
+                    '</div><div style="font-size:.65rem;color:#333;margin-top:6px;text-align:center;word-break:break-all">' +
+                    escHtml(a.name) +
+                    '</div><div style="font-size:.6rem;color:#1565c0;margin-top:4px;font-weight:600">\ud83d\udc41\ufe0f Lihat</div></div>';
+            })
+            .join('') +
+          '</div></div>'
+        : '') +
+      '<div class="text-xs" style="color:#999">Dikirim: ' +
+      formatDateTime(task.createdAt) +
+      '</div>',
+    true
+  );
 }
 
 async function shareReportWA() {
@@ -4039,6 +4394,9 @@ async function submitWeeklyImport() {
 var _weeklyReportFilter = 'all';
 var _wrDateFrom = '';
 var _wrDateTo = '';
+var _weeklyReportLookup = {};
+var WEEKLY_REPORT_DEFAULT_COL = 'hrd_daily_tasks';
+var WEEKLY_REPORT_PREVIEW_MAX_LENGTH = 140;
 async function loadWeeklyReports(divFilter) {
   if (divFilter !== undefined) _weeklyReportFilter = divFilter;
   document.querySelectorAll('#taskTabs .tab').forEach(function (t) {
@@ -4054,7 +4412,7 @@ async function loadWeeklyReports(divFilter) {
     var items = [];
     var snap = await db
       .collection('hrd_daily_tasks')
-      .where('source', '==', 'spreadsheet-import')
+      .where('type', '==', 'report')
       .get();
     snap.forEach(function (d) {
       items.push({ id: d.id, col: 'hrd_daily_tasks', ...d.data() });
@@ -4074,7 +4432,7 @@ async function loadWeeklyReports(divFilter) {
       return;
     }
     // Manager/Leader: only see own division. HEAD/Admin see all.
-    if (!hasAccess(4)) {
+    if (!hasHeadLevelAccess()) {
       var myDept = (currentUser.departemen || '').toUpperCase().trim();
       if (myDept) {
         items = items.filter(function (r) {
@@ -4186,10 +4544,12 @@ async function loadWeeklyReports(divFilter) {
       wrCatOpts +
       '</select>';
     html += '<span style="margin-left:auto"></span>';
-    html +=
-      '<button class="btn btn-xs btn-danger" onclick="deleteSelectedWeeklyReports()">🗑️ Hapus Terpilih</button> ';
-    html +=
-      '<button class="btn btn-xs btn-warning" onclick="resetAllWeeklyReports()">⚠️ Reset Semua</button>';
+    if (currentUser.role !== 'bod') {
+      html +=
+        '<button class="btn btn-xs btn-danger" onclick="deleteSelectedWeeklyReports()">🗑️ Hapus Terpilih</button> ';
+      html +=
+        '<button class="btn btn-xs btn-warning" onclick="resetAllWeeklyReports()">⚠️ Reset Semua</button>';
+    }
     html += '</div>';
     html +=
       '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:8px 12px;background:#f8f9ff;border-radius:8px">';
@@ -4207,16 +4567,19 @@ async function loadWeeklyReports(divFilter) {
       html +=
         '<button class="btn btn-xs btn-outline" onclick="_wrDateFrom=\'\';_wrDateTo=\'\';loadWeeklyReports()">✕</button>';
     html += '</div>';
-    html +=
-      '<div style="margin-bottom:8px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="wrSelectAll" onchange="document.querySelectorAll(\'.wr-check\').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="text-sm fw-700">Pilih Semua (' +
-      filtered.length +
-      ' data)</span></label></div>';
+    if (currentUser.role !== 'bod') {
+      html +=
+        '<div style="margin-bottom:8px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="wrSelectAll" onchange="document.querySelectorAll(\'.wr-check\').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="text-sm fw-700">Pilih Semua (' +
+        filtered.length +
+        ' data)</span></label></div>';
+    }
     if (!filtered.length) {
       html +=
         '<div style="text-align:center;padding:24px;color:#999">Tidak ada data untuk filter ini.</div>';
       listEl.innerHTML = html;
       return;
     }
+    _weeklyReportLookup = {};
     var groups = {};
     filtered.forEach(function (r) {
       var div = r.departemen || r.divisi || 'Tanpa Divisi';
@@ -4234,67 +4597,168 @@ async function loadWeeklyReports(divFilter) {
           ' (' +
           rows.length +
           ' data)</div>';
+        var byPic = {};
         rows.forEach(function (r) {
-          var tgl = r.tanggal || r.bulan || '-';
-          var kat = r.kategori || '-';
-          var aktivitas = r.aktivitas || r.progress || '';
-          var kendala = r.kendala || r.case_desc || '';
-          var solusi = r.solusi || r.solution || '';
-          var rencana = r.rencanaBesok || r.planning || '';
-          var pic = r.targetUserName || r.pic || r.nama || '-';
-          var komentar = r.komentar || r.keterangan || '';
-          html +=
-            '<div style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff">';
-          html += '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">';
-          html +=
-            '<input type="checkbox" class="wr-check" value="' +
-            r.id +
-            '" data-col="' +
-            (r.col || 'hrd_daily_tasks') +
-            '">';
-          html += '<div style="flex:1"><div class="fw-700">' + escHtml(pic) + '</div>';
-          html +=
-            '<div class="text-xs" style="color:#666">📅 ' +
-            escHtml(tgl) +
-            ' | 🏢 ' +
-            escHtml(div) +
-            ' | 🏷️ ' +
-            escHtml(kat) +
-            '</div></div></div>';
-          if (aktivitas)
-            html +=
-              '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#1565c0">📋 Aktivitas / Progress</div><div style="padding:8px;background:#f8f9ff;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
-              escHtml(aktivitas) +
-              '</div></div>';
-          if (kendala)
-            html +=
-              '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#e65100">⚠️ Kendala / Case</div><div style="padding:8px;background:#fff8e1;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
-              escHtml(kendala) +
-              '</div></div>';
-          if (solusi)
-            html +=
-              '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#2e7d32">💡 Solusi / Tindakan</div><div style="padding:8px;background:#e8f5e9;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
-              escHtml(solusi) +
-              '</div></div>';
-          if (rencana)
-            html +=
-              '<div style="margin-bottom:8px"><div class="text-xs fw-700" style="color:#6a1b9a">🌟 Planning & Target</div><div style="padding:8px;background:#f3e5f5;border-radius:6px;font-size:.82rem;white-space:pre-wrap;margin-top:4px">' +
-              escHtml(rencana) +
-              '</div></div>';
-          if (komentar)
-            html +=
-              '<div><div class="text-xs fw-700" style="color:#555">💬 Keterangan</div><div style="padding:8px;background:#f5f5f5;border-radius:6px;font-size:.82rem;margin-top:4px">' +
-              escHtml(komentar) +
-              '</div></div>';
-          html += '</div>';
+          var picKey = r.targetUserName || r.pic || r.nama || '-';
+          if (!byPic[picKey]) byPic[picKey] = [];
+          byPic[picKey].push(r);
         });
+        Object.keys(byPic)
+          .sort()
+          .forEach(function (pic) {
+            var userRows = byPic[pic];
+            html +=
+              '<div style="padding:8px 12px;margin:10px 0 8px;background:#f4f6ff;border-radius:8px;border-left:4px solid #5c6bc0;font-weight:700;font-size:.82rem;color:#3949ab">👤 ' +
+              escHtml(pic) +
+              ' (' +
+              userRows.length +
+              ' report)</div>';
+            userRows.forEach(function (r) {
+              var tgl = r.tanggal || r.bulan || '-';
+              var kat = r.kategori || '-';
+              var aktivitas = r.aktivitas || '';
+              var progressText = String(r.progress || '').trim();
+              var progressNum = parseInt(progressText, 10);
+              var hasProgressNum = !isNaN(progressNum);
+              if (hasProgressNum) progressNum = Math.max(0, Math.min(100, progressNum));
+              var progressColor = hasProgressNum
+                ? progressNum >= 100
+                  ? '#2e7d32'
+                  : progressNum >= 70
+                    ? '#f57f17'
+                    : '#c62828'
+                : '#1565c0';
+              var kendala = r.kendala || r.case_desc || '';
+              var solusi = r.solusi || r.solution || '';
+              var rencana = r.rencanaBesok || r.rencana || r.planning || '';
+              var komentar = r.komentar || r.keterangan || r.komentarAtasan || '';
+              var wrKey = (r.col || WEEKLY_REPORT_DEFAULT_COL) + '::' + r.id;
+              var wrKeyEncoded = encodeURIComponent(wrKey);
+              _weeklyReportLookup[wrKey] = r;
+              var previewText = [aktivitas, kendala, solusi, rencana, komentar].find(function (txt) {
+                return txt && txt.trim();
+              });
+              if (!previewText) previewText = '-';
+              if (previewText.length > WEEKLY_REPORT_PREVIEW_MAX_LENGTH)
+                previewText =
+                  previewText.substring(0, WEEKLY_REPORT_PREVIEW_MAX_LENGTH) + '...';
+              html +=
+                '<div style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;cursor:pointer" onclick="viewWeeklyReportItem(\'' +
+                wrKeyEncoded +
+                '\')">';
+              html += '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">';
+              if (currentUser.role !== 'bod') {
+                html +=
+                  '<input type="checkbox" class="wr-check" value="' +
+                  r.id +
+                  '" data-col="' +
+                  (r.col || WEEKLY_REPORT_DEFAULT_COL) +
+                  '" onclick="event.stopPropagation()">';
+              }
+              html += '<div style="flex:1"><div class="fw-700">' + escHtml(pic) + '</div>';
+              html +=
+                '<div class="text-xs" style="color:#666">📅 ' +
+                escHtml(tgl) +
+                ' | 🏢 ' +
+                escHtml(div) +
+                ' | 🏷️ ' +
+                escHtml(kat) +
+                '</div></div></div>';
+              html +=
+                '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px"><div style="font-size:.8rem;font-weight:700;color:' +
+                progressColor +
+                '">📈 Progress: ' +
+                escHtml(progressText || '-') +
+                (hasProgressNum && progressText.indexOf('%') === -1 ? '%' : '') +
+                '</div><button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem(\'' +
+                wrKeyEncoded +
+                '\')">👁️ View</button></div>';
+              html +=
+                '<div style="font-size:.82rem;color:#333;line-height:1.5;background:#f8f9ff;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ' +
+                escHtml(previewText) +
+                '</div>';
+              html += '</div>';
+            });
+            html += _buildReportTrackerStats(userRows);
+          });
+        html += _buildReportTrackerStats(rows);
         html += '</div>';
       });
+    // Overall summary tracker for all filtered data across all divisions
+    if (Object.keys(groups).length > 0) {
+      html +=
+        '<div style="margin-top:20px;padding:10px 14px;background:#fafafa;border-radius:8px;border:1px solid #ddd;font-weight:700;font-size:.82rem;color:#555">' +
+        '\ud83d\udcca Ringkasan Keseluruhan Laporan Mingguan (' +
+        filtered.length +
+        ' data)</div>';
+      html += _buildReportTrackerStats(filtered);
+    }
     listEl.innerHTML = html;
   } catch (e) {
     listEl.innerHTML =
       '<p class="text-sm" style="color:#c62828">Gagal memuat: ' + escHtml(e.message) + '</p>';
   }
+}
+
+function viewWeeklyReportItem(key) {
+  key = decodeURIComponent(key || '');
+  var report = _weeklyReportLookup[key];
+  if (!report) return toast('Data laporan tidak ditemukan', 'warning');
+  var tgl = report.tanggal ? formatDate(report.tanggal) : report.bulan || '-';
+  var pic = report.targetUserName || report.pic || report.nama || '-';
+  var div = report.departemen || report.divisi || '-';
+  var kat = report.kategori || '-';
+  var progressText = String(report.progress || '-').trim() || '-';
+  var progressNum = parseInt(progressText, 10);
+  var hasProgressNum = !isNaN(progressNum);
+  var aktivitas = report.aktivitas || report.description || '-';
+  var kendala = report.kendala || report.case_desc || '';
+  var solusi = report.solusi || report.solution || '';
+  var rencana = report.rencanaBesok || report.rencana || report.planning || '';
+  var komentar = report.komentar || report.keterangan || report.komentarAtasan || '';
+  openModal(
+    '<div class="modal-title">👁️ Detail Laporan</div>' +
+      '<div style="background:#f8f9ff;padding:14px;border-radius:8px;margin-bottom:14px;border-left:4px solid #1565c0">' +
+      '<div class="fw-700" style="color:#1565c0">👤 ' +
+      escHtml(pic) +
+      '</div>' +
+      '<div class="text-sm mt-4">📅 ' +
+      escHtml(tgl) +
+      ' | 🏢 ' +
+      escHtml(div) +
+      ' | 📂 ' +
+      escHtml(kat) +
+      '</div>' +
+      '<div class="text-sm mt-4">📈 Progress: <b>' +
+      escHtml(progressText) +
+      (hasProgressNum && progressText.indexOf('%') === -1 ? '%' : '') +
+      '</b></div>' +
+      '</div>' +
+      '<div class="mb-12"><div class="fw-700 mb-4" style="color:#1565c0">📋 Aktivitas</div><div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.84rem;white-space:pre-wrap;line-height:1.6">' +
+      escHtml(aktivitas) +
+      '</div></div>' +
+      (kendala
+        ? '<div class="mb-12"><div class="fw-700 mb-4" style="color:#e65100">⚠️ Kendala / Case</div><div style="background:#fff8e1;border-radius:8px;padding:10px;font-size:.84rem;white-space:pre-wrap">' +
+          escHtml(kendala) +
+          '</div></div>'
+        : '') +
+      (solusi
+        ? '<div class="mb-12"><div class="fw-700 mb-4" style="color:#2e7d32">💡 Solusi / Tindakan</div><div style="background:#e8f5e9;border-radius:8px;padding:10px;font-size:.84rem;white-space:pre-wrap">' +
+          escHtml(solusi) +
+          '</div></div>'
+        : '') +
+      (rencana
+        ? '<div class="mb-12"><div class="fw-700 mb-4" style="color:#6a1b9a">🌟 Planning & Target</div><div style="background:#f3e5f5;border-radius:8px;padding:10px;font-size:.84rem;white-space:pre-wrap">' +
+          escHtml(rencana) +
+          '</div></div>'
+        : '') +
+      (komentar
+        ? '<div class="mb-12"><div class="fw-700 mb-4" style="color:#555">💬 Keterangan</div><div style="background:#f5f5f5;border-radius:8px;padding:10px;font-size:.84rem;white-space:pre-wrap">' +
+          escHtml(komentar) +
+          '</div></div>'
+        : ''),
+    true
+  );
 }
 async function deleteSelectedWeeklyReports() {
   var checked = document.querySelectorAll('.wr-check:checked');
@@ -4473,6 +4937,279 @@ async function viewUserProfile(nama) {
   } catch (e) {
     toast('Gagal memuat profil: ' + e.message, 'error');
   }
+}
+
+// ── ACTIVITY TRACKER HELPERS ────────────────────────────────────
+// Compute and render tracker stats block for a group of report items
+function _buildReportTrackerStats(items) {
+  var done = 0,
+    onTrack = 0,
+    needAttention = 0,
+    progress = 0,
+    kendala = 0,
+    tanpaKendala = 0,
+    totalPct = 0;
+  items.forEach(function (r) {
+    var p = parseInt(String(r.progress || '').trim(), 10);
+    if (isNaN(p)) p = 0;
+    p = Math.max(0, Math.min(100, p));
+    totalPct += p;
+    if (p >= 100) {
+      done++;
+    } else {
+      progress++;
+      if (p >= 70) onTrack++;
+      else needAttention++;
+    }
+    if ((r.kendala || r.case_desc || '').trim()) kendala++;
+    else tanpaKendala++;
+  });
+  var total = items.length;
+  var avg = total ? Math.round(totalPct / total) : 0;
+  var kendalaCov = total ? Math.round((kendala / total) * 100) : 0;
+  var highCov = total ? Math.round(((done + onTrack) / total) * 100) : 0;
+  var lowCov = total ? Math.round((needAttention / total) * 100) : 0;
+  return (
+    '<div style="padding:8px 12px;background:#f0faf4;border-radius:8px;margin-top:8px;font-size:.75rem;border:1px solid #c8e6c9">' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px">' +
+    '<span>\u2705 Done: <b>' +
+    done +
+    '</b></span>' +
+    '<span>\ud83d\udfe1 On Track: <b>' +
+    onTrack +
+    '</b></span>' +
+    '<span>\ud83d\udd34 Perlu Atensi: <b>' +
+    needAttention +
+    '</b></span>' +
+    '<span>\u23f3 Progress: <b>' +
+    progress +
+    '</b></span>' +
+    '<span>\u26a0\ufe0f Kendala: <b>' +
+    kendala +
+    '</b></span>' +
+    '<span>\u2705 Tanpa Kendala: <b>' +
+    tanpaKendala +
+    '</b></span>' +
+    '</div>' +
+    '<div style="color:#2e7d32;font-weight:700">\ud83d\udcc8 Rata-rata: ' +
+    avg +
+    '%</div>' +
+    '<div style="color:#777;margin-top:2px">Coverage kendala: <b>' +
+    kendalaCov +
+    '%</b> report punya hambatan</div>' +
+    '<div style="color:#777">Coverage progres tinggi (Done + On Track): <b>' +
+    highCov +
+    '%</b></div>' +
+    '<div style="color:#777">Coverage progres rendah (Perlu Atensi): <b>' +
+    lowCov +
+    '%</b></div>' +
+    '</div>'
+  );
+}
+
+// Render a single report person row with progress bar + aktivitas
+function _buildReportTrackerRow(r) {
+  var prog = Math.max(0, Math.min(100, parseInt(r.progress, 10) || 0));
+  var progressColor = prog >= 100 ? '#2e7d32' : prog >= 70 ? '#f57f17' : '#c62828';
+  var statusIcon = prog >= 100 ? '\u2705' : prog >= 70 ? '\ud83d\udfe1' : '\ud83d\udd34';
+  var aktivitasDisplay = (r.aktivitas || r.description || '-').substring(0, 200);
+  var canEditReport =
+    currentUser.role !== 'bod' &&
+    (r.userId === currentUser.id || hasAccess(3) || r.source === 'spreadsheet-import');
+  var editBtns = canEditReport
+    ? ' <button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyReport(\'' +
+      r.id +
+      '\')">&#9999;&#65039;</button>' +
+      ' <button class="btn btn-xs btn-danger" onclick="event.stopPropagation();hapusDailyTask(\'' +
+      r.id +
+      '\')">\ud83d\uddd1\ufe0f</button>'
+    : '';
+  return (
+    '<div style="margin-bottom:8px;padding:10px 12px;border:1px solid #e8e8e8;border-radius:8px;background:#fff;cursor:pointer" onclick="viewDailyReport(\'' +
+    r.id +
+    '\')">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
+    '<div style="font-weight:600;font-size:.85rem">' +
+    statusIcon +
+    ' ' +
+    escHtml((r.targetUserName || r.nama || '-').toUpperCase()) +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:6px">' +
+    '<span style="font-weight:700;color:' +
+    progressColor +
+    '">' +
+    (prog >= 100 ? '\u2705' : prog + '%') +
+    '</span>' +
+    '<button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewDailyReport(\'' +
+    r.id +
+    '\')" style="padding:2px 7px;font-size:.7rem">\ud83d\udc41\ufe0f View</button>' +
+    editBtns +
+    '</div></div>' +
+    '<div style="height:8px;background:#eee;border-radius:999px;overflow:hidden;margin:6px 0">' +
+    '<div style="height:100%;width:' +
+    prog +
+    '%;background:' +
+    progressColor +
+    ';border-radius:999px;transition:width .3s"></div>' +
+    '</div>' +
+    '<div style="font-size:.82rem;color:#333">\ud83d\udccb Aktivitas: ' +
+    escHtml(aktivitasDisplay) +
+    '</div>' +
+    (r.kendala
+      ? '<div style="font-size:.78rem;color:#c62828;margin-top:3px">\u26a0\ufe0f Kendala: ' +
+        escHtml((r.kendala || '').substring(0, 120)) +
+        '</div>'
+      : '') +
+    '</div>'
+  );
+}
+
+// Build task completion stats block for a group of task items
+function _buildTaskTrackerStats(tasks) {
+  var total = tasks.length;
+  var done = tasks.filter(function (t) {
+    return t.done;
+  }).length;
+  var today2 = todayStr();
+  var overdue = tasks.filter(function (t) {
+    return !t.done && t.tanggal < today2;
+  }).length;
+  var pending = total - done - overdue;
+  var pct = total ? Math.round((done / total) * 100) : 0;
+  var progressColor = pct >= 80 ? '#2e7d32' : pct >= 50 ? '#f57f17' : '#c62828';
+  return (
+    '<div style="padding:8px 12px;background:#e8f5e9;border-radius:8px;margin-top:8px;font-size:.75rem;border:1px solid #c8e6c9">' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px">' +
+    '<span>\u2705 Selesai: <b>' +
+    done +
+    '</b></span>' +
+    '<span>\u23f3 Proses: <b>' +
+    pending +
+    '</b></span>' +
+    '<span>\ud83d\udd34 Terlambat: <b>' +
+    overdue +
+    '</b></span>' +
+    '<span>\ud83d\udccb Total: <b>' +
+    total +
+    '</b></span>' +
+    '</div>' +
+    '<div style="height:6px;background:#eee;border-radius:999px;overflow:hidden;margin-top:4px">' +
+    '<div style="height:100%;width:' +
+    pct +
+    '%;background:' +
+    progressColor +
+    ';border-radius:999px"></div>' +
+    '</div>' +
+    '<div style="color:' +
+    progressColor +
+    ';font-weight:700;margin-top:4px">\ud83d\udcc8 Penyelesaian: ' +
+    pct +
+    '%</div>' +
+    '</div>'
+  );
+}
+
+// Render grouped report tracker (team-report or all-report style)
+function _renderGroupedReportTracker(reports, filter) {
+  if (!reports.length) {
+    return (
+      '<div style="text-align:center;padding:32px;color:#999">' +
+      '<div style="font-size:2rem;margin-bottom:8px">\ud83d\udcca</div>' +
+      '<p>Tidak ada report</p></div>'
+    );
+  }
+  var html = '';
+  if (filter === 'all-report') {
+    // group by dept → category
+    var byDept = {};
+    reports.forEach(function (r) {
+      var dept = r.departemen || 'Tanpa Departemen';
+      if (!byDept[dept]) byDept[dept] = {};
+      var cat = r.kategori || 'Tanpa Kategori';
+      if (!byDept[dept][cat]) byDept[dept][cat] = [];
+      byDept[dept][cat].push(r);
+    });
+    Object.keys(byDept)
+      .sort()
+      .forEach(function (dept) {
+        var katMap = byDept[dept];
+        var allDeptItems = Object.values(katMap).reduce(function (a, b) {
+          return a.concat(b);
+        }, []);
+        html +=
+          '<div style="margin-bottom:20px">' +
+          '<div style="padding:12px 14px;margin:8px 0;background:#1a1a1a;border-radius:8px;font-weight:700;font-size:.95rem;color:#fff">' +
+          '\ud83c\udfe2 ' +
+          escHtml(dept) +
+          ' (' +
+          allDeptItems.length +
+          ')</div>';
+        Object.keys(katMap)
+          .sort()
+          .forEach(function (cat) {
+            var catItems = katMap[cat];
+            html +=
+              '<div style="margin-bottom:12px;background:#f8f9ff;border-radius:8px;padding:10px 12px">' +
+              '<div style="font-weight:600;font-size:.82rem;color:#7b1fa2;margin-bottom:8px;border-bottom:1px solid #e0d0ff;padding-bottom:4px">' +
+              '\ud83d\udcc2 ' +
+              escHtml(cat) +
+              ' (' +
+              catItems.length +
+              ')</div>';
+            catItems.forEach(function (r) {
+              html += _buildReportTrackerRow(r);
+            });
+            html += _buildReportTrackerStats(catItems);
+            html += '</div>';
+          });
+        html += '</div>';
+      });
+  } else {
+    // team-report: group by category → person
+    var byCat = {};
+    reports.forEach(function (r) {
+      var cat = r.kategori || 'Tanpa Kategori';
+      if (!byCat[cat]) byCat[cat] = [];
+      byCat[cat].push(r);
+    });
+    Object.keys(byCat)
+      .sort()
+      .forEach(function (cat) {
+        var catItems = byCat[cat];
+        html +=
+          '<div style="margin-bottom:16px">' +
+          '<div style="padding:10px 12px;margin:8px 0;background:#e8f5e9;border-radius:8px;font-weight:700;font-size:.92rem;color:#2e7d32;border-left:4px solid #2e7d32">' +
+          '\ud83d\udcc2 ' +
+          escHtml(cat) +
+          ' (' +
+          catItems.length +
+          ')</div>';
+        // group by person
+        var byPerson = {};
+        catItems.forEach(function (r) {
+          var person = r.targetUserName || '-';
+          if (!byPerson[person]) byPerson[person] = [];
+          byPerson[person].push(r);
+        });
+        var personKeys = Object.keys(byPerson).sort();
+        personKeys.forEach(function (person) {
+          var pItems = byPerson[person];
+          html +=
+            '<div style="padding:6px 8px;margin:8px 0 6px;background:#fff;border:1px solid #e9eef6;border-radius:8px;font-size:.8rem;color:#555;font-weight:600">' +
+            '\ud83d\udc64 ' +
+            escHtml(person) +
+            ' (' +
+            pItems.length +
+            ')</div>';
+          pItems.forEach(function (r) {
+            html += _buildReportTrackerRow(r);
+          });
+          html += _buildReportTrackerStats(pItems);
+        });
+        html += '</div>';
+      });
+  }
+  return html;
 }
 
 // Full-screen photo viewer (WhatsApp style)
