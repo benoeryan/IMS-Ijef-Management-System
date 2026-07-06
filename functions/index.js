@@ -177,8 +177,7 @@ function buildDailyReportSummaryMessage(reportDate, reports) {
             }, 0) / items.length
           )
         : 0;
-      text +=
-        `  📊 Dept: ✅ ${deptDone} | 🟡 On Track ${deptOnTrack} | 🔴 Perlu Atensi ${deptNeedAttention} | ⚠ ${deptKendala} | 📈 ${deptAvg}%\n`;
+      text += `  📊 Dept: ✅ ${deptDone} | 🟡 On Track ${deptOnTrack} | 🔴 Perlu Atensi ${deptNeedAttention} | ⚠ ${deptKendala} | 📈 ${deptAvg}%\n`;
       if (deptKendalaNotes.length) {
         text += '  🚧 Kendala Utama:\n';
         deptKendalaNotes.slice(0, 3).forEach((k) => {
@@ -191,8 +190,7 @@ function buildDailyReportSummaryMessage(reportDate, reports) {
   const avgProgress = Math.round(totalProgressValue / reports.length);
   const highCoverage = Math.round(((totalDone + totalOnTrack) / reports.length) * 100);
   const kendalaCoverage = Math.round((totalKendala / reports.length) * 100);
-  text +=
-    `📊 Total: ${reports.length} report | ✅ ${totalDone} done | ⏳ ${totalProgress} progress | 🟡 ${totalOnTrack} on track | 🔴 ${totalNeedAttention} perlu atensi | ⚠ ${totalKendala} kendala | ✅ ${totalTanpaKendala} tanpa kendala | 📈 rata-rata ${avgProgress}%\n`;
+  text += `📊 Total: ${reports.length} report | ✅ ${totalDone} done | ⏳ ${totalProgress} progress | 🟡 ${totalOnTrack} on track | 🔴 ${totalNeedAttention} perlu atensi | ⚠ ${totalKendala} kendala | ✅ ${totalTanpaKendala} tanpa kendala | 📈 rata-rata ${avgProgress}%\n`;
   text += `📊 Coverage: Progres tinggi ${highCoverage}% | Report dengan kendala ${kendalaCoverage}%`;
   return text;
 }

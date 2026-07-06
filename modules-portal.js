@@ -961,7 +961,8 @@ Buka link menggunakan browser dan pilih "Add to Home Screen" atau install PWA un
 
 — HRD IJEF Corp`;
   const waNumber = await getRegisteredWhatsAppNumber();
-  if (!waNumber) toast('Nomor WhatsApp perusahaan belum terdaftar. Menggunakan share umum.', 'warning');
+  if (!waNumber)
+    toast('Nomor WhatsApp perusahaan belum terdaftar. Menggunakan share umum.', 'warning');
   window.open(buildWhatsAppShareUrl(msg, waNumber), '_blank');
 }
 
