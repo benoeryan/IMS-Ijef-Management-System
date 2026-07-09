@@ -539,13 +539,13 @@ async function showKontrakTab(tab) {
 
 async function renderKontrakList(container) {
   container.innerHTML =
-    '<div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Kontrak Ke-</th><th>Jenis</th><th>Mulai</th><th>Berakhir</th><th>Status</th><th>File</th><th>Aksi</th></tr></thead><tbody id="tblKontrak"></tbody></table></div></div>';
+    '<div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan / Pihak</th><th>Nama Dokumen / Judul</th><th>Kontrak Ke-</th><th>Jenis</th><th>Mulai</th><th>Berakhir</th><th>Status</th><th>File</th><th>Aksi</th></tr></thead><tbody id="tblKontrak"></tbody></table></div></div>';
   const snap = await db.collection('hrd_kontrak').get();
   const today = todayStr();
   let h = '';
   if (snap.empty)
     h =
-      '<tr><td colspan="8" class="text-center">Belum ada kontrak. Klik "+ Upload Kontrak" untuk menambahkan.</td></tr>';
+      '<tr><td colspan="9" class="text-center">Belum ada kontrak. Klik "+ Upload Kontrak" untuk menambahkan.</td></tr>';
   else {
     const docs = [];
     snap.forEach((d) => docs.push({ id: d.id, ...d.data() }));
@@ -563,7 +563,7 @@ async function renderKontrakList(container) {
       } else {
         aksiHtml = `<button class="btn btn-xs btn-info" onclick="modalKontrak('${p.id}')">✏️</button>${p.fileURL || p.fileData ? ` <button class="btn btn-xs btn-success" onclick="lihatFileKontrak('${p.id}')">👁️</button>` : ''} <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kontrak','${p.id}','kontrak')">🗑️</button>`;
       }
-      h += `<tr><td class="fw-700">${escHtml(p.namaKaryawan || p.pihak || '-')}</td><td>${p.kontrakKe || '-'}</td><td>${escHtml(p.jenis === 'kerja' ? 'PKWT' : p.jenis === 'tetap' ? 'PKWTT' : p.jenis || '-')}</td><td>${formatDate(p.mulai)}</td><td>${formatDate(p.berakhir)}</td><td><span class="badge badge-${expired ? 'danger' : 'success'}">${expired ? 'Expired' : 'Aktif'}</span></td><td>${hasFile}</td><td>${aksiHtml}</td></tr>`;
+      h += `<tr><td class="fw-700">${escHtml(p.namaKaryawan || p.pihak || '-')}</td><td class="color-primary fw-700">${escHtml(p.judul || p.fileName || "Dokumen Legal")}</td><td>${p.kontrakKe || '-'}</td><td>${escHtml(p.jenis === 'kerja' ? 'PKWT' : p.jenis === 'tetap' ? 'PKWTT' : p.jenis || '-')}</td><td>${formatDate(p.mulai)}</td><td>${formatDate(p.berakhir)}</td><td><span class="badge badge-${expired ? 'danger' : 'success'}">${expired ? 'Expired' : 'Aktif'}</span></td><td>${hasFile}</td><td>${aksiHtml}</td></tr>`;
     });
   }
   document.getElementById('tblKontrak').innerHTML = h;
@@ -580,7 +580,7 @@ function modalKontrak(id) {
 async function showKontrakForm(id, p) {
   // Load karyawan list
   const karySnap = await db.collection('hrd_karyawan').get();
-  let karyOptions = '<option value="">-- Pilih Karyawan --</option>';
+  let karyOptions = '<option value="">-- Pilih Karyawan (Jika terkait personal) --</option>';
   karySnap.forEach((d) => {
     const k = d.data();
     if (k.status === 'aktif' || !k.status) {
@@ -589,15 +589,39 @@ async function showKontrakForm(id, p) {
     }
   });
   openModal(
-    `<div class="modal-title">${id ? 'Edit' : 'Upload'} Kontrak Karyawan</div>
-    <div class="form-group"><label>Karyawan <span style="color:var(--danger)">*</span></label><select class="form-control" id="ktKaryawan">${karyOptions}</select></div>
+    `<div class="modal-title">${id ? 'Edit' : 'Upload'} Kontrak / MOU</div>
+    <div class="form-group">
+      <label>Jenis Pihak Kerja Sama</label>
+      <select class="form-control" id="ktPihakTipe" onchange="toggleKontrakPihak()">
+        <option value="karyawan" ${p.karyawanId ? 'selected' : ''}>Internal (Karyawan)</option>
+        <option value="eksternal" ${!p.karyawanId && p.pihak ? 'selected' : ''}>Eksternal (Vendor/Instansi/MOU)</option>
+      </select>
+    </div>
+    <div class="form-group" id="groupKaryawan" style="${!p.karyawanId && p.pihak ? 'display:none' : ''}">
+      <label>Karyawan</label>
+      <select class="form-control" id="ktKaryawan">${karyOptions}</select>
+    </div>
+    <div class="form-group" id="groupEksternal" style="${!p.karyawanId && p.pihak ? '' : 'display:none'}">
+      <label>Nama Pihak Eksternal / Instansi</label>
+      <input class="form-control" id="ktPihakEksternal" value="${escHtml(p.pihak || '')}" placeholder="Contoh: PT. Maju Bersama / Vendor X">
+    </div>
     <div class="grid-2">
-      <div class="form-group"><label>Kontrak Ke-</label><input class="form-control" type="number" id="ktKontrakKe" value="${p.kontrakKe || 1}" min="1"></div>
-      <div class="form-group"><label>Jenis Kontrak</label><select class="form-control" id="ktJenis"><option value="kerja" ${p.jenis === 'kerja' ? 'selected' : ''}>PKWT (Kontrak)</option><option value="tetap" ${p.jenis === 'tetap' ? 'selected' : ''}>PKWTT (Tetap)</option><option value="magang" ${p.jenis === 'magang' ? 'selected' : ''}>Magang</option><option value="freelance" ${p.jenis === 'freelance' ? 'selected' : ''}>Freelance</option></select></div>
+      <div class="form-group"><label>Nomor / Urutan Kontrak</label><input class="form-control" type="text" id="ktKontrakKe" value="${p.kontrakKe || '1'}" placeholder="e.g. 001/MOU/2023 atau 1"></div>
+      <div class="form-group">
+        <label>Kategori Dokumen</label>
+        <select class="form-control" id="ktJenis">
+          <option value="kerja" ${p.jenis === 'kerja' ? 'selected' : ''}>PKWT (Kontrak Kerja)</option>
+          <option value="tetap" ${p.jenis === 'tetap' ? 'selected' : ''}>PKWTT (Tetap)</option>
+          <option value="mou" ${p.jenis === 'mou' ? 'selected' : ''}>MOU / PKS</option>
+          <option value="nda" ${p.jenis === 'nda' ? 'selected' : ''}>NDA (Kerahasiaan)</option>
+          <option value="vendor" ${p.jenis === 'vendor' ? 'selected' : ''}>Kontrak Vendor</option>
+          <option value="magang" ${p.jenis === 'magang' ? 'selected' : ''}>Magang</option>
+        </select>
+      </div>
     </div>
     <div class="grid-2">
       <div class="form-group"><label>Durasi</label><input class="form-control" id="ktDurasi" value="${escHtml(p.durasi || '')}" placeholder="12 bulan"></div>
-      <div class="form-group"><label>Judul/Keterangan</label><input class="form-control" id="ktJudul" value="${escHtml(p.judul || '')}" placeholder="Perjanjian Kerja Ke-1"></div>
+      <div class="form-group"><label>Judul / Perihal Kontrak <span style="color:var(--danger)">*</span></label><input class="form-control" id="ktJudul" value="${escHtml(p.judul || '')}" placeholder="Contoh: MOU Kerjasama Pelatihan"></div>
     </div>
     <div class="grid-2">
       <div class="form-group"><label>Tanggal Mulai</label><input class="form-control" type="date" id="ktMulai" value="${p.mulai || ''}"></div>
@@ -605,7 +629,7 @@ async function showKontrakForm(id, p) {
     </div>
     <div class="form-group"><label>Catatan</label><textarea class="form-control" id="ktCatatan" style="min-height:50px">${escHtml(p.catatan || '')}</textarea></div>
     <div class="form-group">
-      <label>Upload Softcopy Kontrak (PDF/Image, max 500MB)</label>
+      <label>Upload Softcopy (PDF/Image, max 500MB)</label>
       <input class="form-control" type="file" id="ktFile" accept=".pdf,image/png,image/jpeg,image/jpg" onchange="previewKontrakFile(this)">
       <div id="ktFilePreview" class="mt-8">${p.fileURL ? '<span class="badge badge-success">File sudah ada</span>' : p.fileData ? '<span class="badge badge-success">File sudah ada (legacy)</span>' : ''}</div>
     </div>
@@ -614,6 +638,12 @@ async function showKontrakForm(id, p) {
   );
   window._kontrakFile = null;
   window._kontrakFileName = p.fileName || null;
+}
+
+function toggleKontrakPihak() {
+  const type = document.getElementById('ktPihakTipe').value;
+  document.getElementById('groupKaryawan').style.display = type === 'karyawan' ? 'block' : 'none';
+  document.getElementById('groupEksternal').style.display = type === 'eksternal' ? 'block' : 'none';
 }
 
 function previewKontrakFile(input) {
@@ -633,14 +663,19 @@ function previewKontrakFile(input) {
 }
 
 async function simpanKontrak(id) {
+  const type = document.getElementById('ktPihakTipe').value;
   const selKary = document.getElementById('ktKaryawan');
-  const karyawanId = selKary.value;
+  const karyawanId = type === 'karyawan' ? selKary.value : '';
   const opt = selKary.options[selKary.selectedIndex];
-  const namaKaryawan = opt ? opt.dataset.nama || opt.textContent : '';
+  const namaKaryawan = type === 'karyawan' && opt ? opt.dataset.nama || opt.textContent : '';
+  const pihakEksternal = type === 'eksternal' ? document.getElementById('ktPihakEksternal').value.trim() : '';
+
   const data = {
-    karyawanId,
-    namaKaryawan,
-    kontrakKe: parseInt(document.getElementById('ktKontrakKe').value) || 1,
+    pihak: type === 'karyawan' ? namaKaryawan : pihakEksternal,
+    karyawanId: karyawanId,
+    namaKaryawan: namaKaryawan,
+    isExternal: type === 'eksternal',
+    kontrakKe: document.getElementById('ktKontrakKe').value,
     jenis: document.getElementById('ktJenis').value,
     durasi: document.getElementById('ktDurasi').value,
     judul: document.getElementById('ktJudul').value,
@@ -649,8 +684,11 @@ async function simpanKontrak(id) {
     catatan: document.getElementById('ktCatatan').value,
     updatedAt: new Date().toISOString(),
   };
-  if (!karyawanId) return toast('Pilih karyawan dulu', 'warning');
+
+  if (!data.pihak) return toast("Tentukan pihak kerja sama", "warning");
+  if (!data.judul) return toast("Judul kontrak wajib diisi", "warning");
   if (!data.mulai || !data.berakhir) return toast('Tanggal mulai & berakhir wajib', 'warning');
+
   // Upload file to Firebase Storage
   if (window._kontrakFile) {
     try {
@@ -658,6 +696,35 @@ async function simpanKontrak(id) {
       let storageUid = '';
       try {
         await ensureStorageAuth();
+        storageUid = getStorageAuthUid();
+      } catch (authErr) {
+        console.warn(
+          '[StorageAuth] Upload fallback to legacy path:',
+          authErr.code || authErr.message
+        );
+      }
+      const folder = type === 'karyawan' ? 'kontrak' : 'mou';
+      const refId = karyawanId || generateId();
+      const path = storageUid
+        ? `${folder}/${storageUid}/${refId}/${Date.now()}_${window._kontrakFileName}`
+        : `${folder}/${refId}/${Date.now()}_${window._kontrakFileName}`;
+      const fileURL = await uploadFileToStorage(window._kontrakFile, path);
+      data.fileURL = fileURL;
+      data.fileName = window._kontrakFileName;
+      data.fileSize = window._kontrakFile.size;
+      if (storageUid) data.storageUid = storageUid;
+    } catch (e) {
+      return toast('Gagal upload file: ' + getStorageErrorMessage(e), 'error');
+    }
+  }
+  if (id) await db.collection('hrd_kontrak').doc(id).update(data);
+  else await db.collection('hrd_kontrak').add({ ...data, createdAt: new Date().toISOString() });
+  window._kontrakFile = null;
+  window._kontrakFileName = null;
+  closeModalDirect();
+  toast('Kontrak/MOU berhasil disimpan', 'success');
+  showKontrakTab('list');
+}
         storageUid = getStorageAuthUid();
       } catch (authErr) {
         console.warn(
@@ -3160,8 +3227,20 @@ function renderPanduan() {
       </div></div>`;
   }
 
-  // Manager instructions
+  // Manager+ gets Rekrutmen
   if (level >= 3) {
+    content += `<div class="card mb-16" style="border-left:4px solid #00695c"><div class="fw-700 mb-8" style="color:#00695c">⚖️ Manajemen Legal & Aset (Manager+)</div>
+      <div class="text-sm" style="line-height:1.8">
+        <div><b>1. Manajemen Kontrak:</b> Klik <b>+ Upload Kontrak</b>. Pilih <b>"Eksternal"</b> untuk MOU/MOU kerjasama/Vendor. Isi <b>Judul/Perihal</b> agar mudah dicari di daftar.</div>
+        <div><b>2. Legalitas & Perizinan:</b> Catat NIB, SIUP, dll. Sistem akan memberi peringatan jika status <b>Expired</b> (Merah).</div>
+        <div><b>3. Kajian Hukum / Tiket:</b> Digunakan untuk konsultasi hukum antar divisi.
+          <br>&bull; Pemohon (Divisi lain) membuat tiket.
+          <br>&bull; <b>Layer 1 (Manager Divisi)</b> menyetujui request.
+          <br>&bull; <b>Layer 2 (Head Legal)</b> memberikan kajian dan approval final.
+        </div>
+        <div><b>4. Sengketa & Kasus:</b> Monitoring kronologi kasus hukum yang sedang berjalan.</div>
+      </div></div>`;
+
     content += `<div class="card mb-16" style="border-left:4px solid #00695c"><div class="fw-700 mb-8" style="color:#00695c">📊 Monitoring & Approval (Manager)</div>
       <div class="text-sm" style="line-height:2">
         <div><b>📊 Report Tim:</b> Lihat semua daily report anggota divisi Anda, dikelompokkan per kategori.</div>

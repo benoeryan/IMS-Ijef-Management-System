@@ -256,22 +256,185 @@ async function updateLegalTicketStatus(docId, layerNum, action) {
 
 // ── PLACEHOLDERS UNTUK MENU LAIN ───────────────────────────────
 
-function renderLegalPerizinan() {
+async function renderLegalPerizinan() {
     const main = document.getElementById("mainContent");
     main.innerHTML = `
-    <div class="page-title"><span>⚖️ Legalitas & Perizinan</span></div>
-    <div class="empty-state">
-        <div class="icon">⚖️</div>
-        <p>Modul Manajemen Perizinan (NIB, SIUP, IMB, dll) sedang disiapkan.</p>
+    <div class="page-title">
+        <span>⚖️ Legalitas & Perizinan</span>
+        <button class="btn btn-primary btn-sm" onclick="modalPerizinan()">+ Tambah Izin/Legalitas</button>
+    </div>
+    <div class="card">
+        <p class="text-sm mb-16" style="color:#666">Monitoring masa berlaku dokumen legalitas perusahaan (NIB, SIUP, IMB, Sertifikat, dll).</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nama Dokumen</th>
+                        <th>No. Registrasi</th>
+                        <th>Instansi Penerbit</th>
+                        <th>Tgl Berakhir</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="tblLegalPerizinan">
+                    <tr><td colspan="6" class="text-center">Memuat data...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>`;
+
+    loadLegalPerizinan();
 }
 
-function renderLegalSengketa() {
+async function loadLegalPerizinan() {
+    const tbody = document.getElementById("tblLegalPerizinan");
+    const snap = await db.collection("hrd_legal_perizinan").get();
+    let html = "";
+    if (snap.empty) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">Belum ada data perizinan.</td></tr>';
+        return;
+    }
+    const today = todayStr();
+    snap.forEach(doc => {
+        const p = doc.data();
+        const isExpired = p.tglBerakhir && p.tglBerakhir < today;
+        html += `
+        <tr>
+            <td class="fw-700">${escHtml(p.nama)}</td>
+            <td>${escHtml(p.nomor || "-")}</td>
+            <td>${escHtml(p.instansi || "-")}</td>
+            <td>${p.tglBerakhir ? formatDate(p.tglBerakhir) : "Seumur Hidup"}</td>
+            <td><span class="badge badge-${isExpired ? 'danger' : 'success'}">${isExpired ? 'Expired' : 'Aktif'}</span></td>
+            <td>
+                <button class="btn btn-xs btn-info" onclick="modalPerizinan('${doc.id}')">✏️ Edit</button>
+                <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_legal_perizinan','${doc.id}','legal-perizinan')">🗑️</button>
+            </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+function modalPerizinan(id) {
+    if (id) db.collection("hrd_legal_perizinan").doc(id).get().then(d => showPerizinanForm(id, d.data()));
+    else showPerizinanForm(null, {});
+}
+
+function showPerizinanForm(id, p) {
+    openModal(`
+        <div class="modal-title">${id ? 'Edit' : 'Tambah'} Dokumen Perizinan</div>
+        <div class="form-group"><label>Nama Dokumen</label><input class="form-control" id="pzNama" value="${escHtml(p.nama || '')}" placeholder="Contoh: NIB, SIUP"></div>
+        <div class="form-group"><label>Nomor Registrasi</label><input class="form-control" id="pzNomor" value="${escHtml(p.nomor || '')}"></div>
+        <div class="form-group"><label>Instansi Penerbit</label><input class="form-control" id="pzInstansi" value="${escHtml(p.instansi || '')}"></div>
+        <div class="form-group"><label>Tanggal Berakhir (Kosongkan jika Seumur Hidup)</label><input class="form-control" type="date" id="pzTgl" value="${p.tglBerakhir || ''}"></div>
+        <button class="btn btn-primary" onclick="simpanPerizinan('${id || ''}')">💾 Simpan</button>
+    `);
+}
+
+async function simpanPerizinan(id) {
+    const data = {
+        nama: document.getElementById('pzNama').value,
+        nomor: document.getElementById('pzNomor').value,
+        instansi: document.getElementById('pzInstansi').value,
+        tglBerakhir: document.getElementById('pzTgl').value,
+        updatedAt: new Date().toISOString()
+    };
+    if (!data.nama) return toast("Nama dokumen wajib", "warning");
+    if (id) await db.collection("hrd_legal_perizinan").doc(id).update(data);
+    else await db.collection("hrd_legal_perizinan").add({ ...data, createdAt: new Date().toISOString() });
+    closeModalDirect();
+    toast("Data perizinan disimpan", "success");
+    renderLegalPerizinan();
+}
+
+async function renderLegalSengketa() {
     const main = document.getElementById("mainContent");
     main.innerHTML = `
-    <div class="page-title"><span>⚠️ Sengketa & Kasus</span></div>
-    <div class="empty-state">
-        <div class="icon">⚠️</div>
-        <p>Modul Monitoring Sengketa Hukum & Kasus Litigasi sedang disiapkan.</p>
+    <div class="page-title">
+        <span>⚠️ Sengketa & Kasus</span>
+        <button class="btn btn-primary btn-sm" onclick="modalSengketa()">+ Catat Kasus Baru</button>
+    </div>
+    <div class="card">
+        <p class="text-sm mb-16" style="color:#666">Monitoring penanganan sengketa hukum, mediasi, atau kasus litigasi/non-litigasi.</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Judul Kasus</th>
+                        <th>Pihak Terkait</th>
+                        <th>Kategori</th>
+                        <th>Status</th>
+                        <th>Update Terakhir</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="tblLegalSengketa">
+                    <tr><td colspan="6" class="text-center">Memuat data...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>`;
+    loadLegalSengketa();
+}
+
+async function loadLegalSengketa() {
+    const tbody = document.getElementById("tblLegalSengketa");
+    const snap = await db.collection("hrd_legal_sengketa").get();
+    let html = "";
+    if (snap.empty) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">Belum ada catatan kasus.</td></tr>';
+        return;
+    }
+    snap.forEach(doc => {
+        const p = doc.data();
+        html += `
+        <tr>
+            <td class="fw-700">${escHtml(p.judul)}</td>
+            <td>${escHtml(p.pihak || "-")}</td>
+            <td><span class="badge badge-info">${escHtml(p.kategori || "Umum")}</span></td>
+            <td><span class="badge badge-warning">${escHtml(p.status || "Proses")}</span></td>
+            <td>${formatDate(p.updatedAt || p.createdAt)}</td>
+            <td>
+                <button class="btn btn-xs btn-info" onclick="modalSengketa('${doc.id}')">✏️ Edit</button>
+                <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_legal_sengketa','${doc.id}','legal-sengketa')">🗑️</button>
+            </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+function modalSengketa(id) {
+    if (id) db.collection("hrd_legal_sengketa").doc(id).get().then(d => showSengketaForm(id, d.data()));
+    else showSengketaForm(null, {});
+}
+
+function showSengketaForm(id, p) {
+    openModal(`
+        <div class="modal-title">${id ? 'Edit' : 'Tambah'} Catatan Sengketa/Kasus</div>
+        <div class="form-group"><label>Judul Kasus</label><input class="form-control" id="skJudul" value="${escHtml(p.judul || '')}"></div>
+        <div class="form-group"><label>Pihak Terkait</label><input class="form-control" id="skPihak" value="${escHtml(p.pihak || '')}"></div>
+        <div class="grid-2">
+            <div class="form-group"><label>Kategori</label><select class="form-control" id="skKat"><option value="Ketenagakerjaan" ${p.kategori==='Ketenagakerjaan'?'selected':''}>Ketenagakerjaan</option><option value="Perdata" ${p.kategori==='Perdata'?'selected':''}>Perdata</option><option value="Pidana" ${p.kategori==='Pidana'?'selected':''}>Pidana</option></select></div>
+            <div class="form-group"><label>Status</label><select class="form-control" id="skStatus"><option value="Mediasi" ${p.status==='Mediasi'?'selected':''}>Mediasi</option><option value="Proses Hukum" ${p.status==='Proses Hukum'?'selected':''}>Proses Hukum</option><option value="Selesai" ${p.status==='Selesai'?'selected':''}>Selesai</option></select></div>
+        </div>
+        <div class="form-group"><label>Kronologi / Update</label><textarea class="form-control" id="skKronologi" style="min-height:100px">${escHtml(p.kronologi || '')}</textarea></div>
+        <button class="btn btn-primary" onclick="simpanSengketa('${id || ''}')">💾 Simpan</button>
+    `);
+}
+
+async function simpanSengketa(id) {
+    const data = {
+        judul: document.getElementById('skJudul').value,
+        pihak: document.getElementById('skPihak').value,
+        kategori: document.getElementById('skKat').value,
+        status: document.getElementById('skStatus').value,
+        kronologi: document.getElementById('skKronologi').value,
+        updatedAt: new Date().toISOString()
+    };
+    if (!data.judul) return toast("Judul wajib", "warning");
+    if (id) await db.collection("hrd_legal_sengketa").doc(id).update(data);
+    else await db.collection("hrd_legal_sengketa").add({ ...data, createdAt: new Date().toISOString() });
+    closeModalDirect();
+    toast("Kasus disimpan", "success");
+    renderLegalSengketa();
 }
