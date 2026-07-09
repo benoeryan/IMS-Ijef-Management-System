@@ -45,12 +45,13 @@ function pickLatestByDate(items, periodKey) {
 async function hitungKPIIntegrasi(nama, periode) {
   const namaLower = (nama || '').toLowerCase().trim();
   const periodKey = normalizePeriodeKPI(periode);
-  const [karySnap, jobdeskSnap, absenSnap, penSnap, discSnap] = await Promise.all([
+  const [karySnap, jobdeskSnap, absenSnap, penSnap, discSnap, taskSnap] = await Promise.all([
     db.collection('hrd_karyawan').where('status', '==', 'aktif').get(),
     db.collection('hrd_jobdesk').get(),
     db.collection('hrd_absensi').get(),
     db.collection('hrd_penalty').get(),
     db.collection('hrd_disc_results').get(),
+    db.collection('hrd_daily_tasks').get(),
   ]);
   let karyawanId = '';
   karySnap.forEach((d) => {
@@ -93,6 +94,28 @@ async function hitungKPIIntegrasi(nama, periode) {
   const absensiScore = clampScore(
     totalEventMasuk ? ketepatanMasuk * 0.6 + kehadiranBulanan * 0.4 : 75
   );
+
+  // ── INTEGRASI DAILY TASK & REPORT ──
+  let reportCount = 0;
+  let taskTotal = 0;
+  let taskDone = 0;
+  taskSnap.forEach((d) => {
+    const t = d.data() || {};
+    const isNama = (t.targetUserName || t.nama || '').toLowerCase().trim() === namaLower;
+    const isId = karyawanId && (t.userId === karyawanId || t.karyawanId === karyawanId);
+    if (!(isNama || isId)) return;
+    if (!(t.tanggal || '').startsWith(periodKey)) return;
+
+    if (t.type === 'report') {
+      reportCount++;
+    } else {
+      taskTotal++;
+      if (t.done) taskDone++;
+    }
+  });
+  const reportScore = clampScore(Math.min(100, (reportCount / 22) * 100));
+  const taskScore = taskTotal ? clampScore((taskDone / taskTotal) * 100) : 100;
+
   let totalPenaltyPoin = 0;
   penSnap.forEach((d) => {
     const pe = d.data() || {};
@@ -106,10 +129,13 @@ async function hitungKPIIntegrasi(nama, periode) {
   });
   const latestDisc = pickLatestByDate(discItems, periodKey);
   const userScore = clampScore(latestDisc?.kpiScore != null ? latestDisc.kpiScore : 80);
-  const produktivitas = clampScore(jobdeskScore * 0.6 + userScore * 0.4);
-  const kualitas = clampScore(jobdeskScore * 0.5 + userScore * 0.5);
-  const kedisiplinan = clampScore(absensiScore);
+
+  // Komposisi Komponen Baru
+  const produktivitas = clampScore(jobdeskScore * 0.3 + taskScore * 0.4 + userScore * 0.3);
+  const kualitas = clampScore(jobdeskScore * 0.3 + reportScore * 0.4 + userScore * 0.3);
+  const kedisiplinan = clampScore(absensiScore * 0.6 + reportScore * 0.4);
   const kerjasama = clampScore(userScore);
+
   const skorMurni = clampScore((produktivitas + kualitas + kedisiplinan + kerjasama) / 4);
   const penaltyDeduction = totalPenaltyPoin * 2;
   const skorAkhir = Math.max(0, skorMurni - penaltyDeduction);
@@ -120,6 +146,10 @@ async function hitungKPIIntegrasi(nama, periode) {
     jobdeskScore,
     absensiScore,
     absensiSummary: { totalHariMasuk, totalEventMasuk, countTerlambat, countTepat },
+    reportScore,
+    reportCount,
+    taskScore,
+    taskSummary: { taskTotal, taskDone },
     userScore,
     discSource: latestDisc
       ? latestDisc.evaluasiPeriode || latestDisc.tanggalTes || latestDisc.createdAt || '-'
@@ -137,7 +167,7 @@ async function hitungKPIIntegrasi(nama, periode) {
 async function renderKPI() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
-  main.innerHTML = `<div class="page-title"><span>📈 KPI & Penilaian</span>${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalKPI()">+ Tambah</button>' : '<button class="btn btn-primary btn-sm" onclick="modalKPI()">+ Nilai HEAD</button>'}</div><div style="margin-bottom:12px">${!isBOD ? '<button type="button" class="btn btn-sm btn-info" onclick="document.getElementById(\'kpiInfoPanelAdmin\').style.display=document.getElementById(\'kpiInfoPanelAdmin\').style.display===\'none\'?\'block\':\'none\'">ℹ️ Info Formula KPI</button> <button type="button" class="btn btn-sm btn-warning" onclick="sinkronPenaltyKPI()">🔄 Sinkron Penalty</button>' : ''}<div id="kpiInfoPanelAdmin" style="display:none;margin-top:12px;padding:12px;background:#f0f4ff;border-radius:8px;font-size:.82rem;line-height:1.6"><strong>Metode Penilaian Terintegrasi:</strong><br>• Sumber data: Jobdesk, Absensi, Penalty, dan penilaian user (DISC)<br>• Nilai komponen dibentuk dari data terintegrasi lalu bisa disesuaikan penilai<br>• Skor Murni = Rata-rata Produktivitas, Kualitas, Kedisiplinan, Kerjasama<br>• Setiap 1 penalty point mengurangi skor akhir sebesar 2 poin<br>• <strong>Skor Akhir = Skor Murni - (Total Penalty x 2)</strong><br><br><strong>Grade:</strong> A (≥90) | B (≥80) | C (≥70) | D (≥60) | E (&lt;60)</div></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Periode</th><th>Skor Murni</th><th>Penalty</th><th>Skor Akhir</th><th>Grade</th><th>Penilai</th>${!isBOD ? '<th>Aksi</th>' : ''}</tr></thead><tbody id="tblKPI"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title"><span>📈 KPI & Penilaian</span>${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalKPI()">+ Tambah</button>' : '<button class="btn btn-primary btn-sm" onclick="modalKPI()">+ Nilai HEAD</button>'}</div><div style="margin-bottom:12px">${!isBOD ? '<button type="button" class="btn btn-sm btn-info" onclick="document.getElementById(\'kpiInfoPanelAdmin\').style.display=document.getElementById(\'kpiInfoPanelAdmin\').style.display===\'none\'?\'block\':\'none\'">ℹ️ Info Formula KPI</button> <button type="button" class="btn btn-sm btn-warning" onclick="sinkronPenaltyKPI()">🔄 Sinkron Penalty</button>' : ''}<div id="kpiInfoPanelAdmin" style="display:none;margin-top:12px;padding:12px;background:#f0f4ff;border-radius:8px;font-size:.82rem;line-height:1.6"><strong>Metode Penilaian Terintegrasi:</strong><br>• Sumber data: Jobdesk, Absensi, <b>Daily Task (completion)</b>, <b>Daily Report (consistency)</b>, Penalty, dan DISC<br>• Nilai komponen dibentuk dari data terintegrasi lalu bisa disesuaikan penilai<br>• Skor Murni = Rata-rata Produktivitas, Kualitas, Kedisiplinan, Kerjasama<br>• Setiap 1 penalty point mengurangi skor akhir sebesar 2 poin<br>• <strong>Skor Akhir = Skor Murni - (Total Penalty x 2)</strong><br><br><strong>Grade:</strong> A (≥90) | B (≥80) | C (≥70) | D (≥60) | E (&lt;60)</div></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Periode</th><th>Skor Murni</th><th>Penalty</th><th>Skor Akhir</th><th>Grade</th><th>Penilai</th>${!isBOD ? '<th>Aksi</th>' : ''}</tr></thead><tbody id="tblKPI"></tbody></table></div></div>`;
   const [snap, penSnap, karySnap] = await Promise.all([
     db.collection('hrd_kpi').get(),
     db.collection('hrd_penalty').get(),
@@ -201,7 +231,7 @@ async function modalKPI() {
     opts += `<option value="${escHtml(k.nama)}">${escHtml(k.nama)} — ${escHtml(k.departemen || '-')}</option>`;
   });
   openModal(
-    `<div class="modal-title">Tambah Penilaian KPI</div><div class="grid-2"><div class="form-group"><label>Karyawan</label><select class="form-control" id="kpiNama" onchange="kpiLoadIntegratedPreview()">${opts}</select></div><div class="form-group"><label>Periode</label><input class="form-control" id="kpiPeriode" value="${monthStr()}" onchange="kpiLoadIntegratedPreview()"></div></div><div id="kpiIntegratedPreview" style="margin-bottom:12px"></div><div class="grid-2"><div class="form-group"><label>Produktivitas (0-100)</label><input class="form-control" type="number" id="kpiProd" value="80"></div><div class="form-group"><label>Kualitas (0-100)</label><input class="form-control" type="number" id="kpiQual" value="80"></div></div><div class="grid-2"><div class="form-group"><label>Kedisiplinan (0-100)</label><input class="form-control" type="number" id="kpiDisc" value="80"></div><div class="form-group"><label>Kerjasama (0-100)</label><input class="form-control" type="number" id="kpiTeam" value="80"></div></div><div class="form-group"><label>Catatan</label><textarea class="form-control" id="kpiNote"></textarea></div><div class="flex gap-8 mb-12"><button type="button" class="btn btn-info btn-sm" onclick="kpiLoadIntegratedPreview()">🔄 Hitung Otomatis Terintegrasi</button></div><button class="btn btn-primary" onclick="simpanKPI()">Simpan</button><div style="margin-top:16px"><button type="button" class="btn btn-sm btn-info" onclick="document.getElementById('kpiInfoPanel').style.display=document.getElementById('kpiInfoPanel').style.display==='none'?'block':'none'">ℹ️ Info Faktor Penilaian</button><div id="kpiInfoPanel" style="display:none;margin-top:12px;padding:12px;background:#f0f4ff;border-radius:8px;font-size:.82rem;line-height:1.6"><strong>Formula Penilaian KPI:</strong><br>• Nilai diambil dari integrasi Jobdesk, Absensi, Penalty, dan penilaian user (DISC)<br>• Penilai dapat menyesuaikan nilai sebelum simpan<br>• Skor Murni = Rata-rata 4 komponen<br>• Setiap 1 penalty point mengurangi skor akhir sebesar 2 poin<br>• <strong>Skor Akhir = Skor Murni - (Total Penalty x 2)</strong><br><br><strong>Grade:</strong> A (≥90) | B (≥80) | C (≥70) | D (≥60) | E (&lt;60)</div></div>`
+    `<div class="modal-title">Tambah Penilaian KPI</div><div class="grid-2"><div class="form-group"><label>Karyawan</label><select class="form-control" id="kpiNama" onchange="kpiLoadIntegratedPreview()">${opts}</select></div><div class="form-group"><label>Periode</label><input class="form-control" id="kpiPeriode" value="${monthStr()}" onchange="kpiLoadIntegratedPreview()"></div></div><div id="kpiIntegratedPreview" style="margin-bottom:12px"></div><div class="grid-2"><div class="form-group"><label>Produktivitas (0-100)</label><input class="form-control" type="number" id="kpiProd" value="80"></div><div class="form-group"><label>Kualitas (0-100)</label><input class="form-control" type="number" id="kpiQual" value="80"></div></div><div class="grid-2"><div class="form-group"><label>Kedisiplinan (0-100)</label><input class="form-control" type="number" id="kpiDisc" value="80"></div><div class="form-group"><label>Kerjasama (0-100)</label><input class="form-control" type="number" id="kpiTeam" value="80"></div></div><div class="form-group"><label>Catatan</label><textarea class="form-control" id="kpiNote"></textarea></div><div class="flex gap-8 mb-12"><button type="button" class="btn btn-info btn-sm" onclick="kpiLoadIntegratedPreview()">🔄 Hitung Otomatis Terintegrasi</button></div><button class="btn btn-primary" onclick="simpanKPI()">Simpan</button><div style="margin-top:16px"><button type="button" class="btn btn-sm btn-info" onclick="document.getElementById('kpiInfoPanel').style.display=document.getElementById('kpiInfoPanel').style.display==='none'?'block':'none'">ℹ️ Info Faktor Penilaian</button><div id="kpiInfoPanel" style="display:none;margin-top:12px;padding:12px;background:#f0f4ff;border-radius:8px;font-size:.82rem;line-height:1.6"><strong>Formula Penilaian KPI:</strong><br>• Nilai diambil dari integrasi Jobdesk, Absensi, <b>Daily Task</b>, <b>Daily Report</b>, Penalty, dan DISC<br>• Penilai dapat menyesuaikan nilai sebelum simpan<br>• Skor Murni = Rata-rata 4 komponen<br>• Setiap 1 penalty point mengurangi skor akhir sebesar 2 poin<br>• <strong>Skor Akhir = Skor Murni - (Total Penalty x 2)</strong><br><br><strong>Grade:</strong> A (≥90) | B (≥80) | C (≥70) | D (≥60) | E (&lt;60)</div></div>`
   );
 }
 async function kpiLoadIntegratedPreview() {
@@ -221,13 +251,23 @@ async function kpiLoadIntegratedPreview() {
     <div class="fw-700 mb-6">📊 Rekomendasi nilai terintegrasi — ${escHtml(nama)} (${escHtml(
       hasil.periodKey
     )})</div>
-    <div>• Jobdesk: <b>${hasil.jobdeskScore}</b> (kelengkapan: ${hasil.jobdeskData ? 'tersedia' : 'belum ada'})</div>
-    <div>• Absensi: <b>${hasil.absensiScore}</b> (hari masuk: ${hasil.absensiSummary.totalHariMasuk}, terlambat: ${hasil.absensiSummary.countTerlambat})</div>
-    <div>• Penilaian user/DISC: <b>${hasil.userScore}</b> (sumber: ${escHtml(hasil.discSource)})</div>
-    <div>• Penalty: <span class="badge badge-${hasil.totalPenaltyPoin > 0 ? 'danger' : 'success'}">${hasil.totalPenaltyPoin} poin</span> → Potongan <b>-${hasil.penaltyDeduction}</b></div>
+    <div class="grid-2" style="gap:10px">
+      <div>
+        <div class="fw-700 color-primary">Utama</div>
+        <div>• Jobdesk: <b>${hasil.jobdeskScore}</b></div>
+        <div>• Absensi: <b>${hasil.absensiScore}</b></div>
+        <div>• DISC/User: <b>${hasil.userScore}</b></div>
+      </div>
+      <div>
+        <div class="fw-700 color-primary">Daily Activity</div>
+        <div>• Daily Task: <b>${hasil.taskScore}</b> (${hasil.taskSummary.taskDone}/${hasil.taskSummary.taskTotal})</div>
+        <div>• Daily Report: <b>${hasil.reportScore}</b> (${hasil.reportCount} report)</div>
+        <div>• Penalty: <span class="badge badge-${hasil.totalPenaltyPoin > 0 ? 'danger' : 'success'}">${hasil.totalPenaltyPoin} pt</span></div>
+      </div>
+    </div>
     <hr style="margin:8px 0;border-color:#d7e3ff">
-    <div>Rekomendasi komponen: Produktivitas <b>${hasil.produktivitas}</b>, Kualitas <b>${hasil.kualitas}</b>, Kedisiplinan <b>${hasil.kedisiplinan}</b>, Kerjasama <b>${hasil.kerjasama}</b></div>
-    <div>Skor murni estimasi: <b>${hasil.skorMurni}</b> | Skor akhir estimasi: <b>${hasil.skorAkhir}</b></div>
+    <div>Rekomendasi komponen: Prod <b>${hasil.produktivitas}</b>, Qual <b>${hasil.kualitas}</b>, Disc <b>${hasil.kedisiplinan}</b>, Team <b>${hasil.kerjasama}</b></div>
+    <div class="fw-700 mt-4">Estimasi Skor Akhir: <span class="badge badge-primary" style="font-size:.85rem">${hasil.skorAkhir}</span></div>
   </div>`;
 }
 async function simpanKPI() {
@@ -263,6 +303,8 @@ async function simpanKPI() {
       jobdeskScore: hasilIntegrasi.jobdeskScore,
       absensiScore: hasilIntegrasi.absensiScore,
       userScore: hasilIntegrasi.userScore,
+      taskScore: hasilIntegrasi.taskScore,
+      reportScore: hasilIntegrasi.reportScore,
       penaltyPoin: hasilIntegrasi.totalPenaltyPoin,
       discSource: hasilIntegrasi.discSource,
     },
@@ -328,6 +370,8 @@ async function updateKPI(id) {
         jobdeskScore: hasilIntegrasi.jobdeskScore,
         absensiScore: hasilIntegrasi.absensiScore,
         userScore: hasilIntegrasi.userScore,
+        taskScore: hasilIntegrasi.taskScore,
+        reportScore: hasilIntegrasi.reportScore,
         penaltyPoin: hasilIntegrasi.totalPenaltyPoin,
         discSource: hasilIntegrasi.discSource,
       },

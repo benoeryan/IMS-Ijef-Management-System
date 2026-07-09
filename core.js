@@ -585,7 +585,10 @@ function buildNavItems(isPortalUser) {
       currentUser.role === 'bod'
         ? [['kontrak', '📄', 'Kontrak']]
         : [
-            ['kontrak', '📄', 'Kontrak'],
+            ['kontrak', '📄', 'Manajemen Kontrak'],
+            ['legal-perizinan', '⚖️', 'Legalitas & Perizinan'],
+            ['legal-kajian', '🔨', 'Kajian Hukum / Tiket'],
+            ['legal-sengketa', '⚠️', 'Sengketa & Kasus'],
             ['asset', '💻', 'Asset'],
             ['peraturan', '📜', 'Peraturan'],
             ['surat', '✉️', 'Generator Surat'],
@@ -684,6 +687,9 @@ function navigateTo(page) {
     pelatihan: renderPelatihan,
     'disc-test': renderDiscTestPage,
     kontrak: renderKontrak,
+    'legal-perizinan': renderLegalPerizinan,
+    'legal-kajian': renderKajianHukum,
+    'legal-sengketa': renderLegalSengketa,
     asset: renderAsset,
     peraturan: renderPeraturan,
     surat: renderSurat,
