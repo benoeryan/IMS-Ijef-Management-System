@@ -725,33 +725,6 @@ async function simpanKontrak(id) {
   toast('Kontrak/MOU berhasil disimpan', 'success');
   showKontrakTab('list');
 }
-        storageUid = getStorageAuthUid();
-      } catch (authErr) {
-        console.warn(
-          '[StorageAuth] Upload fallback to legacy path:',
-          authErr.code || authErr.message
-        );
-      }
-      const path = storageUid
-        ? `kontrak/${storageUid}/${karyawanId}/${Date.now()}_${window._kontrakFileName}`
-        : `kontrak/${karyawanId}/${Date.now()}_${window._kontrakFileName}`;
-      const fileURL = await uploadFileToStorage(window._kontrakFile, path);
-      data.fileURL = fileURL;
-      data.fileName = window._kontrakFileName;
-      data.fileSize = window._kontrakFile.size;
-      if (storageUid) data.storageUid = storageUid;
-    } catch (e) {
-      return toast('Gagal upload file: ' + getStorageErrorMessage(e), 'error');
-    }
-  }
-  if (id) await db.collection('hrd_kontrak').doc(id).update(data);
-  else await db.collection('hrd_kontrak').add({ ...data, createdAt: new Date().toISOString() });
-  window._kontrakFile = null;
-  window._kontrakFileName = null;
-  closeModalDirect();
-  toast('Kontrak disimpan', 'success');
-  showKontrakTab('list');
-}
 
 function lihatFileKontrak(id) {
   db.collection('hrd_kontrak')
