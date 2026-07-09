@@ -204,12 +204,15 @@ async function renderDashboard() {
             const statusColor = isDone ? '#2e7d32' : isOverdue ? '#c62828' : '#1565c0';
             const statusIcon = isDone ? '✅' : isOverdue ? '⚠️' : '📌';
             bhtml +=
-              '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">' +
+              '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="viewDailyTask(\'' + t.id + '\')">' +
               '<div style="flex:1">' +
               '<div class="fw-700 text-sm">' + escHtml(t.title) + '</div>' +
               '<div class="text-xs" style="color:#999">' + escHtml(t.targetUserName || '-') + ' &bull; ' + escHtml(formatDate(t.tanggal)) + '</div>' +
               '</div>' +
+              '<div style="display:flex;gap:6px;align-items:center">' +
+              '<button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyTask(\'' + t.id + '\')">✏️</button>' +
               '<span style="font-size:.75rem;color:' + statusColor + '">' + statusIcon + '</span>' +
+              '</div>' +
               '</div>';
           });
           bodListEl.innerHTML = bhtml;
