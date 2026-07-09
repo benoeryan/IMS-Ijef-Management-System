@@ -12,7 +12,10 @@ async function renderKajianHukum() {
     main.innerHTML = `
     <div class="page-title">
         <span>🔨 Kajian Hukum / Tiket</span>
-        <button class="btn btn-primary btn-sm" onclick="modalKajianHukum()">+ Buat Tiket Kajian</button>
+        <div class="flex gap-8">
+            <button class="btn btn-info btn-sm" onclick="modalLegalDrafting()">✍️ Buat Draft Dokumen</button>
+            <button class="btn btn-primary btn-sm" onclick="modalKajianHukum()">+ Buat Tiket Kajian</button>
+        </div>
     </div>
     <div class="card">
         <div class="table-wrap">
@@ -36,6 +39,108 @@ async function renderKajianHukum() {
 
     loadLegalTickets();
 }
+
+// ── LEGAL DRAFTING & TEMPLATES ────────────────────────────────
+
+async function modalLegalDrafting() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+
+    // Auto generate document number (simulasi counter berdasarkan timestamp)
+    const seq = now.getTime().toString().slice(-4);
+    const autoNumber = `${seq}/LGL-IJEF/${month}/${year}`;
+
+    openModal(`
+        <div class="modal-title">✍️ Buat Draft Dokumen Legal</div>
+        <div class="form-group">
+            <label>Nomor Surat (Auto-Generated)</label>
+            <input class="form-control" id="drNomor" value="${autoNumber}" readonly style="background:#f0f0f0; font-weight:bold">
+        </div>
+        <div class="form-group">
+            <label>Pilih Template Dokumen</label>
+            <select class="form-control" id="drTemplate" onchange="applyLegalTemplate()">
+                <option value="">-- Pilih Template --</option>
+                <option value="mou">MOU Kerjasama (Umum)</option>
+                <option value="nda">Non-Disclosure Agreement (NDA)</option>
+                <option value="spk">Surat Perintah Kerja (SPK)</option>
+                <option value="pks">Perjanjian Kerja Sama (PKS)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Pihak Pertama (IJEF)</label>
+            <input class="form-control" id="drPihak1" value="LPK IJEF CORP" readonly>
+        </div>
+        <div class="form-group">
+            <label>Pihak Kedua (Mitra/Vendor)</label>
+            <input class="form-control" id="drPihak2" placeholder="Nama Instansi/Orang Pihak Kedua">
+        </div>
+        <div class="form-group">
+            <label>Perihal / Judul Dokumen</label>
+            <input class="form-control" id="drJudul" placeholder="Contoh: Kerjasama Pelatihan Bahasa Jepang">
+        </div>
+        <div class="form-group">
+            <label>Isi / Konten Draft</label>
+            <textarea class="form-control" id="drKonten" style="min-height:250px; font-family:monospace; font-size:0.8rem"></textarea>
+        </div>
+        <div class="flex gap-8">
+            <button class="btn btn-primary" onclick="simpanDraftLegal()">💾 Simpan & Download PDF</button>
+            <button class="btn btn-outline" onclick="closeModalDirect()">Batal</button>
+        </div>
+    `, true);
+}
+
+function applyLegalTemplate() {
+    const type = document.getElementById("drTemplate").value;
+    const konten = document.getElementById("drKonten");
+    const judul = document.getElementById("drJudul");
+    const num = document.getElementById("drNomor").value;
+
+    const templates = {
+        mou: {
+            judul: "MEMORANDUM OF UNDERSTANDING (MOU)",
+            isi: `MEMORANDUM OF UNDERSTANDING\nNomor: ${num}\n\nAntara\nLPK IJEF CORP\nDan\n[PIHAK KEDUA]\n\nTentang\n[PERIHAL KERJASAMA]\n\nPada hari ini [TANGGAL], kami yang bertanda tangan di bawah ini:\n1. Nama: [NAMA WAKIL IJEF]\n   Jabatan: [JABATAN]\n   Bertindak untuk dan atas nama LPK IJEF CORP.\n\n2. Nama: [NAMA WAKIL MITRA]\n   Jabatan: [JABATAN]\n   Bertindak untuk dan atas nama [PIHAK KEDUA].\n\nSepakat untuk melakukan kerjasama dalam bidang [BIDANG KERJASAMA] dengan ketentuan sebagai berikut...`
+        },
+        nda: {
+            judul: "NON-DISCLOSURE AGREEMENT (NDA)",
+            isi: `NON-DISCLOSURE AGREEMENT (NDA)\nNomor: ${num}\n\nPerjanjian Kerahasiaan ini dibuat antara LPK IJEF CORP dan [PIHAK KEDUA].\n\nBahwa Para Pihak bersedia untuk mengungkapkan Informasi Rahasia tertentu kepada Pihak lainnya untuk tujuan [TUJUAN].\n\nPihak Penerima setuju untuk menjaga kerahasiaan seluruh informasi yang diterima...`
+        },
+        spk: {
+            judul: "SURAT PERINTAH KERJA (SPK)",
+            isi: `SURAT PERINTAH KERJA (SPK)\nNomor: ${num}\n\nKepada: [PIHAK KEDUA]\nAlamat: [ALAMAT]\n\nDengan ini kami memberikan perintah kerja untuk:\n1. Pekerjaan: [NAMA PEKERJAAN]\n2. Nilai Kontrak: [NILAI]\n3. Jangka Waktu: [WAKTU]\n\nDemikian surat perintah ini dibuat untuk dilaksanakan...`
+        }
+    };
+
+    if (templates[type]) {
+        judul.value = templates[type].judul;
+        konten.value = templates[type].isi;
+    }
+}
+
+async function simpanDraftLegal() {
+    const data = {
+        nomor: document.getElementById("drNomor").value,
+        judul: document.getElementById("drJudul").value,
+        pihak2: document.getElementById("drPihak2").value,
+        konten: document.getElementById("drKonten").value,
+        type: "draft_kontrak",
+        createdBy: currentUser.nama,
+        createdAt: new Date().toISOString()
+    };
+
+    if (!data.judul || !data.pihak2) return toast("Judul dan Pihak Kedua wajib diisi", "warning");
+
+    try {
+        await db.collection("hrd_legal_drafts").add(data);
+        toast("Draft berhasil disimpan ke database", "success");
+        // Di sini bisa ditambahkan fungsi export PDF jika library tersedia
+        window.print();
+        closeModalDirect();
+    } catch (e) {
+        toast("Gagal: " + e.message, "error");
+    }
+}
+
 
 async function loadLegalTickets() {
     const tbody = document.getElementById("tblLegalTickets");
@@ -274,11 +379,12 @@ async function renderLegalPerizinan() {
                         <th>Instansi Penerbit</th>
                         <th>Tgl Berakhir</th>
                         <th>Status</th>
+                        <th>File</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="tblLegalPerizinan">
-                    <tr><td colspan="6" class="text-center">Memuat data...</td></tr>
+                    <tr><td colspan="7" class="text-center">Memuat data...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -292,20 +398,22 @@ async function loadLegalPerizinan() {
     const snap = await db.collection("hrd_legal_perizinan").get();
     let html = "";
     if (snap.empty) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">Belum ada data perizinan.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">Belum ada data perizinan.</td></tr>';
         return;
     }
     const today = todayStr();
     snap.forEach(doc => {
         const p = doc.data();
         const isExpired = p.tglBerakhir && p.tglBerakhir < today;
+        const fileBtn = p.fileURL ? `<button class="btn btn-xs btn-success" onclick="window.open('${p.fileURL}', '_blank')">👁️ Lihat</button>` : '<span class="text-xs" style="color:#999">-</span>';
         html += `
         <tr>
             <td class="fw-700">${escHtml(p.nama)}</td>
-            <td>${escHtml(p.nomor || "-")}</td>
+            <td class="color-primary fw-700">${escHtml(p.nomor || "-")}</td>
             <td>${escHtml(p.instansi || "-")}</td>
             <td>${p.tglBerakhir ? formatDate(p.tglBerakhir) : "Seumur Hidup"}</td>
             <td><span class="badge badge-${isExpired ? 'danger' : 'success'}">${isExpired ? 'Expired' : 'Aktif'}</span></td>
+            <td>${fileBtn}</td>
             <td>
                 <button class="btn btn-xs btn-info" onclick="modalPerizinan('${doc.id}')">✏️ Edit</button>
                 <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_legal_perizinan','${doc.id}','legal-perizinan')">🗑️</button>
@@ -323,12 +431,26 @@ function modalPerizinan(id) {
 function showPerizinanForm(id, p) {
     openModal(`
         <div class="modal-title">${id ? 'Edit' : 'Tambah'} Dokumen Perizinan</div>
-        <div class="form-group"><label>Nama Dokumen</label><input class="form-control" id="pzNama" value="${escHtml(p.nama || '')}" placeholder="Contoh: NIB, SIUP"></div>
-        <div class="form-group"><label>Nomor Registrasi</label><input class="form-control" id="pzNomor" value="${escHtml(p.nomor || '')}"></div>
-        <div class="form-group"><label>Instansi Penerbit</label><input class="form-control" id="pzInstansi" value="${escHtml(p.instansi || '')}"></div>
+        <div class="form-group"><label>Nama Dokumen / Jenis Izin</label><input class="form-control" id="pzNama" value="${escHtml(p.nama || '')}" placeholder="Contoh: NIB, SIUP, IMB"></div>
+        <div class="form-group"><label>Nomor Registrasi / No. SK</label><input class="form-control" id="pzNomor" value="${escHtml(p.nomor || '')}" placeholder="Masukkan nomor resmi dokumen"></div>
+        <div class="form-group"><label>Instansi Penerbit</label><input class="form-control" id="pzInstansi" value="${escHtml(p.instansi || '')}" placeholder="Contoh: DPMPTSP, Kemenkumham"></div>
         <div class="form-group"><label>Tanggal Berakhir (Kosongkan jika Seumur Hidup)</label><input class="form-control" type="date" id="pzTgl" value="${p.tglBerakhir || ''}"></div>
-        <button class="btn btn-primary" onclick="simpanPerizinan('${id || ''}')">💾 Simpan</button>
+        <div class="form-group">
+            <label>Upload Softcopy Dokumen (PDF/JPG)</label>
+            <input class="form-control" type="file" id="pzFile" accept=".pdf,image/*" onchange="previewPerizinanFile(this)">
+            <div id="pzFileStatus" class="text-xs mt-4">${p.fileURL ? '<span class="color-success">✅ File sudah tersedia</span>' : ''}</div>
+        </div>
+        <button class="btn btn-primary" onclick="simpanPerizinan('${id || ''}')">💾 Simpan & Upload</button>
     `);
+    window._pzFile = null;
+}
+
+function previewPerizinanFile(input) {
+    const file = input.files[0];
+    if (file) {
+        window._pzFile = file;
+        document.getElementById("pzFileStatus").innerHTML = `<span class="badge badge-success">Siap upload: ${file.name}</span>`;
+    }
 }
 
 async function simpanPerizinan(id) {
@@ -340,12 +462,28 @@ async function simpanPerizinan(id) {
         updatedAt: new Date().toISOString()
     };
     if (!data.nama) return toast("Nama dokumen wajib", "warning");
+
+    // Upload file if selected
+    if (window._pzFile) {
+        try {
+            toast("⏳ Mengupload dokumen...", "info");
+            const path = `legal_perizinan/${Date.now()}_${window._pzFile.name}`;
+            data.fileURL = await uploadFileToStorage(window._pzFile, path);
+            data.fileName = window._pzFile.name;
+        } catch (e) {
+            return toast("Gagal upload: " + e.message, "error");
+        }
+    }
+
     if (id) await db.collection("hrd_legal_perizinan").doc(id).update(data);
     else await db.collection("hrd_legal_perizinan").add({ ...data, createdAt: new Date().toISOString() });
+
+    window._pzFile = null;
     closeModalDirect();
-    toast("Data perizinan disimpan", "success");
+    toast("Data perizinan dan dokumen berhasil disimpan", "success");
     renderLegalPerizinan();
 }
+
 
 async function renderLegalSengketa() {
     const main = document.getElementById("mainContent");

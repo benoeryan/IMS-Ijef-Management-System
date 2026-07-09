@@ -3205,13 +3205,12 @@ function renderPanduan() {
     content += `<div class="card mb-16" style="border-left:4px solid #00695c"><div class="fw-700 mb-8" style="color:#00695c">⚖️ Manajemen Legal & Aset (Manager+)</div>
       <div class="text-sm" style="line-height:1.8">
         <div><b>1. Manajemen Kontrak:</b> Klik <b>+ Upload Kontrak</b>. Pilih <b>"Eksternal"</b> untuk MOU/MOU kerjasama/Vendor. Isi <b>Judul/Perihal</b> agar mudah dicari di daftar.</div>
-        <div><b>2. Legalitas & Perizinan:</b> Catat NIB, SIUP, dll. Sistem akan memberi peringatan jika status <b>Expired</b> (Merah).</div>
+        <div><b>2. Legalitas & Perizinan:</b> Catat NIB, SIUP, dll. Upload softcopy dokumen untuk akses cepat. Sistem akan memberi peringatan jika status <b>Expired</b> (Merah).</div>
         <div><b>3. Kajian Hukum / Tiket:</b> Digunakan untuk konsultasi hukum antar divisi.
-          <br>&bull; Pemohon (Divisi lain) membuat tiket.
-          <br>&bull; <b>Layer 1 (Manager Divisi)</b> menyetujui request.
-          <br>&bull; <b>Layer 2 (Head Legal)</b> memberikan kajian dan approval final.
+          <br>&bull; Pemohon membuat tiket. <b>Layer 1 (Manager)</b> menyetujui, <b>Layer 2 (Head Legal)</b> memproses.
+          <br>&bull; <b>Drafting:</b> Gunakan tombol <b>✍️ Buat Draft</b> untuk membuat dokumen (MOU/NDA/SPK) dengan template otomatis dan penomoran surat otomatis.
         </div>
-        <div><b>4. Sengketa & Kasus:</b> Monitoring kronologi kasus hukum yang sedang berjalan.</div>
+        <div><b>4. Integrasi HR:</b> Semua kontrak yang diupload akan otomatis muncul di portal karyawan yang bersangkutan pada menu "Dokumen Saya".</div>
       </div></div>`;
 
     content += `<div class="card mb-16" style="border-left:4px solid #00695c"><div class="fw-700 mb-8" style="color:#00695c">📊 Monitoring & Approval (Manager)</div>
