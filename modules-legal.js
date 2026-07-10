@@ -652,12 +652,13 @@ async function renderLegalSengketa() {
                         <th>Pihak Terkait</th>
                         <th>Kategori</th>
                         <th>Status</th>
+                        <th>File</th>
                         <th>Update Terakhir</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="tblLegalSengketa">
-                    <tr><td colspan="6" class="text-center">Memuat data...</td></tr>
+                    <tr><td colspan="7" class="text-center">Memuat data...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -670,17 +671,19 @@ async function loadLegalSengketa() {
     const snap = await db.collection("hrd_legal_sengketa").get();
     let html = "";
     if (snap.empty) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">Belum ada catatan kasus.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">Belum ada catatan kasus.</td></tr>';
         return;
     }
     snap.forEach(doc => {
         const p = doc.data();
+        const fileBtn = p.fileURL ? `<button class="btn btn-xs btn-success" onclick="window.open('${p.fileURL}', '_blank')">👁️</button>` : '<span class="text-xs" style="color:#999">-</span>';
         html += `
         <tr>
             <td class="fw-700">${escHtml(p.judul)}</td>
             <td>${escHtml(p.pihak || "-")}</td>
             <td><span class="badge badge-info">${escHtml(p.kategori || "Umum")}</span></td>
             <td><span class="badge badge-warning">${escHtml(p.status || "Proses")}</span></td>
+            <td>${fileBtn}</td>
             <td>${formatDate(p.updatedAt || p.createdAt)}</td>
             <td>
                 <button class="btn btn-xs btn-info" onclick="modalSengketa('${doc.id}')">✏️ Edit</button>
@@ -699,15 +702,29 @@ function modalSengketa(id) {
 function showSengketaForm(id, p) {
     openModal(`
         <div class="modal-title">${id ? 'Edit' : 'Tambah'} Catatan Sengketa/Kasus</div>
-        <div class="form-group"><label>Judul Kasus</label><input class="form-control" id="skJudul" value="${escHtml(p.judul || '')}"></div>
-        <div class="form-group"><label>Pihak Terkait</label><input class="form-control" id="skPihak" value="${escHtml(p.pihak || '')}"></div>
+        <div class="form-group"><label>Judul Kasus</label><input class="form-control" id="skJudul" value="${escHtml(p.judul || '')}" placeholder="Contoh: Gugatan Hubungan Industrial"></div>
+        <div class="form-group"><label>Pihak Terkait</label><input class="form-control" id="skPihak" value="${escHtml(p.pihak || '')}" placeholder="Nama Karyawan/Vendor/Instansi"></div>
         <div class="grid-2">
             <div class="form-group"><label>Kategori</label><select class="form-control" id="skKat"><option value="Ketenagakerjaan" ${p.kategori==='Ketenagakerjaan'?'selected':''}>Ketenagakerjaan</option><option value="Perdata" ${p.kategori==='Perdata'?'selected':''}>Perdata</option><option value="Pidana" ${p.kategori==='Pidana'?'selected':''}>Pidana</option></select></div>
             <div class="form-group"><label>Status</label><select class="form-control" id="skStatus"><option value="Mediasi" ${p.status==='Mediasi'?'selected':''}>Mediasi</option><option value="Proses Hukum" ${p.status==='Proses Hukum'?'selected':''}>Proses Hukum</option><option value="Selesai" ${p.status==='Selesai'?'selected':''}>Selesai</option></select></div>
         </div>
         <div class="form-group"><label>Kronologi / Update</label><textarea class="form-control" id="skKronologi" style="min-height:100px">${escHtml(p.kronologi || '')}</textarea></div>
-        <button class="btn btn-primary" onclick="simpanSengketa('${id || ''}')">💾 Simpan</button>
+        <div class="form-group">
+            <label>Upload Dokumen Bukti/Kronologi (PDF/JPG)</label>
+            <input class="form-control" type="file" id="skFile" accept=".pdf,image/*" onchange="previewSengketaFile(this)">
+            <div id="skFileStatus" class="text-xs mt-4">${p.fileURL ? '<span class="color-success">✅ Dokumen sudah ada</span>' : ''}</div>
+        </div>
+        <button class="btn btn-primary" onclick="simpanSengketa('${id || ''}')">💾 Simpan Data</button>
     `);
+    window._skFile = null;
+}
+
+function previewSengketaFile(input) {
+    const file = input.files[0];
+    if (file) {
+        window._skFile = file;
+        document.getElementById("skFileStatus").innerHTML = `<span class="badge badge-success">Siap upload: ${file.name}</span>`;
+    }
 }
 
 async function simpanSengketa(id) {
@@ -720,9 +737,24 @@ async function simpanSengketa(id) {
         updatedAt: new Date().toISOString()
     };
     if (!data.judul) return toast("Judul wajib", "warning");
+
+    // Upload file if selected
+    if (window._skFile) {
+        try {
+            toast("⏳ Mengupload dokumen sengketa...", "info");
+            const path = `legal_sengketa/${Date.now()}_${window._skFile.name}`;
+            data.fileURL = await uploadFileToStorage(window._skFile, path);
+            data.fileName = window._skFile.name;
+        } catch (e) {
+            return toast("Gagal upload: " + e.message, "error");
+        }
+    }
+
     if (id) await db.collection("hrd_legal_sengketa").doc(id).update(data);
     else await db.collection("hrd_legal_sengketa").add({ ...data, createdAt: new Date().toISOString() });
+
+    window._skFile = null;
     closeModalDirect();
-    toast("Kasus disimpan", "success");
+    toast("Catatan sengketa/kasus berhasil disimpan", "success");
     renderLegalSengketa();
 }
