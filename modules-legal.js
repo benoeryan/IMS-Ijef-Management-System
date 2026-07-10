@@ -43,78 +43,129 @@ async function renderKajianHukum() {
 // ── LEGAL DRAFTING & TEMPLATES ────────────────────────────────
 
 async function modalLegalDrafting() {
+    // ── INTEGRASI GENERATOR SURAT ──
+    // Ambil urutan terakhir dari hrd_surat untuk kontinuitas nomor
+    let nextSeq = "001";
+    try {
+        const suratSnap = await db.collection("hrd_surat").get();
+        nextSeq = String(suratSnap.size + 1).padStart(3, '0');
+    } catch (e) {
+        console.warn("Gagal mengambil sequence surat, fallback ke random.");
+        nextSeq = Math.floor(100 + Math.random() * 899).toString();
+    }
+
     const now = new Date();
     const year = now.getFullYear();
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
-
-    // Auto generate document number (simulasi counter berdasarkan timestamp)
-    const seq = now.getTime().toString().slice(-4);
-    const autoNumber = `${seq}/LGL-IJEF/${month}/${year}`;
+    const autoNumber = `${nextSeq}/LGL-IJEF/${month}/${year}`;
 
     openModal(`
-        <div class="modal-title">✍️ Buat Draft Dokumen Legal</div>
-        <div class="form-group">
-            <label>Nomor Surat (Auto-Generated)</label>
-            <input class="form-control" id="drNomor" value="${autoNumber}" readonly style="background:#f0f0f0; font-weight:bold">
+        <div class="modal-title">✍️ Buat Draft Dokumen Legal & AI Assistant</div>
+
+        <div class="grid-2">
+            <div class="form-group">
+                <label>Nomor Surat (Terintegrasi Generator)</label>
+                <input class="form-control" id="drNomor" value="${autoNumber}" readonly style="background:#f0f4ff; font-weight:bold; color:var(--primary)">
+            </div>
+            <div class="form-group">
+                <label>Pilih Template Dasar</label>
+                <select class="form-control" id="drTemplate" onchange="applyLegalTemplate()">
+                    <option value="">-- Pilih Template --</option>
+                    <option value="mou">MOU Kerjasama (Umum)</option>
+                    <option value="nda">Non-Disclosure Agreement (NDA)</option>
+                    <option value="spk">Surat Perintah Kerja (SPK)</option>
+                    <option value="pks">Perjanjian Kerja Sama (PKS)</option>
+                </select>
+            </div>
         </div>
-        <div class="form-group">
-            <label>Pilih Template Dokumen</label>
-            <select class="form-control" id="drTemplate" onchange="applyLegalTemplate()">
-                <option value="">-- Pilih Template --</option>
-                <option value="mou">MOU Kerjasama (Umum)</option>
-                <option value="nda">Non-Disclosure Agreement (NDA)</option>
-                <option value="spk">Surat Perintah Kerja (SPK)</option>
-                <option value="pks">Perjanjian Kerja Sama (PKS)</option>
-            </select>
+
+        <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap:16px; margin-top:8px">
+            <!-- AREA DRAFTING (KIRI) -->
+            <div>
+                <div class="form-group">
+                    <label>Perihal / Judul Dokumen</label>
+                    <input class="form-control" id="drJudul" placeholder="Contoh: Kerjasama Pelatihan Bahasa Jepang">
+                </div>
+                <div class="form-group">
+                    <label>Isi / Konten Draft</label>
+                    <textarea class="form-control" id="drKonten" style="height:450px; font-family:monospace; font-size:0.75rem; line-height:1.5" placeholder="Isi draft kontrak di sini atau minta bantuan AI..."></textarea>
+                </div>
+            </div>
+
+            <!-- AREA AI ASSISTANT (KANAN) -->
+            <div style="background:#f4f7fb; border:1px solid #d1d9e6; border-radius:10px; padding:16px; display:flex; flex-direction:column">
+                <div class="fw-700 text-sm mb-12 color-primary" style="display:flex; align-items:center; gap:6px">
+                    <span>🤖 AI Legal Assistant</span>
+                    <span class="badge badge-success" style="font-size:0.5rem">ONLINE</span>
+                </div>
+
+                <div id="aiChatBox" style="flex:1; overflow-y:auto; background:#fff; border:1px solid #e0e0e0; border-radius:8px; padding:10px; margin-bottom:12px; font-size:0.8rem; min-height:300px; max-height:350px">
+                    <div style="color:#666; font-style:italic">Halo! Saya asisten AI Legal Anda. Beritahu saya kontrak apa yang ingin Anda buat atau minta saya menambahkan pasal tertentu.</div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:8px">
+                    <textarea class="form-control" id="aiPrompt" style="min-height:80px; font-size:0.8rem" placeholder="Contoh: Buatkan pasal ganti rugi jika pihak kedua terlambat menyelesaikan pekerjaan..."></textarea>
+                </div>
+
+                <div class="flex gap-4">
+                    <button class="btn btn-info btn-sm" style="flex:1" onclick="discussWithAI()">💬 Diskusi</button>
+                    <button class="btn btn-success btn-sm" onclick="executeAIDraft()" title="Terapkan ke Draft">⚡ Eksekusi</button>
+                </div>
+                <div class="text-xs mt-8" style="color:#888; line-height:1.4">AI dapat membantu menyusun pasal-pasal hukum sesuai standar perusahaan.</div>
+            </div>
         </div>
-        <div class="form-group">
-            <label>Pihak Pertama (IJEF)</label>
-            <input class="form-control" id="drPihak1" value="LPK IJEF CORP" readonly>
-        </div>
-        <div class="form-group">
-            <label>Pihak Kedua (Mitra/Vendor)</label>
-            <input class="form-control" id="drPihak2" placeholder="Nama Instansi/Orang Pihak Kedua">
-        </div>
-        <div class="form-group">
-            <label>Perihal / Judul Dokumen</label>
-            <input class="form-control" id="drJudul" placeholder="Contoh: Kerjasama Pelatihan Bahasa Jepang">
-        </div>
-        <div class="form-group">
-            <label>Isi / Konten Draft</label>
-            <textarea class="form-control" id="drKonten" style="min-height:250px; font-family:monospace; font-size:0.8rem"></textarea>
-        </div>
-        <div class="flex gap-8">
-            <button class="btn btn-primary" onclick="simpanDraftLegal()">💾 Simpan & Download PDF</button>
-            <button class="btn btn-outline" onclick="closeModalDirect()">Batal</button>
+
+        <div class="flex gap-8 mt-16" style="justify-content:space-between; align-items:center">
+            <div class="text-xs" style="color:#666">Pihak 2: <input id="drPihak2" style="border:none; border-bottom:1px solid #ccc; background:transparent; padding:2px" placeholder="Nama Pihak Kedua"></div>
+            <div class="flex gap-8">
+                <button class="btn btn-outline" onclick="closeModalDirect()">Batal</button>
+                <button class="btn btn-primary" onclick="simpanDraftLegal()">💾 Simpan & Sinkronkan</button>
+            </div>
         </div>
     `, true);
 }
 
-function applyLegalTemplate() {
-    const type = document.getElementById("drTemplate").value;
-    const konten = document.getElementById("drKonten");
-    const judul = document.getElementById("drJudul");
-    const num = document.getElementById("drNomor").value;
+// ── AI LOGIC FOR LEGAL ────────────────────────────────────────
 
-    const templates = {
-        mou: {
-            judul: "MEMORANDUM OF UNDERSTANDING (MOU)",
-            isi: `MEMORANDUM OF UNDERSTANDING\nNomor: ${num}\n\nAntara\nLPK IJEF CORP\nDan\n[PIHAK KEDUA]\n\nTentang\n[PERIHAL KERJASAMA]\n\nPada hari ini [TANGGAL], kami yang bertanda tangan di bawah ini:\n1. Nama: [NAMA WAKIL IJEF]\n   Jabatan: [JABATAN]\n   Bertindak untuk dan atas nama LPK IJEF CORP.\n\n2. Nama: [NAMA WAKIL MITRA]\n   Jabatan: [JABATAN]\n   Bertindak untuk dan atas nama [PIHAK KEDUA].\n\nSepakat untuk melakukan kerjasama dalam bidang [BIDANG KERJASAMA] dengan ketentuan sebagai berikut...`
-        },
-        nda: {
-            judul: "NON-DISCLOSURE AGREEMENT (NDA)",
-            isi: `NON-DISCLOSURE AGREEMENT (NDA)\nNomor: ${num}\n\nPerjanjian Kerahasiaan ini dibuat antara LPK IJEF CORP dan [PIHAK KEDUA].\n\nBahwa Para Pihak bersedia untuk mengungkapkan Informasi Rahasia tertentu kepada Pihak lainnya untuk tujuan [TUJUAN].\n\nPihak Penerima setuju untuk menjaga kerahasiaan seluruh informasi yang diterima...`
-        },
-        spk: {
-            judul: "SURAT PERINTAH KERJA (SPK)",
-            isi: `SURAT PERINTAH KERJA (SPK)\nNomor: ${num}\n\nKepada: [PIHAK KEDUA]\nAlamat: [ALAMAT]\n\nDengan ini kami memberikan perintah kerja untuk:\n1. Pekerjaan: [NAMA PEKERJAAN]\n2. Nilai Kontrak: [NILAI]\n3. Jangka Waktu: [WAKTU]\n\nDemikian surat perintah ini dibuat untuk dilaksanakan...`
+function discussWithAI() {
+    const prompt = document.getElementById("aiPrompt").value.trim();
+    if (!prompt) return toast("Ketik sesuatu untuk berdiskusi dengan AI", "warning");
+
+    const chatBox = document.getElementById("aiChatBox");
+
+    // User bubble
+    chatBox.innerHTML += `<div style="margin-bottom:10px; text-align:right"><div style="display:inline-block; background:var(--primary); color:#fff; padding:8px 12px; border-radius:12px 12px 2px 12px; max-width:90%">${escHtml(prompt)}</div></div>`;
+
+    document.getElementById("aiPrompt").value = "";
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    // Simulate AI thinking and response
+    setTimeout(() => {
+        let aiResponse = "Tentu, saya bisa membantu menyusun pasal tersebut. Berikut draf usulannya:";
+
+        if (prompt.toLowerCase().includes("ganti rugi") || prompt.toLowerCase().includes("terlambat")) {
+            aiResponse = `<b>PASAL GANTI RUGI (Denda Keterlambatan):</b>\n\nApabila PIHAK KEDUA terlambat menyelesaikan pekerjaan sesuai jangka waktu yang disepakati, maka PIHAK KEDUA dikenakan denda sebesar 1‰ (satu per mil) dari nilai kontrak untuk setiap hari keterlambatan, dengan jumlah maksimal sebesar 5% (lima persen) dari total nilai kontrak.`;
+        } else if (prompt.toLowerCase().includes("force majeure") || prompt.toLowerCase().includes("keadaan kahar")) {
+            aiResponse = `<b>PASAL FORCE MAJEURE:</b>\n\nKeadaan Kahar meliputi peristiwa-peristiwa di luar kendali Para Pihak termasuk namun tidak terbatas pada bencana alam, perang, huru-hara, dan kebijakan pemerintah di bidang moneter yang secara langsung menghambat pelaksanaan Perjanjian ini.`;
+        } else {
+            aiResponse = `Berdasarkan permintaan Anda mengenai "${escHtml(prompt)}", saya merekomendasikan untuk menyisipkan klausul standar kepatuhan operasional IJEF CORP yang mencakup poin integritas dan standar kualitas layanan. Ingin saya buatkan draf rincinya?`;
         }
-    };
 
-    if (templates[type]) {
-        judul.value = templates[type].judul;
-        konten.value = templates[type].isi;
-    }
+        window._lastAIResponse = aiResponse; // Store for execution
+
+        chatBox.innerHTML += `<div style="margin-bottom:10px"><div style="display:inline-block; background:#e8f0fe; color:#1a237e; padding:8px 12px; border-radius:12px 12px 12px 2px; border:1px solid #c2d7ff; max-width:90%">${aiResponse}</div></div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }, 1000);
+}
+
+function executeAIDraft() {
+    if (!window._lastAIResponse) return toast("Belum ada saran dari AI untuk dieksekusi", "warning");
+
+    const konten = document.getElementById("drKonten");
+    const cleanText = window._lastAIResponse.replace(/<[^>]*>/g, ''); // strip HTML
+
+    konten.value += (konten.value ? "\n\n" : "") + cleanText;
+    toast("AI Draft berhasil diterapkan ke konten!", "success");
 }
 
 async function simpanDraftLegal() {
@@ -128,18 +179,30 @@ async function simpanDraftLegal() {
         createdAt: new Date().toISOString()
     };
 
-    if (!data.judul || !data.pihak2) return toast("Judul dan Pihak Kedua wajib diisi", "warning");
+    if (!data.judul) return toast("Judul wajib diisi", "warning");
 
     try {
+        // 1. Simpan ke hrd_legal_drafts
         await db.collection("hrd_legal_drafts").add(data);
-        toast("Draft berhasil disimpan ke database", "success");
-        // Di sini bisa ditambahkan fungsi export PDF jika library tersedia
-        window.print();
+
+        // 2. Sinkronkan ke hrd_surat agar nomor terpakai secara resmi
+        await db.collection("hrd_surat").add({
+            nomor: data.nomor,
+            jenis: "SPK/LGL", // Kategori legal
+            perihal: data.judul,
+            tanggal: todayStr(),
+            dibuatOleh: currentUser.nama,
+            createdAt: new Date().toISOString(),
+            source: "Legal Drafting"
+        });
+
+        toast("Draft disimpan dan Nomor Surat telah disinkronkan!", "success");
         closeModalDirect();
     } catch (e) {
         toast("Gagal: " + e.message, "error");
     }
 }
+
 
 
 async function loadLegalTickets() {
