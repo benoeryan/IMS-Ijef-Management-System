@@ -116,14 +116,101 @@ async function modalLegalDrafting() {
         </div>
 
         <div class="flex gap-8 mt-16" style="justify-content:space-between; align-items:center">
-            <div class="text-xs" style="color:#666">Pihak 2: <input id="drPihak2" style="border:none; border-bottom:1px solid #ccc; background:transparent; padding:2px" placeholder="Nama Pihak Kedua"></div>
+            <div style="display:flex; align-items:center; gap:12px">
+                <div class="text-xs" style="color:#666">Pihak 2: <input id="drPihak2" style="border:none; border-bottom:1px solid #ccc; background:transparent; padding:2px" placeholder="Nama Pihak Kedua"></div>
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; color:var(--primary); font-weight:600">
+                    <input type="checkbox" id="drPakeKop" checked> Sertakan KOP Surat
+                </label>
+            </div>
             <div class="flex gap-8">
                 <button class="btn btn-outline" onclick="closeModalDirect()">Batal</button>
+                <button class="btn btn-info" onclick="printDraftLegalDirect()">🖨️ Preview & Print A4</button>
                 <button class="btn btn-primary" onclick="simpanDraftLegal()">💾 Simpan & Sinkronkan</button>
             </div>
         </div>
     `, true);
 }
+
+// ── PRINTING LOGIC WITH KOP SURAT ─────────────────────────────
+
+async function printDraftLegalDirect() {
+    const judul = document.getElementById("drJudul").value || "Draft Dokumen";
+    const nomor = document.getElementById("drNomor").value;
+    const konten = document.getElementById("drKonten").value;
+    const pakeKop = document.getElementById("drPakeKop").checked;
+
+    if (!konten) return toast("Isi konten draft dulu sebelum print", "warning");
+
+    // Load Data Perusahaan untuk KOP
+    let cp = { nama: "LPK IJEF CORP", alamat: "Bandung Barat", telp: "-", email: "-", logo: "" };
+    try {
+        const doc = await db.collection("hrd_settings").doc("perusahaan").get();
+        if (doc.exists) cp = { ...cp, ...doc.data() };
+    } catch (e) {}
+
+    const printWin = window.open('', '_blank');
+
+    let kopHtml = "";
+    if (pakeKop) {
+        kopHtml = `
+        <div style="display:flex; align-items:center; border-bottom:3px solid #000; padding-bottom:10px; margin-bottom:20px">
+            <img src="${cp.logo || 'icon-ijef-v3.png'}" style="width:80px; height:80px; object-fit:contain; margin-right:20px">
+            <div style="flex:1; text-align:center">
+                <div style="font-size:18pt; font-weight:bold; text-transform:uppercase">${cp.nama}</div>
+                <div style="font-size:10pt; margin-top:4px">${cp.alamat} ${cp.kota || ''}</div>
+                <div style="font-size:10pt">Telp: ${cp.telepon || cp.telp || '-'} | Email: ${cp.email}</div>
+                ${cp.nib ? `<div style="font-size:9pt; margin-top:2px">NIB: ${cp.nib}</div>` : ''}
+            </div>
+        </div>`;
+    }
+
+    printWin.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>${judul}</title>
+            <style>
+                @page { size: A4; margin: 2cm; }
+                body { font-family: 'Times New Roman', serif; line-height: 1.6; color: #000; padding: 0; margin: 0; }
+                .content { white-space: pre-wrap; font-size: 11pt; text-align: justify; }
+                .title-area { text-align: center; margin-bottom: 30px; }
+                .doc-title { font-size: 14pt; font-weight: bold; text-decoration: underline; margin-bottom: 5px; }
+                .doc-number { font-size: 11pt; margin-bottom: 20px; }
+                @media print {
+                    .no-print { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            ${kopHtml}
+            <div class="title-area">
+                <div class="doc-title">${judul.toUpperCase()}</div>
+                <div class="doc-number">Nomor: ${nomor}</div>
+            </div>
+            <div class="content">${konten}</div>
+
+            <div style="margin-top:50px; display:grid; grid-template-columns: 1fr 1fr; gap:40px">
+                <div style="text-align:center">
+                    <p>PIHAK PERTAMA,</p>
+                    <br><br><br><br>
+                    <p><b>( ____________________ )</b></p>
+                </div>
+                <div style="text-align:center">
+                    <p>PIHAK KEDUA,</p>
+                    <br><br><br><br>
+                    <p><b>( ____________________ )</b></p>
+                </div>
+            </div>
+
+            <script>
+                setTimeout(() => { window.print(); }, 500);
+            </script>
+        </body>
+        </html>
+    `);
+    printWin.document.close();
+}
+
 
 // ── AI LOGIC FOR LEGAL ────────────────────────────────────────
 
