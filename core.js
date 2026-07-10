@@ -41,6 +41,14 @@ function getStorageAuthUid() {
 async function uploadFileToStorage(file, path) {
   if (!file) throw new Error('No file provided');
   if (file.size > MAX_STORAGE_UPLOAD_BYTES) throw new Error('File terlalu besar (max 500MB)');
+
+  // Ensure authentication before upload (Fixed unauthorized error)
+  try {
+    await ensureStorageAuth();
+  } catch (e) {
+    console.warn("Storage Auth failed, attempting upload anyway...", e);
+  }
+
   const storageRef = storage.ref(path);
   const metadata = { contentType: file.type || 'application/octet-stream' };
   const snapshot = await storageRef.put(file, metadata);
