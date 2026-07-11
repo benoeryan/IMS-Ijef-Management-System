@@ -3096,10 +3096,8 @@ function checkReportSummaryTime() {
   if (now.getDay() === 0) return;
 
   const hour = now.getHours();
-  const minute = now.getMinutes();
-
-  // Trigger at 20:00 (8 PM) WIB - check within first minute
-  if (hour === 20 && minute === 0) {
+  // Trigger at or after 20:00 (8 PM) WIB
+  if (hour >= 20) {
     const todayKey = 'report_summary_sent_' + todayStr();
     if (!localStorage.getItem(todayKey)) {
       localStorage.setItem(todayKey, '1');
@@ -3131,9 +3129,20 @@ async function renderReportSummary() {
 async function _loadReportSummaryForDate(dateVal) {
   const container = document.getElementById('reportSummaryContent');
   if (!container) return;
-  container.innerHTML = '<div class="loading-spinner"></div> Loading...';
+  container.innerHTML = '<div class="loading-spinner"></div> Loading data dari database...';
 
-  const snap = await db.collection('hrd_daily_tasks').get();
+  // Optimization: use filtered query
+  let snap;
+  try {
+    snap = await db.collection('hrd_daily_tasks')
+      .where('type', '==', 'report')
+      .where('tanggal', '==', dateVal)
+      .get();
+  } catch (e) {
+    console.error('[Report] Query failed:', e.message);
+    // Fallback: search all if index is missing (temp)
+    snap = await db.collection('hrd_daily_tasks').get();
+  }
 
   // Build cache and collect reports for selected date
   _reportSummaryCache = {};
@@ -3147,16 +3156,31 @@ async function _loadReportSummaryForDate(dateVal) {
     }
   });
 
+  // Prepare header info
+  var dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  var dObj = new Date(dateVal + 'T00:00:00');
+  var dayName = dayNames[dObj.getDay()] || 'Hari ini';
+  var dateStr = dObj.toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  var waText = '\ud83d\udccb *REPORT HARIAN IJEF*\n\ud83d\udcc5 ' + dayName + ', ' + dateStr + '\n\n';
+
   // Apply division filter
   var reports = allReports;
   if (_reportSummaryDivisionFilter === 'academic') {
-    reports = allReports.filter(function (r) {
-      return (r.departemen || '').toUpperCase() === 'ACADEMIC';
-    });
+    reports = allReports.filter(r => (r.departemen || '').toUpperCase() === 'ACADEMIC');
   } else if (_reportSummaryDivisionFilter === 'office') {
-    reports = allReports.filter(function (r) {
-      return (r.departemen || '').toUpperCase() === 'OFFICE';
-    });
+    reports = allReports.filter(r => (r.departemen || '').toUpperCase() === 'OFFICE');
+  }
+
+  if (!reports.length) {
+    waText += '\u26a0\ufe0f 0 report masuk untuk hari ini.\n';
+    container.innerHTML = `<div class="card"><p>\u26a0\ufe0f Tidak ada report masuk pada tanggal ${dateStr}.</p></div>`;
+    container.setAttribute('data-wa-text', waText);
+    return;
   }
 
   // Group by department then by category
@@ -3169,356 +3193,94 @@ async function _loadReportSummaryForDate(dateVal) {
     byDept[dept][kat].push(r);
   });
 
-  // Build display + WA text
-  var dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-  var dObj = new Date(dateVal + 'T00:00:00');
-  var dayName = dayNames[dObj.getDay()];
-  var dateStr = dObj.toLocaleDateString('id-ID', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+  var htmlContent = '';
+  var totalDone = 0, totalProgress = 0, totalOnTrack = 0, totalNeedAttention = 0;
+  var totalKendala = 0, totalTanpaKendala = 0, totalProgressValue = 0;
+
+  Object.keys(byDept).sort().forEach(function (dept) {
+    var katMap = byDept[dept];
+    var deptItems = Object.values(katMap).flat();
+    var icon = dept.includes('ACADEMIC') ? '\ud83d\udcda' : '\ud83c\udfe2';
+    var deptDone = 0, deptOnTrack = 0, deptNeedAttention = 0, deptKendala = 0, deptTanpaKendala = 0;
+    var deptProgress = 0;
+    var deptKendalaNotes = [];
+
+    waText += '*' + icon + ' ' + dept + ' (' + deptItems.length + ' report)*\n';
+    htmlContent += `<div class="card mb-8"><div class="fw-700 mb-8">${icon} ${escHtml(dept)} (${deptItems.length})</div>`;
+
+    Object.keys(katMap).sort().forEach(function (kat) {
+      var items = katMap[kat];
+      waText += '  \ud83d\udcc2 ' + kat + ' (' + items.length + ')\n';
+      htmlContent += `<div style="margin-bottom:12px;background:#f8f9ff;border-radius:8px;padding:10px 12px">
+        <div style="font-weight:600;font-size:.82rem;color:#1565c0;margin-bottom:6px;border-bottom:1px solid #d0d9ff;padding-bottom:4px">\ud83d\udcc2 ${escHtml(kat)} (${items.length})</div>`;
+
+      items.forEach(function (r) {
+        var nama = (r.targetUserName || r.nama || '-').toUpperCase();
+        var aktivitasRaw = (r.aktivitas || r.description || '-').trim();
+        var prog = parseInt(r.progress, 10) || 0;
+        prog = Math.max(0, Math.min(100, prog));
+
+        var hasil = (r.hasil || '').trim();
+        var kendala = (r.kendala || '').trim();
+        var solusi = (r.solusi || '').trim();
+
+        // Build WA Detail
+        waText += '    \u2022 ' + nama + ' (' + prog + '%)\n';
+        waText += '      \ud83d\udccb ' + aktivitasRaw.split('\n')[0].substring(0, 100) + '\n';
+        if (hasil) waText += '      \u2714 Hasil: ' + hasil.split('\n')[0].substring(0, 100) + '\n';
+        if (kendala) waText += '      \u26a0\ufe0f Kendala: ' + kendala.split('\n')[0].substring(0, 100) + '\n';
+
+        // Build HTML Detail
+        var progressColor = prog >= 100 ? '#2e7d32' : prog >= 70 ? '#f57f17' : '#c62828';
+        htmlContent += `<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:.85rem;cursor:pointer" onclick="viewReportFromSummary('${r.id}')">
+          <div style="display:flex;justify-content:space-between">
+            <b>\u2022 ${escHtml(nama)}</b>
+            <span style="font-weight:700;color:${progressColor}">${prog}%</span>
+          </div>
+          <div class="text-xs color-light mt-4">${escHtml(aktivitasRaw.substring(0, 120))}...</div>
+        </div>`;
+
+        // Totals
+        totalProgressValue += prog;
+        if (prog >= 100) { totalDone++; deptDone++; }
+        else {
+          totalProgress++; deptProgress++;
+          if (prog >= 70) { totalOnTrack++; deptOnTrack++; }
+          else { totalNeedAttention++; deptNeedAttention++; }
+        }
+        if (kendala) { totalKendala++; deptKendala++; deptKendalaNotes.push(nama + ': ' + kendala.split('\n')[0].substring(0, 50)); }
+        else { totalTanpaKendala++; deptTanpaKendala++; }
+      });
+      htmlContent += '</div>';
+    });
+
+    var deptAvg = Math.round(deptItems.reduce((a, b) => a + (parseInt(b.progress) || 0), 0) / deptItems.length);
+    waText += '  \ud83d\udcca Dept Summary: \u2705 ' + deptDone + ' | \ud83d\udfe1 ' + deptOnTrack + ' | \ud83d\udd34 ' + deptNeedAttention + ' | \ud83d\udcc8 ' + deptAvg + '%\n\n';
+    htmlContent += `</div>`;
   });
 
-  var waText = '\ud83d\udccb REPORT HARIAN IJEF\n\ud83d\udcc5 ' + dayName + ', ' + dateStr + '\n\n';
-  var htmlContent = '';
-  var totalDone = 0;
-  var totalProgress = 0;
-  var totalOnTrack = 0;
-  var totalNeedAttention = 0;
-  var totalKendala = 0;
-  var totalTanpaKendala = 0;
-  var totalProgressValue = 0;
+  var avgOverall = Math.round(totalProgressValue / reports.length);
+  waText += `\ud83d\udcca *OVERALL SUMMARY*\nTotal: ${reports.length} | \u2705 Done: ${totalDone} | \ud83d\udfe1 On Track: ${totalOnTrack} | \ud83d\udd34 Perlu Atensi: ${totalNeedAttention} | \u26a0 Kendala: ${totalKendala} | \ud83d\udcc8 Avg: ${avgOverall}%`;
 
-  if (!reports.length) {
-    waText += '\u26a0\ufe0f 0 report hari ini.\n';
-    htmlContent =
-      '<div class="card"><p>\u26a0\ufe0f Tidak ada report masuk pada tanggal ini.</p></div>';
-  } else {
-    Object.keys(byDept)
-      .sort()
-      .forEach(function (dept) {
-        var katMap = byDept[dept];
-        var deptItems = Object.values(katMap).reduce(function (acc, arr) {
-          return acc.concat(arr);
-        }, []);
-        var icon = dept.includes('ACADEMIC') ? '\ud83d\udcda' : '\ud83c\udfe2';
-        var deptDone = 0;
-        var deptProgress = 0;
-        var deptOnTrack = 0;
-        var deptNeedAttention = 0;
-        var deptKendala = 0;
-        var deptTanpaKendala = 0;
-        var deptKendalaNotes = [];
-        waText += icon + ' ' + dept + ' (' + deptItems.length + ' report)\n';
-        htmlContent +=
-          '<div class="card mb-8"><div class="fw-700 mb-8">' +
-          icon +
-          ' ' +
-          escHtml(dept) +
-          ' (' +
-          deptItems.length +
-          ')</div>';
+  // UI Setup
+  var filterTabs = `<div class="flex gap-8 mb-12">${['all','academic','office'].map(div => {
+    const active = _reportSummaryDivisionFilter === div;
+    return `<button class="btn btn-sm ${active ? 'btn-primary' : 'btn-outline'}" onclick="filterReportSummaryByDivision('${div}')">${div.toUpperCase()}</button>`;
+  }).join('')}</div>`;
 
-        // Render by category
-        Object.keys(katMap)
-          .sort()
-          .forEach(function (kat) {
-            var items = katMap[kat];
-            var katLabel = kat;
-            htmlContent +=
-              '<div style="margin-bottom:12px;background:#f8f9ff;border-radius:8px;padding:10px 12px">' +
-              '<div style="font-weight:600;font-size:.82rem;color:#1565c0;margin-bottom:6px;border-bottom:1px solid #d0d9ff;padding-bottom:4px">' +
-              '\ud83d\udcc2 ' +
-              escHtml(katLabel) +
-              ' (' +
-              items.length +
-              ')</div>';
-            waText += '  \ud83d\udcc2 ' + katLabel + ' (' + items.length + ')\n';
+  container.innerHTML = `
+    <div class="card mb-16">
+      <div class="flex" style="justify-content:space-between;align-items:center">
+        <div class="fw-700">\ud83d\udccb Rangkuman Report - ${dateStr}</div>
+        <div class="flex gap-8">
+          <input type="date" class="form-control" id="summaryDate" value="${dateVal}" onchange="loadReportSummaryByDate(this.value)" style="width:150px">
+          <button class="btn btn-sm btn-success" onclick="shareReportWA()">\ud83d\udce4 Share WA Admin</button>
+        </div>
+      </div>
+    </div>
+    ${filterTabs}
+    ${htmlContent}`;
 
-            items.forEach(function (r) {
-              var nama = (r.targetUserName || r.nama || '-').toUpperCase();
-              var aktivitasRaw = (r.aktivitas || '-').trim();
-              var aktivitasFirst = aktivitasRaw.split('\n')[0].substring(0, 80);
-              var prog = parseInt(r.progress, 10);
-              if (isNaN(prog)) prog = 0;
-              prog = Math.max(0, Math.min(100, prog));
-              var status = prog >= 100 ? '\u2705' : prog + '%';
-              var hasil = (r.hasil || '').trim();
-              var kendala = (r.kendala || '').trim();
-              var solusi = (r.solusi || '').trim();
-              var aktivitasDisplay = aktivitasRaw.substring(0, 180);
-              var hasilDisplay = hasil.substring(0, 180);
-              var kendalaDisplay = kendala.substring(0, 180);
-              var solusiDisplay = solusi.substring(0, 180);
-              var progressColor = prog >= 100 ? '#2e7d32' : prog >= 50 ? '#f57f17' : '#c62828';
-
-              // WA text with detail
-              waText += '    \u2022 ' + nama + '\n';
-              waText += '      \ud83d\udcc8 Progress: ' + prog + '%\n';
-              waText += '      \ud83d\udccb Aktivitas: ' + aktivitasFirst + '\n';
-              if (hasil)
-                waText += '      \u2714 Hasil: ' + hasil.split('\n')[0].substring(0, 100) + '\n';
-              if (kendala)
-                waText +=
-                  '      \u26a0 Kendala: ' + kendala.split('\n')[0].substring(0, 100) + '\n';
-              if (solusi)
-                waText +=
-                  '      \ud83d\udca1 Tindak Lanjut: ' +
-                  solusi.split('\n')[0].substring(0, 100) +
-                  '\n';
-
-              // HTML display — clickable row
-              htmlContent +=
-                '<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:.85rem;cursor:pointer;border-radius:6px;transition:background .15s" ' +
-                'onclick="viewReportFromSummary(\'' +
-                r.id +
-                '\')" ' +
-                'onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">' +
-                '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
-                '<div>\u2022 <b>' +
-                escHtml(nama) +
-                '</b></div>' +
-                '<div style="display:flex;align-items:center;gap:6px">' +
-                '<div style="font-weight:700;color:' +
-                progressColor +
-                '">' +
-                status +
-                '</div>' +
-                '<button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewReportFromSummary(\'' +
-                r.id +
-                '\')" style="padding:2px 7px;font-size:.7rem">\ud83d\udc41\ufe0f View</button>' +
-                '</div></div>';
-              htmlContent +=
-                '<div style="padding-left:16px;font-size:.78rem;margin-top:4px">' +
-                '<div style="height:6px;background:#eee;border-radius:999px;overflow:hidden">' +
-                '<div style="height:100%;width:' +
-                Math.min(100, Math.max(0, prog)) +
-                '%;background:' +
-                progressColor +
-                '"></div></div>' +
-                '<div style="margin-top:4px;color:#333">\ud83d\udccb Aktivitas: ' +
-                escHtml(aktivitasDisplay || '-') +
-                '</div></div>';
-              if (hasil)
-                htmlContent +=
-                  '<div style="padding-left:16px;font-size:.78rem;color:#2e7d32;margin-top:2px">\u2714 Hasil: ' +
-                  escHtml(hasilDisplay) +
-                  '</div>';
-              if (kendala)
-                htmlContent +=
-                  '<div style="padding-left:16px;font-size:.78rem;color:#c62828;margin-top:2px">\u26a0 Kendala: ' +
-                  escHtml(kendalaDisplay) +
-                  '</div>';
-              if (solusi)
-                htmlContent +=
-                  '<div style="padding-left:16px;font-size:.78rem;color:#e65100;margin-top:2px">\ud83d\udca1 Tindak Lanjut: ' +
-                  escHtml(solusiDisplay) +
-                  '</div>';
-              htmlContent += '</div>';
-
-              if (prog >= 100) {
-                totalDone++;
-                deptDone++;
-              } else {
-                totalProgress++;
-                deptProgress++;
-                if (prog >= 70) {
-                  totalOnTrack++;
-                  deptOnTrack++;
-                } else {
-                  totalNeedAttention++;
-                  deptNeedAttention++;
-                }
-              }
-              if (kendala) {
-                totalKendala++;
-                deptKendala++;
-                deptKendalaNotes.push(
-                  '• ' + nama + ': ' + kendala.split('\n')[0].substring(0, 80)
-                );
-              } else {
-                totalTanpaKendala++;
-                deptTanpaKendala++;
-              }
-              totalProgressValue += prog;
-            });
-
-            htmlContent += '</div>'; // end category block
-          });
-
-        var deptAvg = deptItems.length
-          ? Math.round(
-              deptItems.reduce(function (acc, it) {
-                var p = parseInt(it.progress, 10);
-                if (isNaN(p)) p = 0;
-                return acc + Math.max(0, Math.min(100, p));
-              }, 0) / deptItems.length
-            )
-          : 0;
-        waText +=
-          '  \ud83d\udcca Dept: \u2705 ' +
-          deptDone +
-          ' | \ud83d\udfe1 On Track ' +
-          deptOnTrack +
-          ' | \ud83d\udd34 Perlu Atensi ' +
-          deptNeedAttention +
-          ' | \u26a0 ' +
-          deptKendala +
-          ' | \ud83d\udcc8 ' +
-          deptAvg +
-          '%\n';
-        if (deptKendalaNotes.length) {
-          waText += '  \ud83d\udea7 Kendala Utama:\n';
-          deptKendalaNotes.slice(0, 3).forEach(function (k) {
-            waText += '   ' + k + '\n';
-          });
-        }
-        waText += '\n';
-        htmlContent +=
-          '<div style="padding-top:8px;font-size:.75rem;color:#666;display:flex;gap:10px;flex-wrap:wrap"><span>\u2705 Done: <b>' +
-          deptDone +
-          '</b></span><span>\ud83d\udfe1 On Track: <b>' +
-          deptOnTrack +
-          '</b></span><span>\ud83d\udd34 Perlu Atensi: <b>' +
-          deptNeedAttention +
-          '</b></span><span>\u23f3 Progress: <b>' +
-          deptProgress +
-          '</b></span><span>\u26a0 Kendala: <b>' +
-          deptKendala +
-          '</b></span><span>\u2705 Tanpa Kendala: <b>' +
-          deptTanpaKendala +
-          '</b></span><span>\ud83d\udcc8 Rata-rata: <b>' +
-          deptAvg +
-          '%</b></span></div>';
-        if (deptKendalaNotes.length) {
-          htmlContent +=
-            '<div style="margin-top:6px;padding:8px 10px;background:#fff7f7;border:1px solid #ffd7d7;border-radius:8px;font-size:.74rem;color:#a13d3d"><div style="font-weight:700;margin-bottom:4px">\ud83d\udea7 Kendala Utama</div><ul style="margin:0;padding-left:16px">' +
-            deptKendalaNotes
-              .slice(0, 3)
-              .map(function (k) {
-                return '<li>' + escHtml(k.replace(/^•\s*/, '')) + '</li>';
-              })
-              .join('') +
-            '</ul></div>';
-        }
-        htmlContent +=
-          '<div style="padding-top:6px;font-size:.72rem;color:#777">Coverage kendala: <b>' +
-          (deptItems.length ? Math.round((deptKendala / deptItems.length) * 100) : 0) +
-          '%</b> report punya hambatan</div>';
-        htmlContent +=
-          '<div style="padding-top:4px;font-size:.72rem;color:#777">Coverage progres tinggi (Done + On Track): <b>' +
-          (deptItems.length
-            ? Math.round(((deptDone + deptOnTrack) / deptItems.length) * 100)
-            : 0) +
-          '%</b></div>';
-        htmlContent +=
-          '<div style="padding-top:2px;font-size:.72rem;color:#777">Coverage progres rendah (Perlu Atensi): <b>' +
-          (deptItems.length ? Math.round((deptNeedAttention / deptItems.length) * 100) : 0) +
-          '%</b></div>';
-        htmlContent += '</div>';
-      });
-
-    var avgProgress = reports.length ? Math.round(totalProgressValue / reports.length) : 0;
-    var highCoverage = reports.length
-      ? Math.round(((totalDone + totalOnTrack) / reports.length) * 100)
-      : 0;
-    var kendalaCoverage = reports.length ? Math.round((totalKendala / reports.length) * 100) : 0;
-    waText +=
-      '\ud83d\udcca Total: ' +
-      reports.length +
-      ' report | \u2705 ' +
-      totalDone +
-      ' done | \u23f3 ' +
-      totalProgress +
-      ' progress | \ud83d\udfe1 ' +
-      totalOnTrack +
-      ' on track | \ud83d\udd34 ' +
-      totalNeedAttention +
-      ' perlu atensi | \u26a0 ' +
-      totalKendala +
-      ' kendala | \u2705 ' +
-      totalTanpaKendala +
-      ' tanpa kendala | \ud83d\udcc8 rata-rata ' +
-      avgProgress +
-      '%\n';
-    waText +=
-      '\ud83d\udcca Coverage: Progres tinggi ' +
-      highCoverage +
-      '% | Report dengan kendala ' +
-      kendalaCoverage +
-      '%';
-  }
-
-  // Build division filter tabs
-  var filterTabs =
-    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">' +
-    ['all', 'academic', 'office']
-      .map(function (div) {
-        var label = div === 'all' ? '🗂️ Semua' : div === 'academic' ? '📚 Academic' : '🏢 Office';
-        var active = _reportSummaryDivisionFilter === div;
-        return (
-          '<button class="btn btn-sm" ' +
-          'style="' +
-          (active
-            ? 'background:var(--primary);color:#fff;font-weight:700'
-            : 'background:#f0f0f0;color:#333') +
-          '" onclick="filterReportSummaryByDivision(\'' +
-          div +
-          '\')">' +
-          label +
-          '</button>'
-        );
-      })
-      .join('') +
-    '</div>';
-
-  var summaryPage =
-    '<div class="card mb-16">' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
-    '<div>' +
-    '<div class="fw-700" style="font-size:1.1rem">\ud83d\udccb Rangkuman ' +
-    dayName +
-    ', ' +
-    dateStr +
-    '</div>' +
-    '<div class="text-sm" style="color:#666">Total: ' +
-    reports.length +
-    ' report | \u2705 ' +
-    totalDone +
-    ' done | \u23f3 ' +
-    totalProgress +
-    ' progress | \ud83d\udfe1 ' +
-    totalOnTrack +
-    ' on track | \ud83d\udd34 ' +
-    totalNeedAttention +
-    ' perlu atensi | \u26a0 ' +
-    totalKendala +
-    ' kendala | \u2705 ' +
-    totalTanpaKendala +
-    ' tanpa kendala | \ud83d\udcc8 rata-rata ' +
-    (reports.length ? Math.round(totalProgressValue / reports.length) : 0) +
-    '% | coverage progres tinggi ' +
-    (reports.length ? Math.round(((totalDone + totalOnTrack) / reports.length) * 100) : 0) +
-    '% | coverage kendala ' +
-    (reports.length ? Math.round((totalKendala / reports.length) * 100) : 0) +
-    '%</div>' +
-    '</div>' +
-    '<div style="display:flex;gap:8px;align-items:center">' +
-    '<input type="date" class="form-control" id="summaryDate" value="' +
-    dateVal +
-    '" onchange="loadReportSummaryByDate(this.value)" style="max-width:160px">' +
-    '<button class="btn btn-sm" style="background:#25D366;color:#fff" onclick="shareReportWA()">\ud83d\udce4 Share WA</button>' +
-    '</div>' +
-    '</div>' +
-    '</div>' +
-    filterTabs +
-    htmlContent +
-    '<textarea id="waShareText" style="display:none">' +
-    escHtml(waText) +
-    '</textarea>';
-
-  container.innerHTML = summaryPage;
-  // Store raw waText for sharing (textarea has escaped HTML, we need raw)
   container.setAttribute('data-wa-text', waText);
 }
 

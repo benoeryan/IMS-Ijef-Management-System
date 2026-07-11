@@ -865,7 +865,8 @@ function generateNIP() {
   return 'NIP' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 100);
 }
 function todayStr() {
-  return new Date().toISOString().split('T')[0];
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 function monthStr() {
   return new Date().toISOString().slice(0, 7);
@@ -1081,18 +1082,25 @@ function playNotificationSound() {
   _notifSoundCooldown = true;
   setTimeout(() => {
     _notifSoundCooldown = false;
-  }, 3000);
+  }, 2000); // Reduced cooldown
+
   // Vibrate on mobile
-  if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 300]);
-  // Method 1: HTML5 Audio (most reliable on mobile)
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+  // Method 1: HTML5 Audio - the most standard way
   try {
     const audio = createNotifAudio();
     audio.currentTime = 0;
     audio.volume = 1.0;
-    audio.play().catch(() => {
-      // Fallback: Web Audio API
-      playNotifWebAudio();
-    });
+
+    // Play with fallback
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((e) => {
+        // Fallback to Web Audio if autoplay is blocked
+        playNotifWebAudio();
+      });
+    }
   } catch (e) {
     playNotifWebAudio();
   }
