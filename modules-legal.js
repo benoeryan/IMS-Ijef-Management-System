@@ -3,6 +3,7 @@
 /**
  * MODULES-LEGAL.JS
  * Modul untuk fitur Legal Internal & Eksternal
+ * Full-screen Drafting Workspace & AI Assistant
  */
 
 // ── KAJIAN HUKUM / TIKET ───────────────────────────────────────
@@ -57,104 +58,77 @@ async function modalLegalDrafting() {
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
     const autoNumber = `${nextSeq}/LGL-IJEF/${month}/${year}`;
 
-    // Inject styles for Word-like interface
+    // Inject styles for Word-like Full Screen Workspace
     const styleId = "legalDraftingStyles";
     if (!document.getElementById(styleId)) {
         const style = document.createElement("style");
         style.id = styleId;
         style.textContent = `
-            .word-container {
-                background: #525659;
-                padding: 40px 20px;
-                display: flex;
-                justify-content: center;
-                overflow-y: auto;
-                max-height: 600px;
-                border-radius: 8px;
+            .modal-fullscreen {
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                max-width: none !important; max-height: none !important;
+                border-radius: 0 !important; margin: 0 !important;
+                display: flex; flex-direction: column; padding: 0 !important;
+                background: #f0f2f5;
+            }
+            .word-header {
+                background: #fff; padding: 10px 20px; border-bottom: 1px solid #ddd;
+                display: flex; justify-content: space-between; align-items: center;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 100;
+            }
+            .word-toolbar-wrapper {
+                background: #f3f4f6; border-bottom: 1px solid #ddd;
+                padding: 4px 10px; display: flex; flex-wrap: wrap; gap: 4px;
+                position: sticky; top: 0; z-index: 99;
+            }
+            .word-main-layout {
+                display: flex; flex: 1; overflow: hidden; height: calc(100vh - 120px);
+            }
+            .word-sidebar {
+                width: 320px; background: #fff; border-left: 1px solid #ddd;
+                display: flex; flex-direction: column; overflow-y: auto;
+            }
+            .word-content-area {
+                flex: 1; background: #525659; overflow-y: auto;
+                display: flex; justify-content: center; padding: 40px 0;
             }
             .word-page {
-                background: white;
-                width: 210mm; /* A4 width */
-                min-height: 297mm; /* A4 height */
-                padding: 2.5cm 2.5cm 2cm 2.5cm;
-                box-shadow: 0 0 10px rgba(0,0,0,0.5);
-                display: flex;
-                flex-direction: column;
-                position: relative;
-                color: #000;
+                background: white; width: 210mm; min-height: 297mm;
+                padding: 2.5cm 2.5cm 2cm 2.5cm; box-shadow: 0 0 15px rgba(0,0,0,0.3);
+                display: flex; flex-direction: column; position: relative; color: #000;
             }
             .word-editor {
-                border: 1px solid #eee;
-                width: 100%;
-                min-height: 20cm;
-                flex: 1;
-                font-family: 'Times New Roman', serif;
-                font-size: 11pt;
-                line-height: 1.5;
-                outline: none;
-                padding: 10px;
-                margin-top: 10px;
-                background: #fff;
-                text-align: justify;
-                overflow: hidden;
+                border: 1px solid transparent; width: 100%; min-height: 100%;
+                flex: 1; font-family: 'Times New Roman', serif; font-size: 11pt;
+                line-height: 1.5; outline: none; padding: 0; margin-top: 10px;
+                background: #fff; text-align: justify;
             }
-            .word-toolbar {
-                background: #f3f3f3;
-                border: 1px solid #ddd;
-                border-bottom: none;
-                border-radius: 8px 8px 0 0;
-                padding: 5px;
-                display: flex;
-                flex-wrap: wrap;
-                gap: 2px;
-                align-items: center;
-                position: sticky;
-                top: 0;
-                z-index: 10;
-            }
+            .word-editor:focus { border: 1px dashed #eee; }
             .toolbar-grp {
-                display: flex;
-                align-items: center;
-                gap: 2px;
-                padding: 0 5px;
-                border-right: 1px solid #ccc;
+                display: flex; align-items: center; gap: 2px;
+                padding: 2px 8px; border-right: 1px solid #ddd;
             }
-            .toolbar-grp:last-child { border-right: none; }
             .toolbar-btn {
-                background: transparent;
-                border: 1px solid transparent;
-                padding: 4px 8px;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 0.85rem;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                min-width: 28px;
-                color: #333;
+                background: transparent; border: 1px solid transparent;
+                padding: 4px 6px; border-radius: 4px; cursor: pointer;
+                font-size: 0.9rem; min-width: 32px; color: #444; transition: 0.2s;
             }
-            .toolbar-btn:hover { background: #e0e0e0; border-color: #bbb; }
-            .toolbar-btn.active { background: #d0d0d0; border-color: #999; }
+            .toolbar-btn:hover { background: #e2e8f0; border-color: #cbd5e0; }
+            .toolbar-btn.active { background: #3182ce; color: #fff; }
             .toolbar-select {
-                padding: 2px 4px;
-                border-radius: 4px;
-                border: 1px solid #ccc;
-                font-size: 0.75rem;
-                background: #fff;
+                padding: 4px 6px; border-radius: 4px; border: 1px solid #ccc;
+                font-size: 0.8rem; background: #fff; outline: none;
             }
             .word-kop-preview {
-                display: none; /* Default hidden */
-                border-bottom: 2px solid #000;
-                padding-bottom: 10px;
-                margin-bottom: 20px;
-                align-items: center;
+                display: none; border-bottom: 2px solid #000;
+                padding-bottom: 10px; margin-bottom: 20px; align-items: center;
             }
             .word-kop-preview.active { display: flex; }
         `;
         document.head.appendChild(style);
     }
 
-    // Load Data Perusahaan for KOP Preview
+    // Load Data Perusahaan
     let cp = { nama: "LPK IJEF CORP", alamat: "Bandung Barat", telp: "-", email: "-", logo: "" };
     try {
         const doc = await db.collection("hrd_settings").doc("perusahaan").get();
@@ -162,118 +136,155 @@ async function modalLegalDrafting() {
     } catch (e) {}
 
     openModal(`
-        <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center">
-            <span>✍️ Legal Drafting Workspace</span>
-            <div class="flex gap-8">
-                <span class="badge badge-success" style="font-size:0.6rem">🤖 AI ASSISTANT ENABLED</span>
-                <button class="btn btn-xs btn-outline" onclick="closeModalDirect()">✕</button>
-            </div>
-        </div>
-
-        <div style="display:grid; grid-template-columns: 2.2fr 1fr; gap:20px; height: 80vh">
-            <!-- LEFT: WORD EDITOR -->
-            <div style="display:flex; flex-direction:column; overflow:hidden">
-                <!-- TOOLBAR (WORD STYLE) -->
-                <div class="word-toolbar">
-                    <div class="toolbar-grp">
-                        <button class="toolbar-btn" onclick="formatDoc('undo')" title="Undo">⟲</button>
-                        <button class="toolbar-btn" onclick="formatDoc('redo')" title="Redo">⟳</button>
-                    </div>
-                    <div class="toolbar-grp">
-                        <select class="toolbar-select" onchange="formatDoc('fontName', this.value)" style="width:100px">
-                            <option value="Times New Roman">Times New Roman</option>
-                            <option value="Arial">Arial</option>
-                            <option value="Cambria">Cambria</option>
-                            <option value="Calibri">Calibri</option>
-                        </select>
-                        <select class="toolbar-select" onchange="formatDoc('fontSize', this.value)" style="width:50px">
-                            <option value="3">12</option>
-                            <option value="2">10</option>
-                            <option value="4">14</option>
-                            <option value="5">18</option>
-                            <option value="6">24</option>
-                        </select>
-                    </div>
-                    <div class="toolbar-grp">
-                        <button class="toolbar-btn" onclick="formatDoc('bold')" title="Bold"><b>B</b></button>
-                        <button class="toolbar-btn" onclick="formatDoc('italic')" title="Italic"><i>I</i></button>
-                        <button class="toolbar-btn" onclick="formatDoc('underline')" title="Underline"><u>U</u></button>
-                    </div>
-                    <div class="toolbar-grp">
-                        <input type="color" onchange="formatDoc('foreColor', this.value)" title="Text Color" style="width:25px;height:25px;border:none;background:transparent;cursor:pointer">
-                        <button class="toolbar-btn" onclick="formatDoc('removeFormat')" title="Clear Formatting">⌫</button>
-                    </div>
-                    <div class="toolbar-grp">
-                        <button class="toolbar-btn" onclick="formatDoc('justifyLeft')" title="Align Left">≡</button>
-                        <button class="toolbar-btn" onclick="formatDoc('justifyCenter')" title="Align Center">≣</button>
-                        <button class="toolbar-btn" onclick="formatDoc('justifyRight')" title="Align Right">≡</button>
-                        <button class="toolbar-btn" onclick="formatDoc('justifyFull')" title="Justify">≡</button>
-                    </div>
-                    <div class="toolbar-grp">
-                        <button class="toolbar-btn" onclick="formatDoc('insertUnorderedList')" title="Bullets">•</button>
-                        <button class="toolbar-btn" onclick="formatDoc('insertOrderedList')" title="Numbering">1.</button>
+        <div class="modal-fullscreen" id="modalWorkspace">
+            <!-- TOP HEADER -->
+            <div class="word-header">
+                <div style="display:flex; align-items:center; gap:12px">
+                    <span style="font-size:1.4rem">📄</span>
+                    <div>
+                        <div class="fw-700" style="font-size:0.95rem">Legal Drafting Workspace (Full Screen)</div>
+                        <div class="text-xs color-primary">Sistem Generator Dokumen & AI Hukum</div>
                     </div>
                 </div>
+                <div class="flex gap-12">
+                    <select class="form-control" id="drTemplate" onchange="applyLegalTemplate()" style="width:200px; font-weight:600">
+                        <option value="">-- Pilih Template --</option>
+                        <option value="mou">MOU Kerjasama</option>
+                        <option value="nda">NDA Agreement</option>
+                        <option value="spk">Surat Perintah Kerja (SPK)</option>
+                        <option value="pks">Perjanjian Kerjasama (PKS)</option>
+                    </select>
+                    <button class="btn btn-outline btn-sm" onclick="closeModalDirect()">Tutup (ESC)</button>
+                    <button class="btn btn-info btn-sm" onclick="printDraftLegalDirect()">🖨️ Cetak A4</button>
+                    <button class="btn btn-primary btn-sm" onclick="simpanDraftLegal()">💾 Simpan & Sinkronkan</button>
+                </div>
+            </div>
 
-                <div class="word-container" style="flex:1">
+            <!-- WORD STYLE TOOLBAR (COMPLETE) -->
+            <div class="word-toolbar-wrapper">
+                <div class="toolbar-grp">
+                    <button class="toolbar-btn" onclick="formatDoc('undo')" title="Undo">⟲</button>
+                    <button class="toolbar-btn" onclick="formatDoc('redo')" title="Redo">⟳</button>
+                </div>
+                <div class="toolbar-grp">
+                    <select class="toolbar-select" onchange="formatDoc('fontName', this.value)" style="width:120px">
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Arial">Arial</option>
+                        <option value="Cambria">Cambria</option>
+                        <option value="Calibri">Calibri</option>
+                        <option value="Georgia">Georgia</option>
+                    </select>
+                    <select class="toolbar-select" onchange="formatDoc('fontSize', this.value)" style="width:60px">
+                        <option value="3">12pt</option>
+                        <option value="1">8pt</option>
+                        <option value="2">10pt</option>
+                        <option value="4">14pt</option>
+                        <option value="5">18pt</option>
+                        <option value="6">24pt</option>
+                        <option value="7">36pt</option>
+                    </select>
+                </div>
+                <div class="toolbar-grp">
+                    <select class="toolbar-select" onchange="formatDoc('formatBlock', this.value)" style="width:100px">
+                        <option value="P">Normal</option>
+                        <option value="H1">Heading 1</option>
+                        <option value="H2">Heading 2</option>
+                        <option value="H3">Heading 3</option>
+                    </select>
+                </div>
+                <div class="toolbar-grp">
+                    <button class="toolbar-btn" onclick="formatDoc('bold')" title="Bold"><b>B</b></button>
+                    <button class="toolbar-btn" onclick="formatDoc('italic')" title="Italic"><i>I</i></button>
+                    <button class="toolbar-btn" onclick="formatDoc('underline')" title="Underline"><u>U</u></button>
+                    <button class="toolbar-btn" onclick="formatDoc('strikeThrough')" title="Strikethrough"><strike>S</strike></button>
+                </div>
+                <div class="toolbar-grp">
+                    <input type="color" onchange="formatDoc('foreColor', this.value)" title="Text Color" style="width:28px;height:28px;padding:0;border:none;cursor:pointer">
+                    <input type="color" value="#ffff00" onchange="formatDoc('backColor', this.value)" title="Highlight" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;margin-left:4px">
+                </div>
+                <div class="toolbar-grp">
+                    <button class="toolbar-btn" onclick="formatDoc('justifyLeft')" title="Align Left">≡</button>
+                    <button class="toolbar-btn" onclick="formatDoc('justifyCenter')" title="Align Center">≣</button>
+                    <button class="toolbar-btn" onclick="formatDoc('justifyRight')" title="Align Right">≡</button>
+                    <button class="toolbar-btn" onclick="formatDoc('justifyFull')" title="Justify">≡</button>
+                </div>
+                <div class="toolbar-grp">
+                    <button class="toolbar-btn" onclick="formatDoc('insertUnorderedList')" title="Bullets">• List</button>
+                    <button class="toolbar-btn" onclick="formatDoc('insertOrderedList')" title="Numbering">1. List</button>
+                </div>
+                <div class="toolbar-grp">
+                    <button class="toolbar-btn" onclick="formatDoc('outdent')" title="Decrease Indent">⇤</button>
+                    <button class="toolbar-btn" onclick="formatDoc('indent')" title="Increase Indent">⇥</button>
+                </div>
+                <div class="toolbar-grp">
+                    <button class="toolbar-btn" onclick="formatDoc('removeFormat')" title="Clear Formatting">🗑️</button>
+                    <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; margin-left:10px">
+                        <input type="checkbox" id="drPakeKop" checked onchange="document.getElementById('kopPreview').classList.toggle('active', this.checked)"> Tampilkan KOP
+                    </label>
+                </div>
+            </div>
+
+            <!-- MAIN WORKSPACE -->
+            <div class="word-main-layout">
+                <!-- CENTER: A4 PAGE -->
+                <div class="word-content-area">
                     <div class="word-page" id="wordPage">
                         <!-- KOP PREVIEW -->
                         <div class="word-kop-preview active" id="kopPreview">
-                            <img src="${cp.logo || 'icon-ijef-v3.png'}" style="width:60px; height:60px; object-fit:contain; margin-right:15px">
+                            <img src="${cp.logo || 'icon-ijef-v3.png'}" style="width:70px; height:70px; object-fit:contain; margin-right:20px">
                             <div style="flex:1; text-align:center">
-                                <div style="font-size:12pt; font-weight:bold">${cp.nama}</div>
-                                <div style="font-size:8pt">${cp.alamat} ${cp.kota || ''}</div>
-                                <div style="font-size:8pt">Telp: ${cp.telepon || '-'} | Email: ${cp.email}</div>
+                                <div style="font-size:14pt; font-weight:bold; text-transform:uppercase; color:#000">${cp.nama}</div>
+                                <div style="font-size:9pt; color:#444">${cp.alamat} ${cp.kota || ''}</div>
+                                <div style="font-size:9pt; color:#444">Telp: ${cp.telepon || cp.telp || '-'} | Email: ${cp.email}</div>
+                                ${cp.nib ? `<div style="font-size:8pt; color:#666">NIB: ${cp.nib}</div>` : ''}
                             </div>
                         </div>
                         <!-- TITLE AREA -->
                         <div style="text-align:center; margin-bottom: 20px">
-                            <div id="drJudul" contenteditable="true" style="width:100%; text-align:center; font-weight:bold; font-size:12pt; border:none; outline:none" data-placeholder="JUDUL DOKUMEN / PERIHAL"></div>
-                            <div style="font-size:10pt; margin-top:5px">Nomor: ${autoNumber}</div>
+                            <div id="drJudul" contenteditable="true" style="width:100%; text-align:center; font-weight:bold; font-size:13pt; border:none; outline:none; text-decoration:underline" data-placeholder="JUDUL DOKUMEN / PERIHAL">JUDUL DOKUMEN / PERIHAL</div>
+                            <div style="font-size:11pt; margin-top:8px">Nomor: <span style="font-family:monospace">${autoNumber}</span></div>
                         </div>
-                        <!-- CONTENT AREA -->
+                        <!-- CONTENT AREA (WYSIWYG) -->
                         <div class="word-editor" id="drKonten" contenteditable="true"></div>
                     </div>
                 </div>
-            </div>
 
-            <!-- RIGHT: ADVANCED AI ASSISTANT -->
-            <div style="background:#fff; border:1px solid var(--border); border-radius:12px; display:flex; flex-direction:column; box-shadow: 0 4px 15px rgba(0,0,0,0.05)">
-                <div style="padding:15px; border-bottom:1px solid #eee; background:var(--primary); color:#fff; border-radius:12px 12px 0 0">
-                    <div class="fw-700 text-sm">🤖 Legal Brain AI (Pro)</div>
-                    <div class="text-xs" style="opacity:0.8">Advanced Drafting & Legal Analysis</div>
-                </div>
+                <!-- RIGHT: AI & DATA PANEL -->
+                <div class="word-sidebar">
+                    <div style="padding:15px; background:var(--primary); color:#fff">
+                        <div class="fw-700 text-sm">🤖 Legal Brain AI (Gemini Pro)</div>
+                        <div class="text-xs" style="opacity:0.8">Analisis & Drafting Interaktif</div>
+                    </div>
 
-                <div id="aiChatBox" style="flex:1; overflow-y:auto; padding:15px; font-size:0.82rem; background:#fcfcfc">
-                    <div style="margin-bottom:12px; background:#e8f0fe; padding:10px; border-radius:10px; color:#1a237e">
-                        Halo! Saya <b>AI Legal Assistant</b>. Apa yang ingin Anda buat hari ini?
+                    <div id="aiChatBox" style="flex:1; overflow-y:auto; padding:15px; font-size:0.82rem; background:#f9f9f9">
+                        <div style="margin-bottom:12px; background:#fff; border:1px solid #e0e0e0; padding:12px; border-radius:10px; box-shadow:0 2px 4px rgba(0,0,0,0.02)">
+                            Halo! Saya <b>AI Legal Assistant</b> Anda.<br><br>
+                            Gunakan panel ini untuk berdiskusi mengenai pasal atau meminta saya meninjau draf yang sedang Anda buat.
+                        </div>
+                    </div>
+
+                    <div style="padding:15px; border-top:1px solid #ddd; background:#fff">
+                        <textarea class="form-control" id="aiPrompt" style="min-height:100px; font-size:0.85rem; border-radius:10px; border:2px solid #edf2f7" placeholder="Ketik permintaan Anda di sini..."></textarea>
+                        <div class="flex gap-4 mt-12">
+                            <button class="btn btn-primary" style="flex:1" onclick="discussWithAI()">💬 Kirim AI</button>
+                            <button class="btn btn-success" onclick="executeAIDraft()" title="Terapkan ke lembar kerja">⚡ Terapkan</button>
+                        </div>
+                        <div class="form-group mt-16">
+                            <label class="text-xs">Informasi Pihak Kedua</label>
+                            <input class="form-control" id="drPihak2" placeholder="Nama Pihak Kedua (Lembaga/Orang)">
+                        </div>
                     </div>
                 </div>
-
-                <div style="padding:15px; border-top:1px solid #eee">
-                    <textarea class="form-control" id="aiPrompt" style="min-height:90px; font-size:0.82rem; border-radius:10px" placeholder="Contoh: 'Buatkan pasal kerahasiaan 2 tahun' atau 'Analisis draft ini'"></textarea>
-                    <div class="flex gap-4 mt-10">
-                        <button class="btn btn-primary btn-sm" style="flex:1" onclick="discussWithAI()">💬 Kirim</button>
-                        <button class="btn btn-success btn-sm" onclick="executeAIDraft()" title="Terapkan ke lembar kerja">⚡ Terapkan</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="flex gap-8 mt-16" style="justify-content:space-between; align-items:center">
-            <div class="flex gap-16">
-                <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer">
-                    <input type="checkbox" id="drPakeKop" checked onchange="document.getElementById('kopPreview').classList.toggle('active', this.checked)"> Tampilkan KOP
-                </label>
-                <div class="text-xs" style="color:#666">Pihak 2: <input id="drPihak2" style="border:none; border-bottom:1px solid #ccc; background:transparent" placeholder="Nama Pihak Kedua"></div>
-            </div>
-            <div class="flex gap-8">
-                <button class="btn btn-outline" onclick="closeSidebar(); closeModalDirect()">Tutup</button>
-                <button class="btn btn-info" onclick="printDraftLegalDirect()">🖨️ Cetak A4</button>
-                <button class="btn btn-primary" onclick="simpanDraftLegal()">💾 Simpan & Sinkronkan</button>
             </div>
         </div>
     `, true);
+
+    // Convert current modal to fullscreen
+    const modal = document.getElementById("modalContent");
+    if (modal) {
+        modal.classList.add("modal-fullscreen");
+        modal.parentElement.style.padding = "0"; // remove overlay padding
+    }
 }
 
 function formatDoc(cmd, val) {
@@ -291,15 +302,45 @@ function applyLegalTemplate() {
     const templates = {
         mou: {
             judul: "MEMORANDUM OF UNDERSTANDING (MOU)",
-            isi: `MEMORANDUM OF UNDERSTANDING<br>Nomor: ${num}<br><br>Antara<br>LPK IJEF CORP<br>Dan<br>[PIHAK KEDUA]<br><br>Tentang<br>[PERIHAL KERJASAMA]<br><br>Pada hari ini [TANGGAL], kami yang bertanda tangan di bawah ini:<br>1. Nama: [NAMA WAKIL IJEF]<br>   Jabatan: [JABATAN]<br>   Bertindak untuk dan atas nama LPK IJEF CORP.<br><br>2. Nama: [NAMA WAKIL MITRA]<br>   Jabatan: [JABATAN]<br>   Bertindak untuk dan atas nama [PIHAK KEDUA].<br><br>Sepakat untuk melakukan kerjasama dalam bidang [BIDANG KERJASAMA] dengan ketentuan sebagai berikut...`
+            isi: `<p style="text-align:center"><b>MEMORANDUM OF UNDERSTANDING</b></p>
+            <p style="text-align:center">Nomor: ${num}</p><br>
+            <p>Antara <b>LPK IJEF CORP</b> Dan <b>[PIHAK KEDUA]</b> Tentang <b>[PERIHAL KERJASAMA]</b></p><br>
+            <p>Pada hari ini [HARI], tanggal [TANGGAL], kami yang bertanda tangan di bawah ini:</p>
+            <ol>
+                <li><b>Nama: Muhammad Agus Ryanda</b><br>Jabatan: Administrator<br>Bertindak untuk dan atas nama LPK IJEF CORP, selanjutnya disebut PIHAK PERTAMA.</li><br>
+                <li><b>Nama: [NAMA PIHAK KEDUA]</b><br>Jabatan: [JABATAN]<br>Bertindak untuk dan atas nama [PERUSAHAAN], selanjutnya disebut PIHAK KEDUA.</li>
+            </ol>
+            <p>Kedua belah pihak sepakat untuk melakukan kerjasama dalam bidang [...] dengan ketentuan sebagai berikut:</p>
+            <p><b>PASAL 1: MAKSUD DAN TUJUAN</b><br>...</p>`
         },
         nda: {
             judul: "NON-DISCLOSURE AGREEMENT (NDA)",
-            isi: `NON-DISCLOSURE AGREEMENT (NDA)<br>Nomor: ${num}<br><br>Perjanjian Kerahasiaan ini dibuat antara LPK IJEF CORP dan [PIHAK KEDUA].<br><br>Bahwa Para Pihak bersedia untuk mengungkapkan Informasi Rahasia tertentu kepada Pihak lainnya untuk tujuan [TUJUAN].<br><br>Pihak Penerima setuju untuk menjaga kerahasiaan seluruh informasi yang diterima...`
+            isi: `<p style="text-align:center"><b>NON-DISCLOSURE AGREEMENT (NDA)</b></p>
+            <p style="text-align:center">Nomor: ${num}</p><br>
+            <p>Perjanjian Kerahasiaan ini dibuat antara <b>LPK IJEF CORP</b> dan <b>[PIHAK KEDUA]</b>.</p><br>
+            <p>Bahwa Para Pihak bersedia untuk mengungkapkan Informasi Rahasia tertentu kepada Pihak lainnya untuk tujuan [...]</p>
+            <p><b>PASAL 1: DEFINISI INFORMASI RAHASIA</b><br>Informasi Rahasia berarti setiap data, laporan, catatan, rahasia dagang, atau informasi teknis maupun komersial lainnya...</p>`
         },
         spk: {
             judul: "SURAT PERINTAH KERJA (SPK)",
-            isi: `SURAT PERINTAH KERJA (SPK)<br>Nomor: ${num}<br><br>Kepada: [PIHAK KEDUA]<br>Alamat: [ALAMAT]<br><br>Dengan ini kami memberikan perintah kerja untuk:<br>1. Pekerjaan: [NAMA PEKERJAAN]<br>2. Nilai Kontrak: [NILAI]<br>3. Jangka Waktu: [WAKTU]<br><br>Demikian surat perintah ini dibuat untuk dilaksanakan...`
+            isi: `<p style="text-align:center"><b>SURAT PERINTAH KERJA (SPK)</b></p>
+            <p style="text-align:center">Nomor: ${num}</p><br>
+            <p>Kepada: <b>[PIHAK KEDUA]</b><br>Alamat: [ALAMAT]</p><br>
+            <p>Dengan ini kami memberikan perintah kerja untuk:</p>
+            <ul>
+                <li>Nama Pekerjaan: [...]</li>
+                <li>Nilai Kontrak: [...]</li>
+                <li>Jangka Waktu: [...]</li>
+            </ul><br>
+            <p>Demikian surat perintah ini dibuat untuk dilaksanakan dengan sebaik-baiknya.</p>`
+        },
+        pks: {
+            judul: "PERJANJIAN KERJA SAMA (PKS)",
+            isi: `<p style="text-align:center"><b>PERJANJIAN KERJA SAMA</b></p>
+            <p style="text-align:center">Nomor: ${num}</p><br>
+            <p>Perjanjian ini dibuat dan ditandatangani pada hari ini [...] antara LPK IJEF CORP dan [PIHAK KEDUA].</p>
+            <p><b>PASAL 1: RUANG LINGKUP PEKERJAAN</b><br>...</p>
+            <p><b>PASAL 2: NILAI PERJANJIAN DAN TATA CARA PEMBAYARAN</b><br>...</p>`
         }
     };
 
@@ -312,7 +353,7 @@ function applyLegalTemplate() {
 async function simpanDraftLegal() {
     const data = {
         nomor: document.getElementById("drNomor").value,
-        judul: document.getElementById("drJudul").innerHTML,
+        judul: document.getElementById("drJudul").innerHTML.replace(/<[^>]*>/g, ''),
         pihak2: document.getElementById("drPihak2").value,
         konten: document.getElementById("drKonten").innerHTML,
         type: "draft_kontrak",
@@ -327,7 +368,7 @@ async function simpanDraftLegal() {
         await db.collection("hrd_surat").add({
             nomor: data.nomor,
             jenis: "SPK/LGL",
-            perihal: data.judul.replace(/<[^>]*>/g, ''),
+            perihal: data.judul,
             tanggal: todayStr(),
             dibuatOleh: currentUser.nama,
             createdAt: new Date().toISOString(),
@@ -381,18 +422,19 @@ async function printDraftLegalDirect() {
                 @page { size: A4; margin: 2cm; }
                 body { font-family: 'Times New Roman', serif; line-height: 1.6; color: #000; padding: 0; margin: 0; }
                 .content { font-size: 11pt; text-align: justify; }
+                .content p { margin-bottom: 10px; }
                 .title-area { text-align: center; margin-bottom: 30px; }
                 .doc-title { font-size: 14pt; font-weight: bold; text-decoration: underline; margin-bottom: 5px; }
                 .doc-number { font-size: 11pt; margin-bottom: 20px; }
             </style>
         </head>
         <body>
-            \${kopHtml}
+            ${kopHtml}
             <div class="title-area">
-                <div class="doc-title">\${judul.replace(/<[^>]*>/g, '').toUpperCase()}</div>
-                <div class="doc-number">Nomor: \${nomor}</div>
+                <div class="doc-title">${judul.replace(/<[^>]*>/g, '').toUpperCase()}</div>
+                <div class="doc-number">Nomor: ${nomor}</div>
             </div>
-            <div class="content">\${konten}</div>
+            <div class="content">${konten}</div>
             <script>setTimeout(() => { window.print(); window.close(); }, 700);</script>
         </body>
         </html>
@@ -405,7 +447,7 @@ function discussWithAI() {
     if (!prompt) return;
 
     const chatBox = document.getElementById("aiChatBox");
-    chatBox.innerHTML += `<div style="margin-bottom:10px; text-align:right"><div style="display:inline-block; background:#333; color:#fff; padding:8px 12px; border-radius:15px 15px 2px 15px; max-width:90%">${escHtml(prompt)}</div></div>`;
+    chatBox.innerHTML += `<div style="margin-bottom:10px; text-align:right"><div style="display:inline-block; background:#3182ce; color:#fff; padding:8px 12px; border-radius:15px 15px 2px 15px; max-width:90%">${escHtml(prompt)}</div></div>`;
     document.getElementById("aiPrompt").value = "";
     chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -417,24 +459,24 @@ function discussWithAI() {
         const p = prompt.toLowerCase();
 
         if (p.includes("kerahasiaan") || p.includes("nda")) {
-            aiResponse = `<b>PASAL KERAHASIAAN:</b><br>1. Para Pihak wajib menjaga kerahasiaan seluruh informasi.<br>2. Kewajiban ini berlaku selama 3 tahun setelah kontrak berakhir.`;
+            aiResponse = `<b>PASAL KERAHASIAAN:</b><br>1. Para Pihak wajib menjaga kerahasiaan seluruh informasi yang bersifat komersial maupun teknis.<br>2. Pelanggaran atas pasal ini dapat dikenakan sanksi denda sebesar 100% dari nilai kerjasama.`;
         } else if (p.includes("ganti rugi") || p.includes("denda")) {
-            aiResponse = `<b>PASAL GANTI RUGI:</b><br>Pihak yang lalai wajib membayar denda sebesar 1/1000 dari nilai kontrak per hari keterlambatan.`;
+            aiResponse = `<b>PASAL GANTI RUGI & DENDA:</b><br>Dalam hal terjadi kelalaian, Pihak yang lalai wajib membayar ganti rugi nyata yang dialami oleh Pihak lainnya, serta denda sebesar 0,1% per hari keterlambatan.`;
         } else {
-            aiResponse = `Berdasarkan analisis hukum saya, saran terbaik untuk poin <b>"${escHtml(prompt)}"</b> adalah menggunakan klausul standar IJEF yang menekankan pada kepastian timeline dan kualitas output.`;
+            aiResponse = `Saran saya untuk poin <b>"${escHtml(prompt)}"</b> adalah menggunakan pendekatan protektif bagi aset perusahaan. Pastikan ada batasan tanggung jawab yang jelas. Apakah ingin saya buatkan draf detailnya?`;
         }
 
         window._lastAIResponse = aiResponse;
-        chatBox.innerHTML += `<div style="margin-bottom:15px"><div style="display:inline-block; background:#fff; border:1px solid #ddd; padding:12px; border-radius:2px 15px 15px 15px; color:#333; line-height:1.6; box-shadow: 0 2px 5px rgba(0,0,0,0.05)">${aiResponse}</div></div>`;
+        chatBox.innerHTML += `<div style="margin-bottom:15px"><div style="display:inline-block; background:#fff; border:1px solid #ddd; padding:12px; border-radius:2px 15px 15px 15px; color:#333; line-height:1.6; box-shadow: 0 4px 6px rgba(0,0,0,0.05)">${aiResponse}</div></div>`;
         chatBox.scrollTop = chatBox.scrollHeight;
-    }, 1000);
+    }, 1200);
 }
 
 function executeAIDraft() {
     if (!window._lastAIResponse) return toast("Belum ada saran dari AI", "warning");
     const editor = document.getElementById("drKonten");
-    editor.innerHTML += "<br><br>" + window._lastAIResponse;
-    toast("Saran AI diterapkan!", "success");
+    editor.innerHTML += "<br>" + window._lastAIResponse;
+    toast("Klausul AI dimasukkan ke lembar kerja!", "success");
 }
 
 
