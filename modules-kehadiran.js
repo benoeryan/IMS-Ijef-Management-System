@@ -4996,7 +4996,8 @@ async function renderFormKaizen() {
   const main = document.getElementById('mainContent');
   if (!main) return;
 
-  const isNanda = (currentUser.nama || '').toLowerCase().includes('nanda yoga');
+  const userName = (currentUser.nama || '').toLowerCase().trim();
+  const isNanda = userName.includes('nanda yoga');
   const addBtn = !isNanda ? '<button class="btn btn-primary btn-sm" onclick="modalAddKaizen()">+ Buat Form Kaizen</button>' : '';
 
   main.innerHTML = `
@@ -5042,8 +5043,12 @@ async function loadKaizenRecords() {
     snap.forEach(d => items.push({ id: d.id, ...d.data() }));
     items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
-    // Filter by visibility: Admin/Manager/Head/BOD/Nanda see all; Staff see only their own requests
-    const isNanda = (currentUser.nama || '').toLowerCase().includes('nanda yoga');
+    // Filter by visibility:
+    const userName = (currentUser.nama || '').toLowerCase().trim();
+    const isNanda = userName.includes('nanda yoga');
+
+    // Level 3+ (Manager, Head, BOD, Admin) and Nanda see all records
+    // Level 1-2 (Staff, Leader) except Nanda see only their own requests
     if (!hasAccess(3) && !isNanda) {
         items = items.filter(it => it.assignedBy === currentUser.id);
     }
