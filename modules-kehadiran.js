@@ -5115,9 +5115,9 @@ async function modalAddKaizen() {
     </div>
 
     <div class="form-group">
-      <label>📎 Lampiran Foto Kondisi (Eviden)</label>
-      <input type="file" id="kzFiles" multiple accept="image/*" class="form-control">
-      <div class="text-xs mt-4" style="color:#999">Maks 3 file.</div>
+      <label>📎 Lampiran Dokumen / Foto (Eviden)</label>
+      <input type="file" id="kzFiles" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" class="form-control">
+      <div class="text-xs mt-4" style="color:#999">Maks 3 file. Format: Gambar, PDF, Word, Excel.</div>
     </div>
 
     <input type="hidden" id="targetNandaId" value="${nanda ? nanda.id : ''}">
