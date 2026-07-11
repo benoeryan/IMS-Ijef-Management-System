@@ -387,12 +387,12 @@ async function printDraftLegalDirect() {
             </style>
         </head>
         <body>
-            ${kopHtml}
+            \${kopHtml}
             <div class="title-area">
-                <div class="doc-title">${judul.replace(/<[^>]*>/g, '').toUpperCase()}</div>
-                <div class="doc-number">Nomor: ${nomor}</div>
+                <div class="doc-title">\${judul.replace(/<[^>]*>/g, '').toUpperCase()}</div>
+                <div class="doc-number">Nomor: \${nomor}</div>
             </div>
-            <div class="content">${konten}</div>
+            <div class="content">\${konten}</div>
             <script>setTimeout(() => { window.print(); window.close(); }, 700);</script>
         </body>
         </html>
@@ -405,11 +405,11 @@ function discussWithAI() {
     if (!prompt) return;
 
     const chatBox = document.getElementById("aiChatBox");
-    chatBox.innerHTML += \`<div style="margin-bottom:10px; text-align:right"><div style="display:inline-block; background:#333; color:#fff; padding:8px 12px; border-radius:15px 15px 2px 15px; max-width:90%">\${escHtml(prompt)}</div></div>\`;
+    chatBox.innerHTML += `<div style="margin-bottom:10px; text-align:right"><div style="display:inline-block; background:#333; color:#fff; padding:8px 12px; border-radius:15px 15px 2px 15px; max-width:90%">${escHtml(prompt)}</div></div>`;
     document.getElementById("aiPrompt").value = "";
     chatBox.scrollTop = chatBox.scrollHeight;
 
-    chatBox.innerHTML += \`<div id="aiThinking" class="text-xs" style="color:#999; margin-bottom:10px">🤖 Legal Brain sedang menganalisis hukum...</div>\`;
+    chatBox.innerHTML += `<div id="aiThinking" class="text-xs" style="color:#999; margin-bottom:10px">🤖 Legal Brain sedang menganalisis hukum...</div>`;
 
     setTimeout(() => {
         document.getElementById("aiThinking")?.remove();
@@ -417,15 +417,15 @@ function discussWithAI() {
         const p = prompt.toLowerCase();
 
         if (p.includes("kerahasiaan") || p.includes("nda")) {
-            aiResponse = \`<b>PASAL KERAHASIAAN:</b><br>1. Para Pihak wajib menjaga kerahasiaan seluruh informasi.<br>2. Kewajiban ini berlaku selama 3 tahun setelah kontrak berakhir.\`;
+            aiResponse = `<b>PASAL KERAHASIAAN:</b><br>1. Para Pihak wajib menjaga kerahasiaan seluruh informasi.<br>2. Kewajiban ini berlaku selama 3 tahun setelah kontrak berakhir.`;
         } else if (p.includes("ganti rugi") || p.includes("denda")) {
-            aiResponse = \`<b>PASAL GANTI RUGI:</b><br>Pihak yang lalai wajib membayar denda sebesar 1/1000 dari nilai kontrak per hari keterlambatan.\`;
+            aiResponse = `<b>PASAL GANTI RUGI:</b><br>Pihak yang lalai wajib membayar denda sebesar 1/1000 dari nilai kontrak per hari keterlambatan.`;
         } else {
-            aiResponse = \`Berdasarkan analisis hukum saya, saran terbaik untuk poin <b>"\${escHtml(prompt)}"</b> adalah menggunakan klausul standar IJEF yang menekankan pada kepastian timeline dan kualitas output.\`;
+            aiResponse = `Berdasarkan analisis hukum saya, saran terbaik untuk poin <b>"${escHtml(prompt)}"</b> adalah menggunakan klausul standar IJEF yang menekankan pada kepastian timeline dan kualitas output.`;
         }
 
         window._lastAIResponse = aiResponse;
-        chatBox.innerHTML += \`<div style="margin-bottom:15px"><div style="display:inline-block; background:#fff; border:1px solid #ddd; padding:12px; border-radius:2px 15px 15px 15px; color:#333; line-height:1.6; box-shadow: 0 2px 5px rgba(0,0,0,0.05)">\${aiResponse}</div></div>\`;
+        chatBox.innerHTML += `<div style="margin-bottom:15px"><div style="display:inline-block; background:#fff; border:1px solid #ddd; padding:12px; border-radius:2px 15px 15px 15px; color:#333; line-height:1.6; box-shadow: 0 2px 5px rgba(0,0,0,0.05)">${aiResponse}</div></div>`;
         chatBox.scrollTop = chatBox.scrollHeight;
     }, 1000);
 }
@@ -472,25 +472,25 @@ async function loadLegalTickets() {
 
             html += `
             <tr>
-                <td class="fw-700">\${escHtml(p.ticket_id)}</td>
-                <td>\${escHtml(p.judul)}</td>
-                <td>\${escHtml(p.departemen || "-")}</td>
-                <td>\${statusBadge}</td>
-                <td>\${formatDate(p.createdAt)}</td>
+                <td class="fw-700">${escHtml(p.ticket_id)}</td>
+                <td>${escHtml(p.judul)}</td>
+                <td>${escHtml(p.departemen || "-")}</td>
+                <td>${statusBadge}</td>
+                <td>${formatDate(p.createdAt)}</td>
                 <td>
-                    <button class="btn btn-xs btn-info" onclick="viewLegalTicketDetail('\${doc.id}')">👁️ Detail</button>
+                    <button class="btn btn-xs btn-info" onclick="viewLegalTicketDetail('${doc.id}')">👁️ Detail</button>
                 </td>
             </tr>`;
         });
 
         tbody.innerHTML = html || '<tr><td colspan="6" class="text-center">Tidak ada data valid.</td></tr>';
     } catch (e) {
-        tbody.innerHTML = \`<tr><td colspan="6" class="text-center" style="color:red">Error: \${e.message}</td></tr>\`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="color:red">Error: ${e.message}</td></tr>`;
     }
 }
 
 function modalKajianHukum() {
-    openModal(\`
+    openModal(`
         <div class="modal-title">🔨 Buat Tiket Kajian Hukum</div>
         <div class="form-group">
             <label>Judul Kajian / Permasalahan</label>
@@ -498,14 +498,14 @@ function modalKajianHukum() {
         </div>
         <div class="form-group">
             <label>Departemen Pemohon</label>
-            <input class="form-control" id="lgDept" value="\${escHtml(currentUser.departemen || '')}">
+            <input class="form-control" id="lgDept" value="${escHtml(currentUser.departemen || '')}">
         </div>
         <div class="form-group">
             <label>Deskripsi & Pertanyaan Hukum</label>
             <textarea class="form-control" id="lgDesc" style="min-height:120px"></textarea>
         </div>
         <button class="btn btn-primary" onclick="simpanKajianHukum()">📤 Kirim Tiket</button>
-    \`, true);
+    `, true);
 }
 
 async function simpanKajianHukum() {
@@ -538,7 +538,7 @@ async function simpanKajianHukum() {
 function generateLegalTicketId() {
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
-    return \`LGL-\${dateStr}-\${Math.floor(100 + Math.random() * 900)}\`;
+    return `LGL-${dateStr}-${Math.floor(100 + Math.random() * 900)}`;
 }
 
 async function viewLegalTicketDetail(docId) {
@@ -551,34 +551,34 @@ async function viewLegalTicketDetail(docId) {
     const canApproveL1 = (currentUser.role === 'manager' || hasAccess(6)) && l1.status === 'pending';
     const canApproveL2 = (currentUser.role === 'head' || hasAccess(6)) && l1.status === 'approved' && l2.status === 'pending';
 
-    openModal(\`
-        <div class="modal-title">📄 Detail Tiket: \${escHtml(p.ticket_id)}</div>
-        <div class="form-group"><label>Deskripsi</label><div class="text-sm" style="background:#f5f5f5; padding:12px; border-radius:6px">\${escHtml(p.deskripsi)}</div></div>
+    openModal(`
+        <div class="modal-title">📄 Detail Tiket: ${escHtml(p.ticket_id)}</div>
+        <div class="form-group"><label>Deskripsi</label><div class="text-sm" style="background:#f5f5f5; padding:12px; border-radius:6px">${escHtml(p.deskripsi)}</div></div>
         <div class="fw-700 mb-8 mt-16">📋 Approval Status</div>
         <div style="background:#f8f9ff; padding:16px; border-radius:8px; border:1px solid #e0e0e0">
             <div class="flex" style="justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:8px">
                 <div><b>L1: Manager Divisi</b></div>
                 <div class="flex gap-4">
-                    <span class="badge badge-\${l1.status==='approved'?'success':'warning'}">\${l1.status.toUpperCase()}</span>
-                    \${canApproveL1 ? \`<button class="btn btn-xs btn-success" onclick="updateLegalTicketStatus('\${docId}', 1, 'approved')">Approve</button>\` : ''}
+                    <span class="badge badge-${l1.status==='approved'?'success':'warning'}">${l1.status.toUpperCase()}</span>
+                    ${canApproveL1 ? `<button class="btn btn-xs btn-success" onclick="updateLegalTicketStatus('${docId}', 1, 'approved')">Approve</button>` : ''}
                 </div>
             </div>
             <div class="flex" style="justify-content:space-between; align-items:center; padding-top:8px">
                 <div><b>L2: Head Legal</b></div>
                 <div class="flex gap-4">
-                    <span class="badge badge-\${l2.status==='approved'?'success':'warning'}">\${l2.status.toUpperCase()}</span>
-                    \${canApproveL2 ? \`<button class="btn btn-xs btn-success" onclick="updateLegalTicketStatus('\${docId}', 2, 'approved')">Approve</button>\` : ''}
+                    <span class="badge badge-${l2.status==='approved'?'success':'warning'}">${l2.status.toUpperCase()}</span>
+                    ${canApproveL2 ? `<button class="btn btn-xs btn-success" onclick="updateLegalTicketStatus('${docId}', 2, 'approved')">Approve</button>` : ''}
                 </div>
             </div>
         </div>
-    \`, true);
+    `, true);
 }
 
 async function updateLegalTicketStatus(docId, layerNum, action) {
-    const fieldPrefix = \`approval_workflow.layer\${layerNum}\`;
+    const fieldPrefix = `approval_workflow.layer${layerNum}`;
     const updateData = {
-        [\`\${fieldPrefix}.status\`]: action,
-        [\`\${fieldPrefix}.approvedBy\`]: currentUser.nama,
+        [`${fieldPrefix}.status`]: action,
+        [`${fieldPrefix}.approvedBy`]: currentUser.nama,
         updatedAt: new Date().toISOString()
     };
     await db.collection("hrd_legal_tickets").doc(docId).update(updateData);
@@ -591,9 +591,9 @@ async function updateLegalTicketStatus(docId, layerNum, action) {
 
 async function renderLegalPerizinan() {
     const main = document.getElementById("mainContent");
-    main.innerHTML = \`
+    main.innerHTML = `
     <div class="page-title"><span>⚖️ Legalitas & Perizinan</span><button class="btn btn-primary btn-sm" onclick="modalPerizinan()">+ Tambah</button></div>
-    <div class="card"><div class="table-wrap"><table><thead><tr><th>Nama Dokumen</th><th>No. Registrasi</th><th>Instansi</th><th>Tgl Akhir</th><th>Status</th><th>File</th><th>Aksi</th></tr></thead><tbody id="tblLegalPerizinan"></tbody></table></div></div>\`;
+    <div class="card"><div class="table-wrap"><table><thead><tr><th>Nama Dokumen</th><th>No. Registrasi</th><th>Instansi</th><th>Tgl Akhir</th><th>Status</th><th>File</th><th>Aksi</th></tr></thead><tbody id="tblLegalPerizinan"></tbody></table></div></div>`;
     loadLegalPerizinan();
 }
 
@@ -606,7 +606,7 @@ async function loadLegalPerizinan() {
     snap.forEach(doc => {
         const p = doc.data();
         const isExp = p.tglBerakhir && p.tglBerakhir < today;
-        html += \`<tr><td>\${escHtml(p.nama)}</td><td class="color-primary fw-700">\${escHtml(p.nomor || "-")}</td><td>\${escHtml(p.instansi || "-")}</td><td>\${p.tglBerakhir ? formatDate(p.tglBerakhir) : "∞"}</td><td><span class="badge badge-\${isExp?'danger':'success'}">\${isExp?'Exp':'Aktif'}</span></td><td>\${p.fileURL ? \`<button class="btn btn-xs btn-success" onclick="window.open('\${p.fileURL}')">👁️</button>\` : '-'}</td><td><button class="btn btn-xs btn-info" onclick="modalPerizinan('\${doc.id}')">✏️</button></td></tr>\`;
+        html += `<tr><td>${escHtml(p.nama)}</td><td class="color-primary fw-700">${escHtml(p.nomor || "-")}</td><td>${escHtml(p.instansi || "-")}</td><td>${p.tglBerakhir ? formatDate(p.tglBerakhir) : "∞"}</td><td><span class="badge badge-${isExp?'danger':'success'}">${isExp?'Exp':'Aktif'}</span></td><td>${p.fileURL ? `<button class="btn btn-xs btn-success" onclick="window.open('${p.fileURL}')">👁️</button>` : '-'}</td><td><button class="btn btn-xs btn-info" onclick="modalPerizinan('${doc.id}')">✏️</button></td></tr>`;
     });
     tbody.innerHTML = html;
 }
@@ -617,15 +617,15 @@ function modalPerizinan(id) {
 }
 
 function showPerizinanForm(id, p) {
-    openModal(\`
+    openModal(`
         <div class="modal-title">Dokumen Perizinan</div>
-        <div class="form-group"><label>Nama</label><input class="form-control" id="pzNama" value="\${escHtml(p.nama || '')}"></div>
-        <div class="form-group"><label>Nomor</label><input class="form-control" id="pzNomor" value="\${escHtml(p.nomor || '')}"></div>
-        <div class="form-group"><label>Instansi</label><input class="form-control" id="pzInstansi" value="\${escHtml(p.instansi || '')}"></div>
-        <div class="form-group"><label>Tgl Akhir</label><input class="form-control" type="date" id="pzTgl" value="\${p.tglBerakhir || ''}"></div>
+        <div class="form-group"><label>Nama</label><input class="form-control" id="pzNama" value="${escHtml(p.nama || '')}"></div>
+        <div class="form-group"><label>Nomor</label><input class="form-control" id="pzNomor" value="${escHtml(p.nomor || '')}"></div>
+        <div class="form-group"><label>Instansi</label><input class="form-control" id="pzInstansi" value="${escHtml(p.instansi || '')}"></div>
+        <div class="form-group"><label>Tgl Akhir</label><input class="form-control" type="date" id="pzTgl" value="${p.tglBerakhir || ''}"></div>
         <div class="form-group"><label>Upload</label><input class="form-control" type="file" id="pzFile" accept=".pdf,image/*" onchange="window._pzFile=this.files[0]"></div>
-        <button class="btn btn-primary" onclick="simpanPerizinan('\${id || ''}')">💾 Simpan</button>
-    \`);
+        <button class="btn btn-primary" onclick="simpanPerizinan('${id || ''}')">💾 Simpan</button>
+    `);
     window._pzFile = null;
 }
 
@@ -636,7 +636,7 @@ async function simpanPerizinan(id) {
         updatedAt: new Date().toISOString()
     };
     if (window._pzFile) {
-        const path = \`legal_perizinan/\${Date.now()}_\${window._pzFile.name}\`;
+        const path = `legal_perizinan/${Date.now()}_${window._pzFile.name}`;
         data.fileURL = await uploadFileToStorage(window._pzFile, path);
     }
     if (id) await db.collection("hrd_legal_perizinan").doc(id).update(data);
@@ -648,9 +648,9 @@ async function simpanPerizinan(id) {
 
 async function renderLegalSengketa() {
     const main = document.getElementById("mainContent");
-    main.innerHTML = \`
+    main.innerHTML = `
     <div class="page-title"><span>⚠️ Sengketa & Kasus</span><button class="btn btn-primary btn-sm" onclick="modalSengketa()">+ Tambah</button></div>
-    <div class="card"><div class="table-wrap"><table><thead><tr><th>Judul</th><th>Pihak</th><th>Status</th><th>File</th><th>Aksi</th></tr></thead><tbody id="tblLegalSengketa"></tbody></table></div></div>\`;
+    <div class="card"><div class="table-wrap"><table><thead><tr><th>Judul</th><th>Pihak</th><th>Status</th><th>File</th><th>Aksi</th></tr></thead><tbody id="tblLegalSengketa"></tbody></table></div></div>`;
     loadLegalSengketa();
 }
 
@@ -661,7 +661,7 @@ async function loadLegalSengketa() {
     if (snap.empty) { tbody.innerHTML = '<tr><td colspan="5" class="text-center">Kosong</td></tr>'; return; }
     snap.forEach(doc => {
         const p = doc.data();
-        html += \`<tr><td>\${escHtml(p.judul)}</td><td>\${escHtml(p.pihak)}</td><td>\${escHtml(p.status)}</td><td>\${p.fileURL ? \`<button class="btn btn-xs btn-success" onclick="window.open('\${p.fileURL}')">👁️</button>\` : '-'}</td><td><button class="btn btn-xs btn-info" onclick="modalSengketa('\${doc.id}')">✏️</button></td></tr>\`;
+        html += `<tr><td>${escHtml(p.judul)}</td><td>${escHtml(p.pihak)}</td><td>${escHtml(p.status)}</td><td>${p.fileURL ? `<button class="btn btn-xs btn-success" onclick="window.open('${p.fileURL}')">👁️</button>` : '-'}</td><td><button class="btn btn-xs btn-info" onclick="modalSengketa('${doc.id}')">✏️</button></td></tr>`;
     });
     tbody.innerHTML = html;
 }
@@ -672,14 +672,14 @@ function modalSengketa(id) {
 }
 
 function showSengketaForm(id, p) {
-    openModal(\`
+    openModal(`
         <div class="modal-title">Catatan Kasus</div>
-        <div class="form-group"><label>Judul</label><input class="form-control" id="skJudul" value="\${escHtml(p.judul || '')}"></div>
-        <div class="form-group"><label>Pihak</label><input class="form-control" id="skPihak" value="\${escHtml(p.pihak || '')}"></div>
-        <div class="form-group"><label>Status</label><select class="form-control" id="skStatus"><option value="Mediasi" \${p.status==='Mediasi'?'selected':''}>Mediasi</option><option value="Selesai" \${p.status==='Selesai'?'selected':''}>Selesai</option></select></div>
+        <div class="form-group"><label>Judul</label><input class="form-control" id="skJudul" value="${escHtml(p.judul || '')}"></div>
+        <div class="form-group"><label>Pihak</label><input class="form-control" id="skPihak" value="${escHtml(p.pihak || '')}"></div>
+        <div class="form-group"><label>Status</label><select class="form-control" id="skStatus"><option value="Mediasi" ${p.status==='Mediasi'?'selected':''}>Mediasi</option><option value="Selesai" ${p.status==='Selesai'?'selected':''}>Selesai</option></select></div>
         <div class="form-group"><label>Upload</label><input class="form-control" type="file" id="skFile" onchange="window._skFile=this.files[0]"></div>
-        <button class="btn btn-primary" onclick="simpanSengketa('\${id || ''}')">💾 Simpan</button>
-    \`);
+        <button class="btn btn-primary" onclick="simpanSengketa('${id || ''}')">💾 Simpan</button>
+    `);
     window._skFile = null;
 }
 
@@ -689,7 +689,7 @@ async function simpanSengketa(id) {
         status: document.getElementById('skStatus').value, updatedAt: new Date().toISOString()
     };
     if (window._skFile) {
-        const path = \`legal_sengketa/\${Date.now()}_\${window._skFile.name}\`;
+        const path = `legal_sengketa/${Date.now()}_${window._skFile.name}`;
         data.fileURL = await uploadFileToStorage(window._skFile, path);
     }
     if (id) await db.collection("hrd_legal_sengketa").doc(id).update(data);
