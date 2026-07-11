@@ -99,6 +99,9 @@ async function hitungKPIIntegrasi(nama, periode) {
   let reportCount = 0;
   let taskTotal = 0;
   let taskDone = 0;
+  let kaizenTotal = 0;
+  let kaizenDone = 0;
+
   taskSnap.forEach((d) => {
     const t = d.data() || {};
     const isNama = (t.targetUserName || t.nama || '').toLowerCase().trim() === namaLower;
@@ -109,12 +112,25 @@ async function hitungKPIIntegrasi(nama, periode) {
     if (t.type === 'report') {
       reportCount++;
     } else {
+      if (t.source === 'FORM KAIZEN') {
+          kaizenTotal++;
+          if (t.done) kaizenDone++;
+      }
       taskTotal++;
       if (t.done) taskDone++;
     }
   });
+
   const reportScore = clampScore(Math.min(100, (reportCount / 22) * 100));
-  const taskScore = taskTotal ? clampScore((taskDone / taskTotal) * 100) : 100;
+  let taskScore = taskTotal ? clampScore((taskDone / taskTotal) * 100) : 100;
+
+  // Special KPI Logic for Nanda Yoga Maulana (Kaizen integration)
+  const isNanda = namaLower.includes('nanda yoga');
+  if (isNanda && kaizenTotal > 0) {
+      const kaizenScore = (kaizenDone / kaizenTotal) * 100;
+      // Weight: 70% regular tasks, 30% kaizen tasks
+      taskScore = clampScore((taskScore * 0.7) + (kaizenScore * 0.3));
+  }
 
   let totalPenaltyPoin = 0;
   penSnap.forEach((d) => {

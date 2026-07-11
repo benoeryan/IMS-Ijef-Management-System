@@ -4995,10 +4995,14 @@ function viewProfilePhoto(src) {
 async function renderFormKaizen() {
   const main = document.getElementById('mainContent');
   if (!main) return;
+
+  const isNanda = (currentUser.nama || '').toLowerCase().includes('nanda yoga');
+  const addBtn = !isNanda ? '<button class="btn btn-primary btn-sm" onclick="modalAddKaizen()">+ Buat Form Kaizen</button>' : '';
+
   main.innerHTML = `
     <div class="page-title">
       <span>⚡ FORM KAIZEN (General Affair)</span>
-      <button class="btn btn-primary btn-sm" onclick="modalAddKaizen()">+ Buat Form Kaizen</button>
+      ${addBtn}
     </div>
     <div class="card">
       <p class="text-sm mb-16" style="color:#666">Pemberian tugas/permintaan perbaikan terkait fasilitas & General Affair ditujukan kepada <b>Nanda Yoga Maulana</b>.</p>
@@ -5052,17 +5056,29 @@ async function loadKaizenRecords() {
         const statusBadge = it.done 
           ? '<span class="badge badge-success">Selesai</span>' 
           : '<span class="badge badge-warning">Proses</span>';
+
+        const isNanda = (currentUser.nama || '').toLowerCase().includes('nanda yoga');
+        let aksiBtns = `<button class="btn btn-xs btn-info" onclick="viewDailyTask('${it.id}')" title="Lihat Detail">👁️</button>`;
+
+        if (isNanda && !it.done) {
+            aksiBtns += ` <button class="btn btn-xs btn-success" onclick="modalUpdateKaizenProgress('${it.id}')" title="Berikan Respon/Progress">⚡ Respon</button>`;
+        }
+
+        if (it.assignedBy === currentUser.id || hasAccess(6)) {
+            aksiBtns += ` <button class="btn btn-xs btn-danger" onclick="hapusDailyTask('${it.id}')" title="Hapus">🗑️</button>`;
+        }
+
         html += `
           <tr>
             <td class="text-xs">#${it.id.substring(0, 5)}</td>
-            <td class="fw-700">${escHtml(it.title.replace('⚡ KAIZEN: ', ''))}</td>
+            <td class="fw-700">
+                ${escHtml(it.title.replace('⚡ KAIZEN: ', ''))}
+                <div class="text-xs" style="font-weight:400;color:#666">Progress: ${it.progress || 0}%</div>
+            </td>
             <td>${escHtml(it.assignedByName || '-')}</td>
             <td>${formatDate(it.tanggal)}</td>
             <td>${statusBadge}</td>
-            <td>
-              <button class="btn btn-xs btn-info" onclick="viewDailyTask('${it.id}')">👁️</button>
-              ${(it.assignedBy === currentUser.id || hasAccess(6)) ? ` <button class="btn btn-xs btn-danger" onclick="hapusDailyTask('${it.id}')">🗑️</button>` : ''}
-            </td>
+            <td>${aksiBtns}</td>
           </tr>`;
       });
     }
@@ -5169,5 +5185,89 @@ async function simpanKaizen() {
     renderFormKaizen();
   } catch (e) {
     toast('Gagal: ' + e.message, 'error');
+  }
+}
+
+async function modalUpdateKaizenProgress(id) {
+  const doc = await db.collection('hrd_daily_tasks').doc(id).get();
+  if (!doc.exists) return toast('Data tidak ditemukan', 'warning');
+  const task = doc.data();
+
+  openModal(`
+    <div class="modal-title">⚡ Update Progress Form Kaizen</div>
+    <div style="background:#f8f9ff;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
+      <div class="fw-700">${escHtml(task.title.replace('⚡ KAIZEN: ', ''))}</div>
+      <div class="text-xs color-light">${escHtml(task.description)}</div>
+    </div>
+
+    <div class="form-group">
+      <label>Progress Pengerjaan (%)</label>
+      <input type="range" class="form-control" id="upKzProgress" min="0" max="100" step="10" value="${task.progress || 0}" oninput="document.getElementById('kzProgVal').innerText = this.value + '%'">
+      <div class="text-center fw-700 color-primary" id="kzProgVal">${task.progress || 0}%</div>
+    </div>
+
+    <div class="form-group">
+      <label>Status Akhir</label>
+      <select class="form-control" id="upKzDone">
+        <option value="false" ${!task.done ? 'selected' : ''}>⏳ Sedang Diproses (Pending)</option>
+        <option value="true" ${task.done ? 'selected' : ''}>✅ Selesai Dikerjakan</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Respon / Catatan Progress</label>
+      <textarea class="form-control" id="upKzAktivitas" rows="3" placeholder="Contoh: Sedang menunggu sparepart / Sudah diperbaiki dan dicek ulang.">${escHtml(task.aktivitas || '')}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label>📎 Upload Foto Hasil (Opsional)</label>
+      <input type="file" id="upKzFiles" multiple accept="image/*" class="form-control">
+    </div>
+
+    <button class="btn btn-primary" style="width:100%" onclick="simpanUpdateKaizen('${id}')">💾 Simpan Progress</button>
+  `);
+}
+
+async function simpanUpdateKaizen(id) {
+  const progress = parseInt(document.getElementById('upKzProgress').value);
+  const done = document.getElementById('upKzDone').value === 'true';
+  const aktivitas = document.getElementById('upKzAktivitas').value.trim();
+  
+  if (!aktivitas) return toast('Harap berikan catatan progress', 'warning');
+
+  const updateData = {
+    progress: progress,
+    done: done,
+    aktivitas: aktivitas,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (done) {
+    updateData.doneAt = new Date().toISOString();
+    updateData.progress = 100;
+  }
+
+  try {
+    toast('⏳ Menyimpan progress...', 'info');
+    const newAttachments = await getFilesAsBase64('upKzFiles');
+    if (newAttachments && newAttachments.length > 0) {
+        // Keep old ones and add new ones (optional logic)
+        const doc = await db.collection('hrd_daily_tasks').doc(id).get();
+        const oldAttachments = doc.data().attachments || [];
+        updateData.attachments = [...oldAttachments, ...newAttachments].slice(0, 5);
+    }
+
+    await db.collection('hrd_daily_tasks').doc(id).update(updateData);
+    
+    // Notify the requester
+    const doc = await db.collection('hrd_daily_tasks').doc(id).get();
+    const task = doc.data();
+    await sendNotification(task.assignedBy, '⚡ UPDATE KAIZEN', `Nanda telah mengupdate tugas: "${task.title.replace('⚡ KAIZEN: ', '')}" ke ${progress}%`, 'kaizen');
+
+    toast('Progress berhasil diperbarui', 'success');
+    closeModalDirect();
+    renderFormKaizen();
+  } catch (e) {
+    toast('Gagal update: ' + e.message, 'error');
   }
 }
