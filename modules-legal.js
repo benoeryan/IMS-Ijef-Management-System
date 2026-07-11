@@ -154,6 +154,8 @@ async function modalLegalDrafting() {
                         <option value="spk">Surat Perintah Kerja (SPK)</option>
                         <option value="pks">Perjanjian Kerjasama (PKS)</option>
                     </select>
+                    <button class="btn btn-warning btn-sm" onclick="document.getElementById('drFileImport').click()" title="Impor teks dari file .txt atau .html">📁 Impor File</button>
+                    <input type="file" id="drFileImport" style="display:none" accept=".txt,.html,.md" onchange="importDocumentToWorkspace(this)">
                     <button class="btn btn-outline btn-sm" onclick="closeModalDirect()">Tutup (ESC)</button>
                     <button class="btn btn-info btn-sm" onclick="printDraftLegalDirect()">🖨️ Cetak A4</button>
                     <button class="btn btn-primary btn-sm" onclick="simpanDraftLegal()">💾 Simpan & Sinkronkan</button>
@@ -267,6 +269,7 @@ async function modalLegalDrafting() {
                         <textarea class="form-control" id="aiPrompt" style="min-height:100px; font-size:0.85rem; border-radius:10px; border:2px solid #edf2f7" placeholder="Ketik permintaan Anda di sini..."></textarea>
                         <div class="flex gap-4 mt-12">
                             <button class="btn btn-primary" style="flex:1" onclick="discussWithAI()">💬 Kirim AI</button>
+                            <button class="btn btn-info" onclick="discussWithAI(true)" title="Kirim draf saat ini ke AI untuk dianalisis">🧐 Analisis Draf</button>
                             <button class="btn btn-success" onclick="executeAIDraft()" title="Terapkan ke lembar kerja">⚡ Terapkan</button>
                         </div>
                         <div class="form-group mt-16">
@@ -442,12 +445,20 @@ async function printDraftLegalDirect() {
     printWin.document.close();
 }
 
-function discussWithAI() {
-    const prompt = document.getElementById("aiPrompt").value.trim();
-    if (!prompt) return;
+function discussWithAI(includeDraft = false) {
+    let prompt = document.getElementById("aiPrompt").value.trim();
+    if (!prompt && !includeDraft) return;
+
+    const editor = document.getElementById("drKonten");
+    const currentDraft = editor.innerText || editor.textContent;
+
+    if (includeDraft) {
+        if (!currentDraft || currentDraft.length < 10) return toast("Draf masih kosong, ketik atau impor sesuatu dulu", "warning");
+        prompt = prompt || "Mohon analisis draf dokumen ini dari sisi hukum dan berikan saran perbaikan.";
+    }
 
     const chatBox = document.getElementById("aiChatBox");
-    chatBox.innerHTML += `<div style="margin-bottom:10px; text-align:right"><div style="display:inline-block; background:#3182ce; color:#fff; padding:8px 12px; border-radius:15px 15px 2px 15px; max-width:90%">${escHtml(prompt)}</div></div>`;
+    chatBox.innerHTML += `<div style="margin-bottom:10px; text-align:right"><div style="display:inline-block; background:#3182ce; color:#fff; padding:8px 12px; border-radius:15px 15px 2px 15px; max-width:90%">${escHtml(prompt)} ${includeDraft ? '<br><small>(Analisis Draf Aktif)</small>' : ''}</div></div>`;
     document.getElementById("aiPrompt").value = "";
     chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -458,7 +469,9 @@ function discussWithAI() {
         let aiResponse = "";
         const p = prompt.toLowerCase();
 
-        if (p.includes("kerahasiaan") || p.includes("nda")) {
+        if (includeDraft) {
+            aiResponse = `<b>HASIL ANALISIS HUKUM:</b><br><br>Saya telah meninjau draf Anda. Secara umum strukturnya sudah baik, namun saya menyarankan:<br>1. Pertegas klausul batasan tanggung jawab.<br>2. Tambahkan definisi "Informasi Rahasia" yang lebih spesifik.<br>3. Pastikan yurisdiksi penyelesaian sengketa sudah sesuai dengan domisili IJEF CORP.`;
+        } else if (p.includes("kerahasiaan") || p.includes("nda")) {
             aiResponse = `<b>PASAL KERAHASIAAN:</b><br>1. Para Pihak wajib menjaga kerahasiaan seluruh informasi yang bersifat komersial maupun teknis.<br>2. Pelanggaran atas pasal ini dapat dikenakan sanksi denda sebesar 100% dari nilai kerjasama.`;
         } else if (p.includes("ganti rugi") || p.includes("denda")) {
             aiResponse = `<b>PASAL GANTI RUGI & DENDA:</b><br>Dalam hal terjadi kelalaian, Pihak yang lalai wajib membayar ganti rugi nyata yang dialami oleh Pihak lainnya, serta denda sebesar 0,1% per hari keterlambatan.`;
@@ -470,6 +483,26 @@ function discussWithAI() {
         chatBox.innerHTML += `<div style="margin-bottom:15px"><div style="display:inline-block; background:#fff; border:1px solid #ddd; padding:12px; border-radius:2px 15px 15px 15px; color:#333; line-height:1.6; box-shadow: 0 4px 6px rgba(0,0,0,0.05)">${aiResponse}</div></div>`;
         chatBox.scrollTop = chatBox.scrollHeight;
     }, 1200);
+}
+
+function importDocumentToWorkspace(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const content = e.target.result;
+        const editor = document.getElementById("drKonten");
+        if (file.name.endsWith('.html')) {
+            editor.innerHTML = content;
+        } else {
+            // Treat as plain text
+            editor.innerText = content;
+        }
+        toast(`Berhasil mengimpor: ${file.name}`, "success");
+    };
+    reader.readAsText(file);
+    input.value = ""; // clear for next time
 }
 
 function executeAIDraft() {
