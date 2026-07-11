@@ -4989,3 +4989,185 @@ function viewProfilePhoto(src) {
     '<div style="color:rgba(255,255,255,.5);margin-top:12px;font-size:.8rem">Klik ✕ atau area gelap untuk menutup</div>';
   document.body.appendChild(overlay);
 }
+
+// ── FORM KAIZEN — General Affair Work Request for Nanda Yoga Maulana ──
+
+async function renderFormKaizen() {
+  const main = document.getElementById('mainContent');
+  if (!main) return;
+  main.innerHTML = `
+    <div class="page-title">
+      <span>⚡ FORM KAIZEN (General Affair)</span>
+      <button class="btn btn-primary btn-sm" onclick="modalAddKaizen()">+ Buat Form Kaizen</button>
+    </div>
+    <div class="card">
+      <p class="text-sm mb-16" style="color:#666">Pemberian tugas/permintaan perbaikan terkait fasilitas & General Affair ditujukan kepada <b>Nanda Yoga Maulana</b>.</p>
+      <div id="kaizenStats" class="stats-grid mb-16"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Judul Tugas</th>
+              <th>Pemohon</th>
+              <th>Tanggal</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblKaizen">
+            <tr><td colspan="6" class="text-center">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  loadKaizenRecords();
+}
+
+async function loadKaizenRecords() {
+  const tbody = document.getElementById('tblKaizen');
+  const statsEl = document.getElementById('kaizenStats');
+  if (!tbody) return;
+
+  try {
+    const snap = await db.collection('hrd_daily_tasks')
+      .where('source', '==', 'FORM KAIZEN')
+      .get();
+    
+    let items = [];
+    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+    items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+    // Filter by visibility: Admin/Manager/Head/BOD/Nanda see all; Staff see only their own requests
+    const isNanda = (currentUser.nama || '').toLowerCase().includes('nanda yoga');
+    if (!hasAccess(3) && !isNanda) {
+        items = items.filter(it => it.assignedBy === currentUser.id);
+    }
+
+    let html = '';
+    if (!items.length) {
+      html = '<tr><td colspan="6" class="text-center">Belum ada form Kaizen.</td></tr>';
+    } else {
+      items.forEach(it => {
+        const statusBadge = it.done 
+          ? '<span class="badge badge-success">Selesai</span>' 
+          : '<span class="badge badge-warning">Proses</span>';
+        html += `
+          <tr>
+            <td class="text-xs">#${it.id.substring(0, 5)}</td>
+            <td class="fw-700">${escHtml(it.title.replace('⚡ KAIZEN: ', ''))}</td>
+            <td>${escHtml(it.assignedByName || '-')}</td>
+            <td>${formatDate(it.tanggal)}</td>
+            <td>${statusBadge}</td>
+            <td>
+              <button class="btn btn-xs btn-info" onclick="viewDailyTask('${it.id}')">👁️</button>
+              ${(it.assignedBy === currentUser.id || hasAccess(6)) ? ` <button class="btn btn-xs btn-danger" onclick="hapusDailyTask('${it.id}')">🗑️</button>` : ''}
+            </td>
+          </tr>`;
+      });
+    }
+    tbody.innerHTML = html;
+
+    // Update stats
+    const total = items.length;
+    const done = items.filter(it => it.done).length;
+    const pending = total - done;
+    if (statsEl) {
+      statsEl.innerHTML = `
+        <div class="stat-card" style="border-left-color:var(--primary)"><div class="stat-value">${total}</div><div class="stat-label">Total Permintaan</div></div>
+        <div class="stat-card" style="border-left-color:var(--warning)"><div class="stat-value">${pending}</div><div class="stat-label">Sedang Diproses</div></div>
+        <div class="stat-card" style="border-left-color:var(--success)"><div class="stat-value">${done}</div><div class="stat-label">Berhasil Diperbaiki</div></div>
+      `;
+    }
+  } catch (e) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="color:red">Error: ${e.message}</td></tr>`;
+  }
+}
+
+async function modalAddKaizen() {
+  // Find Nanda's user record for reference
+  let nanda = null;
+  try {
+    const uSnap = await db.collection('hrd_users').get();
+    uSnap.forEach(d => {
+      const u = d.data();
+      if ((u.nama || '').toLowerCase().includes('nanda yoga')) nanda = { id: d.id, ...u };
+    });
+  } catch (e) {}
+
+  openModal(`
+    <div class="modal-title">⚡ Buat FORM KAIZEN (General Affair)</div>
+    <p class="text-sm mb-16" style="color:#666">Gunakan form ini untuk memberikan tugas perbaikan fasilitas atau GA kepada <b>Nanda Yoga Maulana</b>.</p>
+    
+    <div class="form-group">
+      <label>Judul Permintaan / Tugas *</label>
+      <input class="form-control" id="kzTitle" placeholder="Contoh: Perbaikan AC Ruang Meeting">
+    </div>
+    
+    <div class="form-group">
+      <label>Deskripsi Detail & Lokasi *</label>
+      <textarea class="form-control" id="kzDesc" rows="4" placeholder="Jelaskan apa yang perlu diperbaiki atau dikerjakan..."></textarea>
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group"><label>Target Tanggal Selesai</label><input class="form-control" type="date" id="kzTanggal" value="${todayStr()}"></div>
+      <div class="form-group"><label>Prioritas</label><select class="form-control" id="kzPriority"><option value="low">Rendah</option><option value="medium" selected>Sedang</option><option value="high">Tinggi (Mendesak)</option></select></div>
+    </div>
+
+    <div class="form-group">
+      <label>📎 Lampiran Foto Kondisi (Eviden)</label>
+      <input type="file" id="kzFiles" multiple accept="image/*" class="form-control">
+      <div class="text-xs mt-4" style="color:#999">Maks 3 file.</div>
+    </div>
+
+    <input type="hidden" id="targetNandaId" value="${nanda ? nanda.id : ''}">
+    <input type="hidden" id="targetNandaNama" value="${nanda ? nanda.nama : 'Nanda Yoga Maulana'}">
+
+    <button class="btn btn-primary" style="width:100%" onclick="simpanKaizen()">📤 Kirim Form Kaizen</button>
+  `);
+}
+
+async function simpanKaizen() {
+  const title = document.getElementById('kzTitle').value.trim();
+  const desc = document.getElementById('kzDesc').value.trim();
+  const targetId = document.getElementById('targetNandaId').value;
+  const targetNama = document.getElementById('targetNandaNama').value;
+  
+  if (!title || !desc) return toast('Judul dan deskripsi wajib diisi', 'warning');
+
+  const data = {
+    type: 'daily-task',
+    source: 'FORM KAIZEN',
+    title: '⚡ KAIZEN: ' + title,
+    description: desc,
+    tanggal: document.getElementById('kzTanggal').value,
+    priority: document.getElementById('kzPriority').value,
+    userId: targetId || 'nanda_manual',
+    targetUserName: targetNama,
+    assignedBy: currentUser.id,
+    assignedByName: currentUser.nama,
+    done: false,
+    progress: 0,
+    aktivitas: 'Menunggu pengerjaan oleh Nanda.',
+    ownerLevel: 1,
+    departemen: 'GENERAL AFFAIR',
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    toast('⏳ Mengirim form kaizen...', 'info');
+    data.attachments = await getFilesAsBase64('kzFiles');
+    await db.collection('hrd_daily_tasks').add(data);
+    
+    // Notify Nanda
+    if (targetId) {
+        await sendNotification(targetId, '⚡ FORM KAIZEN BARU', `${currentUser.nama} memberikan tugas: ${title}`, 'kaizen');
+    }
+
+    toast('Form Kaizen berhasil dikirim ke Nanda', 'success');
+    closeModalDirect();
+    renderFormKaizen();
+  } catch (e) {
+    toast('Gagal: ' + e.message, 'error');
+  }
+}

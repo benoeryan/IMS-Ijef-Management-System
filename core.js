@@ -476,6 +476,7 @@ function buildNavItems(isPortalUser) {
       ['portal-overtime', '⏰', 'Overtime'],
       ['portal-perjalanan-dinas', '✈️', 'Perjalanan Dinas'],
       ['daily-task', '📋', 'Daily Task'],
+      ['kaizen', '⚡', 'FORM KAIZEN'],
     ]);
     nav += navGroup('💰 Keuangan', [
       ['portal-gaji', '💰', 'Slip Gaji'],
@@ -547,6 +548,7 @@ function buildNavItems(isPortalUser) {
     ['hari-libur', '📅', 'Hari Libur'],
     ['penalty', '⚠️', 'Penalty Point'],
     ['daily-task', '📋', 'Daily Task'],
+    ['kaizen', '⚡', 'FORM KAIZEN'],
   ]);
   const _lkSidebarUsers = [
     'muhammad agus ryanda',
@@ -737,6 +739,7 @@ function navigateTo(page) {
     'portal-test-kesehatan': renderPortalTestKesehatan,
     'daily-task': renderDailyTask,
     'report-summary': renderReportSummary,
+    kaizen: renderFormKaizen,
     panduan: renderPanduan,
   };
   const fn = routes[page];
