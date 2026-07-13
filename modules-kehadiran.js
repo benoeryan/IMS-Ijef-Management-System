@@ -5000,6 +5000,21 @@ async function renderFormKaizen() {
   const isNanda = userName.includes('nanda yoga');
   const addBtn = !isNanda ? '<button class="btn btn-primary btn-sm" onclick="modalAddKaizen()">+ Buat Form Kaizen</button>' : '';
 
+  // Priority Filter for Nanda, Manager (3+), and Head (4+)
+  let filterHtml = '';
+  if (isNanda || hasAccess(3) || hasHeadLevelAccess()) {
+    filterHtml = `
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; background:#f8f9ff; padding:8px 12px; border-radius:8px">
+        <span class="text-sm fw-700">🚩 Skala Prioritas:</span>
+        <select class="form-control" id="kzFilterPriority" style="max-width:180px; padding:4px 8px; font-size:.82rem" onchange="loadKaizenRecords()">
+          <option value="all">Semua Prioritas</option>
+          <option value="high">🔴 Tinggi (Mendesak)</option>
+          <option value="medium">🟡 Sedang</option>
+          <option value="low">🟢 Rendah</option>
+        </select>
+      </div>`;
+  }
+
   main.innerHTML = `
     <div class="page-title">
       <span>⚡ FORM KAIZEN (General Affair)</span>
@@ -5007,6 +5022,7 @@ async function renderFormKaizen() {
     </div>
     <div class="card">
       <p class="text-sm mb-16" style="color:#666">Pemberian tugas/permintaan perbaikan terkait fasilitas & General Affair ditujukan kepada <b>Nanda Yoga Maulana</b>.</p>
+      ${filterHtml}
       <div id="kaizenStats" class="stats-grid mb-16"></div>
       <div class="table-wrap">
         <table>
@@ -5043,14 +5059,20 @@ async function loadKaizenRecords() {
     snap.forEach(d => items.push({ id: d.id, ...d.data() }));
     items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
-    // Filter by visibility:
     const userName = (currentUser.nama || '').toLowerCase().trim();
     const isNanda = userName.includes('nanda yoga');
 
+    // Filter by visibility:
     // Level 3+ (Manager, Head, BOD, Admin) and Nanda see all records
     // Level 1-2 (Staff, Leader) except Nanda see only their own requests
     if (!hasAccess(3) && !isNanda) {
         items = items.filter(it => it.assignedBy === currentUser.id);
+    }
+
+    // Apply Priority Filter
+    const filterPriority = document.getElementById('kzFilterPriority')?.value || 'all';
+    if (filterPriority !== 'all') {
+        items = items.filter(it => it.priority === filterPriority);
     }
 
     let html = '';
