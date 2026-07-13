@@ -5031,7 +5031,8 @@ async function renderFormKaizen() {
               <th>ID</th>
               <th>Judul Tugas</th>
               <th>Pemohon</th>
-              <th>Tanggal</th>
+              <th>Target Selesai</th>
+              <th>Sisa Waktu</th>
               <th>Status</th>
               <th>Aksi</th>
             </tr>
@@ -5095,6 +5096,25 @@ async function loadKaizenRecords() {
             aksiBtns += ` <button class="btn btn-xs btn-danger" onclick="hapusDailyTask('${it.id}')" title="Hapus">🗑️</button>`;
         }
 
+        // Hitung Sisa Waktu
+        let sisaWaktuHtml = '-';
+        if (it.done) {
+            sisaWaktuHtml = '<span class="badge badge-success">Selesai</span>';
+        } else if (it.tanggal) {
+            const tglTarget = new Date(it.tanggal + 'T23:59:59');
+            const tglSkrg = new Date();
+            const diffTime = tglTarget - tglSkrg;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 0) {
+                sisaWaktuHtml = `<span style="color:#c62828;font-weight:700">🔴 Terlambat ${Math.abs(diffDays)} hr</span>`;
+            } else if (diffDays === 0) {
+                sisaWaktuHtml = `<span style="color:#f57f17;font-weight:700">🟡 Hari Ini</span>`;
+            } else {
+                sisaWaktuHtml = `<span style="color:#1565c0;font-weight:700">🔵 ${diffDays} hr lagi</span>`;
+            }
+        }
+
         html += `
           <tr>
             <td class="text-xs">#${it.id.substring(0, 5)}</td>
@@ -5104,6 +5124,7 @@ async function loadKaizenRecords() {
             </td>
             <td>${escHtml(it.assignedByName || '-')}</td>
             <td>${formatDate(it.tanggal)}</td>
+            <td>${sisaWaktuHtml}</td>
             <td>${statusBadge}</td>
             <td>${aksiBtns}</td>
           </tr>`;
