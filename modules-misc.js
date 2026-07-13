@@ -1512,19 +1512,26 @@ async function renderApprovalCenter() {
   let h = '';
   let visibleCount = 0;
   items.forEach((item) => {
-    const flow = flows.find((f) => (f.pengaju || '').toLowerCase().trim() === (item.nama || '').toLowerCase().trim() && f.steps && f.steps.length > 0);
+    const flow = flows.find((f) => isSameName(f.pengaju, item.nama) && f.steps && f.steps.length > 0);
     const steps = flow?.steps || [];
     const currentStep = item.approvalStep || 0;
-    const currentApprover = steps[currentStep]?.nama?.toLowerCase() || '';
-    const canSee = isAdmin || isGM || hasAccess(4) || item._dept === myDept;
-    if (!canSee) return;
-    // BOD filter: only show submissions from 'head' level
+    const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
+
+    // BOD filter: only show if explicitly my turn OR if pengaju is 'head' level
     const isBOD = currentUser.role === 'bod';
+    const isMyTurn = isAdmin || currentApprover === myName;
+    const isExplicitlyMyTurn = currentApprover === myName;
+
+    let canSee = isAdmin || isGM || hasAccess(4) || item._dept === myDept;
+
     if (isBOD) {
       const pengajuGrade = gradeMap[(item.nama || '').toLowerCase()] || '';
       const isHead = pengajuGrade.includes('head');
-      if (!isHead) return;
+      // BOD sees it if: 1. It's explicitly his turn, OR 2. It's from a Head level pengaju
+      canSee = isExplicitlyMyTurn || isHead;
     }
+
+    if (!canSee) return;
     const isMyTurn = isAdmin || currentApprover === myName;
     const typeLabel = item.collection.replace('hrd_', '').toUpperCase();
     const detail = item.jenis || item.kategori || '';
@@ -2054,12 +2061,16 @@ async function approveItem(col, id, status, catatan) {
       if (nextApprover?.nama) {
         const uSnap = await db
           .collection('hrd_users')
-          .where('nama', '==', nextApprover.nama)
-          .limit(1)
           .get();
-        if (!uSnap.empty)
+
+        let targetUserId = '';
+        uSnap.forEach(uDoc => {
+            if (isSameName(uDoc.data().nama, nextApprover.nama)) targetUserId = uDoc.id;
+        });
+
+        if (targetUserId)
           await sendNotification(
-            uSnap.docs[0].id,
+            targetUserId,
             '📋 Perlu Approval',
             `${data.nama}: ${data.jenis || col.replace('hrd_', '')} — disetujui ${currentUser.nama}, menunggu Anda`
           );
