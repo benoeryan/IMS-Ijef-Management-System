@@ -879,6 +879,23 @@ function getMonthDays(ym) {
   return new Date(y, m, 0).getDate();
 }
 
+function toSafeDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value.toDate === 'function') {
+    const dt = value.toDate();
+    return dt instanceof Date && !Number.isNaN(dt.getTime()) ? dt : null;
+  }
+  const dt = new Date(value);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function isRecentTime(value, maxAgeMs) {
+  const dt = toSafeDate(value);
+  if (!dt) return false;
+  return Date.now() - dt.getTime() < maxAgeMs;
+}
+
 function listenNotifications() {
   // Request notification permission on mobile
   requestNotifPermission();
@@ -893,8 +910,7 @@ function listenNotifications() {
           const d = change.doc.data();
           if (d.read === false) {
             // Only show popup for truly new notifications (created within last 30s)
-            var created = d.createdAt ? new Date(d.createdAt) : null;
-            var isRecent = created && new Date() - created < 60000;
+            var isRecent = isRecentTime(d.createdAt, 60000);
             if (isRecent) {
               playNotificationSound();
               showSystemNotification(d.title || 'Notifikasi', d.message || '');
@@ -915,8 +931,7 @@ function listenNotifications() {
         if (change.type === 'added') {
           const d = change.doc.data();
           if (d.read === false) {
-            var created = d.createdAt ? new Date(d.createdAt) : null;
-            var isRecent = created && new Date() - created < 60000;
+            var isRecent = isRecentTime(d.createdAt, 60000);
             if (isRecent) {
               playNotificationSound();
               showInAppNotification(d.title || 'Notifikasi', d.message || '', d.link || '');
@@ -930,9 +945,7 @@ function listenNotifications() {
   const unsub3 = db.collection('hrd_broadcast').onSnapshot((snap) => {
     snap.docChanges().forEach((change) => {
       if (change.type === 'added' && change.doc.data().createdAt) {
-        const created = new Date(change.doc.data().createdAt);
-        const now = new Date();
-        if (now - created < 30000) playNotificationSound(); // Only play for recent (30s)
+        if (isRecentTime(change.doc.data().createdAt, 30000)) playNotificationSound(); // Only play for recent (30s)
       }
     });
   });
@@ -954,9 +967,7 @@ function listenNotifications() {
   const unsub5 = db.collection('hrd_pengumuman').onSnapshot((snap) => {
     snap.docChanges().forEach((change) => {
       if (change.type === 'added' && change.doc.data().createdAt) {
-        const created = new Date(change.doc.data().createdAt);
-        const now = new Date();
-        if (now - created < 30000) playNotificationSound();
+        if (isRecentTime(change.doc.data().createdAt, 30000)) playNotificationSound();
       }
     });
   });
@@ -965,9 +976,7 @@ function listenNotifications() {
   const unsub6 = db.collection('hrd_meeting').onSnapshot((snap) => {
     snap.docChanges().forEach((change) => {
       if (change.type === 'added' && change.doc.data().createdAt) {
-        const created = new Date(change.doc.data().createdAt);
-        const now = new Date();
-        if (now - created < 30000) playNotificationSound();
+        if (isRecentTime(change.doc.data().createdAt, 30000)) playNotificationSound();
       }
     });
   });
@@ -978,9 +987,7 @@ function listenNotifications() {
       if (change.type === 'added' && change.doc.data().createdAt) {
         const d = change.doc.data();
         if (d.userId !== currentUser.id) {
-          const created = new Date(d.createdAt);
-          const now = new Date();
-          if (now - created < 15000) playNotificationSound();
+          if (isRecentTime(d.createdAt, 15000)) playNotificationSound();
         }
       }
     });
