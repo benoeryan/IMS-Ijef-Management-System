@@ -324,6 +324,119 @@ async function modalLegalDrafting() {
                                 <option value="nda">NDA Agreement</option>
                                 <option value="spk">Surat Perintah Kerja (SPK)</option>
                                 <option value="pks">Perjanjian Kerjasama (PKS)</option>
+                                <option value="peraturan">Peraturan Perusahaan</option>
+                            </select>
+                            <div class="ribbon-group-label">Legal Templates</div>
+                        </div>
+                        <div class="ribbon-group">
+                            <div class="ribbon-row">
+                                <button class="ribbon-tool-btn" onclick="formatDoc('insertHorizontalRule')"><i>➖</i><span>Line</span></button>
+                                <button class="ribbon-tool-btn" onclick="formatDoc('insertImage', prompt('Enter Image URL'))"><i>🖼️</i><span>Picture</span></button>
+                            </div>
+                            <div class="ribbon-group-label">Illustrations</div>
+                        </div>
+                    </div>
+
+                    <!-- DESIGN PANEL -->
+                    <div class="ribbon-panel" id="ribbon-design">
+                        <div class="ribbon-group">
+                            <div class="ribbon-row" style="gap:5px">
+                                <div style="border:1px solid #ccc; padding:2px; background:#fff; font-size:10px; width:40px; height:50px; display:flex; flex-direction:column; justify-content:center; align-items:center">Title<br><b>Style 1</b></div>
+                                <div style="border:1px solid #ccc; padding:2px; background:#fff; font-size:10px; width:40px; height:50px; display:flex; flex-direction:column; justify-content:center; align-items:center; border-top:2px solid #2b579a">Title<br><b>Style 2</b></div>
+                                <div style="border:1px solid #ccc; padding:2px; background:#fff; font-size:10px; width:40px; height:50px; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center">TITLE<br><b>STYLE 3</b></div>
+                            </div>
+                            <div class="ribbon-group-label">Document Formatting</div>
+                        </div>
+                        <div class="ribbon-group">
+                            <button class="ribbon-tool-btn" onclick="formatDoc('foreColor', '#2b579a')"><i>🎨</i><span>Colors</span></button>
+                            <div class="ribbon-group-label">Page Background</div>
+                        </div>
+                    </div>
+
+                    <!-- LAYOUT PANEL -->
+                    <div class="ribbon-panel" id="ribbon-layout">
+                         <div class="ribbon-group">
+                            <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; cursor:pointer">
+                                <input type="checkbox" id="drPakeKop" checked onchange="document.getElementById('kopPreview').classList.toggle('active', this.checked)"> Tampilkan KOP Surat
+                            </label>
+                            <div class="ribbon-group-label">Page Setup</div>
+                        </div>
+                        <div class="ribbon-group">
+                            <div class="ribbon-row">
+                                <button class="ribbon-tool-btn"><i>📐</i><span>Margins</span></button>
+                                <button class="ribbon-tool-btn"><i>📄</i><span>Orientation</span></button>
+                            </div>
+                            <div class="ribbon-group-label">Page Setup</div>
+                        </div>
+                    </div>
+
+                    <!-- REFERENCES PANEL -->
+                    <div class="ribbon-panel" id="ribbon-references">
+                        <div class="ribbon-group">
+                             <button class="ribbon-tool-btn"><i>📑</i><span>Table of Contents</span></button>
+                             <div class="ribbon-group-label">Table of Contents</div>
+                        </div>
+                        <div class="ribbon-group">
+                             <button class="ribbon-tool-btn"><i>ab</i><span>Insert Footnote</span></button>
+                             <div class="ribbon-group-label">Footnotes</div>
+                        </div>
+                    </div>
+
+                    <!-- MAILINGS PANEL -->
+                    <div class="ribbon-panel" id="ribbon-mailings">
+                        <div class="ribbon-group">
+                             <button class="ribbon-tool-btn"><i>✉️</i><span>Envelopes</span></button>
+                             <button class="ribbon-tool-btn"><i>🏷️</i><span>Labels</span></button>
+                             <div class="ribbon-group-label">Create</div>
+                        </div>
+                        <div class="ribbon-group">
+                             <button class="ribbon-tool-btn"><i>👥</i><span>Select Recipients</span></button>
+                             <div class="ribbon-group-label">Start Mail Merge</div>
+                        </div>
+                    </div>
+
+                    <!-- REVIEW PANEL -->
+                    <div class="ribbon-panel" id="ribbon-review">
+                        <div class="ribbon-group">
+                             <button class="ribbon-tool-btn"><i>✓</i><span>Spelling</span></button>
+                             <button class="ribbon-tool-btn"><i>abc</i><span>Word Count</span></button>
+                             <div class="ribbon-group-label">Proofing</div>
+                        </div>
+                        <div class="ribbon-group">
+                             <button class="ribbon-tool-btn" onclick="discussWithAI(true)"><i>🤖</i><span>AI Review</span></button>
+                             <div class="ribbon-group-label">Legal AI</div>
+                        </div>
+                    </div>
+
+                    <!-- VIEW PANEL -->
+                    <div class="ribbon-panel" id="ribbon-view">
+                        <div class="ribbon-group">
+                             <button class="ribbon-tool-btn"><i>📄</i><span>Print Layout</span></button>
+                             <button class="ribbon-tool-btn"><i>🌐</i><span>Web Layout</span></button>
+                             <div class="ribbon-group-label">Views</div>
+                        </div>
+                        <div class="ribbon-group">
+                             <button class="ribbon-tool-btn"><i>🔍</i><span>Zoom</span></button>
+                             <button class="ribbon-tool-btn"><i>100%</i><span>100%</span></button>
+                             <div class="ribbon-group-label">Zoom</div>
+                        </div>
+                    </div>
+
+                    <!-- HELP PANEL -->
+                    <div class="ribbon-panel" id="ribbon-help">
+                        <div class="ribbon-group">
+                             <button class="ribbon-tool-btn" onclick="navigateTo('panduan')"><i>❓</i><span>Help</span></button>
+                             <button class="ribbon-tool-btn"><i>💬</i><span>Feedback</span></button>
+                             <div class="ribbon-group-label">Help Center</div>
+                        </div>
+                    </div>
+                </div>
+                            <select class="form-control" id="drTemplate" onchange="applyLegalTemplate()" style="width:180px; font-size:0.8rem">
+                                <option value="">-- Pilih Template --</option>
+                                <option value="mou">MOU Kerjasama</option>
+                                <option value="nda">NDA Agreement</option>
+                                <option value="spk">Surat Perintah Kerja (SPK)</option>
+                                <option value="pks">Perjanjian Kerjasama (PKS)</option>
                             </select>
                             <div class="ribbon-group-label">Legal Templates</div>
                         </div>
@@ -459,6 +572,14 @@ function applyLegalTemplate() {
             <p>Perjanjian ini dibuat dan ditandatangani pada hari ini [...] antara LPK IJEF CORP dan [PIHAK KEDUA].</p>
             <p><b>PASAL 1: RUANG LINGKUP PEKERJAAN</b><br>...</p>
             <p><b>PASAL 2: NILAI PERJANJIAN DAN TATA CARA PEMBAYARAN</b><br>...</p>`
+        },
+        peraturan: {
+            judul: "PERATURAN PERUSAHAAN (PP)",
+            isi: `<p style="text-align:center"><b>PERATURAN PERUSAHAAN</b></p>
+            <p style="text-align:center">Nomor: ${num}</p><br>
+            <p>Ditetapkan oleh: <b>LPK IJEF CORP</b></p><br>
+            <p><b>BAB I: KETENTUAN UMUM</b><br>Pasal 1: Definisi...</p>
+            <p><b>BAB II: HUBUNGAN KERJA</b><br>Pasal 2: Penerimaan Karyawan...</p>`
         }
     };
 
