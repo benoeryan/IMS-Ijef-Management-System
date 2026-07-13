@@ -1449,7 +1449,6 @@ async function simpanAkun(id) {
 }
 
 // ── APPROVAL CENTER — Multi-step flow with department filtering ──
-// ── APPROVAL CENTER — Multi-step flow with department filtering ──
 async function renderApprovalCenter(tab = 'pending') {
   const main = document.getElementById('mainContent');
   const role = (currentUser.role || '').toLowerCase();
@@ -1636,12 +1635,6 @@ async function renderApprovalCenter(tab = 'pending') {
       ${progressHtml}
     </div>`;
   });
-
-  if (!visibleCount)
-    h = `<div class="empty-state"><div class="icon">✅</div><p>Tidak ada data ${tab === 'pending' ? 'menunggu approval' : 'riwayat'}</p></div>`;
-
-  document.getElementById('approvalList').innerHTML = h;
-}
 
   if (!visibleCount)
     h = `<div class="empty-state"><div class="icon">✅</div><p>Tidak ada data ${tab === 'pending' ? 'menunggu approval' : 'riwayat'}</p></div>`;
