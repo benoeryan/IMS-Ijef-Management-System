@@ -2146,6 +2146,41 @@ function _showDailyTaskDetail(task) {
     : task.tanggal < todayStr()
       ? '<span class="badge badge-danger">Terlambat</span>'
       : '<span class="badge badge-info">Aktif</span>';
+
+  // Build Logs History for Kaizen
+  let logsHtml = '';
+  if (task.source === 'FORM KAIZEN' && task.kaizenLogs && task.kaizenLogs.length > 0) {
+    logsHtml = '<div style="margin-top:16px; border-top:1px solid #eee; padding-top:12px"><div class="fw-700 mb-8" style="font-size:0.85rem; color:#555">💬 Riwayat Komentar & Keputusan:</div>';
+    task.kaizenLogs.forEach(log => {
+        const date = formatDateTime(log.timestamp);
+        let color = '#333';
+        if (log.action === 'approved') color = '#2e7d32';
+        else if (log.action === 'pending') color = '#f57f17';
+        else if (log.action === 'rejected') color = '#c62828';
+
+        logsHtml += `
+        <div style="margin-bottom:10px; font-size:0.78rem; background:#fff; border:1px solid #f0f0f0; padding:8px; border-radius:6px">
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px">
+                <b style="color:var(--primary)">${escHtml(log.userName)}</b>
+                <span style="color:#999">${date}</span>
+            </div>
+            <div style="color:${color}; font-weight:600; text-transform:uppercase; font-size:0.65rem; margin-bottom:2px">${log.action === 'comment' ? '' : 'PUTUSAN: ' + log.action}</div>
+            <div style="white-space:pre-wrap">${escHtml(log.comment)}</div>
+        </div>`;
+    });
+    logsHtml += '</div>';
+  }
+
+  // General Comment Input for Kaizen
+  let commentInput = '';
+  if (task.source === 'FORM KAIZEN') {
+      commentInput = `
+      <div style="margin-top:12px; display:flex; gap:8px">
+          <input class="form-control" id="kzGenComment" placeholder="Tambah komentar..." style="font-size:0.8rem">
+          <button class="btn btn-primary btn-sm" onclick="addKaizenGeneralComment('${task.id}')">Kirim</button>
+      </div>`;
+  }
+
   openModal(`<div class="modal-title">📋 Detail Task</div>
     <table style="width:100%;border-collapse:collapse">
       <tr><td style="padding:8px;font-weight:700;width:140px">Judul</td><td style="padding:8px">${escHtml(task.title)}</td></tr>
@@ -2172,7 +2207,12 @@ function _showDailyTaskDetail(task) {
       ${task.solusi ? `<div style="font-size:.78rem;color:#ef6c00;margin-top:6px;white-space:pre-wrap">💡 Tindak Lanjut: ${escHtml(task.solusi)}</div>` : ''}
     </div>
     ${task.attachments && task.attachments.length ? `<div style="margin-top:16px;padding:16px;background:#f8f9ff;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:var(--primary)">📎 Lampiran Eviden (${task.attachments.length} file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px">${task.attachments.map((a, i) => (a.type && a.type.startsWith('image/') ? `<div style="text-align:center;cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><img src="${a.data}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.6rem;color:#666;margin-top:4px">${escHtml(a.name || 'Foto ' + (i + 1))}</div></div>` : `<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:12px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><div style="font-size:2rem">${a.name && a.name.endsWith('.pdf') ? '📕' : a.name && a.name.match(/\\.docx?$/) ? '📘' : a.name && a.name.match(/\\.xlsx?$/) ? '📗' : '📄'}</div><div style="font-size:.6rem;color:#333;margin-top:4px;text-align:center;word-break:break-all">${escHtml(a.name)}</div><div style="font-size:.6rem;color:#1565c0;margin-top:4px">👁️ Lihat</div></div>`)).join('')}</div></div>` : ''}
+
+    ${logsHtml}
+    ${commentInput}
+
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end"><a href="${buildGCalUrl(task)}" target="_blank" class="btn btn-sm btn-info" style="text-decoration:none">📅 Tambah ke Google Calendar</a><button class="btn btn-sm btn-outline" onclick="closeModalDirect()">Tutup</button></div>`);
+}
 }
 
 async function modalAddTask() {
@@ -5303,7 +5343,15 @@ async function simpanUpdateKaizen(id) {
   const updateData = {
     progress: progress,
     aktivitas: aktivitas,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    // Log entry for Nanda's update
+    kaizenLogs: firebase.firestore.FieldValue.arrayUnion({
+        userId: currentUser.id,
+        userName: currentUser.nama,
+        action: markDone ? 'submit_done' : 'update_progress',
+        comment: aktivitas,
+        timestamp: new Date().toISOString()
+    })
   };
 
   // Logic: If Nanda marks as DONE, it goes to WAITING APPROVAL first
@@ -5391,7 +5439,15 @@ async function simpanApprovalKaizen(id, action) {
     const updateData = {
         kaizenStatus: action,
         approverComment: komentar,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        // Add to logs
+        kaizenLogs: firebase.firestore.FieldValue.arrayUnion({
+            userId: currentUser.id,
+            userName: currentUser.nama,
+            action: action, // approved, pending, rejected
+            comment: komentar || 'Status diperbarui',
+            timestamp: new Date().toISOString()
+        })
     };
 
     if (action === 'approved') {
@@ -5466,6 +5522,30 @@ async function simpanApprovalKaizen(id, action) {
         toast('Status Kaizen diperbarui: ' + action.toUpperCase(), 'success');
         closeModalDirect();
         renderFormKaizen();
+    } catch (e) {
+        toast('Gagal: ' + e.message, 'error');
+    }
+}
+
+async function addKaizenGeneralComment(id) {
+    const comment = document.getElementById('kzGenComment').value.trim();
+    if (!comment) return;
+
+    try {
+        await db.collection('hrd_daily_tasks').doc(id).update({
+            kaizenLogs: firebase.firestore.FieldValue.arrayUnion({
+                userId: currentUser.id,
+                userName: currentUser.nama,
+                action: 'comment',
+                comment: comment,
+                timestamp: new Date().toISOString()
+            })
+        });
+        toast('Komentar ditambahkan', 'success');
+
+        // Refresh detail view
+        const doc = await db.collection('hrd_daily_tasks').doc(id).get();
+        _showDailyTaskDetail({ id: doc.id, ...doc.data() });
     } catch (e) {
         toast('Gagal: ' + e.message, 'error');
     }
