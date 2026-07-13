@@ -2018,15 +2018,17 @@ async function approveItem(col, id, status, catatan) {
         `Pengajuan ${data.jenis || col.replace('hrd_', '')} ditolak oleh ${currentUser.nama}`
       );
   } else {
-    const flowSnap = await db
-      .collection('hrd_approval_flow')
-      .where('pengaju', '==', data.nama)
-      .get();
+    // Robust flow lookup (handle case sensitivity)
+    const flowSnap = await db.collection('hrd_approval_flow').get();
     let steps = [];
+    const namaLower = (data.nama || '').toLowerCase().trim();
     flowSnap.forEach((d) => {
       const f = d.data();
-      if (!steps.length) steps = f.steps || [];
+      if ((f.pengaju || '').toLowerCase().trim() === namaLower) {
+          steps = f.steps || [];
+      }
     });
+
     const nextStep = currentStep + 1;
     if (nextStep < steps.length) {
       await db
