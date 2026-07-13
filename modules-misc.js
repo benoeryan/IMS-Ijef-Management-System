@@ -2063,7 +2063,31 @@ async function approveItem(col, id, status, catatan) {
   closeModalDirect();
   toast(status === 'approved' ? 'Disetujui' : 'Ditolak', 'success');
   invalidateApprovalFlowCache();
-  renderApprovalCenter();
+
+  // Smart Refresh based on context
+  if (typeof currentPage !== 'undefined') {
+    if (currentPage === 'approval-center') {
+      renderApprovalCenter();
+    } else if (currentPage === 'absensi') {
+      if (col === 'hrd_cuti') renderCuti();
+      else if (col === 'hrd_overtime') renderOvertime();
+      else if (col === 'hrd_perjalanan_dinas' || col === 'hrd_dinas_luar') {
+          if (typeof loadDinasTab === 'function') loadDinasTab('pengajuan');
+          else navigateTo('absensi');
+      }
+    } else {
+       // Fallback to dashboard or current page re-render if function exists
+       const refreshFunc = {
+           'hrd_cuti': 'renderCuti',
+           'hrd_overtime': 'renderOvertime'
+       }[col];
+       if (refreshFunc && typeof window[refreshFunc] === 'function') {
+           window[refreshFunc]();
+       } else {
+           renderApprovalCenter();
+       }
+    }
+  }
 }
 
 // ── APPROVAL MANAGEMENT ───────────────────────────────────────

@@ -95,9 +95,18 @@ async function renderCuti() {
       const quota = kary ? hitungJatahCuti(kary) : 12;
       const used = cutiUsed[uid] || cutiUsed[(p.nama || '').trim().toLowerCase()] || 0;
       const sisa = Math.max(0, quota - used);
-      const canApprove = p.status === 'pending' && hasAccess(3) && !isBOD;
+
+      // Multi-step turn check
+      const isPending = p.status === 'pending' || (p.status && p.status.indexOf('step') === 0);
+      const flow = flows.find((f) => f.pengaju?.toLowerCase() === p.nama?.toLowerCase());
+      const steps = flow?.steps || [];
+      const currentStep = p.approvalStep || 0;
+      const currentApprover = steps[currentStep]?.nama?.toLowerCase() || '';
+      const isMyTurn = isAdmin || currentApprover === (currentUser.nama || '').toLowerCase();
+
+      const canApprove = isPending && hasAccess(3) && !isBOD && isMyTurn;
       const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
-      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.jenis)}</td><td>${formatDate(p.mulai)}-${formatDate(p.selesai)}</td><td>${p.durasi || 1}h</td><td><span class="badge badge-${sisa <= 2 ? 'danger' : sisa <= 5 ? 'warning' : 'success'}">${sisa}/${quota}</span></td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewCutiDetail('${p.id}')" title="Lihat Detail">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveCuti('${p.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveCuti('${p.id}','rejected')">❌</button>` : ''} ${hasAccess(6) || (p.userId === currentUser.id && p.status === 'pending') ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_cuti','${p.id}','cuti')">🗑️</button>` : ''}</td></tr>`;
+      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.jenis)}</td><td>${formatDate(p.mulai)}-${formatDate(p.selesai)}</td><td>${p.durasi || 1}h</td><td><span class="badge badge-${sisa <= 2 ? 'danger' : sisa <= 5 ? 'warning' : 'success'}">${sisa}/${quota}</span></td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewCutiDetail('${p.id}')" title="Lihat Detail">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_cuti','${p.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_cuti','${p.id}','rejected')">❌</button>` : ''} ${hasAccess(6) || (p.userId === currentUser.id && p.status === 'pending') ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_cuti','${p.id}','cuti')">🗑️</button>` : ''}</td></tr>`;
     });
   }
   document.getElementById('tblCuti').innerHTML = h;
@@ -192,39 +201,6 @@ async function simpanCuti() {
   );
   closeModalDirect();
   toast('Diajukan ke atasan & HR', 'success');
-  renderCuti();
-}
-async function approveCuti(id, status) {
-  var komentar = '';
-  if (status === 'rejected') {
-    komentar = prompt('Alasan penolakan:');
-    if (!komentar) return;
-  } else {
-    komentar = prompt('Komentar approval (opsional):') || '';
-  }
-  var updateData = {
-    status: status,
-    approvedBy: currentUser.nama,
-    approvedAt: new Date().toISOString(),
-  };
-  if (komentar) updateData.approvalComment = komentar;
-  if (status === 'rejected') {
-    updateData.rejectedBy = currentUser.nama;
-    updateData.rejectedAt = new Date().toISOString();
-    updateData.alasanTolak = komentar;
-  }
-  await db.collection('hrd_cuti').doc(id).update(updateData);
-  const cutiDoc = await db.collection('hrd_cuti').doc(id).get();
-  const cutiData = cutiDoc.data();
-  if (cutiData.userId) {
-    await sendNotification(
-      cutiData.userId,
-      status === 'approved' ? '✅ Cuti Disetujui' : '❌ Cuti Ditolak',
-      `Pengajuan ${cutiData.jenis || 'Cuti'} Anda telah ${status === 'approved' ? 'disetujui' : 'ditolak'}${komentar ? ': ' + komentar : ''}`,
-      'portal-cuti'
-    );
-  }
-  toast(status === 'approved' ? '✅ Cuti disetujui' : '❌ Cuti ditolak', 'success');
   renderCuti();
 }
 
@@ -337,9 +313,18 @@ async function renderOvertime() {
           : p.status === 'rejected'
             ? 'badge-danger'
             : 'badge-warning';
-      const canApprove = p.status === 'pending' && hasAccess(3) && !isBOD;
+
+      // Multi-step turn check
+      const isPending = p.status === 'pending' || (p.status && p.status.indexOf('step') === 0);
+      const flow = flows.find((f) => f.pengaju?.toLowerCase() === p.nama?.toLowerCase());
+      const steps = flow?.steps || [];
+      const currentStep = p.approvalStep || 0;
+      const currentApprover = steps[currentStep]?.nama?.toLowerCase() || '';
+      const isMyTurn = isAdmin || currentApprover === (currentUser.nama || '').toLowerCase();
+
+      const canApprove = isPending && hasAccess(3) && !isBOD && isMyTurn;
       const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
-      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${formatDate(p.tanggal)}</td><td>${p.jamMulai || '-'}-${p.jamSelesai || '-'}</td><td>${p.durasi || 0}j</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewOvertimeDetail('${d.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveOT('${d.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveOT('${d.id}','rejected')">❌</button>` : ''} ${hasAccess(6) ? `<button class="btn btn-xs btn-warning" onclick="editOTDoc('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_overtime','${d.id}','overtime')">🗑️</button>` : ''}</td></tr>`;
+      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${formatDate(p.tanggal)}</td><td>${p.jamMulai || '-'}-${p.jamSelesai || '-'}</td><td>${p.durasi || 0}j</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewOvertimeDetail('${d.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_overtime','${d.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_overtime','${d.id}','rejected')">❌</button>` : ''} ${hasAccess(6) ? `<button class="btn btn-xs btn-warning" onclick="editOTDoc('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_overtime','${d.id}','overtime')">🗑️</button>` : ''}</td></tr>`;
     });
   document.getElementById('tblOT').innerHTML = h;
 }
@@ -378,39 +363,6 @@ async function simpanOvertime() {
   );
   closeModalDirect();
   toast('Diajukan', 'success');
-  renderOvertime();
-}
-async function approveOT(id, status) {
-  var komentar = '';
-  if (status === 'rejected') {
-    komentar = prompt('Alasan penolakan:');
-    if (!komentar) return;
-  } else {
-    komentar = prompt('Komentar approval (opsional):') || '';
-  }
-  var updateData = {
-    status: status,
-    approvedBy: currentUser.nama,
-    approvedAt: new Date().toISOString(),
-  };
-  if (komentar) updateData.approvalComment = komentar;
-  if (status === 'rejected') {
-    updateData.rejectedBy = currentUser.nama;
-    updateData.rejectedAt = new Date().toISOString();
-    updateData.alasanTolak = komentar;
-  }
-  await db.collection('hrd_overtime').doc(id).update(updateData);
-  const otDoc = await db.collection('hrd_overtime').doc(id).get();
-  const otData = otDoc.data();
-  if (otData.userId) {
-    await sendNotification(
-      otData.userId,
-      status === 'approved' ? '✅ Overtime Disetujui' : '❌ Overtime Ditolak',
-      `Pengajuan overtime Anda telah ${status === 'approved' ? 'disetujui' : 'ditolak'}${komentar ? ': ' + komentar : ''}`,
-      'portal-overtime'
-    );
-  }
-  toast(status === 'approved' ? '✅ Overtime disetujui' : '❌ Overtime ditolak', 'success');
   renderOvertime();
 }
 
