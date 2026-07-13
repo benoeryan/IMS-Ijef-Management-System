@@ -822,23 +822,47 @@ function invalidateApprovalFlowCache() {
 }
 function isSameName(name1, name2) {
   if (!name1 || !name2) return false;
-  return name1.toLowerCase().trim() === name2.toLowerCase().trim();
+  const n1 = String(name1).toLowerCase().trim();
+  const n2 = String(name2).toLowerCase().trim();
+  return n1 === n2;
 }
 
-function getApproverForItem(flows, nama, approvalStep) {
+function getApprovalCategory(col, data) {
+  const type = (data.jenis || data.type || '').toUpperCase();
+  if (col === 'hrd_cuti') {
+    if (type.includes('WFH')) return 'WFH';
+    return 'Cuti/Izin';
+  }
+  if (col === 'hrd_overtime') return 'Overtime';
+  if (col === 'hrd_reimbursement' || col === 'hrd_reimburse_dinas') return 'Reimbursement';
+  if (col === 'hrd_kasbon') return 'Kasbon';
+  if (col === 'hrd_dinas_luar') return 'Dinas Luar';
+  if (col === 'hrd_perjalanan_dinas') return 'SPPD';
+  return '';
+}
+
+function getApproverForItem(flows, nama, approvalStep, category) {
   if (!flows || !nama) return null;
-  // Find a flow for this user that actually has steps
-  const flow = flows.find(function (f) {
-    return isSameName(f.pengaju, nama) && f.steps && f.steps.length > 0;
-  });
+  const namaLow = nama.toLowerCase().trim();
+
+  // Try to find exact match for name + category
+  let flow = flows.find(f => isSameName(f.pengaju, namaLow) && f.jenis === category && f.steps && f.steps.length > 0);
+
+  // Fallback: any flow for this person with steps
+  if (!flow) {
+    const personFlows = flows.filter(f => isSameName(f.pengaju, namaLow) && f.steps && f.steps.length > 0);
+    flow = personFlows.sort((a, b) => (b.steps?.length || 0) - (a.steps?.length || 0))[0];
+  }
+
   if (!flow) return null;
   var step = approvalStep || 0;
   return (flow.steps[step] && flow.steps[step].nama) || null;
 }
-function pendingApproverHtml(flows, nama, status, approvalStep) {
+
+function pendingApproverHtml(flows, nama, status, approvalStep, category) {
   var isPending = status === 'pending' || (status && status.indexOf('step') === 0);
   if (!isPending) return '';
-  var approver = getApproverForItem(flows, nama, approvalStep);
+  var approver = getApproverForItem(flows, nama, approvalStep, category);
   if (!approver) return '';
   return (
     '<div class="text-xs" style="color:#1565c0;margin-top:2px">\u23F3 Menunggu: <b>' +
