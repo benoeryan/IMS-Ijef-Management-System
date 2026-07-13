@@ -1993,10 +1993,24 @@ async function approveItem(col, id, status, catatan) {
   if (status === 'rejected') {
     await db.collection(col).doc(id).update({
       status: 'rejected',
-      approvedBy: currentUser.nama,
       approvedAt: new Date().toISOString(),
       approvalHistory: history,
     });
+
+    // Special Logic: Propagate status to linked SPPD record if hrd_dinas_luar
+    if (col === 'hrd_dinas_luar') {
+        try {
+            const linkSnap = await db.collection('hrd_perjalanan_dinas').where('dinasLuarId', '==', id).get();
+            linkSnap.forEach((d) =>
+              d.ref.update({
+                status: 'rejected',
+                approvedBy: currentUser.nama,
+                approvedAt: new Date().toISOString(),
+              })
+            );
+        } catch (err) {}
+    }
+
     if (data.userId)
       await sendNotification(
         data.userId,
@@ -2052,6 +2066,21 @@ async function approveItem(col, id, status, catatan) {
         approvalStep: nextStep,
         approvalHistory: history,
       });
+
+      // Special Logic: Propagate status to linked SPPD record if hrd_dinas_luar
+      if (col === 'hrd_dinas_luar') {
+          try {
+              const linkSnap = await db.collection('hrd_perjalanan_dinas').where('dinasLuarId', '==', id).get();
+              linkSnap.forEach((d) =>
+                d.ref.update({
+                  status: 'approved',
+                  approvedBy: currentUser.nama,
+                  approvedAt: new Date().toISOString(),
+                })
+              );
+          } catch (err) {}
+      }
+
       if (data.userId)
         await sendNotification(
           data.userId,

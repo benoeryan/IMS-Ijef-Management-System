@@ -101,10 +101,12 @@ async function renderCuti() {
       const flow = flows.find((f) => f.pengaju?.toLowerCase() === p.nama?.toLowerCase());
       const steps = flow?.steps || [];
       const currentStep = p.approvalStep || 0;
-      const currentApprover = steps[currentStep]?.nama?.toLowerCase() || '';
-      const isMyTurn = isAdmin || currentApprover === (currentUser.nama || '').toLowerCase();
+      const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
+      const myName = (currentUser.nama || '').toLowerCase().trim();
+      const isMyTurn = isAdmin || currentApprover === myName;
 
-      const canApprove = isPending && hasAccess(3) && !isBOD && isMyTurn;
+      // Allow BOD to approve if it is specifically their turn in the flow
+      const canApprove = isPending && hasAccess(3) && (isMyTurn || !isBOD) && isMyTurn;
       const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.jenis)}</td><td>${formatDate(p.mulai)}-${formatDate(p.selesai)}</td><td>${p.durasi || 1}h</td><td><span class="badge badge-${sisa <= 2 ? 'danger' : sisa <= 5 ? 'warning' : 'success'}">${sisa}/${quota}</span></td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewCutiDetail('${p.id}')" title="Lihat Detail">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_cuti','${p.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_cuti','${p.id}','rejected')">❌</button>` : ''} ${hasAccess(6) || (p.userId === currentUser.id && p.status === 'pending') ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_cuti','${p.id}','cuti')">🗑️</button>` : ''}</td></tr>`;
     });
@@ -235,6 +237,24 @@ async function viewCutiDetail(id) {
   // Pending approver row
   let pendingRow = '';
   const isPending = p.status === 'pending' || (p.status && p.status.indexOf('step') === 0);
+  let approveBtns = '';
+  if (isPending) {
+    const flow = flows.find((f) => f.pengaju?.toLowerCase() === p.nama?.toLowerCase());
+    const steps = flow?.steps || [];
+    const currentStep = p.approvalStep || 0;
+    const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
+    const myName = (currentUser.nama || '').toLowerCase().trim();
+    const isMyTurn = hasAccess(6) || currentApprover === myName;
+
+    if (isMyTurn && hasAccess(3)) {
+      approveBtns = `
+        <div class="flex gap-8 mt-16" style="justify-content:flex-end; border-top:1px solid #eee; pt-16">
+          <button class="btn btn-danger" onclick="approveItem('hrd_cuti','${id}','rejected')">❌ Tolak</button>
+          <button class="btn btn-success" onclick="approveItem('hrd_cuti','${id}','approved')">✅ Setujui</button>
+        </div>`;
+    }
+  }
+
   if (isPending) {
     const approver = getApproverForItem(flows, p.nama, p.approvalStep);
     if (approver) {
@@ -258,6 +278,7 @@ async function viewCutiDetail(id) {
       <tr><td class="fw-700" style="padding:6px 8px">Approved By</td><td style="padding:6px 8px">${escHtml(p.approvedBy || '-')}</td></tr>
       <tr><td class="fw-700" style="padding:6px 8px">Created At</td><td style="padding:6px 8px">${p.createdAt ? formatDate(p.createdAt.split('T')[0]) : '-'}</td></tr>
     </table>
+    ${approveBtns}
     <div class="mt-16"><button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button></div>`);
 }
 
@@ -319,10 +340,11 @@ async function renderOvertime() {
       const flow = flows.find((f) => f.pengaju?.toLowerCase() === p.nama?.toLowerCase());
       const steps = flow?.steps || [];
       const currentStep = p.approvalStep || 0;
-      const currentApprover = steps[currentStep]?.nama?.toLowerCase() || '';
-      const isMyTurn = isAdmin || currentApprover === (currentUser.nama || '').toLowerCase();
+      const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
+      const myName = (currentUser.nama || '').toLowerCase().trim();
+      const isMyTurn = isAdmin || currentApprover === myName;
 
-      const canApprove = isPending && hasAccess(3) && !isBOD && isMyTurn;
+      const canApprove = isPending && hasAccess(3) && (isMyTurn || !isBOD) && isMyTurn;
       const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${formatDate(p.tanggal)}</td><td>${p.jamMulai || '-'}-${p.jamSelesai || '-'}</td><td>${p.durasi || 0}j</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewOvertimeDetail('${d.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_overtime','${d.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_overtime','${d.id}','rejected')">❌</button>` : ''} ${hasAccess(6) ? `<button class="btn btn-xs btn-warning" onclick="editOTDoc('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_overtime','${d.id}','overtime')">🗑️</button>` : ''}</td></tr>`;
     });

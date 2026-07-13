@@ -725,10 +725,11 @@ async function renderPortalOvertime() {
 }
 
 function viewOvertimeDetail(id) {
-  db.collection('hrd_overtime')
-    .doc(id)
-    .get()
-    .then((d) => {
+  Promise.all([
+    db.collection('hrd_overtime').doc(id).get(),
+    loadApprovalFlows()
+  ])
+    .then(([d, flows]) => {
       const p = d.data();
       // Attachments
       let attachHtml = '';
@@ -738,20 +739,41 @@ function viewOvertimeDetail(id) {
           p.attachments.length +
           ' file)</div><div style="display:flex;gap:10px;flex-wrap:wrap">';
         p.attachments.forEach(function (a) {
-          if (a.data && a.data.startsWith('data:image')) {
+          const fileData = encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }));
+          if (a.data && (a.type || '').startsWith('image/')) {
             attachHtml +=
               '<img src="' +
               a.data +
-              '" style="max-width:140px;max-height:140px;border-radius:8px;border:2px solid #ddd;cursor:pointer;object-fit:cover" onclick="window.open(this.src)">';
-          } else if (a.name) {
+              '" style="max-width:140px;max-height:140px;border-radius:8px;border:2px solid #ddd;cursor:pointer;object-fit:cover" onclick="viewEviden(\'' + fileData + '\')">';
+          } else {
             attachHtml +=
-              '<div style="padding:10px 14px;background:#fff;border-radius:8px;border:1px solid #ddd;font-size:.82rem">📄 ' +
-              escHtml(a.name) +
+              '<div style="cursor:pointer;padding:10px 14px;background:#fff;border-radius:8px;border:1px solid #ddd;font-size:.82rem;display:flex;align-items:center;gap:6px" onclick="viewEviden(\'' + fileData + '\')">' +
+              '<span>📄 ' + escHtml(a.name || 'Dokumen') + '</span>' +
               '</div>';
           }
         });
         attachHtml += '</div></div>';
       }
+
+      const isPending = p.status === 'pending' || (p.status && p.status.indexOf('step') === 0);
+      let approveBtns = '';
+      if (isPending) {
+        const flow = flows.find((f) => f.pengaju?.toLowerCase() === p.nama?.toLowerCase());
+        const steps = flow?.steps || [];
+        const currentStep = p.approvalStep || 0;
+        const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
+        const myName = (currentUser.nama || '').toLowerCase().trim();
+        const isMyTurn = hasAccess(6) || currentApprover === myName;
+
+        if (isMyTurn && hasAccess(3)) {
+          approveBtns = `
+            <div class="flex gap-8 mt-16" style="justify-content:flex-end; border-top:1px solid #eee; padding-top:16px">
+              <button class="btn btn-danger" onclick="approveItem('hrd_overtime','${id}','rejected')">❌ Tolak</button>
+              <button class="btn btn-success" onclick="approveItem('hrd_overtime','${id}','approved')">✅ Setujui</button>
+            </div>`;
+        }
+      }
+
       // Approval layer
       let approvalHtml =
         '<div style="margin-top:16px;padding:14px;border-radius:10px;border:1px solid #e0e0e0;background:' +
@@ -803,6 +825,7 @@ function viewOvertimeDetail(id) {
       ${p.alasan ? `<div style="margin-bottom:16px"><div class="fw-700 mb-6">📝 Alasan Overtime:</div><div style="padding:12px;background:#fff;border-radius:8px;border:1px solid #e0e0e0;font-size:.88rem;line-height:1.6">${escHtml(p.alasan)}</div></div>` : ''}
       ${attachHtml}
       ${approvalHtml}
+      ${approveBtns}
       <div style="margin-top:16px;text-align:right"><button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button></div>`);
     });
 }

@@ -1588,7 +1588,10 @@ async function loadDinasTab(tab) {
 
   if (tab === 'pengajuan') {
     const isPortal = !hasAccess(3);
-    const snap = await db.collection('hrd_dinas_luar').get();
+    const [snap, flows] = await Promise.all([
+        db.collection('hrd_dinas_luar').get(),
+        loadApprovalFlows()
+    ]);
     let h =
       '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tanggal</th><th>Tujuan</th><th>Grade</th><th>Rincian Biaya</th><th>Status</th><th>Aksi</th></tr></thead><tbody>';
     let hasData = false;
@@ -1602,7 +1605,7 @@ async function loadDinasTab(tab) {
       )
         return;
       hasData = true;
-      // Build detailed benefit breakdown for Rincian Biaya column
+      // ... (rincian logic stays same)
       let rincian = '-';
       if (
         p.totalEstimasi ||
@@ -1643,7 +1646,20 @@ async function loadDinasTab(tab) {
           : p.status === 'rejected'
             ? 'badge-danger'
             : 'badge-warning';
-      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${formatDate(p.tanggal)}</td><td>${escHtml(p.tujuan)}</td><td>${p.gradeJabatan ? `<span class="badge badge-info">${escHtml(p.gradeJabatan)}</span>` : '-'}</td><td>${rincian}</td><td><span class="badge ${badge}">${p.status}</span></td><td><button class="btn btn-xs btn-info" onclick="viewDinasLuar('${d.id}')">👁️</button>${currentUser.role !== 'bod' && (!isPortal || p.userId === currentUser.id) ? ` <button class="btn btn-xs btn-primary" onclick="editDinasLuar('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_dinas_luar','${d.id}','dinas')">🗑️</button>` : ''} ${p.status === 'pending' && hasAccess(3) && currentUser.role !== 'bod' ? `<button class="btn btn-xs btn-success" onclick="approveDinas('${d.id}','approved')">✅</button>` : ''}</td></tr>`;
+
+      // Multi-step turn check
+      const isPending = p.status === 'pending' || (p.status && p.status.indexOf('step') === 0);
+      const flow = flows.find((f) => f.pengaju?.toLowerCase() === p.nama?.toLowerCase());
+      const steps = flow?.steps || [];
+      const currentStep = p.approvalStep || 0;
+      const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
+      const myName = (currentUser.nama || '').toLowerCase().trim();
+      const isAdmin = hasAccess(6);
+      const isMyTurn = isAdmin || currentApprover === myName;
+      const canApprove = isPending && hasAccess(3) && currentUser.role !== 'bod' && isMyTurn;
+      const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
+
+      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${formatDate(p.tanggal)}</td><td>${escHtml(p.tujuan)}</td><td>${p.gradeJabatan ? `<span class="badge badge-info">${escHtml(p.gradeJabatan)}</span>` : '-'}</td><td>${rincian}</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewDinasLuar('${d.id}')">👁️</button>${currentUser.role !== 'bod' && (!isPortal || p.userId === currentUser.id) ? ` <button class="btn btn-xs btn-primary" onclick="editDinasLuar('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_dinas_luar','${d.id}','dinas')">🗑️</button>` : ''} ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_dinas_luar','${d.id}','approved')">✅</button>` : ''}</td></tr>`;
     });
     if (!hasData) h += '<tr><td colspan="7" class="text-center">Belum ada pengajuan</td></tr>';
     h += '</tbody></table></div>';
@@ -2961,11 +2977,13 @@ async function hapusAbsenHari() {
 
 // ── VIEW/EDIT DINAS LUAR ──────────────────────────────────────
 function viewDinasLuar(id) {
-  db.collection('hrd_dinas_luar')
-    .doc(id)
-    .get()
-    .then((d) => {
+  Promise.all([
+    db.collection('hrd_dinas_luar').doc(id).get(),
+    loadApprovalFlows()
+  ])
+    .then(([d, flows]) => {
       const p = d.data();
+      // ... (benefitHtml stays same)
       let benefitHtml = '';
       if (p.gradeJabatan) {
         const cfg = getGradeConfigSync(p.gradeJabatan);
@@ -2992,11 +3010,33 @@ function viewDinasLuar(id) {
         <div class="fw-700 text-sm">🔗 Linked SPPD: <span class="badge badge-primary">${escHtml(p.noSPPD)}</span></div>
       </div>`;
       }
+
+      const isPending = p.status === 'pending' || (p.status && p.status.indexOf('step') === 0);
+      let approveBtns = '';
+      if (isPending) {
+        const flow = flows.find((f) => f.pengaju?.toLowerCase() === p.nama?.toLowerCase());
+        const steps = flow?.steps || [];
+        const currentStep = p.approvalStep || 0;
+        const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
+        const myName = (currentUser.nama || '').toLowerCase().trim();
+        const isMyTurn = hasAccess(6) || currentApprover === myName;
+
+        if (isMyTurn && hasAccess(3)) {
+          approveBtns = `
+            <div class="flex gap-8 mt-16" style="justify-content:flex-end; border-top:1px solid #eee; padding-top:16px">
+              <button class="btn btn-danger" onclick="approveItem('hrd_dinas_luar','${id}','rejected')">❌ Tolak</button>
+              <button class="btn btn-success" onclick="approveItem('hrd_dinas_luar','${id}','approved')">✅ Setujui</button>
+            </div>`;
+        }
+      }
+
       openModal(`<div class="modal-title">📋 Detail Pengajuan Dinas Luar</div>
       ${benefitHtml}${sppdHtml}
       <div class="grid-2 mb-16"><div><b>Nama:</b> ${escHtml(p.nama)}</div><div><b>Tanggal:</b> ${formatDate(p.tanggal)}${p.tanggalSelesai ? ' s/d ' + formatDate(p.tanggalSelesai) : ''}</div><div><b>Tujuan:</b> ${escHtml(p.tujuan || '-')}</div><div><b>Status:</b> <span class="badge badge-${p.status === 'approved' ? 'success' : p.status === 'rejected' ? 'danger' : 'warning'}">${p.status}</span></div><div><b>Jam Berangkat:</b> ${p.jamBerangkat || '-'}</div><div><b>Estimasi Kembali:</b> ${p.jamKembali || '-'}</div></div>
       ${p.keperluan ? `<div class="mb-16"><b>Keperluan:</b><div class="text-sm mt-8" style="background:#f8f9ff;padding:10px;border-radius:6px">${escHtml(p.keperluan)}</div></div>` : ''}
-      ${p.approvedBy ? `<div><b>Diproses oleh:</b> ${escHtml(p.approvedBy)}</div>` : ''}`);
+      ${p.approvedBy ? `<div><b>Diproses oleh:</b> ${escHtml(p.approvedBy)}</div>` : ''}
+      ${approveBtns}
+      <div class="mt-16 text-right"><button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button></div>`);
     });
 }
 
