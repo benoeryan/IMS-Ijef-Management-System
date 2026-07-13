@@ -5081,14 +5081,31 @@ async function loadKaizenRecords() {
       html = '<tr><td colspan="6" class="text-center">Belum ada form Kaizen.</td></tr>';
     } else {
       items.forEach(it => {
-        const statusBadge = it.done 
-          ? '<span class="badge badge-success">Selesai</span>' 
-          : '<span class="badge badge-warning">Proses</span>';
-
         const isNanda = (currentUser.nama || '').toLowerCase().includes('nanda yoga');
+        const isIrsan = (currentUser.nama || '').toLowerCase().includes('irsan janwar');
+
+        let statusBadge = '';
+        if (it.done) {
+            statusBadge = '<span class="badge badge-success">Selesai</span>';
+        } else if (it.kaizenStatus === 'waiting_approval') {
+            statusBadge = '<span class="badge badge-info">⏳ Menunggu Approval</span>';
+        } else if (it.kaizenStatus === 'pending') {
+            statusBadge = '<span class="badge badge-warning">⚠️ Pending (Revisi)</span>';
+        } else if (it.kaizenStatus === 'rejected') {
+            statusBadge = '<span class="badge badge-danger">❌ Reject</span>';
+        } else {
+            statusBadge = '<span class="badge badge-warning">Proses</span>';
+        }
+
         let aksiBtns = `<button class="btn btn-xs btn-info" onclick="viewDailyTask('${it.id}')" title="Lihat Detail">👁️</button>`;
 
-        if (isNanda && !it.done) {
+        // Aksi for Irsan (Approver)
+        if (isIrsan && it.kaizenStatus === 'waiting_approval') {
+            aksiBtns += ` <button class="btn btn-xs btn-primary" onclick="modalApproveKaizen('${it.id}')" title="Approval Atasan">✅ Approval</button>`;
+        }
+
+        // Aksi for Nanda (Worker)
+        if (isNanda && !it.done && it.kaizenStatus !== 'waiting_approval') {
             aksiBtns += ` <button class="btn btn-xs btn-success" onclick="modalUpdateKaizenProgress('${it.id}')" title="Berikan Respon/Progress">⚡ Respon</button>`;
         }
 
@@ -5278,28 +5295,31 @@ async function modalUpdateKaizenProgress(id) {
 
 async function simpanUpdateKaizen(id) {
   const progress = parseInt(document.getElementById('upKzProgress').value);
-  const done = document.getElementById('upKzDone').value === 'true';
+  const markDone = document.getElementById('upKzDone').value === 'true';
   const aktivitas = document.getElementById('upKzAktivitas').value.trim();
   
   if (!aktivitas) return toast('Harap berikan catatan progress', 'warning');
 
   const updateData = {
     progress: progress,
-    done: done,
     aktivitas: aktivitas,
     updatedAt: new Date().toISOString()
   };
 
-  if (done) {
-    updateData.doneAt = new Date().toISOString();
+  // Logic: If Nanda marks as DONE, it goes to WAITING APPROVAL first
+  if (markDone) {
+    updateData.kaizenStatus = 'waiting_approval';
     updateData.progress = 100;
+    updateData.done = false; // Stay false until approved by Irsan
+  } else {
+    updateData.kaizenStatus = 'proses';
+    updateData.done = false;
   }
 
   try {
     toast('⏳ Menyimpan progress...', 'info');
     const newAttachments = await getFilesAsBase64('upKzFiles');
     if (newAttachments && newAttachments.length > 0) {
-        // Keep old ones and add new ones (optional logic)
         const doc = await db.collection('hrd_daily_tasks').doc(id).get();
         const oldAttachments = doc.data().attachments || [];
         updateData.attachments = [...oldAttachments, ...newAttachments].slice(0, 5);
@@ -5307,40 +5327,18 @@ async function simpanUpdateKaizen(id) {
 
     await db.collection('hrd_daily_tasks').doc(id).update(updateData);
 
-    // ── INTEGRASI AUTOMATIS KE DAILY REPORT NANDA ──
-    try {
-        const docRef = await db.collection('hrd_daily_tasks').doc(id).get();
-        const task = docRef.data();
-
-        // Buat entri Daily Report otomatis untuk Nanda
-        const reportData = {
-            type: 'report',
-            source: 'AUTO-KAIZEN',
-            title: '📝 Daily Report — ' + formatDate(todayStr()),
-            tanggal: todayStr(),
-            kategori: "FACILITY'S",
-            jamMasuk: '08:00', // Default atau ambil dari session jika ada
-            jamKeluar: new Date().toTimeString().substring(0, 5),
-            aktivitas: `[KAIZEN PROGRESS ${progress}%] - ${task.title.replace('⚡ KAIZEN: ', '')}\nRespon: ${aktivitas}`,
-            hasil: done ? `Pekerjaan Selesai: ${task.title.replace('⚡ KAIZEN: ', '')}` : `Progress ${progress}%`,
-            kendala: progress < 100 && !done ? 'Masih dalam pengerjaan.' : '',
-            solusi: '',
-            rencana: '',
-            progress: progress,
-            done: true,
-            doneAt: new Date().toISOString(),
-            userId: currentUser.id,
-            targetUserName: currentUser.nama,
-            departemen: 'GENERAL AFFAIR',
-            ownerLevel: 1,
-            attachments: updateData.attachments || [],
-            createdAt: new Date().toISOString()
-        };
-
-        await db.collection('hrd_daily_tasks').add(reportData);
-        console.log("Daily Report terintegrasi otomatis.");
-    } catch (err) {
-        console.warn("Gagal membuat Daily Report otomatis:", err.message);
+    // Notify Irsan if waiting approval
+    if (markDone) {
+        try {
+            const irsanSnap = await db.collection('hrd_users').get();
+            let irsanId = '';
+            irsanSnap.forEach(d => {
+                if ((d.data().nama || '').toLowerCase().includes('irsan janwar')) irsanId = d.id;
+            });
+            if (irsanId) {
+                await sendNotification(irsanId, '🔔 Approval Kaizen', `Nanda telah menyelesaikan tugas Kaizen. Mohon tinjau & approve.`, 'kaizen');
+            }
+        } catch (err) {}
     }
 
     // Notify the requester
@@ -5348,10 +5346,127 @@ async function simpanUpdateKaizen(id) {
     const taskFinal = finalDoc.data();
     await sendNotification(taskFinal.assignedBy, '⚡ UPDATE KAIZEN', `Nanda telah mengupdate tugas: "${taskFinal.title.replace('⚡ KAIZEN: ', '')}" ke ${progress}%`, 'kaizen');
 
-    toast('Progress berhasil diperbarui', 'success');
+    toast(markDone ? 'Tugas dikirim untuk approval atasan' : 'Progress diperbarui', 'success');
     closeModalDirect();
     renderFormKaizen();
   } catch (e) {
     toast('Gagal update: ' + e.message, 'error');
   }
+}
+
+async function modalApproveKaizen(id) {
+  const doc = await db.collection('hrd_daily_tasks').doc(id).get();
+  const task = doc.data();
+
+  openModal(`
+    <div class="modal-title">✅ Approval Form Kaizen</div>
+    <div style="background:#f8f9ff;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
+      <div class="fw-700">Tugas: ${escHtml(task.title.replace('⚡ KAIZEN: ', ''))}</div>
+      <div class="text-xs color-light">Dikerjakan oleh: <b>Nanda Yoga Maulana</b></div>
+      <div class="text-xs color-light">Catatan Akhir Nanda: <i>"${escHtml(task.aktivitas)}"</i></div>
+    </div>
+
+    <div class="form-group">
+        <label>Komentar Atasan (Review)</label>
+        <textarea class="form-control" id="apKzKomentar" rows="3" placeholder="Berikan alasan jika Pending atau Reject..."></textarea>
+    </div>
+
+    <div class="flex gap-8">
+        <button class="btn btn-success" style="flex:1; padding:12px" onclick="simpanApprovalKaizen('${id}', 'approved')">APPROVE (SELESAI)</button>
+        <button class="btn btn-warning" style="flex:1; padding:12px" onclick="simpanApprovalKaizen('${id}', 'pending')">PENDING (REVISI)</button>
+        <button class="btn btn-danger" style="flex:1; padding:12px" onclick="simpanApprovalKaizen('${id}', 'rejected')">REJECT</button>
+    </div>
+  `);
+}
+
+async function simpanApprovalKaizen(id, action) {
+    const komentar = document.getElementById('apKzKomentar').value.trim();
+    if ((action === 'pending' || action === 'rejected') && !komentar) {
+        return toast('Harap berikan komentar alasan', 'warning');
+    }
+
+    const docRef = await db.collection('hrd_daily_tasks').doc(id).get();
+    const task = docRef.data();
+
+    const updateData = {
+        kaizenStatus: action,
+        approverComment: komentar,
+        updatedAt: new Date().toISOString()
+    };
+
+    if (action === 'approved') {
+        updateData.done = true;
+        updateData.doneAt = new Date().toISOString();
+        updateData.progress = 100;
+    } else {
+        updateData.done = false;
+        // If pending, keep progress at 90% to indicate nearly done but needs fix
+        if (action === 'pending') updateData.progress = 90;
+        else updateData.progress = 0; // Rejected reverts progress
+    }
+
+    try {
+        toast('⏳ Memproses approval...', 'info');
+        await db.collection('hrd_daily_tasks').doc(id).update(updateData);
+
+        // ── INTEGRASI DAILY REPORT HANYA JIKA APPROVED ──
+        if (action === 'approved') {
+            try {
+                // Find Nanda's User Record
+                const nandaSnap = await db.collection('hrd_users').get();
+                let nandaId = '';
+                nandaSnap.forEach(d => {
+                    if ((d.data().nama || '').toLowerCase().includes('nanda yoga')) nandaId = d.id;
+                });
+
+                const reportData = {
+                    type: 'report',
+                    source: 'AUTO-KAIZEN-FINAL',
+                    title: '📝 Daily Report — ' + formatDate(todayStr()),
+                    tanggal: todayStr(),
+                    kategori: "FACILITY'S",
+                    jamMasuk: '08:00',
+                    jamKeluar: new Date().toTimeString().substring(0, 5),
+                    aktivitas: `[APPROVED KAIZEN] - ${task.title.replace('⚡ KAIZEN: ', '')}\nRespon Nanda: ${task.aktivitas}\nReview Atasan: ${komentar || 'Sesuai'}`,
+                    hasil: `Pekerjaan Selesai & Disetujui Atasan: ${task.title.replace('⚡ KAIZEN: ', '')}`,
+                    kendala: '',
+                    solusi: '',
+                    rencana: '',
+                    progress: 100,
+                    done: true,
+                    doneAt: new Date().toISOString(),
+                    userId: nandaId || task.userId,
+                    targetUserName: task.targetUserName || 'Nanda Yoga Maulana',
+                    departemen: 'GENERAL AFFAIR',
+                    ownerLevel: 1,
+                    attachments: task.attachments || [],
+                    createdAt: new Date().toISOString()
+                };
+                await db.collection('hrd_daily_tasks').add(reportData);
+            } catch (err) {
+                console.warn("Integrasi report gagal:", err.message);
+            }
+        }
+
+        // Notifications
+        // 1. Notify Nanda
+        const nandaSnap = await db.collection('hrd_users').get();
+        let nandaId = '';
+        nandaSnap.forEach(d => {
+            if ((d.data().nama || '').toLowerCase().includes('nanda yoga')) nandaId = d.id;
+        });
+        if (nandaId) {
+            const actLabel = action === 'approved' ? 'DISETUJUI' : action === 'pending' ? 'DITANGGUHKAN (REVISI)' : 'DITOLAK (REJECT)';
+            await sendNotification(nandaId, '⚡ STATUS KAIZEN', `Tugas "${task.title.replace('⚡ KAIZEN: ', '')}" telah ${actLabel} oleh Irsan. Pesan: ${komentar || '-'}`, 'kaizen');
+        }
+
+        // 2. Notify Requester
+        await sendNotification(task.assignedBy, '⚡ UPDATE KAIZEN', `Tugas yang Anda minta "${task.title.replace('⚡ KAIZEN: ', '')}" berstatus: ${action.toUpperCase()}. Pesan Atasan: ${komentar || '-'}`, 'kaizen');
+
+        toast('Status Kaizen diperbarui: ' + action.toUpperCase(), 'success');
+        closeModalDirect();
+        renderFormKaizen();
+    } catch (e) {
+        toast('Gagal: ' + e.message, 'error');
+    }
 }
