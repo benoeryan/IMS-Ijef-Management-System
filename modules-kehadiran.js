@@ -2168,9 +2168,26 @@ function _showDailyTaskDetail(task) {
     task.kaizenLogs.forEach(log => {
         const date = formatDateTime(log.timestamp);
         let color = '#333';
+        let actionLabel = log.action === 'comment' ? '' : 'PUTUSAN: ' + log.action;
         if (log.action === 'approved') color = '#2e7d32';
         else if (log.action === 'pending') color = '#f57f17';
         else if (log.action === 'rejected') color = '#c62828';
+        else if (log.action === 'update_progress' || log.action === 'submit_done') {
+            color = 'var(--primary)';
+            actionLabel = `UPDATE PROGRESS: ${log.progress || 0}%`;
+        }
+
+        // Attachments for this specific log entry
+        let attachHtml = '';
+        if (log.attachments && log.attachments.length > 0) {
+            attachHtml = '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px">';
+            log.attachments.forEach((a, i) => {
+                attachHtml += `<div style="cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify(a))}')">
+                    <img src="${a.data}" style="width:50px; height:50px; object-fit:cover; border-radius:4px; border:1px solid #ddd" title="${escHtml(a.name)}">
+                </div>`;
+            });
+            attachHtml += '</div>';
+        }
 
         logsHtml += `
         <div style="margin-bottom:10px; font-size:0.78rem; background:#fff; border:1px solid #f0f0f0; padding:8px; border-radius:6px">
@@ -2178,8 +2195,9 @@ function _showDailyTaskDetail(task) {
                 <b style="color:var(--primary)">${escHtml(log.userName)}</b>
                 <span style="color:#999">${date}</span>
             </div>
-            <div style="color:${color}; font-weight:600; text-transform:uppercase; font-size:0.65rem; margin-bottom:2px">${log.action === 'comment' ? '' : 'PUTUSAN: ' + log.action}</div>
+            <div style="color:${color}; font-weight:600; text-transform:uppercase; font-size:0.65rem; margin-bottom:2px">${actionLabel}</div>
             <div style="white-space:pre-wrap">${escHtml(log.comment)}</div>
+            ${attachHtml}
         </div>`;
     });
     logsHtml += '</div>';
@@ -5354,37 +5372,40 @@ async function simpanUpdateKaizen(id) {
   
   if (!aktivitas) return toast('Harap berikan catatan progress', 'warning');
 
-  const updateData = {
-    progress: progress,
-    aktivitas: aktivitas,
-    updatedAt: new Date().toISOString(),
-    // Log entry for Nanda's update
-    kaizenLogs: firebase.firestore.FieldValue.arrayUnion({
-        userId: currentUser.id,
-        userName: currentUser.nama,
-        action: markDone ? 'submit_done' : 'update_progress',
-        comment: aktivitas,
-        timestamp: new Date().toISOString()
-    })
-  };
-
-  // Logic: If Nanda marks as DONE, it goes to WAITING APPROVAL first
-  if (markDone) {
-    updateData.kaizenStatus = 'waiting_approval';
-    updateData.progress = 100;
-    updateData.done = false; // Stay false until approved by Irsan
-  } else {
-    updateData.kaizenStatus = 'proses';
-    updateData.done = false;
-  }
-
   try {
     toast('⏳ Menyimpan progress...', 'info');
     const newAttachments = await getFilesAsBase64('upKzFiles');
+
+    const updateData = {
+      progress: progress,
+      aktivitas: aktivitas,
+      updatedAt: new Date().toISOString(),
+      // Log entry for Nanda including attachments for this specific step
+      kaizenLogs: firebase.firestore.FieldValue.arrayUnion({
+          userId: currentUser.id,
+          userName: currentUser.nama,
+          action: markDone ? 'submit_done' : 'update_progress',
+          comment: aktivitas,
+          progress: progress,
+          attachments: newAttachments || [],
+          timestamp: new Date().toISOString()
+      })
+    };
+
+    // Logic: If Nanda marks as DONE, it goes to WAITING APPROVAL first
+    if (markDone) {
+      updateData.kaizenStatus = 'waiting_approval';
+      updateData.progress = 100;
+      updateData.done = false; // Stay false until approved by Irsan
+    } else {
+      updateData.kaizenStatus = 'proses';
+      updateData.done = false;
+    }
+
     if (newAttachments && newAttachments.length > 0) {
         const doc = await db.collection('hrd_daily_tasks').doc(id).get();
         const oldAttachments = doc.data().attachments || [];
-        updateData.attachments = [...oldAttachments, ...newAttachments].slice(0, 5);
+        updateData.attachments = [...oldAttachments, ...newAttachments].slice(0, 15);
     }
 
     await db.collection('hrd_daily_tasks').doc(id).update(updateData);
