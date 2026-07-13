@@ -240,15 +240,17 @@ async function viewCutiDetail(id) {
     attachHtml =
       '<tr><td class="fw-700" style="padding:6px 8px">Lampiran</td><td style="padding:6px 8px"><div style="display:flex;gap:8px;flex-wrap:wrap">';
     p.attachments.forEach(function (a) {
-      if (a.data && a.data.startsWith('data:image')) {
+      const fileData = encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }));
+      if (a.data && (a.type || '').startsWith('image/')) {
         attachHtml +=
           '<img src="' +
           a.data +
-          '" style="max-width:100px;max-height:100px;border-radius:6px;border:1px solid #ddd;cursor:pointer" onclick="window.open(this.src)">';
-      } else if (a.name) {
+          '" style="max-width:100px;max-height:100px;border-radius:6px;border:1px solid #ddd;cursor:pointer" onclick="viewEviden(\'' + fileData + '\')">';
+      } else {
         attachHtml +=
-          '<div style="padding:6px 10px;background:#f0f4ff;border-radius:6px;font-size:.8rem">📄 ' +
-          escHtml(a.name) +
+          '<div style="cursor:pointer;padding:6px 10px;background:#f0f4ff;border-radius:6px;font-size:.8rem;border:1px solid #d0d9ff;display:flex;align-items:center;gap:6px" onclick="viewEviden(\'' + fileData + '\')">' +
+          '<span>📄 ' + escHtml(a.name || 'Dokumen') + '</span>' +
+          '<span style="font-size:.6rem;color:#1565c0;font-weight:600">👁️ Lihat</span>' +
           '</div>';
       }
     });
