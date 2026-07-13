@@ -95,10 +95,6 @@ async function modalLegalDrafting() {
                 height: 40px;
             }
             .dr-toolbar-grp:last-child { border-right: none; }
-            .dr-toolbar-label {
-                position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
-                font-size: 0.65rem; color: #999; text-transform: uppercase; white-space: nowrap;
-            }
             .dr-btn {
                 background: transparent; border: 1px solid transparent;
                 padding: 6px 8px; border-radius: 4px; cursor: pointer;
@@ -107,7 +103,6 @@ async function modalLegalDrafting() {
                 min-width: 40px;
             }
             .dr-btn:hover { background: #f0f0f0; border-color: #ddd; }
-            .dr-btn i { font-size: 1.1rem; }
             .dr-btn span { font-size: 0.7rem; }
             .dr-btn.active { background: #e2e8f0; color: #2b579a; border-color: #cbd5e0; }
 
@@ -124,7 +119,6 @@ async function modalLegalDrafting() {
                 position: relative;
             }
 
-            /* RULER STYLES */
             .dr-ruler-h {
                 width: 210mm; height: 25px; background: #fff; border: 1px solid #ccc;
                 border-bottom: 2px solid #333; position: relative; flex-shrink: 0;
@@ -256,23 +250,11 @@ async function modalLegalDrafting() {
                     <button class="dr-btn" onclick="changeMargins()">📐<span>Margin</span></button>
                     <button class="dr-btn" onclick="changeOrientation()">📄<span>Orientasi</span></button>
                     <button class="dr-btn" onclick="changePageSize()">📏<span>Ukuran</span></button>
-                    <button class="dr-btn">📋<span>Kolom</span></button>
-                </div>
-                <div class="dr-toolbar-grp">
-                    <div style="font-size:0.75rem; display:grid; grid-template-columns: 1fr 1fr; gap:4px">
-                        <label>Indent Kiri:</label><input type="text" value="0 cm" style="width:50px; font-size:0.7rem">
-                        <label>Spasi Atas:</label><input type="text" value="0 pt" style="width:50px; font-size:0.7rem">
-                    </div>
                 </div>
             </div>
 
             <!-- VIEW TOOLBAR -->
             <div class="dr-toolbar" id="dr-toolbar-view" style="display:none">
-                <div class="dr-toolbar-grp">
-                    <button class="dr-btn active">📄<span>Print Layout</span></button>
-                    <button class="dr-btn">🌐<span>Web Layout</span></button>
-                    <button class="dr-btn">📖<span>Fokus</span></button>
-                </div>
                 <div class="dr-toolbar-grp">
                     <label style="display:flex; flex-direction:column; font-size:0.7rem; gap:2px">
                         <span style="display:flex; align-items:center; gap:4px"><input type="checkbox" id="chkRuler" checked onchange="toggleDrRuler()"> Penggaris</span>
@@ -282,7 +264,6 @@ async function modalLegalDrafting() {
                 </div>
                 <div class="dr-toolbar-grp">
                     <button class="dr-btn" onclick="setDrZoom(100)">🔍<span>100%</span></button>
-                    <button class="dr-btn" onclick="setDrZoom('width')">↔️<span>Lebar Halaman</span></button>
                 </div>
             </div>
 
@@ -290,12 +271,7 @@ async function modalLegalDrafting() {
             <div class="dr-toolbar" id="dr-toolbar-insert" style="display:none">
                 <div class="dr-toolbar-grp">
                     <button class="dr-btn" onclick="document.getElementById('drFileImport').click()">📁<span>Unggah</span></button>
-                    <button class="dr-btn" onclick="formatDoc('insertImage', prompt('URL Gambar:'))">🖼️<span>Gambar</span></button>
                     <button class="dr-btn" onclick="formatDoc('insertHorizontalRule')">➖<span>Garis</span></button>
-                </div>
-                <div class="dr-toolbar-grp">
-                    <button class="dr-btn">📅<span>Tanggal</span></button>
-                    <button class="dr-btn">🔢<span>No Halaman</span></button>
                 </div>
             </div>
 
@@ -322,7 +298,7 @@ async function modalLegalDrafting() {
                             <div class="dr-editor" id="drKonten" contenteditable="true"></div>
                         </div>
                     </div>
-                    <div style="height:100px; flex-shrink:0"></div> <!-- Spacer bottom -->
+                    <div style="height:100px; flex-shrink:0"></div>
                 </div>
 
                 <div class="dr-sidebar">
@@ -359,26 +335,21 @@ async function modalLegalDrafting() {
         modal.parentElement.style.padding = "0";
     }
 
-    // Initialize Rulers
     initDrRulers();
 }
 
-window.switchDrDrTab = function(tab) { // Global access
+window.switchDrTab = function(tab) {
     document.querySelectorAll('.dr-toolbar').forEach(t => t.style.display = 'none');
     document.querySelectorAll('.dr-tab').forEach(t => t.classList.remove('active'));
     document.getElementById('dr-toolbar-' + tab).style.display = 'flex';
     document.getElementById('tab-' + tab).classList.add('active');
 };
 
-// Map original name to new global name for compatibility if needed
-window.switchDrTab = window.switchDrDrTab;
-
 window.initDrRulers = function() {
     const rh = document.getElementById("drRulerH");
     const rv = document.getElementById("drRulerV");
     if(!rh || !rv) return;
 
-    // Horizontal Ruler (21cm for A4)
     let hHtml = "";
     for(let i=0; i<=21; i++) {
         hHtml += `<div class="ruler-tick major" style="left:${i}cm; bottom:0"></div>`;
@@ -391,7 +362,6 @@ window.initDrRulers = function() {
     }
     rh.innerHTML = hHtml;
 
-    // Vertical Ruler (29.7cm for A4)
     let vHtml = "";
     for(let i=0; i<=30; i++) {
         vHtml += `<div class="ruler-tick major" style="top:${i}cm; right:0; width:10px; height:1px"></div>`;
@@ -484,14 +454,6 @@ window.changePageSize = function() {
     rulerV.style.minHeight = page.style.minHeight;
     initDrRulers();
 };
-    `, true);
-
-    const modal = document.getElementById("modalContent");
-    if (modal) {
-        modal.classList.add("modal-fullscreen");
-        modal.parentElement.style.padding = "0";
-    }
-}
 
 function formatDoc(cmd, val) {
     document.execCommand(cmd, false, val);
@@ -600,7 +562,7 @@ async function printDraftLegalDirect() {
     const judul = document.getElementById("drJudul").innerHTML || "Draft Dokumen";
     const nomor = document.getElementById("drNomor").value;
     const konten = document.getElementById("drKonten").innerHTML;
-    const pakeKop = document.getElementById("drPakeKop").checked;
+    const pakeKop = document.getElementById("drPakeKop")?.checked ?? true;
 
     if (!konten) return toast("Isi konten draft dulu sebelum print", "warning");
 
