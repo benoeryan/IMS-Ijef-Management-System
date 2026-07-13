@@ -1449,17 +1449,29 @@ async function simpanAkun(id) {
 }
 
 // ── APPROVAL CENTER — Multi-step flow with department filtering ──
-async function renderApprovalCenter() {
+// ── APPROVAL CENTER — Multi-step flow with department filtering ──
+async function renderApprovalCenter(tab = 'pending') {
   const main = document.getElementById('mainContent');
-  main.innerHTML = `<div class="page-title"><span>✅ Approval Center</span></div><div class="card" id="approvalList">Loading...</div>`;
+  const isBOD = currentUser.role === 'bod';
+  const isAdmin = hasAccess(6);
+  const isPowerUser = isAdmin || isBOD;
+
+  main.innerHTML = `<div class="page-title"><span>✅ Approval Center</span></div>
+    <div class="tabs mb-16" id="approvalTabs">
+      <div class="tab ${tab === 'pending' ? 'active' : ''}" onclick="renderApprovalCenter('pending')">⏳ Menunggu</div>
+      <div class="tab ${tab === 'history' ? 'active' : ''}" onclick="renderApprovalCenter('history')">📜 Riwayat</div>
+    </div>
+    <div class="card" id="approvalList">Loading...</div>`;
+
   const myName = (currentUser.nama || '').toLowerCase().trim();
   const myDept = (currentUser.departemen || '').toLowerCase().trim();
-  const isAdmin = hasAccess(6); // Only Admin (6) bypasses turn-check
   const isGM = (currentUser.posisi || '').toLowerCase().includes('general manager');
+
   // Load approval flows
   const flowSnap = await db.collection('hrd_approval_flow').get();
   const flows = [];
   flowSnap.forEach((d) => flows.push({ id: d.id, ...d.data() }));
+
   // Load karyawan for dept mapping
   const karySnap = await db.collection('hrd_karyawan').get();
   const deptMap = {};
@@ -1470,6 +1482,7 @@ async function renderApprovalCenter() {
     deptMap[namaLower] = (k.departemen || '').trim();
     gradeMap[namaLower] = (k.gradeJabatan || k.posisi || '').toLowerCase();
   });
+
   const collections = [
     'hrd_cuti',
     'hrd_overtime',
@@ -1479,13 +1492,19 @@ async function renderApprovalCenter() {
     'hrd_perjalanan_dinas',
     'hrd_reimburse_dinas',
   ];
+
   let items = [];
   for (const col of collections) {
     try {
-      const snap = await db
-        .collection(col)
-        .where('status', 'in', ['pending', 'step1', 'step2', 'step3'])
-        .get();
+      let q = db.collection(col);
+      if (tab === 'pending') {
+        q = q.where('status', 'in', ['pending', 'step1', 'step2', 'step3']);
+      } else {
+        // Fetch last 100 for history to keep it snappy
+        q = q.orderBy('createdAt', 'desc').limit(100);
+      }
+
+      const snap = await q.get();
       snap.forEach((d) => {
         const data = { id: d.id, collection: col, ...d.data() };
         data._dept = (
@@ -1496,7 +1515,9 @@ async function renderApprovalCenter() {
         items.push(data);
       });
     } catch (e) {
-      const snap = await db.collection(col).where('status', '==', 'pending').get();
+      console.warn(`Error fetching ${col}:`, e);
+      // Fallback for collections without composite index
+      const snap = await db.collection(col).get();
       snap.forEach((d) => {
         const data = { id: d.id, collection: col, ...d.data() };
         data._dept = (
@@ -1508,34 +1529,45 @@ async function renderApprovalCenter() {
       });
     }
   }
+
+  // Filter history tab for non-pending items (or show all if you prefer)
+  if (tab === 'history') {
+      items = items.filter(x => !['pending', 'step1', 'step2', 'step3'].includes(x.status));
+  }
+
   items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   let h = '';
   let visibleCount = 0;
+
   items.forEach((item) => {
-    const flow = flows.find((f) => isSameName(f.pengaju, item.nama) && f.steps && f.steps.length > 0);
+    const cat = getApprovalCategory(item.collection, item);
+    const flow = flows.find((f) => isSameName(f.pengaju, item.nama) && f.jenis === cat && f.steps && f.steps.length > 0) ||
+                 flows.find((f) => isSameName(f.pengaju, item.nama) && f.steps && f.steps.length > 0);
+
     const steps = flow?.steps || [];
     const currentStep = item.approvalStep || 0;
     const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
 
-    // BOD filter: only show if explicitly my turn OR if pengaju is 'head' level
-    const isBOD = currentUser.role === 'bod';
-    const isExplicitlyMyTurn = currentApprover === myName;
-    const isMyTurn = isAdmin || isExplicitlyMyTurn;
+    const isExplicitlyMyTurn = isSameName(currentApprover, myName);
+    const isMyTurnForActions = isAdmin || isExplicitlyMyTurn;
 
     let canSee = isAdmin || isGM || hasAccess(4) || item._dept === myDept;
 
     if (isBOD) {
       const pengajuGrade = gradeMap[(item.nama || '').toLowerCase().trim()] || '';
       const isHead = pengajuGrade.includes('head');
-      // BOD sees it if: 1. It's explicitly his turn, OR 2. It's from a Head level pengaju
-      canSee = isExplicitlyMyTurn || isHead;
+      // BOD sees it if: 1. It's explicitly his turn, OR 2. It's from a Head level pengaju, OR 3. History mode
+      canSee = isExplicitlyMyTurn || isHead || tab === 'history';
     }
 
     if (!canSee) return;
+    visibleCount++;
+
     const typeLabel = item.collection.replace('hrd_', '').toUpperCase();
     const detail = item.jenis || item.kategori || '';
     const jumlah = item.jumlah ? ` — ${formatCurrency(item.jumlah)}` : '';
     const durasi = item.durasi ? ` (${item.durasi} hari)` : '';
+
     let progressHtml = '';
     if (steps.length) {
       progressHtml = '<div class="flex gap-4 mt-8" style="flex-wrap:wrap">';
@@ -1549,12 +1581,64 @@ async function renderApprovalCenter() {
       });
       progressHtml += '</div>';
     }
-    visibleCount++;
-    h += `<div style="padding:14px;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><div style="flex:1"><div><span class="badge badge-info">${typeLabel}</span> <span class="fw-700">${escHtml(item.nama)}</span> <span class="badge" style="background:#eee;color:#555;font-size:.6rem">${escHtml(item._dept?.toUpperCase() || '')}</span></div><div class="text-sm" style="color:#555;margin-top:4px">${escHtml(detail)}${durasi}${jumlah}</div><div class="text-xs" style="color:#999;margin-top:2px">${formatDateTime(item.createdAt)}</div></div><div class="flex gap-8"><button class="btn btn-xs btn-primary" onclick="viewApprovalDetail('${item.collection}','${item.id}')">👁️</button>${isMyTurn ? `<button class="btn btn-xs btn-success" onclick="approveItem('${item.collection}','${item.id}','approved')">✅</button><button class="btn btn-xs btn-danger" onclick="approveItem('${item.collection}','${item.id}','rejected')">❌</button>` : `<span class="badge badge-warning" style="font-size:.6rem">Menunggu ${escHtml(steps[currentStep]?.nama || '')}</span>`}</div></div>${progressHtml}</div>`;
+
+    // Status Badge for History
+    const statusColor = {
+        'approved': 'success',
+        'rejected': 'danger',
+        'pending': 'warning'
+    }[item.status] || 'info';
+    const statusHtml = tab === 'history' ? `<span class="badge badge-${statusColor}">${(item.status || '').toUpperCase()}</span> ` : '';
+
+    // Action Buttons
+    let actionButtons = `<button class="btn btn-xs btn-primary" onclick="viewApprovalDetail('${item.collection}','${item.id}')">👁️</button>`;
+
+    if (tab === 'pending' && isMyTurnForActions) {
+        actionButtons += `
+          <button class="btn btn-xs btn-success" onclick="approveItem('${item.collection}','${item.id}','approved')">✅</button>
+          <button class="btn btn-xs btn-danger" onclick="approveItem('${item.collection}','${item.id}','rejected')">❌</button>`;
+    }
+
+    if (isPowerUser) {
+        const editFuncs = {
+            'hrd_cuti': 'editCutiDoc',
+            'hrd_overtime': 'editOTDoc',
+            'hrd_reimbursement': 'editReimb',
+            'hrd_kasbon': 'editKasbonDoc',
+            'hrd_dinas_luar': 'editDinasLuar',
+            'hrd_perjalanan_dinas': 'editSPPD',
+            'hrd_reimburse_dinas': 'viewReimburseDinas' // Re-using view for now if edit missing
+        };
+        const editFn = editFuncs[item.collection];
+        if (editFn) {
+            actionButtons += ` <button class="btn btn-xs btn-warning" onclick="${editFn}('${item.id}')">✏️</button>`;
+        }
+        actionButtons += ` <button class="btn btn-xs btn-danger" onclick="hapusDoc('${item.collection}','${item.id}','approval-center')">🗑️</button>`;
+    }
+
+    h += `<div style="padding:14px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div style="flex:1">
+          <div>
+            ${statusHtml}
+            <span class="badge badge-info">${typeLabel}</span>
+            <span class="fw-700">${escHtml(item.nama)}</span>
+            <span class="badge" style="background:#eee;color:#555;font-size:.6rem">${escHtml(item._dept?.toUpperCase() || '')}</span>
+          </div>
+          <div class="text-sm" style="color:#555;margin-top:4px">${escHtml(detail)}${durasi}${jumlah}</div>
+          <div class="text-xs" style="color:#999;margin-top:2px">${formatDateTime(item.createdAt)}</div>
+        </div>
+        <div class="flex gap-8">
+          ${actionButtons}
+        </div>
+      </div>
+      ${progressHtml}
+    </div>`;
   });
+
   if (!visibleCount)
-    h =
-      '<div class="empty-state"><div class="icon">✅</div><p>Tidak ada pengajuan pending</p></div>';
+    h = `<div class="empty-state"><div class="icon">✅</div><p>Tidak ada data ${tab === 'pending' ? 'menunggu approval' : 'riwayat'}</p></div>`;
+
   document.getElementById('approvalList').innerHTML = h;
 }
 
