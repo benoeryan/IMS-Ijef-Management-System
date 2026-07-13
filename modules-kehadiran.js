@@ -2147,6 +2147,20 @@ function _showDailyTaskDetail(task) {
       ? '<span class="badge badge-danger">Terlambat</span>'
       : '<span class="badge badge-info">Aktif</span>';
 
+  // Specific Feedback Section for Kaizen (Latest Superior Feedback)
+  let feedbackHtml = '';
+  if (task.source === 'FORM KAIZEN' && (task.kaizenStatus === 'pending' || task.kaizenStatus === 'rejected')) {
+      const color = task.kaizenStatus === 'pending' ? '#f57f17' : '#c62828';
+      const label = task.kaizenStatus === 'pending' ? '⚠️ REVISI ATASAN (PENDING)' : '❌ TUGAS DITOLAK (REJECT)';
+      feedbackHtml = `
+      <div style="margin-top:16px; padding:14px; background:#fff8e1; border-radius:10px; border:2px solid ${color}">
+          <div class="fw-700 mb-4" style="color:${color}; font-size:0.85rem">${label}</div>
+          <div class="text-sm" style="font-weight:700; color:#333; margin-bottom:4px">Kekurangan/Catatan:</div>
+          <div style="font-size:0.82rem; background:#fff; padding:10px; border-radius:6px; border:1px solid #ddd; white-space:pre-wrap">${escHtml(task.approverComment || 'Tidak ada catatan spesifik')}</div>
+          <div class="text-xs mt-8" style="color:#666">Oleh: <b>Irsan Janwar Wibawa</b></div>
+      </div>`;
+  }
+
   // Build Logs History for Kaizen
   let logsHtml = '';
   if (task.source === 'FORM KAIZEN' && task.kaizenLogs && task.kaizenLogs.length > 0) {
@@ -2206,8 +2220,9 @@ function _showDailyTaskDetail(task) {
       ${task.kendala ? `<div style="font-size:.78rem;color:#c62828;margin-top:8px;white-space:pre-wrap">⚠️ Kendala: ${escHtml(task.kendala)}</div>` : ''}
       ${task.solusi ? `<div style="font-size:.78rem;color:#ef6c00;margin-top:6px;white-space:pre-wrap">💡 Tindak Lanjut: ${escHtml(task.solusi)}</div>` : ''}
     </div>
-    ${task.attachments && task.attachments.length ? `<div style="margin-top:16px;padding:16px;background:#f8f9ff;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:var(--primary)">📎 Lampiran Eviden (${task.attachments.length} file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px">${task.attachments.map((a, i) => (a.type && a.type.startsWith('image/') ? `<div style="text-align:center;cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><img src="${a.data}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.6rem;color:#666;margin-top:4px">${escHtml(a.name || 'Foto ' + (i + 1))}</div></div>` : `<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:12px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><div style="font-size:2rem">${a.name && a.name.endsWith('.pdf') ? '📕' : a.name && a.name.match(/\\.docx?$/) ? '📘' : a.name && a.name.match(/\\.xlsx?$/) ? '📗' : '📄'}</div><div style="font-size:.6rem;color:#333;margin-top:4px;text-align:center;word-break:break-all">${escHtml(a.name)}</div><div style="font-size:.6rem;color:#1565c0;margin-top:4px">👁️ Lihat</div></div>`)).join('')}</div></div>` : ''}
+    ${task.attachments && task.attachments.length ? `<div style="margin-top:16px;padding:16px;background:#f8f9ff;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:var(--primary)">📎 Lampiran Eviden (${task.attachments.length} file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px">${task.attachments.map((a, i) => (a.type && a.type.startsWith('image/') ? `<div style="text-align:center;cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><img src="${a.data}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.6rem;color:#666;margin-top:4px">${escHtml(a.name || 'Foto ' + (i + 1))}</div></div>` : `<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:12px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><div style="font-size:2rem">${a.name && a.name.endsWith('.pdf') ? '📕' : a.name && a.name.match(/\\.docx?$/) ? '📘' : a.name && a.name.match(/\\.xlsx?$/) ? '📗' : '📄'}</div><div style="font-size:.65rem;color:#333;margin-top:4px;text-align:center;word-break:break-all">${escHtml(a.name)}</div><div style="font-size:.6rem;color:#1565c0;margin-top:4px">👁️ Lihat</div></div>`)).join('')}</div></div>` : ''}
 
+    ${feedbackHtml}
     ${logsHtml}
     ${commentInput}
 
