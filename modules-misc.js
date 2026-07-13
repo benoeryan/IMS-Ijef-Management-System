@@ -1452,9 +1452,9 @@ async function simpanAkun(id) {
 async function renderApprovalCenter() {
   const main = document.getElementById('mainContent');
   main.innerHTML = `<div class="page-title"><span>✅ Approval Center</span></div><div class="card" id="approvalList">Loading...</div>`;
-  const myName = currentUser.nama?.toLowerCase() || '';
-  const myDept = (currentUser.departemen || '').toLowerCase();
-  const isAdmin = hasAccess(5);
+  const myName = (currentUser.nama || '').toLowerCase().trim();
+  const myDept = (currentUser.departemen || '').toLowerCase().trim();
+  const isAdmin = hasAccess(6); // Only Admin (6) bypasses turn-check
   const isGM = (currentUser.posisi || '').toLowerCase().includes('general manager');
   // Load approval flows
   const flowSnap = await db.collection('hrd_approval_flow').get();
@@ -1466,8 +1466,8 @@ async function renderApprovalCenter() {
   const gradeMap = {};
   karySnap.forEach((d) => {
     const k = d.data();
-    const namaLower = (k.nama || '').toLowerCase();
-    deptMap[namaLower] = k.departemen || '';
+    const namaLower = (k.nama || '').toLowerCase().trim();
+    deptMap[namaLower] = (k.departemen || '').trim();
     gradeMap[namaLower] = (k.gradeJabatan || k.posisi || '').toLowerCase();
   });
   const collections = [
@@ -1484,15 +1484,15 @@ async function renderApprovalCenter() {
     try {
       const snap = await db
         .collection(col)
-        .where('status', 'in', ['pending', 'step1', 'step2'])
+        .where('status', 'in', ['pending', 'step1', 'step2', 'step3'])
         .get();
       snap.forEach((d) => {
         const data = { id: d.id, collection: col, ...d.data() };
         data._dept = (
           data.departemen ||
-          deptMap[(data.nama || '').toLowerCase()] ||
+          deptMap[(data.nama || '').toLowerCase().trim()] ||
           ''
-        ).toLowerCase();
+        ).toLowerCase().trim();
         items.push(data);
       });
     } catch (e) {
@@ -1501,9 +1501,9 @@ async function renderApprovalCenter() {
         const data = { id: d.id, collection: col, ...d.data() };
         data._dept = (
           data.departemen ||
-          deptMap[(data.nama || '').toLowerCase()] ||
+          deptMap[(data.nama || '').toLowerCase().trim()] ||
           ''
-        ).toLowerCase();
+        ).toLowerCase().trim();
         items.push(data);
       });
     }
@@ -1519,20 +1519,19 @@ async function renderApprovalCenter() {
 
     // BOD filter: only show if explicitly my turn OR if pengaju is 'head' level
     const isBOD = currentUser.role === 'bod';
-    const isMyTurn = isAdmin || currentApprover === myName;
     const isExplicitlyMyTurn = currentApprover === myName;
+    const isMyTurn = isAdmin || isExplicitlyMyTurn;
 
     let canSee = isAdmin || isGM || hasAccess(4) || item._dept === myDept;
 
     if (isBOD) {
-      const pengajuGrade = gradeMap[(item.nama || '').toLowerCase()] || '';
+      const pengajuGrade = gradeMap[(item.nama || '').toLowerCase().trim()] || '';
       const isHead = pengajuGrade.includes('head');
       // BOD sees it if: 1. It's explicitly his turn, OR 2. It's from a Head level pengaju
       canSee = isExplicitlyMyTurn || isHead;
     }
 
     if (!canSee) return;
-    const isMyTurn = isAdmin || currentApprover === myName;
     const typeLabel = item.collection.replace('hrd_', '').toUpperCase();
     const detail = item.jenis || item.kategori || '';
     const jumlah = item.jumlah ? ` — ${formatCurrency(item.jumlah)}` : '';
