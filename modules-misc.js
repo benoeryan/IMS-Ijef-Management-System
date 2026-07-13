@@ -1512,7 +1512,7 @@ async function renderApprovalCenter() {
   let h = '';
   let visibleCount = 0;
   items.forEach((item) => {
-    const flow = flows.find((f) => (f.pengaju || '').toLowerCase().trim() === (item.nama || '').toLowerCase().trim());
+    const flow = flows.find((f) => (f.pengaju || '').toLowerCase().trim() === (item.nama || '').toLowerCase().trim() && f.steps && f.steps.length > 0);
     const steps = flow?.steps || [];
     const currentStep = item.approvalStep || 0;
     const currentApprover = steps[currentStep]?.nama?.toLowerCase() || '';
@@ -2018,16 +2018,23 @@ async function approveItem(col, id, status, catatan) {
         `Pengajuan ${data.jenis || col.replace('hrd_', '')} ditolak oleh ${currentUser.nama}`
       );
   } else {
-    // Robust flow lookup (handle case sensitivity)
+    // Robust flow lookup: find a flow for this specific pengaju that has steps
     const flowSnap = await db.collection('hrd_approval_flow').get();
     let steps = [];
     const namaLower = (data.nama || '').toLowerCase().trim();
+
+    // Sort flows to prioritize those with steps
+    const matchingFlows = [];
     flowSnap.forEach((d) => {
       const f = d.data();
       if ((f.pengaju || '').toLowerCase().trim() === namaLower) {
-          steps = f.steps || [];
+          matchingFlows.push(f);
       }
     });
+
+    // Pick the flow that has steps (usually they are all the same, but safety first)
+    const validFlow = matchingFlows.find(f => f.steps && f.steps.length > 0);
+    if (validFlow) steps = validFlow.steps;
 
     const nextStep = currentStep + 1;
     if (nextStep < steps.length) {

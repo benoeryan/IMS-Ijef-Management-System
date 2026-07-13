@@ -820,10 +820,12 @@ function invalidateApprovalFlowCache() {
 }
 function getApproverForItem(flows, nama, approvalStep) {
   if (!flows || !nama) return null;
+  const namaLow = (nama || '').toLowerCase().trim();
+  // Find a flow for this user that actually has steps
   const flow = flows.find(function (f) {
-    return (f.pengaju || '').toLowerCase() === (nama || '').toLowerCase();
+    return (f.pengaju || '').toLowerCase().trim() === namaLow && f.steps && f.steps.length > 0;
   });
-  if (!flow || !flow.steps || !flow.steps.length) return null;
+  if (!flow) return null;
   var step = approvalStep || 0;
   return (flow.steps[step] && flow.steps[step].nama) || null;
 }

@@ -337,7 +337,7 @@ async function renderOvertime() {
 
       // Multi-step turn check
       const isPending = p.status === 'pending' || (p.status && p.status.indexOf('step') === 0);
-      const flow = flows.find((f) => (f.pengaju || '').toLowerCase().trim() === (p.nama || '').toLowerCase().trim());
+      const flow = flows.find((f) => (f.pengaju || '').toLowerCase().trim() === (p.nama || '').toLowerCase().trim() && f.steps && f.steps.length > 0);
       const steps = flow?.steps || [];
       const currentStep = p.approvalStep || 0;
       const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
