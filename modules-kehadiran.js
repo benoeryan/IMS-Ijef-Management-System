@@ -2177,6 +2177,9 @@ function _showDailyTaskDetail(task) {
             actionLabel = `UPDATE PROGRESS: ${log.progress || 0}%`;
         }
 
+        const isMyLog = log.userId === currentUser.id;
+        const deleteBtn = isMyLog ? `<button class="btn btn-xs btn-outline" style="color:#ccc; border:none; padding:2px; min-width:auto" onclick="deleteKaizenLog('${task.id}', '${log.timestamp}')" title="Hapus Komentar/Log">🗑️</button>` : '';
+
         // Attachments for this specific log entry
         let attachHtml = '';
         if (log.attachments && log.attachments.length > 0) {
@@ -2193,7 +2196,10 @@ function _showDailyTaskDetail(task) {
         <div style="margin-bottom:10px; font-size:0.78rem; background:#fff; border:1px solid #f0f0f0; padding:8px; border-radius:6px">
             <div style="display:flex; justify-content:space-between; margin-bottom:4px">
                 <b style="color:var(--primary)">${escHtml(log.userName)}</b>
-                <span style="color:#999">${date}</span>
+                <div style="display:flex; align-items:center; gap:8px">
+                    <span style="color:#999">${date}</span>
+                    ${deleteBtn}
+                </div>
             </div>
             <div style="color:${color}; font-weight:600; text-transform:uppercase; font-size:0.65rem; margin-bottom:2px">${actionLabel}</div>
             <div style="white-space:pre-wrap">${escHtml(log.comment)}</div>
@@ -5583,5 +5589,26 @@ async function addKaizenGeneralComment(id) {
         _showDailyTaskDetail({ id: doc.id, ...doc.data() });
     } catch (e) {
         toast('Gagal: ' + e.message, 'error');
+    }
+}
+
+async function deleteKaizenLog(taskId, timestamp) {
+    if (!confirm('Hapus log/komentar ini?')) return;
+    try {
+        const doc = await db.collection('hrd_daily_tasks').doc(taskId).get();
+        if (!doc.exists) return;
+        const logs = doc.data().kaizenLogs || [];
+        const logToRemove = logs.find(l => l.timestamp === timestamp);
+        if (logToRemove) {
+            await db.collection('hrd_daily_tasks').doc(taskId).update({
+                kaizenLogs: firebase.firestore.FieldValue.arrayRemove(logToRemove)
+            });
+            toast('Log dihapus', 'success');
+            // Refresh detail view
+            const newDoc = await db.collection('hrd_daily_tasks').doc(taskId).get();
+            _showDailyTaskDetail({ id: newDoc.id, ...newDoc.data() });
+        }
+    } catch (e) {
+        toast('Gagal hapus: ' + e.message, 'error');
     }
 }
