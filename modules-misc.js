@@ -1512,7 +1512,7 @@ async function renderApprovalCenter() {
   let h = '';
   let visibleCount = 0;
   items.forEach((item) => {
-    const flow = flows.find((f) => f.pengaju?.toLowerCase() === item.nama?.toLowerCase());
+    const flow = flows.find((f) => (f.pengaju || '').toLowerCase().trim() === (item.nama || '').toLowerCase().trim());
     const steps = flow?.steps || [];
     const currentStep = item.approvalStep || 0;
     const currentApprover = steps[currentStep]?.nama?.toLowerCase() || '';
