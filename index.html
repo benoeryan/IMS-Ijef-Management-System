@@ -987,11 +987,14 @@
     <script>
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker
-          .register('/sw.js', { updateViaCache: 'none' })
+          .register('/firebase-messaging-sw.js', { updateViaCache: 'none' })
           .then(function (reg) {
             reg.update();
+            console.log('SW registered');
           })
-          .catch(function () {});
+          .catch(function (e) {
+             console.error('SW failed', e);
+          });
       }
     </script>
   </body>

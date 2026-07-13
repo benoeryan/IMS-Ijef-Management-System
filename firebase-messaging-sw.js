@@ -1,11 +1,7 @@
-// Firebase Cloud Messaging Service Worker
-// Handles background push notifications when app/browser is closed
+// Combined Service Worker: FCM + PWA Caching
 importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
 
-// NOTE: The messagingSenderId and appId below are placeholders.
-// Replace them with your actual Firebase project values from
-// Firebase Console > Project Settings > General > Your apps > Config.
 const firebaseConfig = {
   apiKey: 'AIzaSyAWlNi_iBOWxZBD6E20aHOSrRpPsirDdOM',
   authDomain: 'test-kesehatan-ijef-corp-7c278.firebaseapp.com',
@@ -18,46 +14,62 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// Handle background push notifications using the FCM SDK's built-in mechanism.
-// Do NOT add a separate self.addEventListener("push", ...) handler here -- the SDK
-// handles incoming push events internally. Using both would cause duplicate notifications.
+// BACKGROUND NOTIFICATIONS
 messaging.onBackgroundMessage((payload) => {
   const notification = payload.notification || {};
   const data = payload.data || {};
   const title = notification.title || data.title || 'IMS Notifikasi';
   const body = notification.body || data.body || '';
+
   const options = {
     body: body,
-    icon: 'https://hr-legal-app.netlify.app/icons/icon-192x192.png',
-    badge: 'https://hr-legal-app.netlify.app/icons/icon-192x192.png',
-    vibrate: [200, 100, 200, 100, 300],
-    silent: false,
-    tag: 'ims-notif-' + Date.now(),
-    renotify: true,
+    icon: '/icon-ijef-v3.png',
+    badge: '/icon-ijef-v3.png',
+    vibrate: [200, 100, 200],
     data: {
-      click_action: data.click_action || notification.click_action || '/',
       url: data.url || data.click_action || '/',
     },
+    tag: 'ims-push-' + Date.now(),
   };
 
   return self.registration.showNotification(title, options);
 });
 
-// Handle notification click - open/focus the app window
+// PWA CACHING (From sw.js)
+const CACHE_NAME = 'ims-v8.1';
+self.addEventListener('install', (e) => self.skipWaiting());
+self.addEventListener('activate', (e) => {
+  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))));
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', (e) => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    fetch(e.request)
+      .then((resp) => {
+        if (!e.request.url.includes('.js') && !e.request.url.includes('.html') && e.request.url.startsWith('http')) {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(e.request, clone));
+        }
+        return resp;
+      })
+      .catch(() => caches.match(e.request))
+  );
+});
+
+// NOTIFICATION CLICK HANDLING
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-
-  const urlToOpen = event.notification.data?.url || event.notification.data?.click_action || '/';
+  const urlToOpen = event.notification.data?.url || '/';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // If an app window is already open, focus it
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
           return client.focus();
         }
       }
-      // Otherwise open a new window
       return self.clients.openWindow(urlToOpen);
     })
   );

@@ -174,14 +174,16 @@ async function initFCM() {
       return;
     }
 
-    // Register the FCM service worker
+    // Get existing service worker registration
     var swRegistration;
     try {
-      swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-      // Wait for service worker to be ready
+      swRegistration = await navigator.serviceWorker.getRegistration();
+      if (!swRegistration) {
+        swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      }
       await navigator.serviceWorker.ready;
     } catch (swErr) {
-      console.warn('[FCM] Service Worker registration failed:', swErr.message);
+      console.warn('[FCM] SW registration failed:', swErr.message);
       return;
     }
 
@@ -1154,15 +1156,37 @@ function requestNotifPermission() {
   }
 }
 // Show system notification (works even when tab is in background on mobile)
-function showSystemNotification(title, body) {
-  if ('Notification' in window && Notification.permission === 'granted') {
+async function showSystemNotification(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  // Use ServiceWorker for better reliability (especially on mobile background)
+  if ('serviceWorker' in navigator) {
     try {
-      new Notification(title, {
-        body,
-        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🏛️</text></svg>',
+      const reg = await navigator.serviceWorker.ready;
+      reg.showNotification(title, {
+        body: body,
+        icon: '/icon-ijef-v3.png',
+        badge: '/icon-ijef-v3.png',
         vibrate: [200, 100, 200],
+        tag: 'ims-notif-' + Date.now(),
+        renotify: true,
+        data: { url: window.location.origin }
       });
-    } catch (e) {}
+      return;
+    } catch (e) {
+      console.warn('[Notif] SW showNotification failed, fallback to standard:', e.message);
+    }
+  }
+
+  // Fallback to standard Notification API
+  try {
+    new Notification(title, {
+      body,
+      icon: '/icon-ijef-v3.png',
+      vibrate: [200, 100, 200],
+    });
+  } catch (e) {
+    console.warn('[Notif] Standard Notification failed:', e.message);
   }
 }
 
