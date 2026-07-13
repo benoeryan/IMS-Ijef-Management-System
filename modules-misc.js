@@ -1979,6 +1979,7 @@ async function viewApprovalDetail(col, id) {
 
 async function approveItem(col, id, status, catatan) {
   const doc = await db.collection(col).doc(id).get();
+  if (!doc.exists) return toast('Data tidak ditemukan', 'warning');
   const data = doc.data();
   const currentStep = data.approvalStep || 0;
   const history = data.approvalHistory || [];
@@ -1990,11 +1991,14 @@ async function approveItem(col, id, status, catatan) {
   };
   if (catatan) entry.catatan = catatan;
   history.push(entry);
+
   if (status === 'rejected') {
     await db.collection(col).doc(id).update({
       status: 'rejected',
       approvedAt: new Date().toISOString(),
       approvalHistory: history,
+      rejectedBy: currentUser.nama,
+      rejectionCatatan: catatan || ''
     });
 
     // Special Logic: Propagate status to linked SPPD record if hrd_dinas_luar
@@ -2026,7 +2030,7 @@ async function approveItem(col, id, status, catatan) {
     const matchingFlows = [];
     flowSnap.forEach((d) => {
       const f = d.data();
-      if ((f.pengaju || '').toLowerCase().trim() === namaLower) {
+      if (isSameName(f.pengaju, data.nama)) {
           matchingFlows.push(f);
       }
     });

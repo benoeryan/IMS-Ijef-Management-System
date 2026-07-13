@@ -818,12 +818,16 @@ async function loadApprovalFlows() {
 function invalidateApprovalFlowCache() {
   _approvalFlowCache = null;
 }
+function isSameName(name1, name2) {
+  if (!name1 || !name2) return false;
+  return name1.toLowerCase().trim() === name2.toLowerCase().trim();
+}
+
 function getApproverForItem(flows, nama, approvalStep) {
   if (!flows || !nama) return null;
-  const namaLow = (nama || '').toLowerCase().trim();
   // Find a flow for this user that actually has steps
   const flow = flows.find(function (f) {
-    return (f.pengaju || '').toLowerCase().trim() === namaLow && f.steps && f.steps.length > 0;
+    return isSameName(f.pengaju, nama) && f.steps && f.steps.length > 0;
   });
   if (!flow) return null;
   var step = approvalStep || 0;
