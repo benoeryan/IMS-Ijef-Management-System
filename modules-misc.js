@@ -2018,12 +2018,11 @@ async function approveItem(col, id, status, catatan) {
         `Pengajuan ${data.jenis || col.replace('hrd_', '')} ditolak oleh ${currentUser.nama}`
       );
   } else {
-    // Robust flow lookup: find a flow for this specific pengaju that has steps
+    // Robust flow lookup: pick the flow for this specific pengaju with the MOST steps
     const flowSnap = await db.collection('hrd_approval_flow').get();
     let steps = [];
     const namaLower = (data.nama || '').toLowerCase().trim();
 
-    // Sort flows to prioritize those with steps
     const matchingFlows = [];
     flowSnap.forEach((d) => {
       const f = d.data();
@@ -2032,9 +2031,9 @@ async function approveItem(col, id, status, catatan) {
       }
     });
 
-    // Pick the flow that has steps (usually they are all the same, but safety first)
-    const validFlow = matchingFlows.find(f => f.steps && f.steps.length > 0);
-    if (validFlow) steps = validFlow.steps;
+    // Pick the flow that has the highest number of steps (handles duplicates/empty flows)
+    const validFlow = matchingFlows.sort((a, b) => (b.steps?.length || 0) - (a.steps?.length || 0))[0];
+    if (validFlow) steps = validFlow.steps || [];
 
     const nextStep = currentStep + 1;
     if (nextStep < steps.length) {

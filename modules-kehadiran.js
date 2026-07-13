@@ -98,15 +98,19 @@ async function renderCuti() {
 
       // Multi-step turn check
       const isPending = p.status === 'pending' || (p.status && p.status.indexOf('step') === 0);
-      const flow = flows.find((f) => f.pengaju?.toLowerCase() === p.nama?.toLowerCase());
+
+      // IMPROVED FLOW LOOKUP: Sort by steps count to pick the most complete flow
+      const flow = flows
+        .filter(f => (f.pengaju || '').toLowerCase().trim() === (p.nama || '').toLowerCase().trim())
+        .sort((a, b) => (b.steps?.length || 0) - (a.steps?.length || 0))[0];
+
       const steps = flow?.steps || [];
       const currentStep = p.approvalStep || 0;
       const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
       const myName = (currentUser.nama || '').toLowerCase().trim();
       const isMyTurn = isAdmin || currentApprover === myName;
 
-      // Allow BOD to approve if it is specifically their turn in the flow
-      const canApprove = isPending && hasAccess(3) && (isMyTurn || !isBOD) && isMyTurn;
+      const canApprove = isPending && hasAccess(3) && isMyTurn;
       const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.jenis)}</td><td>${formatDate(p.mulai)}-${formatDate(p.selesai)}</td><td>${p.durasi || 1}h</td><td><span class="badge badge-${sisa <= 2 ? 'danger' : sisa <= 5 ? 'warning' : 'success'}">${sisa}/${quota}</span></td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewCutiDetail('${p.id}')" title="Lihat Detail">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_cuti','${p.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_cuti','${p.id}','rejected')">❌</button>` : ''} ${hasAccess(6) || (p.userId === currentUser.id && p.status === 'pending') ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_cuti','${p.id}','cuti')">🗑️</button>` : ''}</td></tr>`;
     });
@@ -237,6 +241,28 @@ async function viewCutiDetail(id) {
   // Pending approver row
   let pendingRow = '';
   const isPending = p.status === 'pending' || (p.status && p.status.indexOf('step') === 0);
+
+  // Build History Logs
+  let historyHtml = '';
+  if (p.approvalHistory && p.approvalHistory.length > 0) {
+    historyHtml = '<div style="margin-top:16px; border-top:1px solid #eee; padding-top:12px"><div class="fw-700 mb-8" style="font-size:0.85rem; color:#555">📋 Riwayat Approval:</div>';
+    p.approvalHistory.forEach(h => {
+        const hDate = formatDateTime(h.at);
+        const actionLabel = h.action === 'approved' ? 'DISETUJUI' : 'DITOLAK';
+        const color = h.action === 'approved' ? '#2e7d32' : '#c62828';
+        historyHtml += `
+        <div style="margin-bottom:8px; font-size:0.78rem; background:#fff; border:1px solid #f0f0f0; padding:8px; border-radius:6px">
+            <div style="display:flex; justify-content:space-between; margin-bottom:2px">
+                <b style="color:var(--primary)">${escHtml(h.nama)}</b>
+                <span style="color:#999">${hDate}</span>
+            </div>
+            <div style="color:${color}; font-weight:700; font-size:0.65rem">${actionLabel}</div>
+            ${h.catatan ? `<div class="mt-4" style="color:#666; font-style:italic">"${escHtml(h.catatan)}"</div>` : ''}
+        </div>`;
+    });
+    historyHtml += '</div>';
+  }
+
   let approveBtns = '';
   if (isPending) {
     const flow = flows.find((f) => (f.pengaju || '').toLowerCase().trim() === (p.nama || '').toLowerCase().trim());
@@ -278,6 +304,7 @@ async function viewCutiDetail(id) {
       <tr><td class="fw-700" style="padding:6px 8px">Approved By</td><td style="padding:6px 8px">${escHtml(p.approvedBy || '-')}</td></tr>
       <tr><td class="fw-700" style="padding:6px 8px">Created At</td><td style="padding:6px 8px">${p.createdAt ? formatDate(p.createdAt.split('T')[0]) : '-'}</td></tr>
     </table>
+    ${historyHtml}
     ${approveBtns}
     <div class="mt-16"><button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button></div>`);
 }
