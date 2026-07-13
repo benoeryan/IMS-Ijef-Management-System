@@ -5306,11 +5306,47 @@ async function simpanUpdateKaizen(id) {
     }
 
     await db.collection('hrd_daily_tasks').doc(id).update(updateData);
-    
+
+    // ── INTEGRASI AUTOMATIS KE DAILY REPORT NANDA ──
+    try {
+        const docRef = await db.collection('hrd_daily_tasks').doc(id).get();
+        const task = docRef.data();
+
+        // Buat entri Daily Report otomatis untuk Nanda
+        const reportData = {
+            type: 'report',
+            source: 'AUTO-KAIZEN',
+            title: '📝 Daily Report — ' + formatDate(todayStr()),
+            tanggal: todayStr(),
+            kategori: "FACILITY'S",
+            jamMasuk: '08:00', // Default atau ambil dari session jika ada
+            jamKeluar: new Date().toTimeString().substring(0, 5),
+            aktivitas: `[KAIZEN PROGRESS ${progress}%] - ${task.title.replace('⚡ KAIZEN: ', '')}\nRespon: ${aktivitas}`,
+            hasil: done ? `Pekerjaan Selesai: ${task.title.replace('⚡ KAIZEN: ', '')}` : `Progress ${progress}%`,
+            kendala: progress < 100 && !done ? 'Masih dalam pengerjaan.' : '',
+            solusi: '',
+            rencana: '',
+            progress: progress,
+            done: true,
+            doneAt: new Date().toISOString(),
+            userId: currentUser.id,
+            targetUserName: currentUser.nama,
+            departemen: 'GENERAL AFFAIR',
+            ownerLevel: 1,
+            attachments: updateData.attachments || [],
+            createdAt: new Date().toISOString()
+        };
+
+        await db.collection('hrd_daily_tasks').add(reportData);
+        console.log("Daily Report terintegrasi otomatis.");
+    } catch (err) {
+        console.warn("Gagal membuat Daily Report otomatis:", err.message);
+    }
+
     // Notify the requester
-    const doc = await db.collection('hrd_daily_tasks').doc(id).get();
-    const task = doc.data();
-    await sendNotification(task.assignedBy, '⚡ UPDATE KAIZEN', `Nanda telah mengupdate tugas: "${task.title.replace('⚡ KAIZEN: ', '')}" ke ${progress}%`, 'kaizen');
+    const finalDoc = await db.collection('hrd_daily_tasks').doc(id).get();
+    const taskFinal = finalDoc.data();
+    await sendNotification(taskFinal.assignedBy, '⚡ UPDATE KAIZEN', `Nanda telah mengupdate tugas: "${taskFinal.title.replace('⚡ KAIZEN: ', '')}" ke ${progress}%`, 'kaizen');
 
     toast('Progress berhasil diperbarui', 'success');
     closeModalDirect();
