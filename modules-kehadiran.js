@@ -2213,7 +2213,6 @@ function _showDailyTaskDetail(task) {
 
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end"><a href="${buildGCalUrl(task)}" target="_blank" class="btn btn-sm btn-info" style="text-decoration:none">📅 Tambah ke Google Calendar</a><button class="btn btn-sm btn-outline" onclick="closeModalDirect()">Tutup</button></div>`);
 }
-}
 
 async function modalAddTask() {
   // Leader/Manager/Head can assign tasks to subordinates
