@@ -69,20 +69,61 @@ async function modalLegalDrafting() {
                 max-width: none !important; max-height: none !important;
                 border-radius: 0 !important; margin: 0 !important;
                 display: flex; flex-direction: column; padding: 0 !important;
-                background: #f0f2f5;
+                background: #f0f2f5; font-family: 'Segoe UI', sans-serif;
             }
-            .word-header {
-                background: #fff; padding: 10px 20px; border-bottom: 1px solid #ddd;
+            /* WORD RIBBON UI */
+            .word-top-bar {
+                background: #2b579a; color: #fff; padding: 4px 15px;
                 display: flex; justify-content: space-between; align-items: center;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 100;
+                font-size: 0.85rem; height: 32px;
             }
-            .word-toolbar-wrapper {
-                background: #f3f4f6; border-bottom: 1px solid #ddd;
-                padding: 4px 10px; display: flex; flex-wrap: wrap; gap: 4px;
-                position: sticky; top: 0; z-index: 99;
+            .word-ribbon {
+                background: #f3f4f6; border-bottom: 1px solid #ccc;
+                display: flex; flex-direction: column;
             }
+            .ribbon-tabs {
+                display: flex; padding-left: 10px; background: #fff;
+                border-bottom: 1px solid #ddd;
+            }
+            .ribbon-tab {
+                padding: 8px 15px; cursor: pointer; font-size: 0.88rem;
+                color: #333; border-bottom: 3px solid transparent;
+                transition: 0.2s;
+            }
+            .ribbon-tab:hover { background: #f0f2f5; }
+            .ribbon-tab.active {
+                border-bottom-color: #2b579a; color: #2b579a; font-weight: 600;
+            }
+            .ribbon-content {
+                padding: 5px 15px; height: 95px; display: flex; align-items: center;
+                gap: 20px; overflow-x: auto; background: #f3f4f6;
+            }
+            .ribbon-panel { display: none; align-items: center; gap: 15px; height: 100%; }
+            .ribbon-panel.active { display: flex; }
+
+            .ribbon-group {
+                display: flex; flex-direction: column; align-items: center;
+                justify-content: center; height: 100%; padding: 0 10px;
+                border-right: 1px solid #ddd; gap: 5px;
+            }
+            .ribbon-group-label {
+                font-size: 0.65rem; color: #888; text-transform: uppercase;
+                margin-top: auto;
+            }
+            .ribbon-row { display: flex; align-items: center; gap: 4px; width: 100%; }
+
+            .ribbon-tool-btn {
+                background: transparent; border: 1px solid transparent;
+                padding: 6px; border-radius: 4px; cursor: pointer;
+                display: flex; flex-direction: column; align-items: center;
+                gap: 2px; transition: 0.15s; min-width: 45px;
+            }
+            .ribbon-tool-btn:hover { background: #e2e8f0; border-color: #cbd5e0; }
+            .ribbon-tool-btn i { font-size: 1.2rem; }
+            .ribbon-tool-btn span { font-size: 0.72rem; color: #444; }
+
             .word-main-layout {
-                display: flex; flex: 1; overflow: hidden; height: calc(100vh - 120px);
+                display: flex; flex: 1; overflow: hidden; height: calc(100vh - 127px);
             }
             .word-sidebar {
                 width: 320px; background: #fff; border-left: 1px solid #ddd;
@@ -137,92 +178,166 @@ async function modalLegalDrafting() {
 
     openModal(`
         <div class="modal-fullscreen" id="modalWorkspace">
-            <!-- TOP HEADER -->
-            <div class="word-header">
-                <div style="display:flex; align-items:center; gap:12px">
-                    <span style="font-size:1.4rem">📄</span>
-                    <div>
-                        <div class="fw-700" style="font-size:0.95rem">Legal Drafting Workspace (Full Screen)</div>
-                        <div class="text-xs color-primary">Sistem Generator Dokumen & AI Hukum</div>
+            <!-- TOP BLUE BAR -->
+            <div class="word-top-bar">
+                <div style="display:flex; align-items:center; gap:15px">
+                    <span style="font-weight:bold; letter-spacing:1px">WORD</span>
+                    <div style="display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.2); padding:2px 10px; border-radius:4px">
+                        <span class="text-xs">AutoSave</span>
+                        <div style="width:30px; height:16px; background:#fff; border-radius:10px; position:relative">
+                            <div style="width:12px; height:12px; background:#2b579a; border-radius:50%; position:absolute; top:2px; right:2px"></div>
+                        </div>
+                    </div>
+                    <span class="text-xs" style="opacity:0.9">Draft Dokumen Legal - IJEF Corp</span>
+                </div>
+                <div style="flex:1; display:flex; justify-content:center">
+                    <div style="background:rgba(255,255,255,0.15); width:400px; padding:4px 15px; border-radius:4px; display:flex; align-items:center; gap:10px">
+                        <span>🔍</span>
+                        <input type="text" placeholder="Search" style="background:transparent; border:none; color:#fff; width:100%; outline:none; font-size:0.75rem">
                     </div>
                 </div>
                 <div class="flex gap-12">
-                    <select class="form-control" id="drTemplate" onchange="applyLegalTemplate()" style="width:200px; font-weight:600">
-                        <option value="">-- Pilih Template --</option>
-                        <option value="mou">MOU Kerjasama</option>
-                        <option value="nda">NDA Agreement</option>
-                        <option value="spk">Surat Perintah Kerja (SPK)</option>
-                        <option value="pks">Perjanjian Kerjasama (PKS)</option>
-                    </select>
-                    <button class="btn btn-warning btn-sm" onclick="document.getElementById('drFileImport').click()" title="Impor teks dari file .txt atau .html">📁 Impor File</button>
-                    <input type="file" id="drFileImport" style="display:none" accept=".txt,.html,.md" onchange="importDocumentToWorkspace(this)">
-                    <button class="btn btn-outline btn-sm" onclick="closeModalDirect()">Tutup (ESC)</button>
-                    <button class="btn btn-info btn-sm" onclick="printDraftLegalDirect()">🖨️ Cetak A4</button>
-                    <button class="btn btn-primary btn-sm" onclick="simpanDraftLegal()">💾 Simpan & Sinkronkan</button>
+                    <button class="btn btn-xs" style="background:#fff; color:#2b579a; font-weight:bold" onclick="simpanDraftLegal()">💾 SIMPAN</button>
+                    <button class="btn btn-xs" style="background:rgba(255,255,255,0.2); color:#fff" onclick="closeModalDirect()">✕</button>
                 </div>
             </div>
 
-            <!-- WORD STYLE TOOLBAR (COMPLETE) -->
-            <div class="word-toolbar-wrapper">
-                <div class="toolbar-grp">
-                    <button class="toolbar-btn" onclick="formatDoc('undo')" title="Undo">⟲</button>
-                    <button class="toolbar-btn" onclick="formatDoc('redo')" title="Redo">⟳</button>
+            <!-- WORD RIBBON -->
+            <div class="word-ribbon">
+                <div class="ribbon-tabs">
+                    <div class="ribbon-tab" onclick="switchRibbonTab('file')">File</div>
+                    <div class="ribbon-tab active" onclick="switchRibbonTab('home')">Home</div>
+                    <div class="ribbon-tab" onclick="switchRibbonTab('insert')">Insert</div>
+                    <div class="ribbon-tab" onclick="switchRibbonTab('design')">Design</div>
+                    <div class="ribbon-tab" onclick="switchRibbonTab('layout')">Layout</div>
+                    <div class="ribbon-tab" onclick="switchRibbonTab('references')">References</div>
+                    <div class="ribbon-tab" onclick="switchRibbonTab('mailings')">Mailings</div>
+                    <div class="ribbon-tab" onclick="switchRibbonTab('review')">Review</div>
+                    <div class="ribbon-tab" onclick="switchRibbonTab('view')">View</div>
+                    <div class="ribbon-tab" onclick="switchRibbonTab('help')">Help</div>
                 </div>
-                <div class="toolbar-grp">
-                    <select class="toolbar-select" onchange="formatDoc('fontName', this.value)" style="width:120px">
-                        <option value="Times New Roman">Times New Roman</option>
-                        <option value="Arial">Arial</option>
-                        <option value="Cambria">Cambria</option>
-                        <option value="Calibri">Calibri</option>
-                        <option value="Georgia">Georgia</option>
-                    </select>
-                    <select class="toolbar-select" onchange="formatDoc('fontSize', this.value)" style="width:60px">
-                        <option value="3">12pt</option>
-                        <option value="1">8pt</option>
-                        <option value="2">10pt</option>
-                        <option value="4">14pt</option>
-                        <option value="5">18pt</option>
-                        <option value="6">24pt</option>
-                        <option value="7">36pt</option>
-                    </select>
-                </div>
-                <div class="toolbar-grp">
-                    <select class="toolbar-select" onchange="formatDoc('formatBlock', this.value)" style="width:100px">
-                        <option value="P">Normal</option>
-                        <option value="H1">Heading 1</option>
-                        <option value="H2">Heading 2</option>
-                        <option value="H3">Heading 3</option>
-                    </select>
-                </div>
-                <div class="toolbar-grp">
-                    <button class="toolbar-btn" onclick="formatDoc('bold')" title="Bold"><b>B</b></button>
-                    <button class="toolbar-btn" onclick="formatDoc('italic')" title="Italic"><i>I</i></button>
-                    <button class="toolbar-btn" onclick="formatDoc('underline')" title="Underline"><u>U</u></button>
-                    <button class="toolbar-btn" onclick="formatDoc('strikeThrough')" title="Strikethrough"><strike>S</strike></button>
-                </div>
-                <div class="toolbar-grp">
-                    <input type="color" onchange="formatDoc('foreColor', this.value)" title="Text Color" style="width:28px;height:28px;padding:0;border:none;cursor:pointer">
-                    <input type="color" value="#ffff00" onchange="formatDoc('backColor', this.value)" title="Highlight" style="width:28px;height:28px;padding:0;border:none;cursor:pointer;margin-left:4px">
-                </div>
-                <div class="toolbar-grp">
-                    <button class="toolbar-btn" onclick="formatDoc('justifyLeft')" title="Align Left">≡</button>
-                    <button class="toolbar-btn" onclick="formatDoc('justifyCenter')" title="Align Center">≣</button>
-                    <button class="toolbar-btn" onclick="formatDoc('justifyRight')" title="Align Right">≡</button>
-                    <button class="toolbar-btn" onclick="formatDoc('justifyFull')" title="Justify">≡</button>
-                </div>
-                <div class="toolbar-grp">
-                    <button class="toolbar-btn" onclick="formatDoc('insertUnorderedList')" title="Bullets">• List</button>
-                    <button class="toolbar-btn" onclick="formatDoc('insertOrderedList')" title="Numbering">1. List</button>
-                </div>
-                <div class="toolbar-grp">
-                    <button class="toolbar-btn" onclick="formatDoc('outdent')" title="Decrease Indent">⇤</button>
-                    <button class="toolbar-btn" onclick="formatDoc('indent')" title="Increase Indent">⇥</button>
-                </div>
-                <div class="toolbar-grp">
-                    <button class="toolbar-btn" onclick="formatDoc('removeFormat')" title="Clear Formatting">🗑️</button>
-                    <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; margin-left:10px">
-                        <input type="checkbox" id="drPakeKop" checked onchange="document.getElementById('kopPreview').classList.toggle('active', this.checked)"> Tampilkan KOP
-                    </label>
+                <div class="ribbon-content" id="ribbonContent">
+                    <!-- HOME PANEL -->
+                    <div class="ribbon-panel active" id="ribbon-home">
+                        <div class="ribbon-group">
+                            <div class="ribbon-row">
+                                <button class="toolbar-btn" onclick="formatDoc('undo')" title="Undo">⟲</button>
+                                <button class="toolbar-btn" onclick="formatDoc('redo')" title="Redo">⟳</button>
+                            </div>
+                            <div class="ribbon-group-label">Undo</div>
+                        </div>
+                        <div class="ribbon-group">
+                            <div class="ribbon-row">
+                                <select class="toolbar-select" id="drFontFamily" onchange="formatDoc('fontName', this.value)" style="width:160px">
+                                    <optgroup label="Font Profesional & Akademis (Serif)">
+                                        <option value="Times New Roman" selected>Times New Roman</option>
+                                        <option value="Georgia">Georgia</option>
+                                        <option value="Garamond">Garamond</option>
+                                        <option value="Palatino Linotype">Palatino Linotype</option>
+                                        <option value="Book Antiqua">Book Antiqua</option>
+                                    </optgroup>
+                                    <optgroup label="Font Modern & Bersih (Sans Serif)">
+                                        <option value="Calibri">Calibri</option>
+                                        <option value="Arial">Arial</option>
+                                        <option value="Aptos, Segoe UI, sans-serif">Aptos</option>
+                                        <option value="Segoe UI">Segoe UI</option>
+                                        <option value="Trebuchet MS">Trebuchet MS</option>
+                                        <option value="Verdana">Verdana</option>
+                                    </optgroup>
+                                    <optgroup label="Font Judul & Dekoratif (Display)">
+                                        <option value="Arial Black">Arial Black</option>
+                                        <option value="Impact">Impact</option>
+                                        <option value="Copperplate">Copperplate Gothic</option>
+                                        <option value="Franklin Gothic Medium">Franklin Gothic Medium</option>
+                                    </optgroup>
+                                    <optgroup label="Font Tulisan Tangan (Script)">
+                                        <option value="Monotype Corsiva">Monotype Corsiva</option>
+                                        <option value="Brush Script MT">Brush Script MT</option>
+                                        <option value="Lucida Handwriting">Lucida Handwriting</option>
+                                        <option value="Edwardian Script ITC">Edwardian Script ITC</option>
+                                    </optgroup>
+                                    <optgroup label="Font Mesin Ketik (Monospace)">
+                                        <option value="Courier New">Courier New</option>
+                                        <option value="Consolas">Consolas</option>
+                                    </optgroup>
+                                </select>
+                                <select class="toolbar-select" onchange="formatDoc('fontSize', this.value)" style="width:60px">
+                                    <option value="3">12pt</option>
+                                    <option value="1">8pt</option>
+                                    <option value="2">10pt</option>
+                                    <option value="4">14pt</option>
+                                    <option value="5">18pt</option>
+                                    <option value="6">24pt</option>
+                                    <option value="7">36pt</option>
+                                </select>
+                            </div>
+                            <div class="ribbon-row">
+                                <button class="toolbar-btn" onclick="formatDoc('bold')" title="Bold"><b>B</b></button>
+                                <button class="toolbar-btn" onclick="formatDoc('italic')" title="Italic"><i>I</i></button>
+                                <button class="toolbar-btn" onclick="formatDoc('underline')" title="Underline"><u>U</u></button>
+                                <button class="toolbar-btn" onclick="formatDoc('strikeThrough')" title="Strikethrough"><strike>S</strike></button>
+                                <input type="color" onchange="formatDoc('foreColor', this.value)" title="Text Color" style="width:24px;height:24px;padding:0;border:none;cursor:pointer">
+                                <input type="color" value="#ffff00" onchange="formatDoc('backColor', this.value)" title="Highlight" style="width:24px;height:24px;padding:0;border:none;cursor:pointer;margin-left:4px">
+                            </div>
+                            <div class="ribbon-group-label">Font</div>
+                        </div>
+                        <div class="ribbon-group">
+                            <div class="ribbon-row">
+                                <button class="toolbar-btn" onclick="formatDoc('justifyLeft')" title="Align Left">≡</button>
+                                <button class="toolbar-btn" onclick="formatDoc('justifyCenter')" title="Align Center">≣</button>
+                                <button class="toolbar-btn" onclick="formatDoc('justifyRight')" title="Align Right">≡</button>
+                                <button class="toolbar-btn" onclick="formatDoc('justifyFull')" title="Justify">≡</button>
+                            </div>
+                            <div class="ribbon-row">
+                                <button class="toolbar-btn" onclick="formatDoc('insertUnorderedList')" title="Bullets">• List</button>
+                                <button class="toolbar-btn" onclick="formatDoc('insertOrderedList')" title="Numbering">1. List</button>
+                                <button class="toolbar-btn" onclick="formatDoc('outdent')" title="Decrease Indent">⇤</button>
+                                <button class="toolbar-btn" onclick="formatDoc('indent')" title="Increase Indent">⇥</button>
+                            </div>
+                            <div class="ribbon-group-label">Paragraph</div>
+                        </div>
+                        <div class="ribbon-group">
+                            <div class="ribbon-row" style="gap:8px">
+                                <button class="toolbar-btn" onclick="formatDoc('formatBlock', 'P')" style="flex-direction:row; gap:4px; font-size:0.7rem; width:70px">Aa Normal</button>
+                                <button class="toolbar-btn" onclick="formatDoc('formatBlock', 'H1')" style="flex-direction:row; gap:4px; font-size:0.7rem; width:70px"><b>Aa Head 1</b></button>
+                                <button class="toolbar-btn" onclick="formatDoc('formatBlock', 'H2')" style="flex-direction:row; gap:4px; font-size:0.7rem; width:70px"><b>Aa Head 2</b></button>
+                            </div>
+                            <div class="ribbon-group-label">Styles</div>
+                        </div>
+                    </div>
+
+                    <!-- FILE PANEL -->
+                    <div class="ribbon-panel" id="ribbon-file">
+                        <button class="ribbon-tool-btn" onclick="simpanDraftLegal()"><i>💾</i><span>Simpan</span></button>
+                        <button class="ribbon-tool-btn" onclick="printDraftLegalDirect()"><i>🖨️</i><span>Cetak A4</span></button>
+                        <button class="ribbon-tool-btn" onclick="document.getElementById('drFileImport').click()"><i>📁</i><span>Impor File</span></button>
+                        <input type="file" id="drFileImport" style="display:none" accept=".txt,.html,.md" onchange="importDocumentToWorkspace(this)">
+                        <div class="ribbon-group-label">File Actions</div>
+                    </div>
+
+                    <!-- INSERT PANEL -->
+                    <div class="ribbon-panel" id="ribbon-insert">
+                        <div class="ribbon-group">
+                            <select class="form-control" id="drTemplate" onchange="applyLegalTemplate()" style="width:180px; font-size:0.8rem">
+                                <option value="">-- Pilih Template --</option>
+                                <option value="mou">MOU Kerjasama</option>
+                                <option value="nda">NDA Agreement</option>
+                                <option value="spk">Surat Perintah Kerja (SPK)</option>
+                                <option value="pks">Perjanjian Kerjasama (PKS)</option>
+                            </select>
+                            <div class="ribbon-group-label">Legal Templates</div>
+                        </div>
+                    </div>
+
+                    <!-- LAYOUT PANEL -->
+                    <div class="ribbon-panel" id="ribbon-layout">
+                         <div class="ribbon-group">
+                            <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; cursor:pointer">
+                                <input type="checkbox" id="drPakeKop" checked onchange="document.getElementById('kopPreview').classList.toggle('active', this.checked)"> Tampilkan KOP Surat
+                            </label>
+                            <div class="ribbon-group-label">Page Setup</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -244,7 +359,7 @@ async function modalLegalDrafting() {
                         <!-- TITLE AREA -->
                         <div style="text-align:center; margin-bottom: 20px">
                             <div id="drJudul" contenteditable="true" style="width:100%; text-align:center; font-weight:bold; font-size:13pt; border:none; outline:none; text-decoration:underline" data-placeholder="JUDUL DOKUMEN / PERIHAL">JUDUL DOKUMEN / PERIHAL</div>
-                            <div style="font-size:11pt; margin-top:8px">Nomor: <span style="font-family:monospace">${autoNumber}</span></div>
+                            <div style="font-size:11pt; margin-top:8px">Nomor: <input type="text" id="drNomor" value="${autoNumber}" style="border:none; background:transparent; font-family:monospace; font-size:11pt; width:220px; text-align:left; outline:none"></div>
                         </div>
                         <!-- CONTENT AREA (WYSIWYG) -->
                         <div class="word-editor" id="drKonten" contenteditable="true"></div>
@@ -770,4 +885,16 @@ async function simpanSengketa(id) {
     if (id) await db.collection("hrd_legal_sengketa").doc(id).update(data);
     else await db.collection("hrd_legal_sengketa").add({ ...data, createdAt: new Date().toISOString() });
     closeModalDirect(); renderLegalSengketa();
+}
+
+function switchRibbonTab(tabId) {
+    // Update tab status
+    document.querySelectorAll('.ribbon-tab').forEach(t => {
+        t.classList.toggle('active', t.textContent.toLowerCase() === tabId);
+    });
+
+    // Update panel visibility
+    document.querySelectorAll('.ribbon-panel').forEach(p => {
+        p.classList.toggle('active', p.id === 'ribbon-' + tabId);
+    });
 }
