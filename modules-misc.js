@@ -1452,9 +1452,10 @@ async function simpanAkun(id) {
 // ── APPROVAL CENTER — Multi-step flow with department filtering ──
 async function renderApprovalCenter(tab = 'pending') {
   const main = document.getElementById('mainContent');
-  const isBOD = currentUser.role === 'bod';
+  const role = (currentUser.role || '').toLowerCase();
+  const isBOD = role === 'bod' || role === 'founder';
   const isAdmin = hasAccess(6);
-  const isPowerUser = isAdmin || isBOD;
+  const isPowerUser = isAdmin || isBOD || hasAccess(4); // HEAD/Level 4 can also manage flows in center
 
   main.innerHTML = `<div class="page-title"><span>✅ Approval Center</span></div>
     <div class="tabs mb-16" id="approvalTabs">
@@ -1635,6 +1636,12 @@ async function renderApprovalCenter(tab = 'pending') {
       ${progressHtml}
     </div>`;
   });
+
+  if (!visibleCount)
+    h = `<div class="empty-state"><div class="icon">✅</div><p>Tidak ada data ${tab === 'pending' ? 'menunggu approval' : 'riwayat'}</p></div>`;
+
+  document.getElementById('approvalList').innerHTML = h;
+}
 
   if (!visibleCount)
     h = `<div class="empty-state"><div class="icon">✅</div><p>Tidak ada data ${tab === 'pending' ? 'menunggu approval' : 'riwayat'}</p></div>`;
@@ -2112,10 +2119,10 @@ async function approveItem(col, id, status, catatan) {
         `Pengajuan ${data.jenis || col.replace('hrd_', '')} ditolak oleh ${currentUser.nama}`
       );
   } else {
-    // Robust flow lookup: pick the flow for this specific pengaju with the MOST steps
+    // Robust flow lookup: pick the flow for this specific pengaju and CATEGORY
     const flowSnap = await db.collection('hrd_approval_flow').get();
     let steps = [];
-    const namaLower = (data.nama || '').toLowerCase().trim();
+    const cat = getApprovalCategory(col, data);
 
     const matchingFlows = [];
     flowSnap.forEach((d) => {
@@ -2125,8 +2132,10 @@ async function approveItem(col, id, status, catatan) {
       }
     });
 
-    // Pick the flow that has the highest number of steps (handles duplicates/empty flows)
-    const validFlow = matchingFlows.sort((a, b) => (b.steps?.length || 0) - (a.steps?.length || 0))[0];
+    // Try to find match for Category, fallback to longest flow
+    const validFlow = matchingFlows.find(f => f.jenis === cat) ||
+                      matchingFlows.sort((a, b) => (b.steps?.length || 0) - (a.steps?.length || 0))[0];
+
     if (validFlow) steps = validFlow.steps || [];
 
     const nextStep = currentStep + 1;
