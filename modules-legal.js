@@ -70,49 +70,94 @@ async function modalLegalDrafting() {
                 background: #f0f2f5; font-family: 'Segoe UI', sans-serif; z-index: 9999;
             }
             .dr-header {
-                background: #1a1a1a; color: #fff; padding: 12px 20px;
+                background: #2b579a; color: #fff; padding: 8px 20px;
                 display: flex; justify-content: space-between; align-items: center;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             }
+            .dr-toolbar-tabs {
+                background: #2b579a; display: flex; padding: 0 20px; gap: 4px;
+            }
+            .dr-tab {
+                padding: 8px 16px; color: #fff; cursor: pointer; font-size: 0.85rem;
+                border-radius: 4px 4px 0 0; transition: 0.2s;
+            }
+            .dr-tab:hover { background: rgba(255,255,255,0.1); }
+            .dr-tab.active { background: #fff; color: #2b579a; font-weight: 600; }
+
             .dr-toolbar {
                 background: #fff; border-bottom: 1px solid #ddd;
-                padding: 10px 20px; display: flex; flex-wrap: wrap; gap: 10px;
+                padding: 8px 20px; display: flex; flex-wrap: wrap; gap: 10px;
                 align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
             }
             .dr-toolbar-grp {
                 display: flex; align-items: center; gap: 5px;
                 padding-right: 12px; border-right: 1px solid #eee;
+                height: 40px;
             }
             .dr-toolbar-grp:last-child { border-right: none; }
-            .dr-btn {
-                background: #f8f9fa; border: 1px solid #dee2e6;
-                padding: 6px 10px; border-radius: 6px; cursor: pointer;
-                font-size: 0.9rem; transition: 0.2s; color: #333;
-                display: flex; align-items: center; gap: 6px;
+            .dr-toolbar-label {
+                position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
+                font-size: 0.65rem; color: #999; text-transform: uppercase; white-space: nowrap;
             }
-            .dr-btn:hover { background: #e9ecef; border-color: #adb5bd; }
-            .dr-btn.active { background: #3182ce; color: #fff; border-color: #3182ce; }
+            .dr-btn {
+                background: transparent; border: 1px solid transparent;
+                padding: 6px 8px; border-radius: 4px; cursor: pointer;
+                font-size: 0.9rem; transition: 0.2s; color: #333;
+                display: flex; flex-direction: column; align-items: center; gap: 2px;
+                min-width: 40px;
+            }
+            .dr-btn:hover { background: #f0f0f0; border-color: #ddd; }
+            .dr-btn i { font-size: 1.1rem; }
+            .dr-btn span { font-size: 0.7rem; }
+            .dr-btn.active { background: #e2e8f0; color: #2b579a; border-color: #cbd5e0; }
+
             .dr-select {
-                padding: 6px 10px; border-radius: 6px; border: 1px solid #dee2e6;
-                font-size: 0.85rem; background: #fff; height: 34px; outline: none;
+                padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd;
+                font-size: 0.8rem; background: #fff; outline: none;
             }
             .dr-main {
-                display: flex; flex: 1; overflow: hidden; height: calc(100vh - 120px);
+                display: flex; flex: 1; overflow: hidden; height: calc(100vh - 145px);
             }
             .dr-editor-container {
-                flex: 1; background: #525659; overflow-y: auto;
-                display: flex; justify-content: center; padding: 40px 20px;
+                flex: 1; background: #e9ecef; overflow: auto;
+                display: flex; flex-direction: column; align-items: center; padding: 40px 20px;
+                position: relative;
             }
+
+            /* RULER STYLES */
+            .dr-ruler-h {
+                width: 210mm; height: 25px; background: #fff; border: 1px solid #ccc;
+                border-bottom: 2px solid #333; position: relative; flex-shrink: 0;
+                display: flex; align-items: flex-end;
+            }
+            .dr-ruler-v {
+                width: 25px; min-height: 297mm; background: #fff; border: 1px solid #ccc;
+                border-right: 2px solid #333; position: absolute; left: -25px; top: 0;
+                display: flex; flex-direction: column; align-items: center;
+            }
+            .ruler-tick { position: absolute; background: #666; }
+            .ruler-tick.major { height: 10px; width: 1px; }
+            .ruler-tick.minor { height: 5px; width: 1px; }
+            .ruler-num { position: absolute; font-size: 9px; color: #333; font-family: sans-serif; }
+
+            .dr-page-wrapper { position: relative; margin-top: 10px; }
             .dr-page {
                 background: white; width: 210mm; min-height: 297mm;
-                padding: 2.5cm 2.5cm 2cm 2.5cm; box-shadow: 0 0 20px rgba(0,0,0,0.3);
-                display: flex; flex-direction: column; color: #000;
+                padding: 2.5cm 2.5cm 2cm 2.5cm; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                display: flex; flex-direction: column; color: #000; position: relative;
             }
+            .dr-page.gridlines {
+                background-image:
+                    linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
+                background-size: 5mm 5mm;
+            }
+
             .dr-editor {
                 border: none; width: 100%; min-height: 100%;
                 flex: 1; font-family: 'Times New Roman', serif; font-size: 11pt;
                 line-height: 1.6; outline: none; padding: 0; margin-top: 10px;
-                background: #fff; text-align: justify;
+                background: transparent; text-align: justify;
             }
             .dr-sidebar {
                 width: 350px; background: #fff; border-left: 1px solid #ddd;
@@ -139,120 +184,145 @@ async function modalLegalDrafting() {
         <div class="modal-fullscreen" id="modalWorkspace">
             <div class="dr-header">
                 <div class="flex gap-12" style="align-items:center">
-                    <span style="font-size:1.5rem">📝</span>
+                    <div style="background:#fff; color:#2b579a; width:32px; height:32px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-weight:bold">W</div>
                     <div>
-                        <div class="fw-700">LEGAL DRAFTING PRO</div>
-                        <div class="text-xs" style="opacity:0.7">IJEF Corp Management System</div>
+                        <div class="fw-700" style="font-size:0.9rem">Legal Drafting Pro - Dokumen 1</div>
+                        <div class="text-xs" style="opacity:0.8">Tersimpan di Cloud</div>
                     </div>
                 </div>
                 <div class="flex gap-8">
-                    <button class="btn btn-warning btn-sm" onclick="document.getElementById('drFileImport').click()">📁 Impor</button>
-                    <input type="file" id="drFileImport" style="display:none" accept=".txt,.html,.md" onchange="importDocumentToWorkspace(this)">
-                    <button class="btn btn-info btn-sm" onclick="printDraftLegalDirect()">🖨️ Cetak A4</button>
-                    <button class="btn btn-success btn-sm" onclick="simpanDraftLegal()" style="font-weight:bold">💾 SIMPAN & SINKRONKAN</button>
+                    <button class="btn btn-sm" style="background:rgba(255,255,255,0.1); color:#fff" onclick="simpanDraftLegal()">💾 Simpan</button>
+                    <button class="btn btn-sm" style="background:rgba(255,255,255,0.1); color:#fff" onclick="printDraftLegalDirect()">🖨️ Cetak</button>
                     <button class="btn btn-outline btn-sm" style="color:#fff; border-color:#fff" onclick="closeModalDirect()">✕</button>
                 </div>
             </div>
 
-            <div class="dr-toolbar">
+            <div class="dr-toolbar-tabs">
+                <div class="dr-tab active" id="tab-home" onclick="switchDrTab('home')">Beranda</div>
+                <div class="dr-tab" id="tab-insert" onclick="switchDrTab('insert')">Sisipkan</div>
+                <div class="dr-tab" id="tab-layout" onclick="switchDrTab('layout')">Tata Letak</div>
+                <div class="dr-tab" id="tab-view" onclick="switchDrTab('view')">Tampilan</div>
+            </div>
+
+            <!-- HOME TOOLBAR -->
+            <div class="dr-toolbar" id="dr-toolbar-home">
                 <div class="dr-toolbar-grp">
-                    <button class="dr-btn" onclick="formatDoc('undo')" title="Undo">⟲</button>
-                    <button class="dr-btn" onclick="formatDoc('redo')" title="Redo">⟳</button>
+                    <button class="dr-btn" onclick="formatDoc('undo')" title="Undo">↺<span>Undo</span></button>
+                    <button class="dr-btn" onclick="formatDoc('redo')" title="Redo">↻<span>Redo</span></button>
                 </div>
                 <div class="dr-toolbar-grp">
-                    <select class="dr-select" id="drFontFamily" onchange="formatDoc('fontName', this.value)" style="width:180px">
-                        <optgroup label="1. Profesional & Akademis (Serif)">
-                            <option value="Times New Roman" selected>Times New Roman</option>
-                            <option value="Georgia">Georgia</option>
-                            <option value="Garamond">Garamond</option>
-                            <option value="Palatino Linotype">Palatino Linotype</option>
-                            <option value="Book Antiqua">Book Antiqua</option>
-                        </optgroup>
-                        <optgroup label="2. Modern & Bersih (Sans Serif)">
-                            <option value="Calibri">Calibri</option>
-                            <option value="Arial">Arial</option>
-                            <option value="Aptos, Segoe UI, sans-serif">Aptos</option>
-                            <option value="Segoe UI">Segoe UI</option>
-                            <option value="Trebuchet MS">Trebuchet MS</option>
-                            <option value="Verdana">Verdana</option>
-                        </optgroup>
-                        <optgroup label="3. Judul & Dekoratif (Display)">
-                            <option value="Arial Black">Arial Black</option>
-                            <option value="Impact">Impact</option>
-                            <option value="Copperplate">Copperplate Gothic</option>
-                            <option value="Franklin Gothic Medium">Franklin Gothic Medium</option>
-                        </optgroup>
-                        <optgroup label="4. Tulisan Tangan (Script)">
-                            <option value="Monotype Corsiva">Monotype Corsiva</option>
-                            <option value="Brush Script MT">Brush Script MT</option>
-                            <option value="Lucida Handwriting">Lucida Handwriting</option>
-                            <option value="Edwardian Script ITC">Edwardian Script ITC</option>
-                        </optgroup>
-                        <optgroup label="5. Font Mesin Ketik (Monospace)">
-                            <option value="Courier New">Courier New</option>
-                            <option value="Consolas">Consolas</option>
-                        </optgroup>
+                    <select class="dr-select" id="drFontFamily" onchange="formatDoc('fontName', this.value)" style="width:140px">
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Arial">Arial</option>
+                        <option value="Calibri">Calibri</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Courier New">Courier New</option>
                     </select>
-                    <select class="dr-select" onchange="formatDoc('fontSize', this.value)" style="width:70px">
-                        <option value="3" selected>12pt</option>
-                        <option value="1">8pt</option>
-                        <option value="2">10pt</option>
-                        <option value="4">14pt</option>
-                        <option value="5">18pt</option>
-                        <option value="6">24pt</option>
+                    <select class="dr-select" onchange="formatDoc('fontSize', this.value)" style="width:60px">
+                        <option value="3" selected>12</option>
+                        <option value="1">8</option>
+                        <option value="2">10</option>
+                        <option value="4">14</option>
+                        <option value="5">18</option>
                     </select>
                 </div>
                 <div class="dr-toolbar-grp">
-                    <button class="dr-btn" onclick="formatDoc('bold')" title="Bold"><b>B</b></button>
-                    <button class="dr-btn" onclick="formatDoc('italic')" title="Italic"><i>I</i></button>
-                    <button class="dr-btn" onclick="formatDoc('underline')" title="Underline"><u>U</u></button>
-                    <input type="color" onchange="formatDoc('foreColor', this.value)" title="Warna Teks" style="width:28px;height:28px;padding:0;border:none;cursor:pointer">
-                    <input type="color" value="#ffff00" onchange="formatDoc('backColor', this.value)" title="Highlight" style="width:28px;height:28px;padding:0;border:none;cursor:pointer">
+                    <button class="dr-btn" onclick="formatDoc('bold')" title="Bold"><b>B</b><span>Tebal</span></button>
+                    <button class="dr-btn" onclick="formatDoc('italic')" title="Italic"><i>I</i><span>Miring</span></button>
+                    <button class="dr-btn" onclick="formatDoc('underline')" title="Underline"><u>U</u><span>Garis</span></button>
+                    <div style="display:flex; flex-direction:column; align-items:center">
+                        <input type="color" onchange="formatDoc('foreColor', this.value)" style="width:20px; height:20px; padding:0; border:none; cursor:pointer">
+                        <span style="font-size:0.6rem">Warna</span>
+                    </div>
                 </div>
                 <div class="dr-toolbar-grp">
-                    <button class="dr-btn" onclick="formatDoc('justifyLeft')">≡</button>
-                    <button class="dr-btn" onclick="formatDoc('justifyCenter')">≣</button>
-                    <button class="dr-btn" onclick="formatDoc('justifyRight')">≡</button>
-                    <button class="dr-btn" onclick="formatDoc('justifyFull')">≡</button>
+                    <button class="dr-btn" onclick="formatDoc('justifyLeft')">≡<span>Kiri</span></button>
+                    <button class="dr-btn" onclick="formatDoc('justifyCenter')">≣<span>Tengah</span></button>
+                    <button class="dr-btn" onclick="formatDoc('justifyFull')">≡<span>Rata</span></button>
                 </div>
                 <div class="dr-toolbar-grp">
-                    <button class="dr-btn" onclick="formatDoc('insertUnorderedList')">• List</button>
-                    <button class="dr-btn" onclick="formatDoc('insertOrderedList')">1. List</button>
-                </div>
-                <div class="dr-toolbar-grp">
-                    <select class="dr-select" id="drTemplate" onchange="applyLegalTemplate()" style="width:160px; font-weight:600; color:var(--primary)">
-                        <option value="">-- Pilih Template --</option>
-                        <option value="mou">MOU Kerjasama</option>
-                        <option value="nda">NDA Agreement</option>
-                        <option value="spk">Surat Perintah Kerja</option>
-                        <option value="pks">Perjanjian Kerjasama</option>
-                        <option value="peraturan">Peraturan Perusahaan</option>
+                    <select class="dr-select" id="drTemplate" onchange="applyLegalTemplate()" style="width:130px">
+                        <option value="">-- Template --</option>
+                        <option value="mou">MOU</option>
+                        <option value="nda">NDA</option>
+                        <option value="spk">SPK</option>
                     </select>
                 </div>
+            </div>
+
+            <!-- LAYOUT TOOLBAR -->
+            <div class="dr-toolbar" id="dr-toolbar-layout" style="display:none">
                 <div class="dr-toolbar-grp">
-                    <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; cursor:pointer">
-                        <input type="checkbox" id="drPakeKop" checked onchange="document.getElementById('kopPreview').classList.toggle('active', this.checked)"> Tampilkan KOP
+                    <button class="dr-btn" onclick="changeMargins()">📐<span>Margin</span></button>
+                    <button class="dr-btn" onclick="changeOrientation()">📄<span>Orientasi</span></button>
+                    <button class="dr-btn" onclick="changePageSize()">📏<span>Ukuran</span></button>
+                    <button class="dr-btn">📋<span>Kolom</span></button>
+                </div>
+                <div class="dr-toolbar-grp">
+                    <div style="font-size:0.75rem; display:grid; grid-template-columns: 1fr 1fr; gap:4px">
+                        <label>Indent Kiri:</label><input type="text" value="0 cm" style="width:50px; font-size:0.7rem">
+                        <label>Spasi Atas:</label><input type="text" value="0 pt" style="width:50px; font-size:0.7rem">
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW TOOLBAR -->
+            <div class="dr-toolbar" id="dr-toolbar-view" style="display:none">
+                <div class="dr-toolbar-grp">
+                    <button class="dr-btn active">📄<span>Print Layout</span></button>
+                    <button class="dr-btn">🌐<span>Web Layout</span></button>
+                    <button class="dr-btn">📖<span>Fokus</span></button>
+                </div>
+                <div class="dr-toolbar-grp">
+                    <label style="display:flex; flex-direction:column; font-size:0.7rem; gap:2px">
+                        <span style="display:flex; align-items:center; gap:4px"><input type="checkbox" id="chkRuler" checked onchange="toggleDrRuler()"> Penggaris</span>
+                        <span style="display:flex; align-items:center; gap:4px"><input type="checkbox" id="chkGrid" onchange="toggleDrGrid()"> Garis Kisi</span>
+                        <span style="display:flex; align-items:center; gap:4px"><input type="checkbox" id="chkKop" checked onchange="toggleDrKop()"> Tampilkan KOP</span>
                     </label>
+                </div>
+                <div class="dr-toolbar-grp">
+                    <button class="dr-btn" onclick="setDrZoom(100)">🔍<span>100%</span></button>
+                    <button class="dr-btn" onclick="setDrZoom('width')">↔️<span>Lebar Halaman</span></button>
+                </div>
+            </div>
+
+            <!-- INSERT TOOLBAR -->
+            <div class="dr-toolbar" id="dr-toolbar-insert" style="display:none">
+                <div class="dr-toolbar-grp">
+                    <button class="dr-btn" onclick="document.getElementById('drFileImport').click()">📁<span>Unggah</span></button>
+                    <button class="dr-btn" onclick="formatDoc('insertImage', prompt('URL Gambar:'))">🖼️<span>Gambar</span></button>
+                    <button class="dr-btn" onclick="formatDoc('insertHorizontalRule')">➖<span>Garis</span></button>
+                </div>
+                <div class="dr-toolbar-grp">
+                    <button class="dr-btn">📅<span>Tanggal</span></button>
+                    <button class="dr-btn">🔢<span>No Halaman</span></button>
                 </div>
             </div>
 
             <div class="dr-main">
                 <div class="dr-editor-container">
-                    <div class="dr-page" id="wordPage">
-                        <div class="dr-kop active" id="kopPreview">
-                            <img src="${cp.logo || 'icon-ijef-v3.png'}" style="width:80px; height:80px; object-fit:contain; margin-right:20px">
-                            <div style="flex:1; text-align:center">
-                                <div style="font-size:16pt; font-weight:bold; text-transform:uppercase; color:#000">${cp.nama}</div>
-                                <div style="font-size:10pt; color:#444">${cp.alamat} ${cp.kota || ''}</div>
-                                <div style="font-size:10pt; color:#444">Telp: ${cp.telepon || cp.telp || '-'} | Email: ${cp.email}</div>
+                    <div id="drRulerH" class="dr-ruler-h"></div>
+
+                    <div class="dr-page-wrapper">
+                        <div id="drRulerV" class="dr-ruler-v"></div>
+
+                        <div class="dr-page" id="wordPage">
+                            <div class="dr-kop active" id="kopPreview">
+                                <img src="${cp.logo || 'icon-ijef-v3.png'}" style="width:80px; height:80px; object-fit:contain; margin-right:20px">
+                                <div style="flex:1; text-align:center">
+                                    <div style="font-size:16pt; font-weight:bold; text-transform:uppercase; color:#000">${cp.nama}</div>
+                                    <div style="font-size:10pt; color:#444">${cp.alamat} ${cp.kota || ''}</div>
+                                    <div style="font-size:10pt; color:#444">Telp: ${cp.telepon || cp.telp || '-'} | Email: ${cp.email}</div>
+                                </div>
                             </div>
+                            <div style="text-align:center; margin-bottom: 25px">
+                                <div id="drJudul" contenteditable="true" style="width:100%; text-align:center; font-weight:bold; font-size:14pt; border:none; outline:none; text-decoration:underline">JUDUL DOKUMEN / PERIHAL</div>
+                                <div style="font-size:11pt; margin-top:10px">Nomor: <input type="text" id="drNomor" value="${autoNumber}" style="border:none; background:transparent; font-family:monospace; font-size:11pt; width:250px; outline:none"></div>
+                            </div>
+                            <div class="dr-editor" id="drKonten" contenteditable="true"></div>
                         </div>
-                        <div style="text-align:center; margin-bottom: 25px">
-                            <div id="drJudul" contenteditable="true" style="width:100%; text-align:center; font-weight:bold; font-size:14pt; border:none; outline:none; text-decoration:underline">JUDUL DOKUMEN / PERIHAL</div>
-                            <div style="font-size:11pt; margin-top:10px">Nomor: <input type="text" id="drNomor" value="${autoNumber}" style="border:none; background:transparent; font-family:monospace; font-size:11pt; width:250px; outline:none"></div>
-                        </div>
-                        <div class="dr-editor" id="drKonten" contenteditable="true"></div>
                     </div>
+                    <div style="height:100px; flex-shrink:0"></div> <!-- Spacer bottom -->
                 </div>
 
                 <div class="dr-sidebar">
@@ -267,20 +337,153 @@ async function modalLegalDrafting() {
                         </div>
                     </div>
                     <div style="padding:15px; border-top:1px solid #eee; background:#fff">
-                        <textarea class="form-control" id="aiPrompt" style="min-height:100px; font-size:0.85rem; border-radius:10px" placeholder="Tanyakan sesuatu ke AI..."></textarea>
+                        <textarea class="form-control" id="aiPrompt" style="min-height:80px; font-size:0.85rem; border-radius:10px" placeholder="Tanyakan sesuatu ke AI..."></textarea>
                         <div class="flex gap-4 mt-12">
                             <button class="btn btn-primary" style="flex:1" onclick="discussWithAI()">💬 Kirim</button>
-                            <button class="btn btn-info" onclick="discussWithAI(true)">🧐 Analisis Draf</button>
-                            <button class="btn btn-success" onclick="executeAIDraft()">⚡ Terapkan</button>
+                            <button class="btn btn-info btn-sm" onclick="discussWithAI(true)">🧐 Analisis</button>
+                            <button class="btn btn-success btn-sm" onclick="executeAIDraft()">⚡ Terapkan</button>
                         </div>
-                        <div class="form-group mt-16">
-                            <label class="text-xs">Informasi Pihak Kedua</label>
-                            <input class="form-control" id="drPihak2" placeholder="Nama Lembaga/Orang">
+                        <div class="form-group mt-12">
+                            <label class="text-xs">Pihak Kedua:</label>
+                            <input class="form-control form-control-sm" id="drPihak2" placeholder="Nama Lembaga/Orang">
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+    `, true);
+
+    const modal = document.getElementById("modalContent");
+    if (modal) {
+        modal.classList.add("modal-fullscreen");
+        modal.parentElement.style.padding = "0";
+    }
+
+    // Initialize Rulers
+    initDrRulers();
+}
+
+window.switchDrDrTab = function(tab) { // Global access
+    document.querySelectorAll('.dr-toolbar').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.dr-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('dr-toolbar-' + tab).style.display = 'flex';
+    document.getElementById('tab-' + tab).classList.add('active');
+};
+
+// Map original name to new global name for compatibility if needed
+window.switchDrTab = window.switchDrDrTab;
+
+window.initDrRulers = function() {
+    const rh = document.getElementById("drRulerH");
+    const rv = document.getElementById("drRulerV");
+    if(!rh || !rv) return;
+
+    // Horizontal Ruler (21cm for A4)
+    let hHtml = "";
+    for(let i=0; i<=21; i++) {
+        hHtml += `<div class="ruler-tick major" style="left:${i}cm; bottom:0"></div>`;
+        if(i < 21) {
+            for(let j=1; j<10; j++) {
+                hHtml += `<div class="ruler-tick minor" style="left:${i}.${j}cm; bottom:0"></div>`;
+            }
+        }
+        hHtml += `<div class="ruler-num" style="left:${i}cm; bottom:12px; transform: translateX(-50%)">${i}</div>`;
+    }
+    rh.innerHTML = hHtml;
+
+    // Vertical Ruler (29.7cm for A4)
+    let vHtml = "";
+    for(let i=0; i<=30; i++) {
+        vHtml += `<div class="ruler-tick major" style="top:${i}cm; right:0; width:10px; height:1px"></div>`;
+        if(i < 30) {
+            for(let j=1; j<10; j++) {
+                vHtml += `<div class="ruler-tick minor" style="top:${i}.${j}cm; right:0; width:5px; height:1px"></div>`;
+            }
+        }
+        vHtml += `<div class="ruler-num" style="top:${i}cm; right:12px; transform: translateY(-50%)">${i}</div>`;
+    }
+    rv.innerHTML = vHtml;
+};
+
+window.toggleDrRuler = function() {
+    const active = document.getElementById('chkRuler').checked;
+    document.getElementById('drRulerH').style.visibility = active ? 'visible' : 'hidden';
+    document.getElementById('drRulerV').style.visibility = active ? 'visible' : 'hidden';
+};
+
+window.toggleDrGrid = function() {
+    document.getElementById('wordPage').classList.toggle('gridlines', document.getElementById('chkGrid').checked);
+};
+
+window.toggleDrKop = function() {
+    document.getElementById('kopPreview').classList.toggle('active', document.getElementById('chkKop').checked);
+};
+
+window.setDrZoom = function(val) {
+    const container = document.querySelector('.dr-editor-container');
+    const page = document.getElementById('wordPage');
+    const rulerH = document.getElementById('drRulerH');
+
+    if (val === 'width') {
+        const targetWidth = container.clientWidth - 80;
+        const scale = targetWidth / page.offsetWidth;
+        page.style.transform = `scale(${scale})`;
+        page.style.transformOrigin = 'top center';
+        rulerH.style.transform = `scale(${scale})`;
+        rulerH.style.transformOrigin = 'bottom center';
+    } else {
+        const scale = val / 100;
+        page.style.transform = `scale(${scale})`;
+        page.style.transformOrigin = 'top center';
+        rulerH.style.transform = `scale(${scale})`;
+        rulerH.style.transformOrigin = 'bottom center';
+    }
+};
+
+window.changeMargins = function() {
+    const m = prompt("Masukkan Margin (cm) [Top Right Bottom Left]:", "2.5 2.5 2 2.5");
+    if(!m) return;
+    const vals = m.split(" ").map(v => v + "cm");
+    document.getElementById('wordPage').style.padding = vals.join(" ");
+};
+
+window.changeOrientation = function() {
+    const page = document.getElementById('wordPage');
+    const rulerH = document.getElementById('drRulerH');
+    const rulerV = document.getElementById('drRulerV');
+
+    const isPortrait = page.style.width === "210mm" || !page.style.width;
+    if (isPortrait) {
+        page.style.width = "297mm";
+        page.style.minHeight = "210mm";
+        rulerH.style.width = "297mm";
+        rulerV.style.minHeight = "210mm";
+    } else {
+        page.style.width = "210mm";
+        page.style.minHeight = "297mm";
+        rulerH.style.width = "210mm";
+        rulerV.style.minHeight = "297mm";
+    }
+    initDrRulers();
+};
+
+window.changePageSize = function() {
+    const size = prompt("Pilih Ukuran (A4, Letter, F4):", "A4").toUpperCase();
+    const page = document.getElementById('wordPage');
+    const rulerH = document.getElementById('drRulerH');
+    const rulerV = document.getElementById('drRulerV');
+
+    if (size === "A4") {
+        page.style.width = "210mm"; page.style.minHeight = "297mm";
+    } else if (size === "LETTER") {
+        page.style.width = "216mm"; page.style.minHeight = "279mm";
+    } else if (size === "F4") {
+        page.style.width = "210mm"; page.style.minHeight = "330mm";
+    }
+    rulerH.style.width = page.style.width;
+    rulerV.style.minHeight = page.style.minHeight;
+    initDrRulers();
+};
     `, true);
 
     const modal = document.getElementById("modalContent");
