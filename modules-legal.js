@@ -56,6 +56,7 @@ async function modalLegalDrafting() {
     const year = now.getFullYear();
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
     const autoNumber = `${nextSeq}/LGL-IJEF/${month}/${year}`;
+    const deviceType = getDeviceType();
 
     const styleId = "legalDraftingStyles";
     if (!document.getElementById(styleId)) {
@@ -189,12 +190,12 @@ async function modalLegalDrafting() {
     } catch (e) {}
 
     openModal(`
-        <div class="modal-fullscreen" id="modalWorkspace">
+        <div class="modal-fullscreen device-${deviceType}" id="modalWorkspace">
             <div class="dr-header">
                 <div class="flex gap-12" style="align-items:center">
                     <div style="background:#fff; color:#2b579a; width:32px; height:32px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-weight:bold">W</div>
                     <div>
-                        <div class="fw-700" style="font-size:0.9rem">Legal Drafting Pro - Dokumen 1</div>
+                        <div class="fw-700" style="font-size:0.9rem">Legal Drafting Pro ${deviceType !== 'desktop' ? '('+deviceType+')' : ''}</div>
                         <div class="text-xs" style="opacity:0.8">Tersimpan di Cloud</div>
                     </div>
                 </div>
@@ -271,13 +272,14 @@ async function modalLegalDrafting() {
             <div class="dr-toolbar" id="dr-toolbar-view" style="display:none">
                 <div class="dr-toolbar-grp">
                     <label style="display:flex; flex-direction:column; font-size:0.7rem; gap:2px">
-                        <span style="display:flex; align-items:center; gap:4px"><input type="checkbox" id="chkRuler" checked onchange="toggleDrRuler()"> Penggaris</span>
+                        <span style="display:flex; align-items:center; gap:4px"><input type="checkbox" id="chkRuler" ${deviceType === 'desktop' ? 'checked' : ''} onchange="toggleDrRuler()"> Penggaris</span>
                         <span style="display:flex; align-items:center; gap:4px"><input type="checkbox" id="chkGrid" onchange="toggleDrGrid()"> Garis Kisi</span>
                         <span style="display:flex; align-items:center; gap:4px"><input type="checkbox" id="chkKop" checked onchange="toggleDrKop()"> Tampilkan KOP</span>
                     </label>
                 </div>
                 <div class="dr-toolbar-grp">
                     <button class="dr-btn" onclick="setDrZoom(100)">🔍<span>100%</span></button>
+                    ${deviceType === 'mobile' ? '<button class="dr-btn" onclick="setDrZoom(\'width\')">↔️<span>Fit</span></button>' : ''}
                 </div>
             </div>
 
@@ -291,10 +293,10 @@ async function modalLegalDrafting() {
 
             <div class="dr-main">
                 <div class="dr-editor-container">
-                    <div id="drRulerH" class="dr-ruler-h"></div>
+                    <div id="drRulerH" class="dr-ruler-h" style="${deviceType !== 'desktop' ? 'display:none' : ''}"></div>
 
                     <div class="dr-page-wrapper">
-                        <div id="drRulerV" class="dr-ruler-v"></div>
+                        <div id="drRulerV" class="dr-ruler-v" style="${deviceType !== 'desktop' ? 'display:none' : ''}"></div>
 
                         <div class="dr-page" id="wordPage">
                             <div class="dr-kop active" id="kopPreview">
@@ -350,6 +352,22 @@ async function modalLegalDrafting() {
     }
 
     initDrRulers();
+
+    // AUTO-DETECT DEVICE FLEXIBILITY: Set initial zoom & state
+    setTimeout(() => {
+        if (deviceType === 'mobile') {
+            setDrZoom('width');
+            if (typeof toggleDrRuler === 'function') {
+                // Ensure rulers are hidden on mobile by default in JS state too
+                document.getElementById('chkRuler').checked = false;
+                toggleDrRuler();
+            }
+        } else if (deviceType === 'tablet') {
+            setDrZoom(85);
+        } else {
+            setDrZoom(100);
+        }
+    }, 500);
 }
 
 window.switchDrTab = function(tab) {

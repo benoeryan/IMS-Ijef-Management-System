@@ -820,6 +820,22 @@ async function loadApprovalFlows() {
 function invalidateApprovalFlowCache() {
   _approvalFlowCache = null;
 }
+
+/**
+ * AUTO DETECT DEVICE TYPE
+ * returns: 'mobile', 'tablet', or 'desktop'
+ */
+function getDeviceType() {
+    const ua = navigator.userAgent;
+    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
+        return "tablet";
+    }
+    if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) {
+        return "mobile";
+    }
+    return "desktop";
+}
+
 function isSameName(name1, name2) {
   if (!name1 || !name2) return false;
   const n1 = String(name1).toLowerCase().trim();
