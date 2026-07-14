@@ -168,6 +168,14 @@ async function modalLegalDrafting() {
                 line-height: 1.6; outline: none; padding: 0; margin-top: 10px;
                 background: transparent; text-align: justify;
             }
+            .dr-header-area, .dr-footer-area {
+                font-size: 9pt; color: #666; border-bottom: 1px dashed #ccc;
+                padding-bottom: 5px; margin-bottom: 15px; min-height: 20px; outline: none;
+            }
+            .dr-footer-area {
+                border-bottom: none; border-top: 1px dashed #ccc;
+                margin-bottom: 0; margin-top: 15px; padding-top: 5px;
+            }
             .dr-sidebar {
                 width: 350px; background: #fff; border-left: 1px solid #ddd;
                 display: flex; flex-direction: column; overflow: hidden;
@@ -224,6 +232,9 @@ async function modalLegalDrafting() {
                         <option value="Times New Roman">Times New Roman</option>
                         <option value="Arial">Arial</option>
                         <option value="Calibri">Calibri</option>
+                        <option value="Cambria">Cambria</option>
+                        <option value="Tahoma">Tahoma</option>
+                        <option value="Bookman Old Style">Bookman Old Style</option>
                         <option value="Georgia">Georgia</option>
                         <option value="Courier New">Courier New</option>
                     </select>
@@ -255,6 +266,8 @@ async function modalLegalDrafting() {
                         <option value="mou">MOU</option>
                         <option value="nda">NDA</option>
                         <option value="spk">SPK</option>
+                        <option value="addendum">Addendum</option>
+                        <option value="list_kontrak">List Kontrak Kerja</option>
                     </select>
                 </div>
             </div>
@@ -275,10 +288,13 @@ async function modalLegalDrafting() {
                         <span style="display:flex; align-items:center; gap:4px"><input type="checkbox" id="chkRuler" ${deviceType === 'desktop' ? 'checked' : ''} onchange="toggleDrRuler()"> Penggaris</span>
                         <span style="display:flex; align-items:center; gap:4px"><input type="checkbox" id="chkGrid" onchange="toggleDrGrid()"> Garis Kisi</span>
                         <span style="display:flex; align-items:center; gap:4px"><input type="checkbox" id="chkKop" checked onchange="toggleDrKop()"> Tampilkan KOP</span>
+                        <span style="display:flex; align-items:center; gap:4px"><input type="checkbox" id="chkHeader" onchange="toggleDrHeader()"> Header & Footer</span>
                     </label>
                 </div>
                 <div class="dr-toolbar-grp">
                     <button class="dr-btn" onclick="setDrZoom(100)">🔍<span>100%</span></button>
+                    <button class="dr-btn" onclick="adjustDrZoom(10)">➕<span>In</span></button>
+                    <button class="dr-btn" onclick="adjustDrZoom(-10)">➖<span>Out</span></button>
                     ${deviceType === 'mobile' ? '<button class="dr-btn" onclick="setDrZoom(\'width\')">↔️<span>Fit</span></button>' : ''}
                 </div>
             </div>
@@ -287,6 +303,7 @@ async function modalLegalDrafting() {
             <div class="dr-toolbar" id="dr-toolbar-insert" style="display:none">
                 <div class="dr-toolbar-grp">
                     <button class="dr-btn" onclick="document.getElementById('drFileImport').click()">📁<span>Unggah</span></button>
+                    <button class="dr-btn" onclick="insertDrTable()">📊<span>Tabel</span></button>
                     <button class="dr-btn" onclick="formatDoc('insertHorizontalRule')">➖<span>Garis</span></button>
                 </div>
             </div>
@@ -299,6 +316,7 @@ async function modalLegalDrafting() {
                         <div id="drRulerV" class="dr-ruler-v" style="${deviceType !== 'desktop' ? 'display:none' : ''}"></div>
 
                         <div class="dr-page" id="wordPage">
+                            <div class="dr-header-area" id="drHeader" contenteditable="true" style="display:none">Header Dokumen...</div>
                             <div class="dr-kop active" id="kopPreview">
                                 <img src="${cp.logo || 'icon-ijef-v3.png'}" style="width:80px; height:80px; object-fit:contain; margin-right:20px">
                                 <div style="flex:1; text-align:center">
@@ -312,6 +330,7 @@ async function modalLegalDrafting() {
                                 <div style="font-size:11pt; margin-top:10px">Nomor: <input type="text" id="drNomor" value="${autoNumber}" style="border:none; background:transparent; font-family:monospace; font-size:11pt; width:250px; outline:none"></div>
                             </div>
                             <div class="dr-editor" id="drKonten" contenteditable="true"></div>
+                            <div class="dr-footer-area" id="drFooter" contenteditable="true" style="display:none">Footer Dokumen...</div>
                         </div>
                     </div>
                     <div style="height:100px; flex-shrink:0"></div>
@@ -421,7 +440,21 @@ window.toggleDrKop = function() {
     document.getElementById('kopPreview').classList.toggle('active', document.getElementById('chkKop').checked);
 };
 
+window.toggleDrHeader = function() {
+    const show = document.getElementById('chkHeader').checked;
+    document.getElementById('drHeader').style.display = show ? 'block' : 'none';
+    document.getElementById('drFooter').style.display = show ? 'block' : 'none';
+};
+
+window.adjustDrZoom = function(delta) {
+    window._drZoom = (window._drZoom || 100) + delta;
+    if (window._drZoom < 20) window._drZoom = 20;
+    if (window._drZoom > 200) window._drZoom = 200;
+    setDrZoom(window._drZoom);
+};
+
 window.setDrZoom = function(val) {
+    window._drZoom = val === 'width' ? 100 : val;
     const container = document.querySelector('.dr-editor-container');
     const page = document.getElementById('wordPage');
     const rulerH = document.getElementById('drRulerH');
@@ -549,6 +582,33 @@ function applyLegalTemplate() {
             <p>Ditetapkan oleh: <b>LPK IJEF CORP</b></p><br>
             <p><b>BAB I: KETENTUAN UMUM</b><br>Pasal 1: Definisi...</p>
             <p><b>BAB II: HUBUNGAN KERJA</b><br>Pasal 2: Penerimaan Karyawan...</p>`
+        },
+        addendum: {
+            judul: "ADDENDUM PERJANJIAN",
+            isi: `<p style="text-align:center"><b>ADDENDUM PERJANJIAN</b></p>
+            <p style="text-align:center">Nomor: ${num}</p><br>
+            <p>Addendum ini dibuat untuk mengubah Perjanjian Nomor [...] tanggal [...] antara <b>LPK IJEF CORP</b> dan <b>[PIHAK KEDUA]</b>.</p><br>
+            <p><b>PASAL 1: PERUBAHAN</b><br>Para Pihak sepakat untuk mengubah Pasal [...] menjadi sebagai berikut: [...]</p>`
+        },
+        list_kontrak: {
+            judul: "DAFTAR KONTRAK KERJA KARYAWAN",
+            isi: `<p style="text-align:center"><b>DAFTAR KONTRAK KERJA KARYAWAN</b></p><br>
+            <table style="width:100%; border-collapse:collapse; border:1px solid #000">
+                <tr style="background:#eee">
+                    <th style="border:1px solid #000; padding:8px">No</th>
+                    <th style="border:1px solid #000; padding:8px">Nama Karyawan</th>
+                    <th style="border:1px solid #000; padding:8px">Jabatan</th>
+                    <th style="border:1px solid #000; padding:8px">Masa Berlaku</th>
+                    <th style="border:1px solid #000; padding:8px">Status</th>
+                </tr>
+                <tr>
+                    <td style="border:1px solid #000; padding:8px; text-align:center">1</td>
+                    <td style="border:1px solid #000; padding:8px">[NAMA]</td>
+                    <td style="border:1px solid #000; padding:8px">[JABATAN]</td>
+                    <td style="border:1px solid #000; padding:8px">[TGL] s/d [TGL]</td>
+                    <td style="border:1px solid #000; padding:8px">[AKTIF]</td>
+                </tr>
+            </table>`
         }
     };
 
@@ -557,6 +617,21 @@ function applyLegalTemplate() {
         konten.innerHTML = templates[type].isi;
     }
 }
+
+window.insertDrTable = function() {
+    const rows = prompt("Baris:", "3") || 3;
+    const cols = prompt("Kolom:", "3") || 3;
+    let html = '<table style="width:100%; border-collapse:collapse; border:1px solid #000; margin-top:10px">';
+    for(let i=0; i<rows; i++) {
+        html += '<tr>';
+        for(let j=0; j<cols; j++) {
+            html += '<td style="border:1px solid #000; padding:8px; min-width:50px">...</td>';
+        }
+        html += '</tr>';
+    }
+    html += '</table><p></p>';
+    formatDoc('insertHTML', html);
+};
 
 async function simpanDraftLegal() {
     const data = {
@@ -762,7 +837,138 @@ function modalPerizinan() {
 
 async function renderLegalSengketa() {
     const main = document.getElementById("mainContent");
-    main.innerHTML = `<div class="page-title"><span>⚠️ Sengketa</span><button class="btn btn-primary btn-sm" onclick="modalSengketa()">+ Tambah</button></div><div class="card" id="tblLegalSengketa"></div>`;
+    main.innerHTML = `
+    <div class="page-title">
+        <span>⚠️ Sengketa & Kasus Hukum</span>
+        <button class="btn btn-primary btn-sm" onclick="modalSengketa()">+ Tambah Kasus</button>
+    </div>
+    <div class="card">
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID Kasus</th>
+                        <th>Judul Kasus</th>
+                        <th>Kategori</th>
+                        <th>Status</th>
+                        <th>Pihak Terkait</th>
+                        <th>Tanggal</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="tblLegalSengketa">
+                    <tr><td colspan="7" class="text-center">Memuat data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>`;
+
+    loadLegalSengketa();
 }
 
-function modalSengketa() { openModal(`<div class="modal-title">Catatan Kasus</div><button class="btn btn-primary" onclick="closeModalDirect()">Simpan</button>`); }
+async function loadLegalSengketa() {
+    const tbody = document.getElementById("tblLegalSengketa");
+    try {
+        const snap = await db.collection("hrd_legal_sengketa").orderBy("createdAt", "desc").get();
+        let html = "";
+        if (snap.empty) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center">Belum ada catatan sengketa.</td></tr>';
+            return;
+        }
+        snap.forEach((doc) => {
+            const p = doc.data();
+            const statusBadge = p.status === 'Selesai' ? 'success' : p.status === 'Proses' ? 'warning' : 'danger';
+            html += `<tr>
+                <td class="fw-700">${escHtml(p.case_id)}</td>
+                <td>${escHtml(p.judul)}</td>
+                <td>${escHtml(p.kategori)}</td>
+                <td><span class="badge badge-${statusBadge}">${p.status}</span></td>
+                <td>${escHtml(p.pihak)}</td>
+                <td>${formatDate(p.createdAt)}</td>
+                <td>
+                    <button class="btn btn-xs btn-info" onclick="viewSengketaDetail('${doc.id}')">👁️</button>
+                    <button class="btn btn-xs btn-danger" onclick="hapusSengketa('${doc.id}')">🗑️</button>
+                </td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center">Error: ${e.message}</td></tr>`;
+    }
+}
+
+function modalSengketa() {
+    openModal(`
+        <div class="modal-title">⚠️ Tambah Catatan Kasus / Sengketa</div>
+        <div class="form-group"><label>Judul Kasus</label><input class="form-control" id="skJudul"></div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label>Kategori</label>
+                <select class="form-control" id="skKategori">
+                    <option value="Perdata">Perdata</option>
+                    <option value="Pidana">Pidana</option>
+                    <option value="PHI">Perselisihan Hub. Industrial (PHI)</option>
+                    <option value="Internal">Internal / Disiplin</option>
+                    <option value="Lainnya">Lainnya</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Status</label><select class="form-control" id="skStatus"><option>Baru</option><option>Proses</option><option>Mediasi</option><option>Selesai</option></select></div>
+        </div>
+        <div class="form-group"><label>Pihak Terkait</label><input class="form-control" id="skPihak" placeholder="Nama orang / lembaga"></div>
+        <div class="form-group"><label>Kronologi / Deskripsi</label><textarea class="form-control" id="skKronologi" style="min-height:100px"></textarea></div>
+        <button class="btn btn-primary" onclick="simpanSengketa()">💾 Simpan Kasus</button>
+    `, true);
+}
+
+async function simpanSengketa() {
+    const judul = document.getElementById("skJudul").value.trim();
+    const kategori = document.getElementById("skKategori").value;
+    const status = document.getElementById("skStatus").value;
+    const pihak = document.getElementById("skPihak").value.trim();
+    const kronologi = document.getElementById("skKronologi").value.trim();
+
+    if(!judul || !pihak) return toast("Lengkapi data minimal Judul & Pihak", "warning");
+
+    const data = {
+        case_id: `SKT-${Date.now().toString().slice(-6)}`,
+        judul, kategori, status, pihak, kronologi,
+        createdBy: currentUser.nama,
+        createdAt: new Date().toISOString()
+    };
+
+    try {
+        await db.collection("hrd_legal_sengketa").add(data);
+        toast("Catatan sengketa berhasil disimpan", "success");
+        closeModalDirect();
+        renderLegalSengketa();
+    } catch (e) {
+        toast("Gagal: " + e.message, "error");
+    }
+}
+
+async function viewSengketaDetail(id) {
+    const doc = await db.collection("hrd_legal_sengketa").doc(id).get();
+    const p = doc.data();
+    openModal(`
+        <div class="modal-title">👁️ Detail Kasus: ${escHtml(p.judul)}</div>
+        <div class="grid-2 mb-16" style="background:#f8f9ff; padding:15px; border-radius:8px">
+            <div><b>ID:</b> ${p.case_id}</div>
+            <div><b>Kategori:</b> ${p.kategori}</div>
+            <div><b>Status:</b> ${p.status}</div>
+            <div><b>Pihak:</b> ${p.pihak}</div>
+            <div><b>Dibuat:</b> ${formatDateTime(p.createdAt)}</div>
+        </div>
+        <div class="mb-16">
+            <b>Kronologi / Deskripsi:</b>
+            <div style="white-space:pre-wrap; border:1px solid #ddd; padding:10px; border-radius:5px; margin-top:8px; font-size:0.9rem">${escHtml(p.kronologi)}</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="closeModalDirect()">Tutup</button>
+    `, true);
+}
+
+async function hapusSengketa(id) {
+    if(!confirm("Hapus catatan sengketa ini?")) return;
+    await db.collection("hrd_legal_sengketa").doc(id).delete();
+    toast("Dihapus", "success");
+    renderLegalSengketa();
+}
