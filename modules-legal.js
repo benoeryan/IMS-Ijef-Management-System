@@ -65,13 +65,13 @@ function renderHomeGroup(id) {
         return `
             <div class="dr-toolbar-grp">
                 <div class="dr-actions-wrap" style="gap:4px">
-                    <button class="dr-btn-large" onclick="formatDoc('paste')" title="Tempel">
+                    <button class="dr-btn-large" onclick="window.formatDoc('paste')" title="Tempel">
                         <span style="font-size:1.8rem">📋</span>
                         <label>Tempel</label>
                     </button>
                     <div class="dr-stacked-tools">
-                        <button class="dr-btn-compact" onclick="formatDoc('cut')" title="Potong">✂️<span>Potong</span></button>
-                        <button class="dr-btn-compact" onclick="formatDoc('copy')" title="Salin">📑<span>Salin</span></button>
+                        <button class="dr-btn-compact" onclick="window.formatDoc('cut')" title="Potong">✂️<span>Potong</span></button>
+                        <button class="dr-btn-compact" onclick="window.formatDoc('copy')" title="Salin">📑<span>Salin</span></button>
                         <button class="dr-btn-compact" onclick="alert('Format Painter')" title="Penyalin Format">🖌️<span>Format</span></button>
                     </div>
                 </div>
@@ -85,25 +85,25 @@ function renderHomeGroup(id) {
                 <div style="display:flex; flex-direction:column; gap:4px">
                     <!-- Top Row: Font Select + Size -->
                     <div style="display:flex; align-items:center; gap:4px">
-                        <select class="dr-select-compact" id="fontName" onchange="formatDoc('fontName', this.value)" style="width:110px">
+                        <select class="dr-select-compact" id="fontName" onchange="window.formatDoc('fontName', this.value)" style="width:110px">
                             <option>Times New Roman</option><option>Arial</option><option>Cambria</option><option>Calibri</option><option>Bookman Old Style</option><option>Tahoma</option>
                         </select>
-                        <select class="dr-select-compact" id="fontSize" onchange="formatDoc('fontSize', this.value)" style="width:50px">
+                        <select class="dr-select-compact" id="fontSize" onchange="window.formatDoc('fontSize', this.value)" style="width:50px">
                             <option value="2">10</option><option value="3" selected>12</option><option value="4">14</option><option value="5">18</option>
                         </select>
                         <div class="dr-toolbar-separator-v"></div>
-                        <button class="dr-btn-icon-only" onclick="adjustFontSize(1)">A<sup>+</sup></button>
-                        <button class="dr-btn-icon-only" onclick="adjustFontSize(-1)">A<sup>-</sup></button>
+                        <button class="dr-btn-icon-only" onclick="window.adjustFontSize(1)">A<sup>+</sup></button>
+                        <button class="dr-btn-icon-only" onclick="window.adjustFontSize(-1)">A<sup>-</sup></button>
                     </div>
                     <!-- Bottom Row: Styles -->
                     <div style="display:flex; align-items:center; gap:2px">
-                        <button class="dr-btn-style" onclick="formatDoc('bold')" title="Bold"><b>B</b></button>
-                        <button class="dr-btn-style" onclick="formatDoc('italic')" title="Italic"><i>I</i></button>
-                        <button class="dr-btn-style" onclick="formatDoc('underline')" title="Underline"><u>U</u></button>
-                        <button class="dr-btn-style" onclick="formatDoc('strikeThrough')"><s>abc</s></button>
+                        <button class="dr-btn-style" onclick="window.formatDoc('bold')" title="Bold"><b>B</b></button>
+                        <button class="dr-btn-style" onclick="window.formatDoc('italic')" title="Italic"><i>I</i></button>
+                        <button class="dr-btn-style" onclick="window.formatDoc('underline')" title="Underline"><u>U</u></button>
+                        <button class="dr-btn-style" onclick="window.formatDoc('strikeThrough')"><s>abc</s></button>
                         <div class="dr-toolbar-separator-v"></div>
                         <div class="dr-color-picker-wrap">
-                            <input type="color" onchange="formatDoc('foreColor', this.value)" title="Warna Font">
+                            <input type="color" onchange="window.formatDoc('foreColor', this.value)" title="Warna Font">
                             <span>A</span>
                         </div>
                     </div>
@@ -117,17 +117,17 @@ function renderHomeGroup(id) {
             <div class="dr-toolbar-grp">
                 <div style="display:flex; flex-direction:column; gap:4px">
                     <div style="display:flex; gap:2px">
-                        <button class="dr-btn-icon-only" onclick="formatDoc('insertUnorderedList')">•≡</button>
-                        <button class="dr-btn-icon-only" onclick="formatDoc('insertOrderedList')">1≡</button>
+                        <button class="dr-btn-icon-only" onclick="window.formatDoc('insertUnorderedList')">•≡</button>
+                        <button class="dr-btn-icon-only" onclick="window.formatDoc('insertOrderedList')">1≡</button>
                         <div class="dr-toolbar-separator-v"></div>
-                        <button class="dr-btn-icon-only" onclick="formatDoc('outdent')">←┥</button>
-                        <button class="dr-btn-icon-only" onclick="formatDoc('indent')">┝→</button>
+                        <button class="dr-btn-icon-only" onclick="window.formatDoc('outdent')">←┥</button>
+                        <button class="dr-btn-icon-only" onclick="window.formatDoc('indent')">┝→</button>
                     </div>
                     <div style="display:flex; gap:2px">
-                        <button class="dr-btn-icon-only" onclick="formatDoc('justifyLeft')">≡</button>
-                        <button class="dr-btn-icon-only" onclick="formatDoc('justifyCenter')">≣</button>
-                        <button class="dr-btn-icon-only" onclick="formatDoc('justifyRight')">≡</button>
-                        <button class="dr-btn-icon-only" onclick="formatDoc('justifyFull')">≡</button>
+                        <button class="dr-btn-icon-only" onclick="window.formatDoc('justifyLeft')">≡</button>
+                        <button class="dr-btn-icon-only" onclick="window.formatDoc('justifyCenter')">≣</button>
+                        <button class="dr-btn-icon-only" onclick="window.formatDoc('justifyRight')">≡</button>
+                        <button class="dr-btn-icon-only" onclick="window.formatDoc('justifyFull')">≡</button>
                     </div>
                 </div>
                 <div class="dr-grp-title">Paragraf</div>
@@ -137,7 +137,7 @@ function renderHomeGroup(id) {
 
 // ── 3. MAIN WORKSPACE (The 'Main' Part) ──────────────────────────────────────
 
-async function modalLegalDrafting() {
+window.modalLegalDrafting = async function() {
     const deviceType = getDeviceType();
 
     const styleId = "legalRibbonStyles";
@@ -279,8 +279,8 @@ async function modalLegalDrafting() {
             <!-- 1. Header Area -->
             <div class="dr-tab-bar">
                 <div style="color:var(--ribbon-accent); padding: 0 12px; font-weight:bold; font-size:12px">W</div>
-                <div class="dr-tab active" onclick="switchTab('home')">Beranda</div>
-                <div class="dr-tab" onclick="switchTab('insert')">Sisipkan</div>
+                <div class="dr-tab active" onclick="window.switchTab('home', event)">Beranda</div>
+                <div class="dr-tab" onclick="window.switchTab('insert', event)">Sisipkan</div>
                 <div class="dr-tab">Tata Letak</div>
                 <div class="dr-tab">Referensi</div>
                 <div style="margin-left:auto; padding: 0 15px; color:#999; font-size:11px">Legal Drafting Pro v2.0</div>
@@ -294,7 +294,7 @@ async function modalLegalDrafting() {
                 <div class="dr-toolbar-grp">
                     <div class="dr-actions-wrap" style="gap:6px">
                         <button class="dr-btn-large" onclick="alert('Library')"><span>📚</span><label>Pustaka</label></button>
-                        <button class="dr-btn-large" onclick="onAnalyzeRequested()"><span>🧐</span><label>Analisis</label></button>
+                        <button class="dr-btn-large" onclick="window.onAnalyzeRequested()"><span>🧐</span><label>Analisis</label></button>
                     </div>
                     <div class="dr-grp-title">Legal AI Tools</div>
                 </div>
@@ -331,10 +331,10 @@ async function modalLegalDrafting() {
                     <div class="ai-input-panel">
                         <textarea class="ai-prompt-box" id="aiPrompt" placeholder="Ketik perintah (cth: Buat pasal kerahasiaan...)"></textarea>
                         <div class="ai-actions-row">
-                            <button class="btn btn-xs btn-primary" style="flex:1" onclick="discussWithAI()">Kirim</button>
-                            <button class="btn btn-xs btn-info" style="flex:1" onclick="onAnalyzeRequested()">Analisis</button>
+                            <button class="btn btn-xs btn-primary" style="flex:1" onclick="window.discussWithAI()">Kirim</button>
+                            <button class="btn btn-xs btn-info" style="flex:1" onclick="window.onAnalyzeRequested()">Analisis</button>
                         </div>
-                        <button class="btn-terapkan" onclick="executeAIDraft()">⚡ TERAPKAN KE DOKUMEN</button>
+                        <button class="btn-terapkan" onclick="window.executeAIDraft()">⚡ TERAPKAN KE DOKUMEN</button>
                     </div>
                 </div>
             </div>
@@ -346,9 +346,64 @@ async function modalLegalDrafting() {
 
 // ── 4. ACTION LOGIC (The 'Interaction' Part) ─────────────────────────────────
 
-function formatDoc(cmd, val) {
+window.formatDoc = function(cmd, val) {
     document.execCommand(cmd, false, val);
-    document.getElementById("drKonten").focus();
+    const editor = document.getElementById("drKonten");
+    if (editor) editor.focus();
+}
+
+window.switchTab = function(tabId, event) {
+    document.querySelectorAll('.dr-tab').forEach(t => t.classList.remove('active'));
+    if (event) event.currentTarget.classList.add('active');
+
+    // Hide all ribbons first (if multiple)
+    // Currently only one ribbon is implemented in HTML, we swap content
+    const ribbon = document.getElementById("ribbonHome");
+    if (tabId === 'home') {
+        ribbon.innerHTML = `
+            ${renderHomeGroup('clipboard')}
+            ${renderHomeGroup('font')}
+            ${renderHomeGroup('paragraph')}
+            <div class="dr-toolbar-grp">
+                <div class="dr-actions-wrap" style="gap:6px">
+                    <button class="dr-btn-large" onclick="alert('Library')"><span>📚</span><label>Pustaka</label></button>
+                    <button class="dr-btn-large" onclick="window.onAnalyzeRequested()"><span>🧐</span><label>Analisis</label></button>
+                </div>
+                <div class="dr-grp-title">Legal AI Tools</div>
+            </div>`;
+    } else if (tabId === 'insert') {
+        ribbon.innerHTML = `
+            <div class="dr-toolbar-grp">
+                <div class="dr-actions-wrap" style="gap:4px">
+                    <button class="dr-btn-large" onclick="window.insertDrTable()">
+                        <span style="font-size:1.8rem">📊</span>
+                        <label>Tabel</label>
+                    </button>
+                    <button class="dr-btn-large" onclick="window.formatDoc('insertImage', prompt('URL Gambar:'))">
+                        <span style="font-size:1.8rem">🖼️</span>
+                        <label>Gambar</label>
+                    </button>
+                </div>
+                <div class="dr-grp-title">Sisipkan</div>
+            </div>`;
+    }
+}
+
+window.insertDrTable = function() {
+    const rows = prompt("Jumlah Baris:", "3");
+    const cols = prompt("Jumlah Kolom:", "3");
+    if (!rows || !cols) return;
+
+    let html = '<table style="width:100%; border-collapse:collapse; border:1px solid #000; margin:10px 0">';
+    for (let i = 0; i < rows; i++) {
+        html += '<tr>';
+        for (let j = 0; j < cols; j++) {
+            html += '<td style="border:1px solid #000; padding:5px; height:25px"></td>';
+        }
+        html += '</tr>';
+    }
+    html += '</table>';
+    window.formatDoc('insertHTML', html);
 }
 
 window.adjustFontSize = function(delta) {
@@ -356,7 +411,7 @@ window.adjustFontSize = function(delta) {
     if (!sel.rangeCount) return;
     const currentSize = document.queryCommandValue("fontSize") || "3";
     const nextSize = Math.max(1, Math.min(7, parseInt(currentSize) + delta));
-    formatDoc('fontSize', nextSize.toString());
+    window.formatDoc('fontSize', nextSize.toString());
 };
 
 window.onAnalyzeRequested = function() {
@@ -398,7 +453,7 @@ window.executeAIDraft = function() {
     window._lastAIDraft = null;
 };
 
-window.importToEditor = function(input) {
+window.importToEditor = function() {
     const file = input.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -532,7 +587,10 @@ window.renderKajianHukum = async function() {
     main.innerHTML = `
     <div class="page-title">
         <span>🔨 Kajian Hukum / Tiket</span>
-        <button class="btn btn-primary btn-sm" onclick="modalKajianHukum()">+ Buat Tiket</button>
+        <div class="flex gap-8">
+            <button class="btn btn-outline btn-sm" onclick="window.modalLegalDrafting()">✍️ Buat Draft</button>
+            <button class="btn btn-primary btn-sm" onclick="window.modalKajianHukum()">+ Buat Tiket</button>
+        </div>
     </div>
     <div class="card">
         <div class="table-wrap">

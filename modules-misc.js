@@ -530,7 +530,13 @@ async function simpanPelatihan(id) {
 async function renderKontrak() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
-  main.innerHTML = `<div class="page-title"><span>📄 Kontrak Karyawan</span>${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalKontrak()">+ Upload Kontrak</button>' : ''}</div>
+  main.innerHTML = `<div class="page-title">
+      <span>📄 Kontrak Karyawan</span>
+      <div class="flex gap-8">
+        ${!isBOD ? '<button class="btn btn-outline btn-sm" onclick="window.modalLegalDrafting()">✍️ Buat Draft</button>' : ''}
+        ${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalKontrak()">+ Upload Kontrak</button>' : ''}
+      </div>
+    </div>
     <div class="tabs mb-16" id="kontrakTabs">
       <div class="tab active" onclick="showKontrakTab('list')">📋 Daftar Kontrak</div>
       <div class="tab" onclick="showKontrakTab('dokumen')">📁 Dokumen Karyawan</div>
