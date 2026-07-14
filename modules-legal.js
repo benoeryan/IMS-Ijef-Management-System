@@ -408,7 +408,7 @@ window.importToEditor = function(input) {
 
 // ── 5. SENGKETA & KASUS HUKUM (Fixed Dashboard) ─────────────────────────────
 
-async function renderLegalSengketa() {
+window.renderLegalSengketa = async function() {
     const main = document.getElementById("mainContent");
     main.innerHTML = `
     <div class="page-title">
@@ -435,10 +435,10 @@ async function renderLegalSengketa() {
             </table>
         </div>
     </div>`;
-    loadLegalSengketa();
+    window.loadLegalSengketa();
 }
 
-async function loadLegalSengketa() {
+window.loadLegalSengketa = async function() {
     const tbody = document.getElementById("tblLegalSengketa");
     try {
         const snap = await db.collection("hrd_legal_sengketa").orderBy("createdAt", "desc").get();
@@ -469,7 +469,7 @@ async function loadLegalSengketa() {
     }
 }
 
-function modalSengketa() {
+window.modalSengketa = function() {
     openModal(`
         <div class="modal-title">⚠️ Tambah Catatan Kasus / Sengketa</div>
         <div class="form-group"><label>Judul Kasus</label><input class="form-control" id="skJudul"></div>
@@ -487,11 +487,11 @@ function modalSengketa() {
         </div>
         <div class="form-group"><label>Pihak Terkait</label><input class="form-control" id="skPihak" placeholder="Nama orang / lembaga"></div>
         <div class="form-group"><label>Kronologi / Deskripsi</label><textarea class="form-control" id="skKronologi" style="min-height:100px"></textarea></div>
-        <button class="btn btn-primary" onclick="simpanSengketa()">💾 Simpan Kasus</button>
+        <button class="btn btn-primary" onclick="window.simpanSengketa()">💾 Simpan Kasus</button>
     `, true);
 }
 
-async function simpanSengketa() {
+window.simpanSengketa = async function() {
     const data = {
         case_id: `SKT-${Date.now().toString().slice(-6)}`,
         judul: document.getElementById("skJudul").value,
@@ -504,10 +504,10 @@ async function simpanSengketa() {
     };
     if(!data.judul || !data.pihak) return toast("Lengkapi data", "warning");
     await db.collection("hrd_legal_sengketa").add(data);
-    closeModalDirect(); renderLegalSengketa();
+    closeModalDirect(); window.renderLegalSengketa();
 }
 
-async function viewSengketaDetail(id) {
+window.viewSengketaDetail = async function(id) {
     const doc = await db.collection("hrd_legal_sengketa").doc(id).get();
     const p = doc.data();
     openModal(`<div class="modal-title">👁️ Detail Kasus: ${escHtml(p.judul)}</div>
@@ -518,16 +518,45 @@ async function viewSengketaDetail(id) {
         <div class="text-sm" style="white-space:pre-wrap; border:1px solid #ddd; padding:10px; border-radius:4px">${escHtml(p.kronologi)}</div>`, true);
 }
 
-async function hapusSengketa(id) {
+window.hapusSengketa = async function(id) {
     if(!confirm("Hapus catatan sengketa ini?")) return;
     await db.collection("hrd_legal_sengketa").doc(id).delete();
     toast("Dihapus", "success");
-    renderLegalSengketa();
+    window.renderLegalSengketa();
 }
 
 // ── 6. SISTEM TIKET (Remaining Logic) ───────────────────────────────────────
 
-async function loadLegalTickets() {
+window.renderKajianHukum = async function() {
+    const main = document.getElementById("mainContent");
+    main.innerHTML = `
+    <div class="page-title">
+        <span>🔨 Kajian Hukum / Tiket</span>
+        <button class="btn btn-primary btn-sm" onclick="modalKajianHukum()">+ Buat Tiket</button>
+    </div>
+    <div class="card">
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID Tiket</th>
+                        <th>Judul</th>
+                        <th>Departemen</th>
+                        <th>Status</th>
+                        <th>Tanggal</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="tblLegalTickets">
+                    <tr><td colspan="6" class="text-center">Memuat data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>`;
+    window.loadLegalTickets();
+}
+
+window.loadLegalTickets = async function() {
     const tbody = document.getElementById("tblLegalTickets");
     try {
         const snap = await db.collection("hrd_legal_tickets").orderBy("createdAt", "desc").get();
@@ -538,7 +567,10 @@ async function loadLegalTickets() {
         }
         snap.forEach((doc) => {
             const p = doc.data();
-            html += `<tr><td class="fw-700">${escHtml(p.ticket_id)}</td><td>${escHtml(p.judul)}</td><td>${escHtml(p.departemen || "-")}</td><td>${p.status}</td><td>${formatDate(p.createdAt)}</td><td><button class="btn btn-xs btn-info" onclick="viewLegalTicketDetail('${doc.id}')">👁️</button></td></tr>`;
+            html += `<tr><td class="fw-700">${escHtml(p.ticket_id)}</td><td>${escHtml(p.judul)}</td><td>${escHtml(p.departemen || "-")}</td><td>${p.status}</td><td>${formatDate(p.createdAt)}</td><td>
+                <button class="btn btn-xs btn-info" onclick="viewLegalTicketDetail('${doc.id}')">👁️</button>
+                <button class="btn btn-xs btn-danger" onclick="hapusLegalTicket('${doc.id}')">🗑️</button>
+            </td></tr>`;
         });
         tbody.innerHTML = html;
     } catch (e) {
@@ -546,16 +578,16 @@ async function loadLegalTickets() {
     }
 }
 
-function modalKajianHukum() {
+window.modalKajianHukum = function() {
     openModal(`
         <div class="modal-title">🔨 Buat Tiket Kajian Hukum</div>
         <div class="form-group"><label>Judul Kajian</label><input class="form-control" id="lgJudul"></div>
         <div class="form-group"><label>Deskripsi</label><textarea class="form-control" id="lgDesc" style="min-height:120px"></textarea></div>
-        <button class="btn btn-primary" onclick="simpanKajianHukum()">📤 Kirim</button>
+        <button class="btn btn-primary" onclick="window.simpanKajianHukum()">📤 Kirim</button>
     `, true);
 }
 
-async function simpanKajianHukum() {
+window.simpanKajianHukum = async function() {
     const judul = document.getElementById("lgJudul").value.trim();
     const desc = document.getElementById("lgDesc").value.trim();
     if (!judul || !desc) return toast("Lengkapi data", "warning");
@@ -565,18 +597,25 @@ async function simpanKajianHukum() {
         pemohon: currentUser.nama, status: "pending", createdAt: new Date().toISOString()
     };
     await db.collection("hrd_legal_tickets").add(data);
-    closeModalDirect(); renderKajianHukum();
+    closeModalDirect(); window.renderKajianHukum();
 }
 
-async function viewLegalTicketDetail(docId) {
+window.viewLegalTicketDetail = async function(docId) {
     const doc = await db.collection("hrd_legal_tickets").doc(docId).get();
     const p = doc.data();
     openModal(`<div class="modal-title">📄 Detail Tiket</div><div class="text-sm">${escHtml(p.deskripsi)}</div>`, true);
 }
 
+window.hapusLegalTicket = async function(id) {
+    if(!confirm("Hapus tiket ini?")) return;
+    await db.collection("hrd_legal_tickets").doc(id).delete();
+    toast("Tiket dihapus", "success");
+    window.renderKajianHukum();
+}
+
 // ── 7. LEGALITAS & PERIZINAN (Restored) ──────────────────────────────────────
 
-async function renderLegalPerizinan() {
+window.renderLegalPerizinan = async function() {
     const main = document.getElementById("mainContent");
     main.innerHTML = `
     <div class="page-title">
@@ -602,10 +641,10 @@ async function renderLegalPerizinan() {
             </table>
         </div>
     </div>`;
-    loadLegalPerizinan();
+    window.loadLegalPerizinan();
 }
 
-async function loadLegalPerizinan() {
+window.loadLegalPerizinan = async function() {
     const tbody = document.getElementById("tblLegalPerizinan");
     try {
         const snap = await db.collection("hrd_legal_perizinan").orderBy("createdAt", "desc").get();
@@ -637,7 +676,7 @@ async function loadLegalPerizinan() {
     }
 }
 
-function modalPerizinan() {
+window.modalPerizinan = function() {
     openModal(`
         <div class="modal-title">⚖️ Tambah Dokumen Perizinan / Legalitas</div>
         <div class="form-group"><label>Nama Dokumen (NIB, SIUP, dll)</label><input class="form-control" id="pzNama"></div>
@@ -648,11 +687,11 @@ function modalPerizinan() {
             <div class="form-group"><label>Masa Berlaku Berakhir</label><input class="form-control" type="date" id="pzAkhir"></div>
         </div>
         <div class="form-group"><label>Keterangan Tambahan</label><textarea class="form-control" id="pzKet" style="min-height:80px"></textarea></div>
-        <button class="btn btn-primary" onclick="simpanPerizinan()">💾 Simpan Dokumen</button>
+        <button class="btn btn-primary" onclick="window.simpanPerizinan()">💾 Simpan Dokumen</button>
     `, true);
 }
 
-async function simpanPerizinan() {
+window.simpanPerizinan = async function() {
     const nama = document.getElementById("pzNama").value.trim();
     if(!nama) return toast("Nama dokumen wajib diisi", "warning");
 
@@ -671,13 +710,13 @@ async function simpanPerizinan() {
         await db.collection("hrd_legal_perizinan").add(data);
         toast("Dokumen legalitas berhasil disimpan", "success");
         closeModalDirect();
-        renderLegalPerizinan();
+        window.renderLegalPerizinan();
     } catch (e) {
         toast("Gagal: " + e.message, "error");
     }
 }
 
-async function viewPerizinanDetail(id) {
+window.viewPerizinanDetail = async function(id) {
     const doc = await db.collection("hrd_legal_perizinan").doc(id).get();
     const p = doc.data();
     openModal(`
@@ -696,9 +735,9 @@ async function viewPerizinanDetail(id) {
     `, true);
 }
 
-async function hapusPerizinan(id) {
+window.hapusPerizinan = async function(id) {
     if(!confirm("Hapus catatan dokumen ini?")) return;
     await db.collection("hrd_legal_perizinan").doc(id).delete();
     toast("Dihapus", "success");
-    renderLegalPerizinan();
+    window.renderLegalPerizinan();
 }
