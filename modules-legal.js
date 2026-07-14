@@ -235,10 +235,33 @@ async function modalLegalDrafting() {
             .dr-color-input { width: 24px; height: 24px; border: none; padding: 0; cursor: pointer; background: transparent; }
 
             .dr-main { display: flex; flex: 1; overflow: hidden; }
-            .dr-editor-container {
-                flex: 1; background: #adb5bd; overflow: auto;
-                display: flex; flex-direction: column; align-items: center; padding: 40px 20px;
-                position: relative; scroll-behavior: smooth;
+
+            /* LEFT SIDE: Ribbon + Editor */
+            .dr-editor-section {
+                flex: 1; display: flex; flex-direction: column; background: #adb5bd;
+                overflow: hidden; position: relative;
+            }
+            .dr-editor-scroll-area {
+                flex: 1; overflow: auto; display: flex; flex-direction: column;
+                align-items: center; padding: 40px 20px; scroll-behavior: smooth;
+            }
+
+            /* RIGHT SIDE: AI Sidebar (320dp equivalent) */
+            .dr-ai-sidebar {
+                width: 320px; background: #f5f5f5; border-left: 1px solid #404040;
+                display: flex; flex-direction: column; z-index: 10;
+            }
+            .ai-sidebar-header {
+                height: 48px; background: #1a1a1a; color: #fff; padding: 0 15px;
+                display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+            }
+            .ai-chat-area {
+                flex: 1; overflow-y: auto; padding: 15px; display: flex;
+                flex-direction: column; gap: 12px;
+            }
+            .ai-input-area {
+                padding: 15px; background: #fff; border-top: 1px solid #ddd;
+                display: flex; flex-direction: column; gap: 8px;
             }
 
             .dr-page-wrapper { position: relative; transition: transform 0.2s; transform-origin: top center; }
@@ -301,37 +324,56 @@ async function modalLegalDrafting() {
             <div id="ribbonContainer">${ribbon.toolbars}</div>
 
             <div class="dr-main">
-                <div class="dr-editor-container">
-                    <div id="drRulerH" class="dr-ruler-h"></div>
-                    <div class="dr-page-wrapper" id="pageWrapper">
-                        <div id="drRulerV" class="dr-ruler-v"></div>
-                        <div class="dr-page" id="wordPage">
-                            <div class="dr-header-area" id="drHeaderArea" contenteditable="true" style="display:none">Ketik Header di sini...</div>
-                            <div class="dr-kop active" id="kopPreview" style="display:flex; border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:20px; align-items:center">
-                                <img src="${cp.logo || 'icon-ijef-v3.png'}" style="width:70px; height:70px; object-fit:contain; margin-right:15px">
-                                <div style="flex:1; text-align:center">
-                                    <div style="font-size:14pt; font-weight:bold">${cp.nama}</div>
-                                    <div style="font-size:9pt; color:#444">${cp.alamat || '-'}</div>
+                <!-- LEFT SECTION -->
+                <div class="dr-editor-section">
+                    <div class="dr-editor-scroll-area">
+                        <div id="drRulerH" class="dr-ruler-h"></div>
+                        <div class="dr-page-wrapper" id="pageWrapper">
+                            <div id="drRulerV" class="dr-ruler-v"></div>
+                            <div class="dr-page" id="wordPage">
+                                <div class="dr-header-area" id="drHeaderArea" contenteditable="true" style="display:none">Ketik Header di sini...</div>
+                                <div class="dr-kop active" id="kopPreview" style="display:flex; border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:20px; align-items:center">
+                                    <img src="${cp.logo || 'icon-ijef-v3.png'}" style="width:70px; height:70px; object-fit:contain; margin-right:15px">
+                                    <div style="flex:1; text-align:center">
+                                        <div style="font-size:14pt; font-weight:bold">${cp.nama}</div>
+                                        <div style="font-size:9pt; color:#444">${cp.alamat || '-'}</div>
+                                    </div>
                                 </div>
+                                <div style="text-align:center; margin-bottom: 20px">
+                                    <div id="drJudul" contenteditable="true" style="font-weight:bold; font-size:13pt; text-decoration:underline">JUDUL DOKUMEN</div>
+                                    <div style="font-size:10pt; margin-top:5px">Nomor: <input type="text" id="drNomor" value="${autoNumber}" style="border:none; width:200px; outline:none; text-align:center"></div>
+                                </div>
+                                <div class="dr-editor" id="drKonten" contenteditable="true"></div>
+                                <div class="dr-footer-area" id="drFooterArea" contenteditable="true" style="display:none">Ketik Footer di sini...</div>
                             </div>
-                            <div style="text-align:center; margin-bottom: 20px">
-                                <div id="drJudul" contenteditable="true" style="font-weight:bold; font-size:13pt; text-decoration:underline">JUDUL DOKUMEN</div>
-                                <div style="font-size:10pt; margin-top:5px">Nomor: <input type="text" id="drNomor" value="${autoNumber}" style="border:none; width:200px; outline:none; text-align:center"></div>
-                            </div>
-                            <div class="dr-editor" id="drKonten" contenteditable="true"></div>
-                            <div class="dr-footer-area" id="drFooterArea" contenteditable="true" style="display:none">Ketik Footer di sini...</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="dr-sidebar">
-                    <div style="padding:12px; background:#f3f2f1; border-bottom:1px solid #ddd; font-weight:bold; font-size:0.85rem">🤖 Legal Brain AI</div>
-                    <div id="aiChatBox" style="flex:1; overflow-y:auto; padding:15px; font-size:0.8rem; background:#fafafa">
-                        <div style="background:#fff; border:1px solid #ddd; padding:10px; border-radius:8px">Siap membantu draf Anda.</div>
+                <!-- RIGHT SECTION: AI SIDEBAR -->
+                <div class="dr-ai-sidebar">
+                    <div class="ai-sidebar-header">
+                        <span style="font-size:1.2rem">🤖</span>
+                        <div style="display:flex; flex-direction:column">
+                            <span class="fw-700" style="font-size:0.85rem">Legal Brain AI</span>
+                            <span class="text-xs" style="color:#4caf50; font-size:0.65rem">● Online</span>
+                        </div>
                     </div>
-                    <div style="padding:12px; border-top:1px solid #ddd">
-                        <textarea class="form-control" id="aiPrompt" style="min-height:60px; font-size:0.8rem" placeholder="Tanya AI..."></textarea>
-                        <button class="btn btn-primary btn-sm mt-8 w-100" onclick="discussWithAI()">Kirim</button>
+
+                    <div class="ai-chat-area" id="aiChatBox">
+                        <div style="background:#fff; border:1px solid #ddd; padding:12px; border-radius:12px 12px 12px 2px; font-size:0.8rem; line-height:1.5; box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+                            Halo! Saya <b>AI Legal Assistant</b> Anda.<br><br>
+                            Ketik perintah di bawah untuk membuat draf pasal, menganalisis risiko, atau menerjemahkan istilah hukum.
+                        </div>
+                    </div>
+
+                    <div class="ai-input-area">
+                        <textarea class="form-control" id="aiPrompt" style="min-height:80px; font-size:0.85rem; border-radius:8px" placeholder="Contoh: Buatkan draf pasal kerahasiaan untuk MOU..."></textarea>
+                        <div style="display:flex; gap:6px; margin-top:5px">
+                            <button class="btn btn-primary btn-sm" style="flex:1" onclick="discussWithAI()">Kirim</button>
+                            <button class="btn btn-info btn-sm" onclick="onAnalyzeRequested()">Analisis</button>
+                        </div>
+                        <button class="btn btn-success btn-sm w-100 mt-4" style="font-weight:bold" onclick="executeAIDraft()">⚡ Terapkan ke Dokumen</button>
                     </div>
                 </div>
             </div>
@@ -481,11 +523,50 @@ async function printDraftLegalDirect() {
 }
 
 function discussWithAI() {
-    const p = document.getElementById("aiPrompt").value;
-    if(!p) return;
-    document.getElementById("aiChatBox").innerHTML += `<div><b>Anda:</b> ${escHtml(p)}</div>`;
-    document.getElementById("aiPrompt").value = "";
+    const prompt = document.getElementById("aiPrompt").value.trim();
+    if(!prompt) return;
+
+    onSendPrompt(prompt);
 }
+
+window.onSendPrompt = function(prompt) {
+    const chatBox = document.getElementById("aiChatBox");
+    chatBox.innerHTML += `<div style="align-self: flex-end; background: #2b579a; color: #fff; padding: 10px; border-radius: 12px 12px 2px 12px; font-size: 0.8rem; max-width: 85%">${escHtml(prompt)}</div>`;
+    document.getElementById("aiPrompt").value = "";
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    // Simulate AI response
+    setTimeout(() => {
+        const response = "Berdasarkan instruksi Anda, berikut adalah draf klausul yang disarankan:\n\n'Para Pihak sepakat untuk menjaga kerahasiaan seluruh informasi teknis dan bisnis yang dipertukarkan selama masa perjanjian ini.'";
+        window._lastAiDraft = response;
+        chatBox.innerHTML += `<div style="background: #fff; border: 1px solid #ddd; padding: 12px; border-radius: 12px 12px 12px 2px; font-size: 0.8rem; line-height: 1.5; box-shadow: 0 1px 3px rgba(0,0,0,0.05)">${escHtml(response).replace(/\n/g, '<br>')}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }, 1000);
+};
+
+window.onAnalyzeRequested = function() {
+    const editor = document.getElementById("drKonten");
+    const text = editor.innerText;
+    if(text.length < 10) return toast("Dokumen terlalu singkat untuk dianalisis", "warning");
+
+    const chatBox = document.getElementById("aiChatBox");
+    chatBox.innerHTML += `<div style="background: #fff3e0; border: 1px solid #ffe0b2; padding: 10px; border-radius: 8px; font-size: 0.75rem; color: #e65100">🔍 Menganalisis draf Anda...</div>`;
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    setTimeout(() => {
+        chatBox.innerHTML += `<div style="background: #fff; border: 1px solid #ddd; padding: 12px; border-radius: 12px; font-size: 0.8rem"><b>Hasil Analisis:</b><br>Draf Anda sudah cukup baik, namun perlu penambahan detail sanksi pada Pasal Pelanggaran Kontrak.</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }, 1500);
+};
+
+window.executeAIDraft = function() {
+    if(!window._lastAiDraft) return toast("Belum ada draf AI untuk diterapkan", "warning");
+
+    const editor = document.getElementById("drKonten");
+    editor.innerHTML += `<p>${window._lastAiDraft.replace(/\n/g, '<br>')}</p>`;
+    toast("Draf AI berhasil dimasukkan ke dokumen", "success");
+    window._lastAiDraft = null;
+};
 
 function importDocumentToWorkspace(input) {
     const file = input.files[0];
