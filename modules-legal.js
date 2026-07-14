@@ -236,11 +236,19 @@ window.modalLegalDrafting = async function() {
             }
             .dr-page-a4 {
                 background: white; width: 210mm; min-height: 297mm; color: #000;
-                padding: 2.5cm; box-shadow: 0 0 15px rgba(0,0,0,0.5); position: relative;
-                transform-origin: top center;
+                padding: 1cm 2.5cm; box-shadow: 0 0 15px rgba(0,0,0,0.5); position: relative;
+                transform-origin: top center; display: flex; flex-direction: column;
+            }
+            .dr-header-area {
+                height: 30mm; border-bottom: 1px dashed #ddd; margin-bottom: 10px;
+                font-size: 9pt; color: #666; outline: none; padding: 5px;
+            }
+            .dr-footer-area {
+                height: 20mm; border-top: 1px dashed #ddd; margin-top: auto;
+                font-size: 9pt; color: #666; outline: none; padding: 5px;
             }
             .dr-editable-content {
-                width: 100%; height: 100%; min-height: 100%; outline: none;
+                flex: 1; width: 100%; outline: none;
                 font-family: 'Times New Roman'; font-size: 11pt; line-height: 1.5;
                 text-align: justify;
             }
@@ -281,6 +289,8 @@ window.modalLegalDrafting = async function() {
                 <div style="color:var(--ribbon-accent); padding: 0 12px; font-weight:bold; font-size:12px">W</div>
                 <div class="dr-tab active" onclick="window.switchTab('home', event)">Beranda</div>
                 <div class="dr-tab" onclick="window.switchTab('insert', event)">Sisipkan</div>
+                <div class="dr-tab" onclick="window.switchTab('layout', event)">Tata Letak</div>
+                <div class="dr-tab" onclick="window.switchTab('reference', event)">Referensi</div>
                 <div class="dr-tab">Tata Letak</div>
                 <div class="dr-tab">Referensi</div>
                 <div style="margin-left:auto; padding: 0 15px; color:#999; font-size:11px">Legal Drafting Pro v2.0</div>
@@ -305,12 +315,14 @@ window.modalLegalDrafting = async function() {
                 <!-- Editor Sisi Kiri -->
                 <div class="dr-editor-canvas">
                     <div class="dr-page-a4" id="a4Page">
+                        <div class="dr-header-area" id="drHeader" contenteditable="true" style="font-size:9pt; color:#999; border-bottom:1px dashed #ddd; margin-bottom:10px; min-height:20mm">Ketik Header di sini...</div>
                         <div class="dr-editable-content" id="drKonten" contenteditable="true">
                             <p style="text-align:center"><b>[JUDUL DOKUMEN]</b></p>
                             <p style="text-align:center">Nomor: [NOMOR_SURAT]</p>
                             <br>
                             <p>Mulai ketik draf hukum Anda di sini...</p>
                         </div>
+                        <div class="dr-footer-area" id="drFooter" contenteditable="true" style="font-size:9pt; color:#999; border-top:1px dashed #ddd; margin-top:15px; min-height:15mm">Ketik Footer di sini...</div>
                     </div>
                 </div>
 
@@ -339,7 +351,8 @@ window.modalLegalDrafting = async function() {
                 </div>
             </div>
 
-            <input type="file" id="drFileImport" style="display:none" accept=".txt,.html" onchange="importToEditor(this)">
+            <input type="file" id="drFileImport" style="display:none" accept=".txt,.html" onchange="window.importToEditor(this)">
+            <input type="file" id="drImgImport" style="display:none" accept="image/jpeg,image/png" onchange="window.uploadDrImage(this)">
         </div>
     `, true);
 }
@@ -351,6 +364,18 @@ window.formatDoc = function(cmd, val) {
     const editor = document.getElementById("drKonten");
     if (editor) editor.focus();
 }
+
+window.uploadDrImage = function(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const html = `<img src="${e.target.result}" style="max-width:100%; height:auto; margin:10px 0">`;
+        window.formatDoc('insertHTML', html);
+    };
+    reader.readAsDataURL(file);
+    input.value = ""; // Reset for next use
+};
 
 window.switchTab = function(tabId, event) {
     document.querySelectorAll('.dr-tab').forEach(t => t.classList.remove('active'));
@@ -379,15 +404,59 @@ window.switchTab = function(tabId, event) {
                         <span style="font-size:1.8rem">📊</span>
                         <label>Tabel</label>
                     </button>
-                    <button class="dr-btn-large" onclick="window.formatDoc('insertImage', prompt('URL Gambar:'))">
+                    <button class="dr-btn-large" onclick="document.getElementById('drImgImport').click()">
                         <span style="font-size:1.8rem">🖼️</span>
                         <label>Gambar</label>
                     </button>
                 </div>
                 <div class="dr-grp-title">Sisipkan</div>
             </div>`;
+    } else if (tabId === 'layout') {
+        ribbon.innerHTML = `
+            <div class="dr-toolbar-grp">
+                <div class="dr-actions-wrap" style="gap:4px">
+                    <button class="dr-btn-compact" onclick="window.setDrMargins('2.5cm')">Standard (2.5cm)</button>
+                    <button class="dr-btn-compact" onclick="window.setDrMargins('1cm')">Narrow (1cm)</button>
+                </div>
+                <div class="dr-grp-title">Margin</div>
+            </div>
+            <div class="dr-toolbar-grp">
+                <div class="dr-actions-wrap" style="gap:4px">
+                    <button class="dr-btn-compact" onclick="window.setDrOrientation('portrait')">📄 Potret</button>
+                    <button class="dr-btn-compact" onclick="window.setDrOrientation('landscape')">📑 Lanskap</button>
+                </div>
+                <div class="dr-grp-title">Orientasi</div>
+            </div>`;
+    } else if (tabId === 'reference') {
+        ribbon.innerHTML = `
+            <div class="dr-toolbar-grp">
+                <div class="dr-actions-wrap" style="gap:4px">
+                    <button class="dr-btn-large" onclick="window.formatDoc('insertHTML', '<p style=\'text-align:center\'><b>DAFTAR ISI</b></p><br>')">
+                        <span>📑</span><label>Daftar Isi</label>
+                    </button>
+                    <button class="dr-btn-large" onclick="window.formatDoc('insertHTML', '<p><sup>[1]</sup> </p>')">
+                        <span>📝</span><label>Catatan Kaki</label>
+                    </button>
+                </div>
+                <div class="dr-grp-title">Referensi Hukum</div>
+            </div>`;
     }
 }
+
+window.setDrMargins = function(val) {
+    document.getElementById("a4Page").style.padding = val;
+};
+
+window.setDrOrientation = function(mode) {
+    const page = document.getElementById("a4Page");
+    if (mode === 'landscape') {
+        page.style.width = "297mm";
+        page.style.minHeight = "210mm";
+    } else {
+        page.style.width = "210mm";
+        page.style.minHeight = "297mm";
+    }
+};
 
 window.insertDrTable = function() {
     const rows = prompt("Jumlah Baris:", "3");
