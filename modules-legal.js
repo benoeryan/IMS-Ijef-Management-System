@@ -266,8 +266,9 @@ async function modalLegalDrafting() {
                         <option value="mou">MOU</option>
                         <option value="nda">NDA</option>
                         <option value="spk">SPK</option>
+                        <option value="pkwt">Kontrak PKWT</option>
+                        <option value="pkwtt">Kontrak PKWTT</option>
                         <option value="addendum">Addendum</option>
-                        <option value="list_kontrak">List Kontrak Kerja</option>
                     </select>
                 </div>
             </div>
@@ -590,25 +591,23 @@ function applyLegalTemplate() {
             <p>Addendum ini dibuat untuk mengubah Perjanjian Nomor [...] tanggal [...] antara <b>LPK IJEF CORP</b> dan <b>[PIHAK KEDUA]</b>.</p><br>
             <p><b>PASAL 1: PERUBAHAN</b><br>Para Pihak sepakat untuk mengubah Pasal [...] menjadi sebagai berikut: [...]</p>`
         },
-        list_kontrak: {
-            judul: "DAFTAR KONTRAK KERJA KARYAWAN",
-            isi: `<p style="text-align:center"><b>DAFTAR KONTRAK KERJA KARYAWAN</b></p><br>
-            <table style="width:100%; border-collapse:collapse; border:1px solid #000">
-                <tr style="background:#eee">
-                    <th style="border:1px solid #000; padding:8px">No</th>
-                    <th style="border:1px solid #000; padding:8px">Nama Karyawan</th>
-                    <th style="border:1px solid #000; padding:8px">Jabatan</th>
-                    <th style="border:1px solid #000; padding:8px">Masa Berlaku</th>
-                    <th style="border:1px solid #000; padding:8px">Status</th>
-                </tr>
-                <tr>
-                    <td style="border:1px solid #000; padding:8px; text-align:center">1</td>
-                    <td style="border:1px solid #000; padding:8px">[NAMA]</td>
-                    <td style="border:1px solid #000; padding:8px">[JABATAN]</td>
-                    <td style="border:1px solid #000; padding:8px">[TGL] s/d [TGL]</td>
-                    <td style="border:1px solid #000; padding:8px">[AKTIF]</td>
-                </tr>
-            </table>`
+        pkwt: {
+            judul: "PERJANJIAN KERJA WAKTU TERTENTU (PKWT)",
+            isi: `<p style="text-align:center"><b>PERJANJIAN KERJA WAKTU TERTENTU</b></p>
+            <p style="text-align:center">Nomor: ${num}</p><br>
+            <p>Antara <b>LPK IJEF CORP</b> dan <b>[NAMA KARYAWAN]</b>.</p><br>
+            <p>Para Pihak sepakat mengikatkan diri dalam hubungan kerja untuk jangka waktu tertentu dengan ketentuan:</p>
+            <p><b>PASAL 1: JANGKA WAKTU</b><br>Kontrak berlaku selama [DURASI] terhitung sejak [TGL] s/d [TGL].</p>
+            <p><b>PASAL 2: TUGAS DAN JABATAN</b><br>PIHAK KEDUA ditempatkan sebagai [POSISI].</p>`
+        },
+        pkwtt: {
+            judul: "PERJANJIAN KERJA WAKTU TIDAK TERTENTU (PKWTT)",
+            isi: `<p style="text-align:center"><b>PERJANJIAN KERJA WAKTU TIDAK TERTENTU</b></p>
+            <p style="text-align:center">Nomor: ${num}</p><br>
+            <p>Antara <b>LPK IJEF CORP</b> dan <b>[NAMA KARYAWAN]</b>.</p><br>
+            <p>Para Pihak sepakat mengikatkan diri dalam hubungan kerja permanen/tetap dengan ketentuan:</p>
+            <p><b>PASAL 1: STATUS KARYAWAN</b><br>PIHAK KEDUA diangkat sebagai Karyawan Tetap setelah melewati masa percobaan selama 3 bulan.</p>
+            <p><b>PASAL 2: HAK DAN KEWAJIBAN</b><br>...</p>`
         }
     };
 
