@@ -121,7 +121,7 @@ function renderRibbonEngine() {
                 if (action.type === "button" || action.type === "toggle") {
                     actionsHtml += `<button class="dr-btn" onclick="${action.fn ? action.fn : `formatDoc('${action.cmd}')`}" title="${action.label}"><span>${action.icon}</span><label>${action.label}</label></button>`;
                 } else if (action.type === "select") {
-                    let opts = action.options.map(o => `<option value="${o.val}">${o.label}</option>`).join("");
+                    let opts = `<option value="">-- ${action.label} --</option>` + action.options.map(o => `<option value="${o.val}">${o.label}</option>`).join("");
                     actionsHtml += `<div class="dr-toolbar-grp-item"><label class="text-xs">${action.label}</label><select class="dr-select" id="${action.id}" onchange="${action.fn ? action.fn : `formatDoc('${action.cmd}', this.value)`}">${opts}</select></div>`;
                 } else if (action.type === "checkbox") {
                     actionsHtml += `<label class="dr-chk-label"><input type="checkbox" id="${action.id}" ${action.checked ? 'checked' : ''} onchange="${action.fn}"> ${action.label}</label>`;
@@ -139,6 +139,39 @@ function renderRibbonEngine() {
 }
 
 // ── 3. MAIN WORKSPACE (The 'Main' Part) ──────────────────────────────────────
+
+async function renderKajianHukum() {
+    const main = document.getElementById("mainContent");
+    main.innerHTML = `
+    <div class="page-title">
+        <span>🔨 Kajian Hukum / Tiket</span>
+        <div class="flex gap-8">
+            <button class="btn btn-info btn-sm" onclick="modalLegalDrafting()">✍️ Buat Draft Dokumen</button>
+            <button class="btn btn-primary btn-sm" onclick="modalKajianHukum()">+ Buat Tiket Kajian</button>
+        </div>
+    </div>
+    <div class="card">
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID Tiket</th>
+                        <th>Judul Kajian</th>
+                        <th>Departemen</th>
+                        <th>Status Approval</th>
+                        <th>Tanggal</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="tblLegalTickets">
+                    <tr><td colspan="6" class="text-center">Memuat data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>`;
+
+    loadLegalTickets();
+}
 
 async function modalLegalDrafting() {
     const deviceType = getDeviceType();
@@ -307,8 +340,18 @@ async function modalLegalDrafting() {
     `, true);
 
     initDrRulers();
-    // Auto-fit on mobile
-    if (deviceType === 'mobile') setDrZoom('width');
+    // Auto-detect and set zoom
+    setTimeout(() => {
+        if (deviceType === 'mobile') {
+            setDrZoom('width');
+            document.getElementById('chkRuler').checked = false;
+            toggleDrRuler();
+        } else if (deviceType === 'tablet') {
+            setDrZoom(85);
+        } else {
+            setDrZoom(100);
+        }
+    }, 500);
 }
 
 // ── 4. LOGIC ENGINE (The 'Interaction' Part) ─────────────────────────────────
@@ -332,9 +375,10 @@ window.adjustDrZoom = function(delta) {
 
 window.setDrZoom = function(val) {
     const wrapper = document.getElementById('pageWrapper');
+    if (!wrapper) return;
     if (val === 'width') {
         const container = document.querySelector('.dr-editor-container');
-        val = ((container.clientWidth - 40) / 794) * 100; // 794px is ~210mm
+        val = ((container.clientWidth - 40) / 794) * 100;
     }
     window._drZoom = val;
     wrapper.style.transform = `scale(${val / 100})`;
@@ -399,6 +443,7 @@ function applyLegalTemplate() {
     const templates = {
         mou: { judul: "MEMORANDUM OF UNDERSTANDING", isi: `<p>Perjanjian Kerjasama antara LPK IJEF CORP dan [PIHAK KEDUA]...</p>` },
         nda: { judul: "NON-DISCLOSURE AGREEMENT", isi: `<p>Pihak-pihak sepakat menjaga kerahasiaan data...</p>` },
+        spk: { judul: "SURAT PERINTAH KERJA", isi: `<p>Dengan ini LPK IJEF CORP memerintahkan [PIHAK KEDUA] untuk...</p>` },
         pkwt: { judul: "KONTRAK KERJA (PKWT)", isi: `<p>HUBUNGAN KERJA WAKTU TERTENTU<br>Jabatan: [POSISI]<br>Durasi: [BULAN] Bulan</p>` },
         pkwtt: { judul: "KONTRAK KERJA TETAP (PKWTT)", isi: `<p>SURAT KEPUTUSAN PENGANGKATAN KARYAWAN TETAP...</p>` },
         addendum: { judul: "ADDENDUM PERJANJIAN", isi: `<p>Perubahan atas Perjanjian Nomor [...] Mengenai Pasal [...]</p>` }
@@ -406,7 +451,51 @@ function applyLegalTemplate() {
     if(templates[type]) { judul.innerText = templates[type].judul; konten.innerHTML = templates[type].isi; }
 }
 
-// ── SENGKETA & KASUS HUKUM ──────────────────────────────────────────────────
+async function simpanDraftLegal() {
+    const data = {
+        nomor: document.getElementById("drNomor").value,
+        judul: document.getElementById("drJudul").innerText.trim(),
+        pihak2: document.getElementById("drPihak2")?.value || '',
+        konten: document.getElementById("drKonten").innerHTML,
+        type: "draft_kontrak",
+        createdBy: currentUser.nama,
+        createdAt: new Date().toISOString()
+    };
+    if (!data.judul || data.judul === "JUDUL DOKUMEN") return toast("Judul wajib", "warning");
+    await db.collection("hrd_legal_drafts").add(data);
+    toast("Draft disimpan!", "success");
+}
+
+async function printDraftLegalDirect() {
+    const judul = document.getElementById("drJudul").innerText;
+    const nomor = document.getElementById("drNomor").value;
+    const konten = document.getElementById("drKonten").innerHTML;
+    const header = document.getElementById("drHeaderArea").innerHTML;
+    const footer = document.getElementById("drFooterArea").innerHTML;
+    const isHeaderActive = document.getElementById("chkHeader").checked;
+
+    const printWin = window.open('', '_blank');
+    printWin.document.write(`<html><head><title>Print</title><style>@page{margin:2cm}body{font-family:'Times New Roman',serif;font-size:11pt}.header{font-size:9pt;color:#999;margin-bottom:20px;text-align:center}.footer{position:fixed;bottom:0;width:100%;font-size:9pt;color:#999;text-align:center}</style></head><body>${isHeaderActive?`<div class='header'>${header}</div>`:''}<div style='text-align:center;margin-bottom:30px'><b>${judul}</b><br>Nomor: ${nomor}</div>${konten}${isHeaderActive?`<div class='footer'>${footer}</div>`:''}</body></html>`);
+    printWin.document.close();
+    setTimeout(() => { printWin.print(); printWin.close(); }, 500);
+}
+
+function discussWithAI() {
+    const p = document.getElementById("aiPrompt").value;
+    if(!p) return;
+    document.getElementById("aiChatBox").innerHTML += `<div><b>Anda:</b> ${escHtml(p)}</div>`;
+    document.getElementById("aiPrompt").value = "";
+}
+
+function importDocumentToWorkspace(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => { document.getElementById("drKonten").innerHTML = e.target.result; };
+    reader.readAsText(file);
+}
+
+// ── 5. SENGKETA & KASUS HUKUM ───────────────────────────────────────────────
 
 async function renderLegalSengketa() {
     const main = document.getElementById("mainContent");
@@ -509,7 +598,7 @@ async function simpanSengketa() {
 async function viewSengketaDetail(id) {
     const doc = await db.collection("hrd_legal_sengketa").doc(id).get();
     const p = doc.data();
-    openModal(`<div class="modal-title">👁️ Detail Kasus</div><div class="text-sm">${escHtml(p.kronologi)}</div>`, true);
+    openModal(`<div class="modal-title">👁️ Detail Kasus</div><div class="text-sm" style="white-space:pre-wrap">${escHtml(p.kronologi)}</div>`, true);
 }
 
 async function hapusSengketa(id) {
@@ -518,7 +607,7 @@ async function hapusSengketa(id) {
     renderLegalSengketa();
 }
 
-// ── SISTEM TIKET & PERIZINAN (REMAINING) ─────────────────────────────────────
+// ── 6. SISTEM TIKET & PERIZINAN (REMAINING) ─────────────────────────────────
 
 async function loadLegalTickets() {
     const tbody = document.getElementById("tblLegalTickets");
