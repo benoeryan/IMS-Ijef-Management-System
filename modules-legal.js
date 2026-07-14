@@ -113,6 +113,20 @@ async function modalLegalDrafting() {
             .dr-main {
                 display: flex; flex: 1; overflow: hidden; height: calc(100vh - 145px);
             }
+            @media (max-width: 1024px) {
+                .dr-main { flex-direction: column; overflow-y: auto; height: auto; min-height: calc(100vh - 145px); }
+                .dr-sidebar { width: 100% !important; border-left: none; border-top: 1px solid #ddd; height: auto !important; }
+                .dr-editor-container { padding: 20px 10px; }
+                .dr-ruler-h, .dr-ruler-v { display: none !important; }
+                .dr-page { width: 100% !important; max-width: 210mm; padding: 1.5cm !important; margin-left: 0 !important; }
+            }
+            @media (max-width: 768px) {
+                .dr-toolbar-grp { padding-right: 6px; gap: 3px; }
+                .dr-btn { min-width: 32px; padding: 4px 5px; }
+                .dr-btn span { display: none; }
+                .dr-select { font-size: 0.75rem; padding: 2px 4px; }
+                .dr-tab { padding: 6px 10px; font-size: 0.75rem; }
+            }
             .dr-editor-container {
                 flex: 1; background: #e9ecef; overflow: auto;
                 display: flex; flex-direction: column; align-items: center; padding: 40px 20px;
