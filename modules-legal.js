@@ -12,7 +12,6 @@ const WORD_TABS = [
     { id: "home", title: "Home", active: true },
     { id: "insert", title: "Insert" },
     { id: "layout", title: "Layout" },
-    { id: "references", title: "References" },
     { id: "review", title: "Review" },
     { id: "view", title: "View" }
 ];
@@ -71,7 +70,7 @@ function getRibbonHtml(tabId) {
         html += `
             <div class="dr-ribbon-grp">
                 <div class="dr-actions-wrap">
-                    <button class="dr-btn-large" onclick="window.formatDoc('insertHTML', '<div style=\'page-break-after:always\'></div>')"><span class="dr-icon">📑</span><label>Page Break</label></button>
+                    <button class="dr-btn-large" onclick="window.formatDoc('pageBreak')"><span class="dr-icon">📑</span><label>Page Break</label></button>
                     <button class="dr-btn-large" onclick="window.insertDrTable()"><span class="dr-icon">📊</span><label>Table</label></button>
                     <button class="dr-btn-large" onclick="document.getElementById('drImgImport').click()"><span class="dr-icon">🖼️</span><label>Pictures</label></button>
                 </div>
@@ -154,16 +153,56 @@ function getRibbonHtml(tabId) {
         html += `
             <div class="dr-ribbon-grp">
                 <div class="dr-actions-wrap">
-                    <button class="dr-btn-large" onclick="window.printDraft()"><span class="dr-icon">🖨️</span><label>Print</label></button>
+                    <button class="dr-btn-large" onclick="window.setDocView('read')"><span class="dr-icon">📖</span><label>Read<br>Mode</label></button>
+                    <button class="dr-btn-large" onclick="window.setDocView('print')"><span class="dr-icon">📄</span><label>Print<br>Layout</label></button>
+                    <div class="dr-stacked-tools">
+                        <button class="dr-btn-compact" onclick="toast('Outline View','info')">📋 Outline</button>
+                        <button class="dr-btn-compact" onclick="toast('Draft View','info')">📑 Draft</button>
+                    </div>
                 </div>
                 <div class="dr-grp-label">Views</div>
             </div>
             <div class="dr-ribbon-grp">
                 <div class="dr-actions-wrap">
-                    <button class="dr-btn-large" onclick="window.setDocZoom(1)"><span class="dr-icon">🔍</span><label>100%</label></button>
-                    <button class="dr-btn-large" onclick="window.setDocZoom('page')"><span class="dr-icon">📄</span><label>Page Width</label></button>
+                    <button class="dr-btn-large" onclick="toast('Focus Mode','info')"><span class="dr-icon">🔲</span><label>Focus</label></button>
+                    <button class="dr-btn-large" onclick="toast('Immersive Reader','info')"><span class="dr-icon">🔊</span><label>Immersive<br>Reader</label></button>
+                </div>
+                <div class="dr-grp-label">Immersive</div>
+            </div>
+            <div class="dr-ribbon-grp">
+                <div class="dr-actions-wrap">
+                    <button class="dr-btn-large" onclick="toast('Vertical Movement','info')"><span class="dr-icon">↕️</span><label>Vertical</label></button>
+                    <button class="dr-btn-large" onclick="toast('Side to Side','info')"><span class="dr-icon">↔️</span><label>Side to Side</label></button>
+                </div>
+                <div class="dr-grp-label">Page Movement</div>
+            </div>
+            <div class="dr-ribbon-grp">
+                <div class="dr-actions-wrap" style="flex-direction:column; gap:2px; align-items:flex-start">
+                    <label style="font-size:11px"><input type="checkbox" checked onchange="window.toggleRuler(this.checked)"> Ruler</label>
+                    <label style="font-size:11px"><input type="checkbox" onchange="window.toggleGrid(this.checked)"> Gridlines</label>
+                    <label style="font-size:11px"><input type="checkbox" onchange="window.toggleNavPane(this.checked)"> Navigation Pane</label>
+                </div>
+                <div class="dr-grp-label">Show</div>
+            </div>
+            <div class="dr-ribbon-grp">
+                <div class="dr-actions-wrap">
+                    <button class="dr-btn-large" onclick="window.setDocZoom(1.2)"><span class="dr-icon">🔍</span><label>Zoom</label></button>
+                    <button class="dr-btn-large" onclick="window.setDocZoom(1)"><span class="dr-icon">💯</span><label>100%</label></button>
+                    <div class="dr-stacked-tools">
+                        <button class="dr-btn-compact" onclick="window.setDocZoom(1)">📄 One Page</button>
+                        <button class="dr-btn-compact" onclick="window.setDocZoom(0.8)">📑 Multiple Pages</button>
+                        <button class="dr-btn-compact" onclick="window.setDocZoom('page')">↔️ Page Width</button>
+                    </div>
                 </div>
                 <div class="dr-grp-label">Zoom</div>
+            </div>
+            <div class="dr-ribbon-grp">
+                <div class="dr-actions-wrap">
+                    <button class="dr-btn-large" onclick="toast('New Window','info')"><span class="dr-icon">➕</span><label>New<br>Window</label></button>
+                    <button class="dr-btn-large" onclick="toast('Arrange All','info')"><span class="dr-icon">🪟</span><label>Arrange All</label></button>
+                    <button class="dr-btn-large" onclick="toast('Split Window','info')"><span class="dr-icon">✂️</span><label>Split</label></button>
+                </div>
+                <div class="dr-grp-label">Window</div>
             </div>`;
     }
     return html;
@@ -313,15 +352,12 @@ window.modalLegalDrafting = async function() {
     `, true);
 };
 
-// ── 4. ACTION LOGIC ─────────────────────────────────────────────────────────
-
 window.switchOfficeTab = function(tabId, event) {
     document.querySelectorAll('.off-tab').forEach(t => t.classList.remove('active'));
     if (event) event.currentTarget.classList.add('active');
     document.getElementById("officeRibbon").innerHTML = getRibbonHtml(tabId);
 };
 
-window.formatDoc = function(cmd, val) { document.execCommand(cmd, false, val); document.getElementById("suiteEditor").focus(); };
 window.applyDocStyle = function(type) {
     if (type === 'h1') window.formatDoc('formatBlock', 'H1');
     else window.formatDoc('formatBlock', 'P');
@@ -339,10 +375,66 @@ window.insertDrTable = function() {
 };
 window.setDrIndent = function(side, val) { document.getElementById("suiteEditor").style[side === 'left' ? 'paddingLeft' : 'paddingRight'] = val + 'cm'; };
 window.setDrSpacing = function(type, val) { document.getElementById("suiteEditor").style[type === 'before' ? 'marginTop' : 'marginBottom'] = val + 'pt'; };
-window.setDocZoom = function(val) { document.getElementById("suitePage").style.transform = val === 'page' ? "scale(0.95)" : `scale(${val})`; };
-window.printDraft = function() { window.print(); };
-window.translateDoc = function() { toast("Translating via Gemini AI...", "info"); };
 window.saveDraft = function() { toast("Draft saved", "success"); };
+
+window.setDocZoom = function(val) {
+    const page = document.getElementById("suitePage");
+    if (!page) return;
+    if (val === 'page') {
+        page.style.transform = "scale(1)";
+        page.style.width = "100%";
+    } else {
+        page.style.transform = `scale(${val})`;
+        page.style.width = "210mm";
+    }
+    toast(`Zoom set to ${val === 'page' ? 'Page Width' : (val*100)+'%'}`, "info");
+};
+
+window.formatDoc = function(cmd, val) {
+    if (cmd === 'pageBreak') {
+        const html = '<div style="page-break-after:always; border-bottom:2px dotted #ccc; margin:20px 0; text-align:center; color:#999; font-size:10px">PAGE BREAK</div>';
+        document.execCommand('insertHTML', false, html);
+    } else {
+        document.execCommand(cmd, false, val);
+    }
+    document.getElementById("suiteEditor").focus();
+};
+
+window.setDrMargins = function(val) {
+    document.getElementById("suitePage").style.padding = val;
+    toast("Margin updated", "success");
+};
+
+window.setDrOrientation = function(mode) {
+    const page = document.getElementById("suitePage");
+    if (mode === 'landscape') {
+        page.style.width = "297mm";
+        page.style.minHeight = "210mm";
+    } else {
+        page.style.width = "210mm";
+        page.style.minHeight = "297mm";
+    }
+    toast("Orientation: " + mode, "info");
+};
+
+window.setDrSize = function(size) {
+    const page = document.getElementById("suitePage");
+    if (size === 'A4') {
+        page.style.width = "210mm";
+        page.style.minHeight = "297mm";
+    }
+    toast("Paper Size: " + size, "info");
+};
+
+window.toggleRuler = function(show) { document.getElementById("suiteRuler").style.display = show ? "flex" : "none"; };
+window.toggleGrid = function(show) { document.getElementById("suiteEditor").style.backgroundImage = show ? "linear-gradient(#eee 1px, transparent 1px), linear-gradient(90deg, #eee 1px, transparent 1px)" : "none"; document.getElementById("suiteEditor").style.backgroundSize = "20px 20px"; };
+window.toggleNavPane = function(show) { toast("Navigation Pane " + (show ? "ON" : "OFF"), "info"); };
+window.setDocView = function(view) {
+    const canvas = document.querySelector(".off-canvas");
+    canvas.style.background = view === 'read' ? "#fff" : "#e1dfdd";
+    toast("View: " + view, "info");
+};
+
 
 window.askGemini = function() {
     const prompt = document.getElementById("suiteAiInput").value;
@@ -368,3 +460,202 @@ window.loadLegalTickets = async function() {
 window.hapusLegalTicket = async function(id) { if(confirm("Hapus?")) { await db.collection("hrd_legal_tickets").doc(id).delete(); window.renderKajianHukum(); } };
 window.modalKajianHukum = function() { openModal(`<div class="modal-title">Buat Tiket</div><div class="form-group"><label>Judul</label><input class="form-control" id="lgJudul"></div><div class="form-group"><label>Deskripsi</label><textarea class="form-control" id="lgDesc"></textarea></div><button class="btn btn-primary" onclick="window.simpanKajianHukum()">Kirim</button>`, true); };
 window.simpanKajianHukum = async function() { await db.collection("hrd_legal_tickets").add({ ticket_id: "LGL-"+Date.now().toString().slice(-6), judul: document.getElementById("lgJudul").value, departemen: currentUser.departemen, status: "pending", createdAt: new Date().toISOString() }); closeModalDirect(); window.renderKajianHukum(); };
+
+// ── 6. LEGALITAS & PERIZINAN ────────────────────────────────────────────────
+window.renderLegalPerizinan = async function() {
+    const main = document.getElementById("mainContent");
+    main.innerHTML = `<div class="page-title">
+        <span>⚖️ Legalitas & Perizinan</span>
+        <button class="btn btn-primary btn-sm" onclick="window.modalLegalPerizinan()">+ Tambah Perizinan</button>
+    </div>
+    <div class="card">
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nama Dokumen</th>
+                        <th>Instansi Penerbit</th>
+                        <th>No. Dokumen</th>
+                        <th>Masa Berlaku</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="tblLegalPerizinan"></tbody>
+            </table>
+        </div>
+    </div>`;
+    window.loadLegalPerizinan();
+};
+
+window.loadLegalPerizinan = async function() {
+    const snap = await db.collection("hrd_legal_perizinan").get();
+    let html = "";
+    const today = todayStr();
+    snap.forEach(doc => {
+        const p = doc.data();
+        const isExpired = p.berakhir && p.berakhir < today;
+        html += `<tr>
+            <td class="fw-700">${escHtml(p.nama)}</td>
+            <td>${escHtml(p.instansi || '-')}</td>
+            <td>${escHtml(p.nomor || '-')}</td>
+            <td>${formatDate(p.mulai)} s/d ${formatDate(p.berakhir)}</td>
+            <td><span class="badge badge-${isExpired ? 'danger' : 'success'}">${isExpired ? 'Expired' : 'Aktif'}</span></td>
+            <td>
+                <button class="btn btn-xs btn-info" onclick="window.modalLegalPerizinan('${doc.id}')">✏️</button>
+                <button class="btn btn-xs btn-danger" onclick="window.hapusLegalPerizinan('${doc.id}')">🗑️</button>
+            </td>
+        </tr>`;
+    });
+    document.getElementById("tblLegalPerizinan").innerHTML = html || '<tr><td colspan="6" class="text-center">Belum ada data perizinan</td></tr>';
+};
+
+window.hapusLegalPerizinan = async function(id) {
+    if(confirm("Hapus data perizinan ini?")) {
+        await db.collection("hrd_legal_perizinan").doc(id).delete();
+        window.renderLegalPerizinan();
+    }
+};
+
+window.modalLegalPerizinan = function(id) {
+    if(id) {
+        db.collection("hrd_legal_perizinan").doc(id).get().then(doc => {
+            window.showLegalPerizinanForm(id, doc.data());
+        });
+    } else {
+        window.showLegalPerizinanForm(null, {});
+    }
+};
+
+window.showLegalPerizinanForm = function(id, p) {
+    openModal(`<div class="modal-title">${id ? 'Edit' : 'Tambah'} Legalitas & Perizinan</div>
+    <div class="form-group"><label>Nama Dokumen / Izin</label><input class="form-control" id="lpNama" value="${escHtml(p.nama || '')}" placeholder="Contoh: NIB, SIUP, IMB"></div>
+    <div class="form-group"><label>Instansi Penerbit</label><input class="form-control" id="lpInstansi" value="${escHtml(p.instansi || '')}" placeholder="Contoh: BKPM, OSS, Pemkot"></div>
+    <div class="form-group"><label>Nomor Dokumen</label><input class="form-control" id="lpNomor" value="${escHtml(p.nomor || '')}"></div>
+    <div class="grid-2">
+        <div class="form-group"><label>Tanggal Terbit</label><input class="form-control" type="date" id="lpMulai" value="${p.mulai || ''}"></div>
+        <div class="form-group"><label>Tanggal Berakhir</label><input class="form-control" type="date" id="lpAkhir" value="${p.berakhir || ''}"></div>
+    </div>
+    <div class="form-group"><label>Keterangan</label><textarea class="form-control" id="lpKet">${escHtml(p.keterangan || '')}</textarea></div>
+    <button class="btn btn-primary" onclick="window.simpanLegalPerizinan('${id || ''}')">Simpan</button>`, true);
+};
+
+window.simpanLegalPerizinan = async function(id) {
+    const data = {
+        nama: document.getElementById("lpNama").value,
+        instansi: document.getElementById("lpInstansi").value,
+        nomor: document.getElementById("lpNomor").value,
+        mulai: document.getElementById("lpMulai").value,
+        berakhir: document.getElementById("lpAkhir").value,
+        keterangan: document.getElementById("lpKet").value,
+        updatedAt: new Date().toISOString()
+    };
+    if(!data.nama) return toast("Nama dokumen wajib diisi", "warning");
+    if(id) await db.collection("hrd_legal_perizinan").doc(id).update(data);
+    else await db.collection("hrd_legal_perizinan").add(data);
+    closeModalDirect();
+    window.renderLegalPerizinan();
+};
+
+// ── 7. SENGKETA & KASUS ─────────────────────────────────────────────────────
+window.renderLegalSengketa = async function() {
+    const main = document.getElementById("mainContent");
+    main.innerHTML = `<div class="page-title">
+        <span>⚠️ Sengketa & Kasus</span>
+        <button class="btn btn-primary btn-sm" onclick="window.modalLegalSengketa()">+ Catat Kasus Baru</button>
+    </div>
+    <div class="card">
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>No. Kasus</th>
+                        <th>Pihak Terlibat</th>
+                        <th>Perihal</th>
+                        <th>Status</th>
+                        <th>Tanggal</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="tblLegalSengketa"></tbody>
+            </table>
+        </div>
+    </div>`;
+    window.loadLegalSengketa();
+};
+
+window.loadLegalSengketa = async function() {
+    const snap = await db.collection("hrd_legal_sengketa").get();
+    let html = "";
+    snap.forEach(doc => {
+        const p = doc.data();
+        html += `<tr>
+            <td>${escHtml(p.no_kasus || '-')}</td>
+            <td class="fw-700">${escHtml(p.pihak)}</td>
+            <td>${escHtml(p.perihal)}</td>
+            <td><span class="badge badge-${p.status === 'Selesai' ? 'success' : 'warning'}">${p.status}</span></td>
+            <td>${formatDate(p.tanggal)}</td>
+            <td>
+                <button class="btn btn-xs btn-info" onclick="window.modalLegalSengketa('${doc.id}')">✏️</button>
+                <button class="btn btn-xs btn-danger" onclick="window.hapusLegalSengketa('${doc.id}')">🗑️</button>
+            </td>
+        </tr>`;
+    });
+    document.getElementById("tblLegalSengketa").innerHTML = html || '<tr><td colspan="6" class="text-center">Tidak ada catatan sengketa/kasus</td></tr>';
+};
+
+window.hapusLegalSengketa = async function(id) {
+    if(confirm("Hapus catatan kasus ini?")) {
+        await db.collection("hrd_legal_sengketa").doc(id).delete();
+        window.renderLegalSengketa();
+    }
+};
+
+window.modalLegalSengketa = function(id) {
+    if(id) {
+        db.collection("hrd_legal_sengketa").doc(id).get().then(doc => {
+            window.showLegalSengketaForm(id, doc.data());
+        });
+    } else {
+        window.showLegalSengketaForm(null, {});
+    }
+};
+
+window.showLegalSengketaForm = function(id, p) {
+    openModal(`<div class="modal-title">${id ? 'Edit' : 'Tambah'} Catatan Sengketa & Kasus</div>
+    <div class="form-group"><label>No. Kasus / Referensi</label><input class="form-control" id="lsNo" value="${escHtml(p.no_kasus || '')}"></div>
+    <div class="form-group"><label>Pihak Terlibat</label><input class="form-control" id="lsPihak" value="${escHtml(p.pihak || '')}" placeholder="Contoh: PT. A vs PT. B"></div>
+    <div class="form-group"><label>Perihal / Objek Sengketa</label><input class="form-control" id="lsPerihal" value="${escHtml(p.perihal || '')}"></div>
+    <div class="grid-2">
+        <div class="form-group"><label>Tanggal Kejadian</label><input class="form-control" type="date" id="lsTgl" value="${p.tanggal || ''}"></div>
+        <div class="form-group">
+            <label>Status</label>
+            <select class="form-control" id="lsStatus">
+                <option value="Proses" ${p.status === 'Proses' ? 'selected' : ''}>Proses</option>
+                <option value="Mediasi" ${p.status === 'Mediasi' ? 'selected' : ''}>Mediasi</option>
+                <option value="Sidang" ${p.status === 'Sidang' ? 'selected' : ''}>Sidang</option>
+                <option value="Selesai" ${p.status === 'Selesai' ? 'selected' : ''}>Selesai</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-group"><label>Kronologi / Catatan</label><textarea class="form-control" id="lsKet">${escHtml(p.kronologi || '')}</textarea></div>
+    <button class="btn btn-primary" onclick="window.simpanLegalSengketa('${id || ''}')">Simpan</button>`, true);
+};
+
+window.simpanLegalSengketa = async function(id) {
+    const data = {
+        no_kasus: document.getElementById("lsNo").value,
+        pihak: document.getElementById("lsPihak").value,
+        perihal: document.getElementById("lsPerihal").value,
+        tanggal: document.getElementById("lsTgl").value,
+        status: document.getElementById("lsStatus").value,
+        kronologi: document.getElementById("lsKet").value,
+        updatedAt: new Date().toISOString()
+    };
+    if(!data.pihak) return toast("Pihak terlibat wajib diisi", "warning");
+    if(id) await db.collection("hrd_legal_sengketa").doc(id).update(data);
+    else await db.collection("hrd_legal_sengketa").add(data);
+    closeModalDirect();
+    window.renderLegalSengketa();
+};
+
