@@ -189,8 +189,6 @@ function getRibbonHtml(tabId) {
     }
     return html;
 }
-    return html;
-}
 
 // ── 3. MAIN WORKSPACE ENGINE ────────────────────────────────────────────────
 

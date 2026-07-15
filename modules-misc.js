@@ -990,7 +990,7 @@ async function hapusDokumen(id) {
 }
 
 // ── ASSET ─────────────────────────────────────────────────────
-async function renderAsset() {
+window.renderAsset = async function() {
   const main = document.getElementById('mainContent');
   main.innerHTML = `<div class="page-title"><span>💻 Asset Management</span><button class="btn btn-primary btn-sm" onclick="modalAsset()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Pengguna</th><th>Kondisi</th><th>Aksi</th></tr></thead><tbody id="tblAsset"></tbody></table></div></div>`;
   const snap = await db.collection('hrd_asset').get();
