@@ -262,15 +262,43 @@ window.modalLegalDrafting = async function() {
             .dr-style-card .preview { flex: 1; color: #666; font-size: 0.7rem; }
             .dr-style-card label { font-size: 9px; font-weight: 600; }
 
-            .off-main { display: flex; flex: 1; overflow: hidden; }
             .off-canvas {
                 flex: 1; background: #e1dfdd; overflow: auto; display: flex;
                 flex-direction: column; align-items: center; padding: 40px 10px;
+                position: relative;
             }
+
+            /* Ruler Styles */
+            .dr-ruler-h {
+                position: sticky; top: -40px; width: 210mm; height: 25px;
+                background: white; border-bottom: 1px solid #ddd; z-index: 50;
+                display: flex; align-items: flex-end; font-size: 8px; color: #888;
+                padding-left: 2.5cm; padding-right: 2.5cm;
+            }
+            .dr-ruler-v-left {
+                position: absolute; left: calc(50% - 105mm - 25px); top: 65px; width: 25px; height: 297mm;
+                background: white; border-right: 1px solid #ddd; z-index: 40;
+                display: flex; flex-direction: column; align-items: flex-end; font-size: 8px; color: #888;
+                padding-top: 2.5cm;
+            }
+            .dr-ruler-v-right {
+                position: absolute; left: calc(50% + 105mm); top: 65px; width: 25px; height: 297mm;
+                background: white; border-left: 1px solid #ddd; z-index: 40;
+                display: flex; flex-direction: column; align-items: flex-start; font-size: 8px; color: #888;
+                padding-top: 2.5cm;
+            }
+            .tick { border-left: 1px solid #ccc; height: 4px; position: relative; }
+            .tick-long { height: 8px; border-left: 1px solid #999; }
+            .tick-label { position: absolute; top: -12px; left: -4px; width: 20px; text-align: center; }
+
             .dr-page-a4 {
                 background: white; width: 210mm; min-height: 297mm; color: #000;
                 padding: 2.5cm; box-shadow: var(--off-shadow); position: relative;
                 transform-origin: top center; transition: transform 0.2s;
+            }
+            .dr-page-a4.grid-active {
+                background-image: linear-gradient(#f0f0f0 1px, transparent 1px), linear-gradient(90deg, #f0f0f0 1px, transparent 1px);
+                background-size: 20px 20px;
             }
             .dr-header-box { position: absolute; top: 1cm; left: 2.5cm; right: 2.5cm; height: 1cm; font-size: 9pt; color: #999; outline: none; border-bottom: 1px dashed transparent; }
             .dr-footer-box { position: absolute; bottom: 1cm; left: 2.5cm; right: 2.5cm; height: 1cm; font-size: 9pt; color: #999; outline: none; border-top: 1px dashed transparent; }
@@ -293,7 +321,23 @@ window.modalLegalDrafting = async function() {
 
             .off-status { height: 25px; background: #00488e; color: #fff; display: flex; align-items: center; padding: 0 15px; font-size: 11px; gap: 20px; }
             .dr-input-mini { width: 45px; height: 20px; border: 1px solid #ddd; padding: 0 4px; font-size: 11px; }
-            @media print { .off-header, .off-ribbon, .off-ai-sidebar, .off-status { display: none !important; } .off-canvas { padding: 0; background: #fff; } .dr-page-a4 { box-shadow: none; margin: 0; } }
+
+            /* Table Resizing */
+            .dr-editor table { position: relative; border-collapse: collapse; }
+            .dr-editor td { position: relative; }
+            .resizer {
+                position: absolute; top: 0; right: 0; width: 5px; cursor: col-resize;
+                user-select: none; height: 100%; z-index: 1;
+            }
+            .resizer:hover { background: var(--off-blue); opacity: 0.5; }
+
+            @media print {
+                .off-header, .off-ribbon, .off-tab-bar, .off-ai-sidebar, .off-status, .dr-ruler-h, .dr-ruler-v-left, .dr-ruler-v-right { display: none !important; }
+                .off-canvas { padding: 0; background: #fff; overflow: visible; display: block; }
+                .dr-page-a4 { box-shadow: none; margin: 0; transform: none !important; width: 100% !important; border: none; }
+                body { background: white; }
+                @page { margin: 0; size: A4; }
+            }
         `;
         document.head.appendChild(style);
     }
@@ -311,7 +355,14 @@ window.modalLegalDrafting = async function() {
             </div>
             <div class="off-ribbon" id="officeRibbon">${getRibbonHtml('home')}</div>
             <div class="off-main">
-                <div class="off-canvas">
+                <div class="off-canvas" id="suiteCanvas">
+                    <!-- Horizontal Ruler -->
+                    <div class="dr-ruler-h" id="suiteRulerH"></div>
+                    <!-- Vertical Ruler Left -->
+                    <div class="dr-ruler-v-left" id="suiteRulerVL"></div>
+                    <!-- Vertical Ruler Right -->
+                    <div class="dr-ruler-v-right" id="suiteRulerVR"></div>
+
                     <div class="dr-page-a4" id="suitePage">
                         <div class="dr-header-box" id="suiteHeader" contenteditable="true" onfocus="window._currentArea=this">Header Text...</div>
                         <div class="dr-editor" id="suiteEditor" contenteditable="true" onfocus="window._currentArea=this">
@@ -359,6 +410,30 @@ window.modalLegalDrafting = async function() {
         const count = text.trim() ? text.trim().split(/\s+/).length : 0;
         document.getElementById("suiteWordCount").innerText = `${count} words`;
     });
+
+    window.initRulers();
+};
+
+window.initRulers = function() {
+    const rH = document.getElementById("suiteRulerH");
+    const rVL = document.getElementById("suiteRulerVL");
+    const rVR = document.getElementById("suiteRulerVR");
+    if(!rH) return;
+
+    let hHtml = "", vHtml = "";
+    // 21cm = 210mm
+    for(let i=0; i<=21; i++) {
+        hHtml += `<div class="tick tick-long" style="flex:1"><span class="tick-label">${i}</span></div>`;
+        if(i<21) for(let j=0; j<9; j++) hHtml += `<div class="tick" style="flex:1"></div>`;
+    }
+    // 29.7cm
+    for(let i=0; i<=30; i++) {
+        vHtml += `<div class="tick tick-long" style="height:20px; border-top:1px solid #999; border-left:none; width:8px; position:relative"><span style="position:absolute; right:10px; top:-6px">${i}</span></div>`;
+        if(i<30) for(let j=0; j<4; j++) vHtml += `<div class="tick" style="height:10px; border-top:1px solid #ccc; border-left:none; width:4px"></div>`;
+    }
+    rH.innerHTML = hHtml;
+    rVL.innerHTML = vHtml;
+    rVR.innerHTML = vHtml;
 };
 
 window.switchOfficeTab = function(tabId, event) {
@@ -385,10 +460,34 @@ window.insertDrTable = function() {
     let h = '<table style="width:100%; border-collapse:collapse; border:1px solid #000; margin:10px 0">';
     for(let i=0; i<r; i++){
         h+='<tr>';
-        for(let j=0; j<c; j++) h+='<td style="border:1px solid #000; padding:8px; min-height:20px"></td>';
+        for(let j=0; j<c; j++) {
+            h+='<td style="border:1px solid #000; padding:8px; min-height:20px; position:relative">' +
+               '<div class="resizer" onmousedown="window.initTableResize(event)"></div>' +
+               '</td>';
+        }
         h+='</tr>';
     }
     window.formatDoc('insertHTML', h + '</table><p>&nbsp;</p>');
+};
+
+window.initTableResize = function(e) {
+    const resizer = e.target;
+    const td = resizer.parentElement;
+    const startX = e.pageX;
+    const startWidth = td.offsetWidth;
+
+    const onMouseMove = (e) => {
+        const newWidth = startWidth + (e.pageX - startX);
+        td.style.width = newWidth + 'px';
+    };
+
+    const onMouseUp = () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
 };
 
 window.editTable = function(action) {
@@ -527,13 +626,34 @@ window.setDrSize = function(size) {
     toast("Paper Size: " + size, "info");
 };
 
-window.toggleRuler = function(show) { document.getElementById("suiteRuler").style.display = show ? "flex" : "none"; };
-window.toggleGrid = function(show) { document.getElementById("suiteEditor").style.backgroundImage = show ? "linear-gradient(#eee 1px, transparent 1px), linear-gradient(90deg, #eee 1px, transparent 1px)" : "none"; document.getElementById("suiteEditor").style.backgroundSize = "20px 20px"; };
+window.toggleRuler = function(show) {
+    document.getElementById("suiteRulerH").style.display = show ? "flex" : "none";
+    document.getElementById("suiteRulerVL").style.display = show ? "flex" : "none";
+    document.getElementById("suiteRulerVR").style.display = show ? "flex" : "none";
+};
+window.toggleGrid = function(show) {
+    document.getElementById("suitePage").classList.toggle('grid-active', show);
+};
 window.toggleNavPane = function(show) { toast("Navigation Pane " + (show ? "ON" : "OFF"), "info"); };
 window.setDocView = function(view) {
     const canvas = document.querySelector(".off-canvas");
-    canvas.style.background = view === 'read' ? "#fff" : "#e1dfdd";
-    toast("View: " + view, "info");
+    const sidebar = document.getElementById("suiteSidebar");
+    const ribbon = document.getElementById("officeRibbon");
+
+    if (view === 'read') {
+        canvas.style.background = "#fff";
+        sidebar.style.display = "none";
+        ribbon.style.display = "none";
+        toast("Read Mode: Press ESC to exit", "info");
+    } else {
+        canvas.style.background = "#e1dfdd";
+        sidebar.style.display = "flex";
+        ribbon.style.display = "flex";
+    }
+};
+
+window.printDraft = function() {
+    window.print();
 };
 
 
