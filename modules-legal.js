@@ -291,9 +291,10 @@ window.modalLegalDrafting = async function() {
                 <div class="dr-tab" onclick="window.switchTab('insert', event)">Sisipkan</div>
                 <div class="dr-tab" onclick="window.switchTab('layout', event)">Tata Letak</div>
                 <div class="dr-tab" onclick="window.switchTab('reference', event)">Referensi</div>
-                <div class="dr-tab">Tata Letak</div>
-                <div class="dr-tab">Referensi</div>
-                <div style="margin-left:auto; padding: 0 15px; color:#999; font-size:11px">Legal Drafting Pro v2.0</div>
+                <div style="margin-left:auto; display:flex; align-items:center; gap:15px; padding-right:10px">
+                    <span style="color:#999; font-size:11px">Legal Drafting Pro v2.0</span>
+                    <button onclick="closeModalDirect()" style="background:#c62828; color:#fff; border:none; border-radius:4px; padding:2px 10px; cursor:pointer; font-weight:bold; font-size:12px">Keluar (Esc)</button>
+                </div>
             </div>
 
             <!-- 2. Ribbon Area -->

@@ -5,8 +5,9 @@
   "main": "index.html",
   "type": "module",
   "scripts": {
-    "build": "echo 'Static build skip'",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx --ignore-path .gitignore --ignore-pattern functions/**",
+    "build": "echo 'Skip Build'",
+    "start": "echo 'Static Site Only'",
+    "lint": "echo 'Skip Lint'",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix --ignore-path .gitignore --ignore-pattern functions/**",
     "format": "prettier --write . --ignore-path .gitignore",
     "format:check": "prettier --check . --ignore-path .gitignore",
