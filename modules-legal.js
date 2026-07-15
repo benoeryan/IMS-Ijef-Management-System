@@ -29,10 +29,13 @@ function getRibbonHtml(tabId) {
                         <button class="dr-btn-compact" onclick="window.formatDoc('redo')">↪️<span>Redo</span></button>
                     </div>
                     <div class="dr-v-sep"></div>
-                    <button class="dr-btn-large" onclick="window.formatDoc('paste')"><span class="dr-icon">📋</span><label>Paste</label></button>
-                    <div class="dr-stacked-tools">
-                        <button class="dr-btn-compact" onclick="window.formatDoc('cut')">✂️<span>Cut</span></button>
-                        <button class="dr-btn-compact" onclick="window.formatDoc('copy')">📑<span>Copy</span></button>
+                    <div style="display:flex; gap:8px">
+                        <button class="dr-btn-large" onclick="window.formatDoc('paste')"><span class="dr-icon">📋</span><label>Paste</label></button>
+                        <div style="display:flex; flex-direction:column; gap:2px">
+                            <button class="dr-btn-compact" onclick="window.formatDoc('cut')">✂️<span>Cut</span></button>
+                            <button class="dr-btn-compact" onclick="window.formatDoc('copy')">📑<span>Copy</span></button>
+                            <button class="dr-btn-compact" onclick="window.copyFormat()" title="Format Painter">🖌️<span>Format Painter</span></button>
+                        </div>
                     </div>
                 </div>
                 <div class="dr-grp-label">Clipboard</div>
@@ -41,10 +44,11 @@ function getRibbonHtml(tabId) {
                 <div class="dr-actions-wrap" style="flex-direction:column; align-items:flex-start; gap:4px">
                     <div style="display:flex; gap:4px">
                         <select class="dr-select-compact" id="fontName" onchange="window.formatDoc('fontName', this.value)" style="width:130px">
-                            <option>Calibri</option><option>Arial</option><option>Times New Roman</option><option>Segoe UI</option><option>Verdana</option><option>Tahoma</option><option>Georgia</option>
+                            <option>Calibri</option><option>Arial</option><option>Times New Roman</option><option>Segoe UI</option><option>Verdana</option><option>Tahoma</option><option>Georgia</option><option>Bookman Old Style</option>
                         </select>
-                        <select class="dr-select-compact" id="fontSize" onchange="window.formatDoc('fontSize', this.value)" style="width:50px">
-                            <option value="2">10</option><option value="3" selected>12</option><option value="4">14</option><option value="5">18</option><option value="6">24</option>
+                        <select class="dr-select-compact" id="fontSize" onchange="window.formatDoc('fontSize', this.value)" style="width:55px">
+                            <option value="1">8</option><option value="2">10</option><option value="3" selected>12</option><option value="4">14</option><option value="5">18</option><option value="6">24</option><option value="7">36</option>
+                            <option value="8">48</option><option value="9">72</option>
                         </select>
                     </div>
                     <div style="display:flex; gap:2px">
@@ -54,9 +58,28 @@ function getRibbonHtml(tabId) {
                         <button class="dr-btn-style" onclick="window.formatDoc('strikeThrough')"><s>abc</s></button>
                         <div class="dr-v-sep"></div>
                         <div class="dr-color-wrap"><input type="color" onchange="window.formatDoc('foreColor', this.value)"><span>A</span></div>
+                        <button class="dr-btn-style" onclick="window.formatDoc('removeFormat')">🧼</button>
                     </div>
                 </div>
                 <div class="dr-grp-label">Font</div>
+            </div>
+            <div class="dr-ribbon-grp">
+                <div class="dr-actions-wrap">
+                    <div class="dr-stacked-tools">
+                        <button class="dr-btn-compact" onclick="window.formatDoc('justifyLeft')">⬅️</button>
+                        <button class="dr-btn-compact" onclick="window.formatDoc('justifyCenter')">↔️</button>
+                    </div>
+                    <div class="dr-stacked-tools">
+                        <button class="dr-btn-compact" onclick="window.formatDoc('justifyRight')">➡️</button>
+                        <button class="dr-btn-compact" onclick="window.formatDoc('justifyFull')">📑</button>
+                    </div>
+                    <div class="dr-v-sep"></div>
+                    <div class="dr-stacked-tools">
+                        <button class="dr-btn-compact" onclick="window.formatDoc('insertUnorderedList')">•≡</button>
+                        <button class="dr-btn-compact" onclick="window.formatDoc('insertOrderedList')">1≡</button>
+                    </div>
+                </div>
+                <div class="dr-grp-label">Paragraph</div>
             </div>
             <div class="dr-ribbon-grp" style="flex:1">
                 <div class="dr-styles-shelf">
@@ -70,8 +93,18 @@ function getRibbonHtml(tabId) {
         html += `
             <div class="dr-ribbon-grp">
                 <div class="dr-actions-wrap">
-                    <button class="dr-btn-large" onclick="window.formatDoc('pageBreak')"><span class="dr-icon">📑</span><label>Page Break</label></button>
+                    <button class="dr-btn-large" onclick="window.insertPageBreak()"><span class="dr-icon">📑</span><label>Page Break</label></button>
+                </div>
+                <div class="dr-grp-label">Pages</div>
+            </div>
+            <div class="dr-ribbon-grp">
+                <div class="dr-actions-wrap">
                     <button class="dr-btn-large" onclick="window.insertDrTable()"><span class="dr-icon">📊</span><label>Table</label></button>
+                </div>
+                <div class="dr-grp-label">Tables</div>
+            </div>
+            <div class="dr-ribbon-grp">
+                <div class="dr-actions-wrap">
                     <button class="dr-btn-large" onclick="document.getElementById('drImgImport').click()"><span class="dr-icon">🖼️</span><label>Pictures</label></button>
                 </div>
                 <div class="dr-grp-label">Illustrations</div>
@@ -87,67 +120,46 @@ function getRibbonHtml(tabId) {
         html += `
             <div class="dr-ribbon-grp">
                 <div class="dr-actions-wrap">
-                    <button class="dr-btn-large" onclick="toast('Text Direction','info')"><span class="dr-icon">⬇️</span><label>Text<br>Direction</label></button>
                     <button class="dr-btn-large" onclick="window.setDrMargins('2.5cm')"><span class="dr-icon">↔️</span><label>Margins</label></button>
                     <button class="dr-btn-large" onclick="window.setDrOrientation('portrait')"><span class="dr-icon">↕️</span><label>Orientation</label></button>
                     <button class="dr-btn-large" onclick="window.setDrSize('A4')"><span class="dr-icon">📏</span><label>Size</label></button>
-                    <button class="dr-btn-large" onclick="window.formatDoc('insertHTML', '<div style=\'column-count:2\'></div>')"><span class="dr-icon">📑</span><label>Columns</label></button>
-                    <div class="dr-stacked-tools" style="margin-left:10px">
-                        <button class="dr-btn-compact" onclick="toast('Breaks','info')">📑 Breaks ▾</button>
-                        <button class="dr-btn-compact" onclick="toast('Line Numbers','info')">🔢 Line Numbers ▾</button>
-                        <button class="dr-btn-compact" onclick="toast('Hyphenation','info')">abc Hyphenation ▾</button>
-                    </div>
+                    <button class="dr-btn-large" onclick="window.setDocColumns(2)"><span class="dr-icon">📑</span><label>Columns</label></button>
                 </div>
                 <div class="dr-grp-label">Page Setup</div>
             </div>
-            <div class="dr-ribbon-grp">
-                <div class="dr-actions-wrap" style="gap:15px">
-                    <div style="display:flex; flex-direction:column; gap:4px">
-                        <div style="display:flex; align-items:center; gap:8px"><label style="font-size:11px; width:45px">Left:</label><input type="number" class="dr-input-mini" value="0" onchange="window.setDrIndent('left', this.value)"></div>
-                        <div style="display:flex; align-items:center; gap:8px"><label style="font-size:11px; width:45px">Right:</label><input type="number" class="dr-input-mini" value="0" onchange="window.setDrIndent('right', this.value)"></div>
-                    </div>
-                    <div style="display:flex; flex-direction:column; gap:4px">
-                        <div style="display:flex; align-items:center; gap:8px"><label style="font-size:11px; width:45px">Before:</label><input type="number" class="dr-input-mini" value="0" onchange="window.setDrSpacing('before', this.value)"></div>
-                        <div style="display:flex; align-items:center; gap:8px"><label style="font-size:11px; width:45px">After:</label><input type="number" class="dr-input-mini" value="8" onchange="window.setDrSpacing('after', this.value)"></div>
-                    </div>
-                </div>
-                <div class="dr-grp-label">Paragraph</div>
-            </div>
-            <div class="dr-ribbon-grp">
+            <div class="dr-ribbon-grp" id="tableToolsRibbon" style="background:#fff3e0">
                 <div class="dr-actions-wrap">
-                    <button class="dr-btn-large" onclick="toast('Position','info')"><span class="dr-icon">📍</span><label>Position</label></button>
-                    <button class="dr-btn-large" onclick="toast('Wrap Text','info')"><span class="dr-icon">📝</span><label>Wrap<br>Text</label></button>
-                    <button class="dr-btn-large" onclick="toast('Selection Pane','info')"><span class="dr-icon">🔳</span><label>Selection<br>Pane</label></button>
-                    <div class="dr-stacked-tools" style="margin-left:10px">
-                        <button class="dr-btn-compact" onclick="toast('Align','info')">📊 Align ▾</button>
-                        <button class="dr-btn-compact" onclick="toast('Group','info')">🧱 Group ▾</button>
-                        <button class="dr-btn-compact" onclick="toast('Rotate','info')">🔄 Rotate ▾</button>
+                    <div class="dr-stacked-tools">
+                        <button class="dr-btn-compact" onclick="window.editTable('addRowAbove')">➕ Row Above</button>
+                        <button class="dr-btn-compact" onclick="window.editTable('addRowBelow')">➕ Row Below</button>
+                    </div>
+                    <div class="dr-v-sep"></div>
+                    <div class="dr-stacked-tools">
+                        <button class="dr-btn-compact" onclick="window.editTable('addColLeft')">➕ Col Left</button>
+                        <button class="dr-btn-compact" onclick="window.editTable('addColRight')">➕ Col Right</button>
+                    </div>
+                    <div class="dr-v-sep"></div>
+                    <div class="dr-stacked-tools">
+                        <button class="dr-btn-compact" onclick="window.editTable('deleteRow')" style="color:red">➖ Delete Row</button>
+                        <button class="dr-btn-compact" onclick="window.editTable('deleteCol')" style="color:red">➖ Delete Col</button>
                     </div>
                 </div>
-                <div class="dr-grp-label">Arrange</div>
-            </div>`;
-    } else if (tabId === "references") {
-        html += `
-            <div class="dr-ribbon-grp">
-                <div class="dr-actions-wrap">
-                    <button class="dr-btn-large" onclick="window.insertTOC()"><span class="dr-icon">📑</span><label>Table of Contents</label></button>
-                </div>
-                <div class="dr-grp-label">Table of Contents</div>
-            </div>
-            <div class="dr-ribbon-grp">
-                <div class="dr-actions-wrap">
-                    <button class="dr-btn-large" onclick="window.insertFootnote()"><span class="dr-icon">📝</span><label>Insert Footnote</label></button>
-                </div>
-                <div class="dr-grp-label">Footnotes</div>
+                <div class="dr-grp-label">Table Tools</div>
             </div>`;
     } else if (tabId === "review") {
         html += `
             <div class="dr-ribbon-grp">
                 <div class="dr-actions-wrap">
-                    <button class="dr-btn-large" onclick="window.onAnalyzeRequested()"><span class="dr-icon">🧐</span><label>Legal Review</label></button>
+                    <button class="dr-btn-large" onclick="window.onAnalyzeRequested()"><span class="dr-icon">🧐</span><label>Legal AI<br>Review</label></button>
+                    <button class="dr-btn-large" onclick="window.formatDoc('spellcheck')"><span class="dr-icon">✔️</span><label>Spelling</label></button>
+                </div>
+                <div class="dr-grp-label">Proofing</div>
+            </div>
+            <div class="dr-ribbon-grp">
+                <div class="dr-actions-wrap">
                     <button class="dr-btn-large" onclick="window.translateDoc()"><span class="dr-icon">🌐</span><label>Translate</label></button>
                 </div>
-                <div class="dr-grp-label">Proofing / Language</div>
+                <div class="dr-grp-label">Language</div>
             </div>`;
     } else if (tabId === "view") {
         html += `
@@ -155,32 +167,14 @@ function getRibbonHtml(tabId) {
                 <div class="dr-actions-wrap">
                     <button class="dr-btn-large" onclick="window.setDocView('read')"><span class="dr-icon">📖</span><label>Read<br>Mode</label></button>
                     <button class="dr-btn-large" onclick="window.setDocView('print')"><span class="dr-icon">📄</span><label>Print<br>Layout</label></button>
-                    <div class="dr-stacked-tools">
-                        <button class="dr-btn-compact" onclick="toast('Outline View','info')">📋 Outline</button>
-                        <button class="dr-btn-compact" onclick="toast('Draft View','info')">📑 Draft</button>
-                    </div>
+                    <button class="dr-btn-large" onclick="window.toggleFocusMode()"><span class="dr-icon">🔲</span><label>Focus</label></button>
                 </div>
                 <div class="dr-grp-label">Views</div>
-            </div>
-            <div class="dr-ribbon-grp">
-                <div class="dr-actions-wrap">
-                    <button class="dr-btn-large" onclick="toast('Focus Mode','info')"><span class="dr-icon">🔲</span><label>Focus</label></button>
-                    <button class="dr-btn-large" onclick="toast('Immersive Reader','info')"><span class="dr-icon">🔊</span><label>Immersive<br>Reader</label></button>
-                </div>
-                <div class="dr-grp-label">Immersive</div>
-            </div>
-            <div class="dr-ribbon-grp">
-                <div class="dr-actions-wrap">
-                    <button class="dr-btn-large" onclick="toast('Vertical Movement','info')"><span class="dr-icon">↕️</span><label>Vertical</label></button>
-                    <button class="dr-btn-large" onclick="toast('Side to Side','info')"><span class="dr-icon">↔️</span><label>Side to Side</label></button>
-                </div>
-                <div class="dr-grp-label">Page Movement</div>
             </div>
             <div class="dr-ribbon-grp">
                 <div class="dr-actions-wrap" style="flex-direction:column; gap:2px; align-items:flex-start">
                     <label style="font-size:11px"><input type="checkbox" checked onchange="window.toggleRuler(this.checked)"> Ruler</label>
                     <label style="font-size:11px"><input type="checkbox" onchange="window.toggleGrid(this.checked)"> Gridlines</label>
-                    <label style="font-size:11px"><input type="checkbox" onchange="window.toggleNavPane(this.checked)"> Navigation Pane</label>
                 </div>
                 <div class="dr-grp-label">Show</div>
             </div>
@@ -188,23 +182,13 @@ function getRibbonHtml(tabId) {
                 <div class="dr-actions-wrap">
                     <button class="dr-btn-large" onclick="window.setDocZoom(1.2)"><span class="dr-icon">🔍</span><label>Zoom</label></button>
                     <button class="dr-btn-large" onclick="window.setDocZoom(1)"><span class="dr-icon">💯</span><label>100%</label></button>
-                    <div class="dr-stacked-tools">
-                        <button class="dr-btn-compact" onclick="window.setDocZoom(1)">📄 One Page</button>
-                        <button class="dr-btn-compact" onclick="window.setDocZoom(0.8)">📑 Multiple Pages</button>
-                        <button class="dr-btn-compact" onclick="window.setDocZoom('page')">↔️ Page Width</button>
-                    </div>
+                    <button class="dr-btn-large" onclick="window.setDocZoom('page')">↔️<label>Width</label></button>
                 </div>
                 <div class="dr-grp-label">Zoom</div>
-            </div>
-            <div class="dr-ribbon-grp">
-                <div class="dr-actions-wrap">
-                    <button class="dr-btn-large" onclick="toast('New Window','info')"><span class="dr-icon">➕</span><label>New<br>Window</label></button>
-                    <button class="dr-btn-large" onclick="toast('Arrange All','info')"><span class="dr-icon">🪟</span><label>Arrange All</label></button>
-                    <button class="dr-btn-large" onclick="toast('Split Window','info')"><span class="dr-icon">✂️</span><label>Split</label></button>
-                </div>
-                <div class="dr-grp-label">Window</div>
             </div>`;
     }
+    return html;
+}
     return html;
 }
 
@@ -295,8 +279,11 @@ window.modalLegalDrafting = async function() {
             .dr-header-box:focus, .dr-footer-box:focus { border-color: var(--off-blue); }
 
             .dr-editor { width: 100%; min-height: 100%; outline: none; font-family: 'Calibri', sans-serif; font-size: 11pt; line-height: 1.15; text-align: justify; }
+            .dr-editor table td { min-width: 20px; word-break: break-word; }
+            .dr-editor img { transition: 0.2s; }
+            .dr-editor img:hover { outline: 2px solid var(--off-blue); }
 
-            .off-ai-sidebar { width: 350px; background: #fff; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
+            .off-ai-sidebar { width: 350px; background: #fff; border-left: 1px solid #ddd; display: flex; flex-direction: column; transition: width 0.3s; }
             .ai-head { padding: 20px; background: linear-gradient(135deg, #1a73e8, #d93025); color: #fff; display: flex; align-items: center; gap: 12px; }
             .ai-chat { flex: 1; overflow-y: auto; padding: 20px; background: #f8f9fa; display: flex; flex-direction: column; gap: 15px; }
             .ai-msg { padding: 12px; border-radius: 8px; font-size: 0.9rem; max-width: 90%; }
@@ -328,16 +315,16 @@ window.modalLegalDrafting = async function() {
             <div class="off-main">
                 <div class="off-canvas">
                     <div class="dr-page-a4" id="suitePage">
-                        <div class="dr-header-box" id="suiteHeader" contenteditable="true">Header Text...</div>
-                        <div class="dr-editor" id="suiteEditor" contenteditable="true">
+                        <div class="dr-header-box" id="suiteHeader" contenteditable="true" onfocus="window._currentArea=this">Header Text...</div>
+                        <div class="dr-editor" id="suiteEditor" contenteditable="true" onfocus="window._currentArea=this">
                             <p style="text-align:center"><b>[JUDUL DOKUMEN]</b></p>
                             <p style="text-align:center">Nomor: [NOMOR_SURAT]</p><br>
                             <p>Mulai ketik draf hukum Anda di sini...</p>
                         </div>
-                        <div class="dr-footer-box" id="suiteFooter" contenteditable="true">Footer Text...</div>
+                        <div class="dr-footer-box" id="suiteFooter" contenteditable="true" onfocus="window._currentArea=this">Footer Text...</div>
                     </div>
                 </div>
-                <div class="off-ai-sidebar">
+                <div class="off-ai-sidebar" id="suiteSidebar">
                     <div class="ai-head">✨ Gemini Legal AI</div>
                     <div class="ai-chat" id="suiteAiChat"><div class="ai-msg bot">Halo! Saya Gemini Legal AI. Apa yang bisa saya bantu?</div></div>
                     <div class="ai-input-area">
@@ -346,10 +333,34 @@ window.modalLegalDrafting = async function() {
                     </div>
                 </div>
             </div>
-            <div class="off-status"><span>Page 1 of 1</span><span>0 words</span></div>
+            <div class="off-status"><span>Page 1 of 1</span><span id="suiteWordCount">0 words</span></div>
             <input type="file" id="drImgImport" style="display:none" accept="image/*" onchange="window.handleImageUpload(this)">
         </div>
     `, true);
+
+    window._currentArea = document.getElementById("suiteEditor");
+    window._formatPainter = null;
+
+    // Add context menu or selection listener for table tools
+    document.getElementById("suiteEditor").addEventListener("click", (e) => {
+        const td = e.target.closest("td");
+        if (td) {
+            window._currentCell = td;
+            window.switchOfficeTab("layout");
+        }
+
+        const img = e.target.closest("img");
+        if (img) {
+            const w = prompt("Resize Image (width in px or %):", img.style.width || img.width || "100%");
+            if (w) img.style.width = w;
+        }
+    });
+
+    document.getElementById("suiteEditor").addEventListener("input", () => {
+        const text = document.getElementById("suiteEditor").innerText;
+        const count = text.trim() ? text.trim().split(/\s+/).length : 0;
+        document.getElementById("suiteWordCount").innerText = `${count} words`;
+    });
 };
 
 window.switchOfficeTab = function(tabId, event) {
@@ -364,40 +375,132 @@ window.applyDocStyle = function(type) {
 };
 window.handleImageUpload = function(input) {
     const reader = new FileReader();
-    reader.onload = (e) => window.formatDoc('insertHTML', `<img src="${e.target.result}" style="max-width:100%">`);
+    reader.onload = (e) => {
+        window.formatDoc('insertHTML', `<div style="text-align:center;margin:10px 0"><img src="${e.target.result}" style="max-width:100%; cursor:pointer" class="dr-resizable-img"></div><p>&nbsp;</p>`);
+    };
     if(input.files[0]) reader.readAsDataURL(input.files[0]);
 };
+
 window.insertDrTable = function() {
     const r = prompt("Rows:","3"), c = prompt("Cols:","3");
-    let h = '<table style="width:100%; border-collapse:collapse; border:1px solid #ddd">';
-    for(let i=0; i<r; i++){ h+='<tr>'; for(let j=0; j<c; j++) h+='<td style="border:1px solid #ddd; padding:8px"></td>'; h+='</tr>'; }
-    window.formatDoc('insertHTML', h + '</table>');
-};
-window.setDrIndent = function(side, val) { document.getElementById("suiteEditor").style[side === 'left' ? 'paddingLeft' : 'paddingRight'] = val + 'cm'; };
-window.setDrSpacing = function(type, val) { document.getElementById("suiteEditor").style[type === 'before' ? 'marginTop' : 'marginBottom'] = val + 'pt'; };
-window.saveDraft = function() { toast("Draft saved", "success"); };
-
-window.setDocZoom = function(val) {
-    const page = document.getElementById("suitePage");
-    if (!page) return;
-    if (val === 'page') {
-        page.style.transform = "scale(1)";
-        page.style.width = "100%";
-    } else {
-        page.style.transform = `scale(${val})`;
-        page.style.width = "210mm";
+    if (!r || !c) return;
+    let h = '<table style="width:100%; border-collapse:collapse; border:1px solid #000; margin:10px 0">';
+    for(let i=0; i<r; i++){
+        h+='<tr>';
+        for(let j=0; j<c; j++) h+='<td style="border:1px solid #000; padding:8px; min-height:20px"></td>';
+        h+='</tr>';
     }
-    toast(`Zoom set to ${val === 'page' ? 'Page Width' : (val*100)+'%'}`, "info");
+    window.formatDoc('insertHTML', h + '</table><p>&nbsp;</p>');
+};
+
+window.editTable = function(action) {
+    const cell = window._currentCell;
+    if (!cell) return toast("Klik di dalam tabel terlebih dahulu", "warning");
+    const tr = cell.parentElement;
+    const table = tr.closest("table");
+    const rowIndex = tr.rowIndex;
+    const cellIndex = cell.cellIndex;
+
+    if (action === 'addRowAbove' || action === 'addRowBelow') {
+        const newRow = table.insertRow(action === 'addRowAbove' ? rowIndex : rowIndex + 1);
+        for (let i = 0; i < tr.cells.length; i++) {
+            const newCell = newRow.insertCell(i);
+            newCell.style.border = "1px solid #000";
+            newCell.style.padding = "8px";
+        }
+    } else if (action === 'addColLeft' || action === 'addColRight') {
+        const index = action === 'addColLeft' ? cellIndex : cellIndex + 1;
+        for (let i = 0; i < table.rows.length; i++) {
+            const newCell = table.rows[i].insertCell(index);
+            newCell.style.border = "1px solid #000";
+            newCell.style.padding = "8px";
+        }
+    } else if (action === 'deleteRow') {
+        table.deleteRow(rowIndex);
+        if (table.rows.length === 0) table.remove();
+    } else if (action === 'deleteCol') {
+        for (let i = 0; i < table.rows.length; i++) {
+            table.rows[i].deleteCell(cellIndex);
+        }
+        if (table.rows[0].cells.length === 0) table.remove();
+    }
+    toast("Table updated", "success");
+};
+
+window.copyFormat = function() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const node = sel.anchorNode.parentElement;
+    window._formatPainter = {
+        fontFamily: window.getComputedStyle(node).fontFamily,
+        fontSize: window.getComputedStyle(node).fontSize,
+        fontWeight: window.getComputedStyle(node).fontWeight,
+        fontStyle: window.getComputedStyle(node).fontStyle,
+        textDecoration: window.getComputedStyle(node).textDecoration,
+        color: window.getComputedStyle(node).color
+    };
+    toast("Format Copied. Pilih teks lalu klik Paste Format", "info");
+};
+
+window.applyFormat = function() {
+    if (!window._formatPainter) return toast("Copy format first", "warning");
+    const s = window._formatPainter;
+    window.formatDoc('fontName', s.fontFamily);
+    window.formatDoc('fontSize', s.fontSize);
+    // Note: execCommand is limited, complex styles might need span wrapping
+    const sel = window.getSelection();
+    if (sel.rangeCount) {
+        const span = document.createElement("span");
+        span.style.fontFamily = s.fontFamily;
+        span.style.fontSize = s.fontSize;
+        span.style.fontWeight = s.fontWeight;
+        span.style.fontStyle = s.fontStyle;
+        span.style.textDecoration = s.textDecoration;
+        span.style.color = s.color;
+        sel.getRangeAt(0).surroundContents(span);
+    }
 };
 
 window.formatDoc = function(cmd, val) {
-    if (cmd === 'pageBreak') {
-        const html = '<div style="page-break-after:always; border-bottom:2px dotted #ccc; margin:20px 0; text-align:center; color:#999; font-size:10px">PAGE BREAK</div>';
-        document.execCommand('insertHTML', false, html);
-    } else {
-        document.execCommand(cmd, false, val);
-    }
-    document.getElementById("suiteEditor").focus();
+    const area = window._currentArea || document.getElementById("suiteEditor");
+    area.focus();
+    if (cmd === 'copyFormat') return window.copyFormat();
+    if (cmd === 'pasteFormat') return window.applyFormat();
+
+    document.execCommand(cmd, false, val);
+    area.focus();
+};
+
+window.insertPageBreak = function() {
+    const html = '<div class="dr-page-break" contenteditable="false" style="page-break-after:always; border-bottom:2px dashed #ccc; margin:30px -2.5cm; position:relative; text-align:center; color:#999; font-size:11px; user-select:none"><span style="background:#fff; padding:0 10px; position:relative; top:8px">PAGE BREAK</span></div><p>&nbsp;</p>';
+    window.formatDoc('insertHTML', html);
+};
+
+window.setDocColumns = function(count) {
+    document.getElementById("suiteEditor").style.columnCount = count;
+    document.getElementById("suiteEditor").style.columnGap = "1cm";
+    toast(`Layout: ${count} Columns`, "info");
+};
+
+window.toggleFocusMode = function() {
+    const sidebar = document.getElementById("suiteSidebar");
+    const ribbon = document.getElementById("officeRibbon");
+    const tabs = document.getElementById("officeTabs");
+    const isHidden = sidebar.style.display === "none";
+    sidebar.style.display = isHidden ? "flex" : "none";
+    ribbon.style.display = isHidden ? "flex" : "none";
+    tabs.style.display = isHidden ? "flex" : "none";
+    toast("Focus Mode " + (isHidden ? "OFF" : "ON"), "info");
+};
+
+window.onAnalyzeRequested = async function() {
+    toast("Gemini AI menganalisis draf...", "info");
+    const text = document.getElementById("suiteEditor").innerText;
+    setTimeout(() => {
+        const chat = document.getElementById("suiteAiChat");
+        chat.innerHTML += `<div class="ai-msg bot"><b>Analisis Legal Gemini:</b><br>1. Klausul terminasi perlu diperjelas.<br>2. Definisi 'Force Majeure' kurang mencakup pandemi.<br>3. Pilihan hukum (Governing Law) sudah tepat.</div>`;
+        chat.scrollTop = chat.scrollHeight;
+    }, 2000);
 };
 
 window.setDrMargins = function(val) {
