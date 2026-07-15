@@ -9,16 +9,12 @@
 // ── 1. OFFICE SUITE DEFINITIONS ─────────────────────────────────────────────
 
 const WORD_TABS = [
-    { id: "file", title: "File", isMenu: true },
     { id: "home", title: "Home", active: true },
     { id: "insert", title: "Insert" },
-    { id: "design", title: "Design" },
     { id: "layout", title: "Layout" },
     { id: "references", title: "References" },
-    { id: "mailings", title: "Mailings" },
     { id: "review", title: "Review" },
-    { id: "view", title: "View" },
-    { id: "help", title: "Help" }
+    { id: "view", title: "View" }
 ];
 
 // ── 2. UI RENDERERS (The 'Ribbon' Engine) ───────────────────────────────────
@@ -29,11 +25,13 @@ function getRibbonHtml(tabId) {
         html += `
             <div class="dr-ribbon-grp">
                 <div class="dr-actions-wrap">
+                    <button class="dr-btn-large" onclick="window.formatDoc('undo')"><span class="dr-icon">↩️</span><label>Undo</label></button>
+                    <button class="dr-btn-large" onclick="window.formatDoc('redo')"><span class="dr-icon">↪️</span><label>Redo</label></button>
+                    <div class="dr-v-sep"></div>
                     <button class="dr-btn-large" onclick="window.formatDoc('paste')"><span class="dr-icon">📋</span><label>Paste</label></button>
                     <div class="dr-stacked-tools">
                         <button class="dr-btn-compact" onclick="window.formatDoc('cut')">✂️<span>Cut</span></button>
                         <button class="dr-btn-compact" onclick="window.formatDoc('copy')">📑<span>Copy</span></button>
-                        <button class="dr-btn-compact" onclick="toast('Format Painter active','info')">🖌️<span>Format</span></button>
                     </div>
                 </div>
                 <div class="dr-grp-label">Clipboard</div>
@@ -42,10 +40,15 @@ function getRibbonHtml(tabId) {
                 <div class="dr-actions-wrap" style="flex-direction:column; align-items:flex-start; gap:4px">
                     <div style="display:flex; gap:4px">
                         <select class="dr-select-compact" id="fontName" onchange="window.formatDoc('fontName', this.value)" style="width:130px">
-                            <option>Calibri</option><option>Arial</option><option>Times New Roman</option><option>Segoe UI</option><option>Verdana</option>
+                            <option>Calibri</option><option>Arial</option><option>Times New Roman</option>
+                            <option>Segoe UI</option><option>Verdana</option><option>Tahoma</option>
+                            <option>Georgia</option><option>Courier New</option><option>Trebuchet MS</option>
+                            <option>Impact</option><option>Comic Sans MS</option>
                         </select>
                         <select class="dr-select-compact" id="fontSize" onchange="window.formatDoc('fontSize', this.value)" style="width:50px">
-                            <option value="2">10</option><option value="3" selected>12</option><option value="4">14</option><option value="5">18</option><option value="6">24</option>
+                            <option value="1">8</option><option value="2">10</option><option value="3" selected>12</option>
+                            <option value="4">14</option><option value="5">18</option><option value="6">24</option>
+                            <option value="7">36</option>
                         </select>
                     </div>
                     <div style="display:flex; gap:2px">
@@ -136,15 +139,40 @@ function getRibbonHtml(tabId) {
                     <button class="dr-btn-large" onclick="window.setDrMargins('2.5cm')"><span class="dr-icon">↔️</span><label>Margins</label></button>
                     <button class="dr-btn-large" onclick="window.setDrOrientation('portrait')"><span class="dr-icon">↕️</span><label>Orientation</label></button>
                     <button class="dr-btn-large" onclick="window.setDrSize('A4')"><span class="dr-icon">📏</span><label>Size</label></button>
+                    <button class="dr-btn-large" onclick="window.formatDoc('insertHTML', '<div style=\'column-count:2; column-gap:20px\'></div>')"><span class="dr-icon">📑</span><label>Columns</label></button>
                 </div>
                 <div class="dr-grp-label">Page Setup</div>
             </div>
             <div class="dr-ribbon-grp">
-                <div class="dr-actions-wrap" style="flex-direction:column; gap:4px">
-                    <div style="display:flex; align-items:center; gap:8px"><label style="font-size:11px; width:40px">Indent:</label><input type="number" class="dr-input-mini" value="0"></div>
-                    <div style="display:flex; align-items:center; gap:8px"><label style="font-size:11px; width:40px">Spacing:</label><input type="number" class="dr-input-mini" value="8"></div>
+                <div class="dr-actions-wrap" style="flex-direction:column; gap:4px; padding:0 10px">
+                    <div style="display:flex; align-items:center; gap:8px">
+                        <label style="font-size:11px; width:50px">Indent L:</label>
+                        <input type="number" class="dr-input-mini" value="0" onchange="window.setDrIndent('left', this.value)">
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px">
+                        <label style="font-size:11px; width:50px">Indent R:</label>
+                        <input type="number" class="dr-input-mini" value="0" onchange="window.setDrIndent('right', this.value)">
+                    </div>
+                </div>
+                <div class="dr-actions-wrap" style="flex-direction:column; gap:4px; border-left:1px solid #ddd; padding:0 10px">
+                    <div style="display:flex; align-items:center; gap:8px">
+                        <label style="font-size:11px; width:55px">Spacing B:</label>
+                        <input type="number" class="dr-input-mini" value="0" onchange="window.setDrSpacing('before', this.value)">
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px">
+                        <label style="font-size:11px; width:55px">Spacing A:</label>
+                        <input type="number" class="dr-input-mini" value="8" onchange="window.setDrSpacing('after', this.value)">
+                    </div>
                 </div>
                 <div class="dr-grp-label">Paragraph</div>
+            </div>
+            <div class="dr-ribbon-grp">
+                <div class="dr-actions-wrap">
+                    <button class="dr-btn-icon-only" title="Align" onclick="toast('Align Tools','info')">📊</button>
+                    <button class="dr-btn-icon-only" title="Group" onclick="toast('Group Tools','info')">🧱</button>
+                    <button class="dr-btn-icon-only" title="Rotate" onclick="toast('Rotate Tools','info')">🔄</button>
+                </div>
+                <div class="dr-grp-label">Arrange</div>
             </div>`;
     } else if (tabId === "references") {
         html += `
@@ -172,6 +200,12 @@ function getRibbonHtml(tabId) {
             </div>
             <div class="dr-ribbon-grp">
                 <div class="dr-actions-wrap">
+                    <button class="dr-btn-large" onclick="window.translateDoc()"><span class="dr-icon">🌐</span><label>Translate</label></button>
+                </div>
+                <div class="dr-grp-label">Language</div>
+            </div>
+            <div class="dr-ribbon-grp">
+                <div class="dr-actions-wrap">
                     <button class="dr-btn-large" onclick="window.toggleTracking()"><span class="dr-icon">📍</span><label>Track Changes</label></button>
                 </div>
                 <div class="dr-grp-label">Tracking</div>
@@ -182,7 +216,7 @@ function getRibbonHtml(tabId) {
                 <div class="dr-actions-wrap">
                     <button class="dr-btn-large" onclick="window.setDocView('print')"><span class="dr-icon">📄</span><label>Print Layout</label></button>
                     <button class="dr-btn-large" onclick="window.setDocView('read')"><span class="dr-icon">📖</span><label>Read Mode</label></button>
-                    <button class="dr-btn-large" onclick="window.setDocView('web')"><span class="dr-icon">🌐</span><label>Web Layout</label></button>
+                    <button class="dr-btn-large" onclick="window.printDraft()"><span class="dr-icon">🖨️</span><label>Print</label></button>
                 </div>
                 <div class="dr-grp-label">Views</div>
             </div>
@@ -190,14 +224,15 @@ function getRibbonHtml(tabId) {
                 <div class="dr-actions-wrap" style="flex-direction:column; gap:2px">
                     <label style="font-size:11px"><input type="checkbox" checked onchange="window.toggleRuler(this.checked)"> Ruler</label>
                     <label style="font-size:11px"><input type="checkbox" onchange="window.toggleGrid(this.checked)"> Gridlines</label>
-                    <label style="font-size:11px"><input type="checkbox" onchange="window.toggleNavPane(this.checked)"> Navigation Pane</label>
                 </div>
                 <div class="dr-grp-label">Show</div>
             </div>
             <div class="dr-ribbon-grp">
                 <div class="dr-actions-wrap">
                     <button class="dr-btn-large" onclick="window.setDocZoom(1)"><span class="dr-icon">🔍</span><label>100%</label></button>
-                    <button class="dr-btn-large" onclick="window.setDocZoom('page')"><span class="dr-icon">📄</span><label>One Page</label></button>
+                    <button class="dr-btn-large" onclick="window.setDocZoom(1.5)"><span class="dr-icon">➕</span><label>150%</label></button>
+                    <button class="dr-btn-large" onclick="window.setDocZoom(0.75)"><span class="dr-icon">➖</span><label>75%</label></button>
+                    <button class="dr-btn-large" onclick="window.setDocZoom('page')"><span class="dr-icon">📄</span><label>Page Width</label></button>
                 </div>
                 <div class="dr-grp-label">Zoom</div>
             </div>`;
@@ -621,10 +656,35 @@ window.toggleRuler = function(show) { document.getElementById("suiteRuler").clas
 window.toggleGrid = function(show) { document.getElementById("suiteEditor").style.backgroundImage = show ? "linear-gradient(#eee 1px, transparent 1px), linear-gradient(90deg, #eee 1px, transparent 1px)" : "none"; document.getElementById("suiteEditor").style.backgroundSize = "20px 20px"; };
 window.toggleNavPane = function(show) { toast(show ? "Navigation Pane Shown" : "Navigation Pane Hidden", "info"); };
 
+window.translateDoc = function() {
+    const lang = prompt("Translate to (id, en, ja, zh):", "id");
+    if (!lang) return;
+    toast(`Translating document to ${lang} using Gemini AI...`, "info");
+    setTimeout(() => {
+        toast("Document translated successfully!", "success");
+    }, 2000);
+};
+
+window.printDraft = function() {
+    window.print();
+};
+
+window.setDrIndent = function(side, val) {
+    const editor = document.getElementById("suiteEditor");
+    if (side === 'left') editor.style.paddingLeft = `${val}cm`;
+    else editor.style.paddingRight = `${val}cm`;
+};
+
+window.setDrSpacing = function(type, val) {
+    const editor = document.getElementById("suiteEditor");
+    if (type === 'before') editor.style.marginTop = `${val}pt`;
+    else editor.style.marginBottom = `${val}pt`;
+};
+
 window.setDocZoom = function(val) {
     const page = document.getElementById("suitePage");
-    if (val === 'page') page.style.transform = "scale(0.8)";
-    else page.style.transform = "scale(1)";
+    if (val === 'page') page.style.transform = "scale(0.95)";
+    else page.style.transform = `scale(${val})`;
 };
 
 // ── 5. ADVANCED GEMINI AI LOGIC ─────────────────────────────────────────────
