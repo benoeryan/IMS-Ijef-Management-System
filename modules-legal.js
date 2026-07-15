@@ -495,6 +495,7 @@ window.loadLegalPerizinan = async function() {
     snap.forEach(doc => {
         const p = doc.data();
         const isExpired = p.berakhir && p.berakhir < today;
+        const hasFile = p.fileURL ? `<button class="btn btn-xs btn-success" onclick="window.lihatFilePerizinan('${doc.id}')">👁️</button>` : '-';
         html += `<tr>
             <td class="fw-700">${escHtml(p.nama)}</td>
             <td>${escHtml(p.instansi || '-')}</td>
@@ -502,12 +503,35 @@ window.loadLegalPerizinan = async function() {
             <td>${formatDate(p.mulai)} s/d ${formatDate(p.berakhir)}</td>
             <td><span class="badge badge-${isExpired ? 'danger' : 'success'}">${isExpired ? 'Expired' : 'Aktif'}</span></td>
             <td>
-                <button class="btn btn-xs btn-info" onclick="window.modalLegalPerizinan('${doc.id}')">✏️</button>
-                <button class="btn btn-xs btn-danger" onclick="window.hapusLegalPerizinan('${doc.id}')">🗑️</button>
+                <div class="flex gap-4">
+                    ${hasFile}
+                    <button class="btn btn-xs btn-info" onclick="window.modalLegalPerizinan('${doc.id}')">✏️</button>
+                    <button class="btn btn-xs btn-danger" onclick="window.hapusLegalPerizinan('${doc.id}')">🗑️</button>
+                </div>
             </td>
         </tr>`;
     });
     document.getElementById("tblLegalPerizinan").innerHTML = html || '<tr><td colspan="6" class="text-center">Belum ada data perizinan</td></tr>';
+};
+
+window.lihatFilePerizinan = async function(id) {
+    const d = await db.collection("hrd_legal_perizinan").doc(id).get();
+    const p = d.data();
+    if(!p || !p.fileURL) return toast("File tidak ditemukan", "warning");
+
+    const url = p.fileURL;
+    const ext = (p.fileName || "").split(".").pop().toLowerCase();
+    let content = "";
+
+    if(["jpg", "jpeg", "png"].includes(ext)) {
+        content = `<div class="modal-title">🖼️ ${escHtml(p.fileName)}</div><img src="${url}" style="max-width:100%;border-radius:8px"><div class="mt-16"><a href="${url}" target="_blank" class="btn btn-primary btn-sm">⬇️ Download</a></div>`;
+    } else if(ext === "pdf") {
+        content = `<div class="modal-title">📄 ${escHtml(p.fileName)}</div><iframe src="${url}" style="width:100%;height:500px;border:none;border-radius:8px"></iframe><div class="mt-16"><a href="${url}" target="_blank" class="btn btn-primary btn-sm">⬇️ Download</a></div>`;
+    } else {
+        // Word or Excel
+        content = `<div class="modal-title">📎 ${escHtml(p.fileName)}</div><p>File ini tidak dapat dipratinjau langsung. Silakan unduh untuk melihat.</p><div class="mt-16"><a href="${url}" target="_blank" class="btn btn-primary btn-sm">⬇️ Download File</a></div>`;
+    }
+    openModal(content, true);
 };
 
 window.hapusLegalPerizinan = async function(id) {
@@ -518,6 +542,8 @@ window.hapusLegalPerizinan = async function(id) {
 };
 
 window.modalLegalPerizinan = function(id) {
+    window._lpFile = null;
+    window._lpFileName = "";
     if(id) {
         db.collection("hrd_legal_perizinan").doc(id).get().then(doc => {
             window.showLegalPerizinanForm(id, doc.data());
@@ -537,10 +563,16 @@ window.showLegalPerizinanForm = function(id, p) {
         <div class="form-group"><label>Tanggal Berakhir</label><input class="form-control" type="date" id="lpAkhir" value="${p.berakhir || ''}"></div>
     </div>
     <div class="form-group"><label>Keterangan</label><textarea class="form-control" id="lpKet">${escHtml(p.keterangan || '')}</textarea></div>
-    <button class="btn btn-primary" onclick="window.simpanLegalPerizinan('${id || ''}')">Simpan</button>`, true);
+    <div class="form-group">
+        <label>Lampiran File (JPG, PNG, PDF, Word, Excel)</label>
+        <input type="file" id="lpFile" class="form-control" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx" onchange="window._lpFile=this.files[0];window._lpFileName=this.files[0].name">
+        ${p.fileURL ? `<p class="text-xs mt-8">File saat ini: <a href="${p.fileURL}" target="_blank" class="color-primary fw-700">${escHtml(p.fileName || 'Lihat File')}</a></p>` : ''}
+    </div>
+    <button class="btn btn-primary" id="btnSimpanLP" onclick="window.simpanLegalPerizinan('${id || ''}')">Simpan</button>`, true);
 };
 
 window.simpanLegalPerizinan = async function(id) {
+    const btn = document.getElementById("btnSimpanLP");
     const data = {
         nama: document.getElementById("lpNama").value,
         instansi: document.getElementById("lpInstansi").value,
@@ -551,11 +583,34 @@ window.simpanLegalPerizinan = async function(id) {
         updatedAt: new Date().toISOString()
     };
     if(!data.nama) return toast("Nama dokumen wajib diisi", "warning");
-    if(id) await db.collection("hrd_legal_perizinan").doc(id).update(data);
-    else await db.collection("hrd_legal_perizinan").add(data);
-    closeModalDirect();
-    window.renderLegalPerizinan();
+
+    btn.disabled = true;
+    btn.innerHTML = "⏳ Menyimpan...";
+
+    try {
+        if(window._lpFile) {
+            toast("⏳ Mengupload file...", "info");
+            const path = `legal_perizinan/${Date.now()}_${window._lpFileName}`;
+            const fileURL = await uploadFileToStorage(window._lpFile, path);
+            data.fileURL = fileURL;
+            data.fileName = window._lpFileName;
+        }
+
+        if(id) await db.collection("hrd_legal_perizinan").doc(id).update(data);
+        else await db.collection("hrd_legal_perizinan").add(data);
+
+        closeModalDirect();
+        toast("Data berhasil disimpan", "success");
+        window.renderLegalPerizinan();
+    } catch (e) {
+        console.error(e);
+        toast("Gagal menyimpan data", "error");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = "Simpan";
+    }
 };
+
 
 // ── 7. SENGKETA & KASUS ─────────────────────────────────────────────────────
 window.renderLegalSengketa = async function() {

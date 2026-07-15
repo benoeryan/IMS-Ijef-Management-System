@@ -1177,6 +1177,7 @@ async function startNewChat() {
 }
 
 async function modalGroupChat() {
+  const users = await getAllUsers();
   const kSnap = await db
     .collection("hrd_karyawan")
     .where("status", "==", "aktif")
@@ -1189,110 +1190,194 @@ async function modalGroupChat() {
     if (d)
       deptOpts += `<option value="${escHtml(d)}">🏢 ${escHtml(d)}</option>`;
   });
-  openModal(`<div class="modal-title">👥 Buat / Masuk Group Chat</div>
-    <div style="background:#e3f2fd;border-radius:8px;padding:10px;margin-bottom:14px;font-size:.82rem;border-left:4px solid var(--info)">Buat room group chat per departemen. Semua anggota departemen otomatis tergabung dan bisa chat bersama dalam satu room.</div>
-    <div class="form-group"><label>Pilih Group</label><select class="form-control" id="grpDept">${deptOpts}</select></div>
-    <div class="form-group"><label>Pesan Pertama (opsional)</label><textarea class="form-control" id="grpMsg" placeholder="Ketik pesan..."></textarea></div>
-    <button class="btn btn-primary" onclick="sendGroupChat()">👥 Buat / Masuk Group</button>`);
-}
-async function sendGroupChat() {
-  const dept = document.getElementById("grpDept").value;
-  const msg = document.getElementById("grpMsg").value.trim();
-  const label = dept === "admin" ? "Admin" : dept;
-  // Find existing group room (single-field query + client-side filter to avoid composite index)
-  const existingSnap = await db
-    .collection("hrd_chat_threads")
-    .where("isGroup", "==", true)
-    .get();
-  let threadId = null;
-  let matchDoc = null;
-  existingSnap.forEach((d) => {
-    if (d.data().groupName === label) matchDoc = d;
+
+  let userCheckboxes = "";
+  users.forEach((u) => {
+    if (u.id !== currentUser.id) {
+      userCheckboxes += `<div class="user-cb-item" data-nama="${u.nama.toLowerCase()}">
+            <label style="display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;border-bottom:1px solid #f0f0f0">
+                <input type="checkbox" name="grpMembers" value="${u.id}">
+                <span style="font-size:0.85rem">${escHtml(u.nama)} <small style="color:#888">(${escHtml(u.departemen || "-")})</small></span>
+            </label>
+        </div>`;
+    }
   });
-  if (matchDoc) {
-    threadId = matchDoc.id;
-    // Add current user to participants if not already
-    const threadData = matchDoc.data();
-    if (!threadData.participants?.includes(currentUser.id)) {
-      const updatedMembers = [...threadData.participants, currentUser.id];
+
+  openModal(
+    `<div class="modal-title">👥 Buat Group Chat</div>
+    <div class="tabs mb-16" id="grpTabs">
+        <div class="tab active" onclick="window.switchGrpTab('dept')">🏢 Per Departemen</div>
+        <div class="tab" onclick="window.switchGrpTab('custom')">🛠️ Custom Group</div>
+    </div>
+
+    <div id="grpDeptSection">
+        <div style="background:#e3f2fd;border-radius:8px;padding:10px;margin-bottom:14px;font-size:.82rem;border-left:4px solid var(--info)">
+            Anggota departemen otomatis tergabung dalam satu room.
+        </div>
+        <div class="form-group"><label>Pilih Departemen</label><select class="form-control" id="grpDept">${deptOpts}</select></div>
+    </div>
+
+    <div id="grpCustomSection" style="display:none">
+        <div class="form-group"><label>Nama Group <span style="color:red">*</span></label><input class="form-control" id="grpNameCustom" placeholder="Misal: Proyek X / Tim Task Force"></div>
+        <div class="form-group">
+            <label>Pilih Anggota</label>
+            <input type="text" class="form-control mb-8" placeholder="🔍 Cari nama..." onkeyup="window.filterGrpMembers(this.value)">
+            <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:4px" id="grpMemberList">
+                ${userCheckboxes}
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group mt-16"><label>Pesan Pertama (opsional)</label><textarea class="form-control" id="grpMsg" placeholder="Ketik pesan..."></textarea></div>
+    <button class="btn btn-primary" id="btnSendGrp" onclick="sendGroupChat()">🚀 Buat / Masuk Group</button>`,
+    true,
+  );
+}
+
+window.switchGrpTab = function (tab) {
+  document
+    .querySelectorAll("#grpTabs .tab")
+    .forEach((t) => t.classList.remove("active"));
+  const tabs = document.querySelectorAll("#grpTabs .tab");
+  if (tab === "dept") tabs[0].classList.add("active");
+  else tabs[1].classList.add("active");
+
+  document.getElementById("grpDeptSection").style.display =
+    tab === "dept" ? "block" : "none";
+  document.getElementById("grpCustomSection").style.display =
+    tab === "custom" ? "block" : "none";
+};
+
+window.filterGrpMembers = function (q) {
+  const val = q.toLowerCase();
+  document.querySelectorAll(".user-cb-item").forEach((item) => {
+    item.style.display = item.dataset.nama.includes(val) ? "block" : "none";
+  });
+};
+
+async function sendGroupChat() {
+  const isCustom = document.getElementById("grpCustomSection").style.display === "block";
+  const msg = document.getElementById("grpMsg").value.trim();
+  let label = "";
+  let members = [currentUser.id];
+  let threadId = null;
+
+  if (isCustom) {
+    label = document.getElementById("grpNameCustom").value.trim();
+    if (!label) return toast("Nama group wajib diisi", "warning");
+    const selected = document.querySelectorAll('input[name="grpMembers"]:checked');
+    if (selected.length === 0) return toast("Pilih minimal 1 anggota", "warning");
+    selected.forEach((cb) => members.push(cb.value));
+  } else {
+    const dept = document.getElementById("grpDept").value;
+    label = dept === "admin" ? "Admin" : dept;
+  }
+
+  const btn = document.getElementById("btnSendGrp");
+  btn.disabled = true;
+  btn.innerHTML = "⏳ Memproses...";
+
+  try {
+    // Check if group already exists (only for dept groups, custom groups always new or found by name)
+    const existingSnap = await db
+      .collection("hrd_chat_threads")
+      .where("isGroup", "==", true)
+      .where("groupName", "==", label)
+      .get();
+
+    if (!existingSnap.empty && !isCustom) {
+      // Existing Department Group
+      const matchDoc = existingSnap.docs[0];
+      threadId = matchDoc.id;
+      const threadData = matchDoc.data();
+      if (!threadData.participants?.includes(currentUser.id)) {
+        const updatedMembers = [...threadData.participants, currentUser.id];
+        await db
+          .collection("hrd_chat_threads")
+          .doc(threadId)
+          .update({ participants: updatedMembers });
+      }
+    } else {
+      // Create new room (Custom or new Dept)
+      if (!isCustom) {
+        // Collect dept members
+        const dept = document.getElementById("grpDept").value;
+        const usersSnap = await db
+          .collection("hrd_users")
+          .where("status", "==", "aktif")
+          .get();
+        if (dept === "admin") {
+          usersSnap.forEach((d) => {
+            if (d.data().role === "admin" && !members.includes(d.id))
+              members.push(d.id);
+          });
+        } else {
+          usersSnap.forEach((d) => {
+            const u = d.data();
+            if (
+              (u.departemen || "").toLowerCase() === dept.toLowerCase() &&
+              !members.includes(d.id)
+            )
+              members.push(d.id);
+          });
+        }
+      }
+
+      const ref = await db.collection("hrd_chat_threads").add({
+        isGroup: true,
+        isCustomGroup: isCustom,
+        groupName: label,
+        participants: members,
+        fromUser: currentUser.id,
+        fromName: currentUser.nama,
+        toUser: "group",
+        toName: `👥 Group ${label}`,
+        lastMessage: msg || "Group dibuat",
+        lastMessageAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      });
+      threadId = ref.id;
+    }
+
+    // Send message if provided
+    if (msg) {
+      await db.collection("hrd_chat_messages").add({
+        threadId,
+        senderId: currentUser.id,
+        senderName: currentUser.nama,
+        message: msg,
+        createdAt: new Date().toISOString(),
+      });
       await db
         .collection("hrd_chat_threads")
         .doc(threadId)
-        .update({ participants: updatedMembers });
-    }
-  } else {
-    // Create new group room — collect all user IDs from that department
-    let members = [currentUser.id];
-    const usersSnap = await db
-      .collection("hrd_users")
-      .where("status", "==", "aktif")
-      .get();
-    if (dept === "admin") {
-      usersSnap.forEach((d) => {
-        if (d.data().role === "admin" && !members.includes(d.id))
-          members.push(d.id);
-      });
-    } else {
-      usersSnap.forEach((d) => {
-        const u = d.data();
-        if (
-          (u.departemen || "").toLowerCase() === dept.toLowerCase() &&
-          !members.includes(d.id)
-        )
-          members.push(d.id);
-      });
-    }
-    const ref = await db.collection("hrd_chat_threads").add({
-      isGroup: true,
-      groupName: label,
-      participants: members,
-      fromUser: currentUser.id,
-      fromName: currentUser.nama,
-      toUser: "group",
-      toName: `👥 Group ${label}`,
-      lastMessage: msg || "Group dibuat",
-      lastMessageAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    });
-    threadId = ref.id;
-  }
-  // Send message if provided
-  if (msg) {
-    await db.collection("hrd_chat_messages").add({
-      threadId,
-      senderId: currentUser.id,
-      senderName: currentUser.nama,
-      message: msg,
-      createdAt: new Date().toISOString(),
-    });
-    await db
-      .collection("hrd_chat_threads")
-      .doc(threadId)
-      .update({ lastMessage: msg, lastMessageAt: new Date().toISOString() });
+        .update({ lastMessage: msg, lastMessageAt: new Date().toISOString() });
 
-    // Notify all group members except sender
-    const threadDoc = await db
-      .collection("hrd_chat_threads")
-      .doc(threadId)
-      .get();
-    const threadInfo = threadDoc.data();
-    const membersToNotify = (threadInfo.participants || []).filter(
-      (id) => id !== currentUser.id,
-    );
-    if (membersToNotify.length > 0) {
-      await sendNotificationBulk(
-        membersToNotify,
-        "\u{1F465} Group: " + label,
-        `${currentUser.nama}: ${msg.substring(0, 80)}`,
-        "chat",
-      );
+      // Notify members
+      const membersToNotify = members.filter((id) => id !== currentUser.id);
+      if (membersToNotify.length > 0) {
+        await sendNotificationBulk(
+          membersToNotify,
+          "\u{1F465} Group: " + label,
+          `${currentUser.nama}: ${msg.substring(0, 80)}`,
+          "chat",
+        );
+      }
     }
+
+    closeModalDirect();
+    toast(`Group ${label} siap!`, "success");
+    loadChatThreads();
+    openChatThread(threadId);
+  } catch (e) {
+    console.error(e);
+    toast("Gagal memproses group chat", "error");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "🚀 Buat / Masuk Group";
   }
-  closeModalDirect();
-  toast(`Group ${label} siap!`, "success");
-  loadChatThreads();
-  openChatThread(threadId);
 }
+
 
 function openChatThread(threadId) {
   // Show chat area (mobile: switch view)
