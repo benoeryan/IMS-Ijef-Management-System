@@ -210,58 +210,61 @@ window.modalLegalDrafting = async function() {
                 background: #f3f2f1; z-index: 10000; font-family: 'Segoe UI', sans-serif;
                 color: #333; overflow: hidden;
             }
-            .off-header { background: var(--off-blue); height: 48px; display: flex; align-items: center; padding: 0 15px; gap: 20px; color: #fff; }
-            .off-tab-bar { background: var(--off-blue); display: flex; align-items: flex-end; padding-top: 4px; }
+            .off-header { background: var(--off-blue); height: 40px; flex-shrink: 0; display: flex; align-items: center; padding: 0 15px; gap: 20px; color: #fff; }
+            .off-tab-bar { background: var(--off-blue); height: 32px; flex-shrink: 0; display: flex; align-items: flex-end; }
             .off-tab {
-                padding: 6px 16px; cursor: pointer; color: #fff; font-size: 13px;
+                padding: 4px 16px; cursor: pointer; color: #fff; font-size: 13px;
                 border-bottom: 3px solid transparent; transition: 0.2s;
             }
             .off-tab.active { background: #f3f2f1; color: var(--off-blue); font-weight: 600; }
 
             .off-ribbon {
-                background: #f3f2f1; height: 95px; border-bottom: 1px solid #ddd;
-                display: flex; padding: 5px; gap: 2px; overflow-x: auto;
+                background: #f3f2f1; height: 120px; flex-shrink: 0; border-bottom: 1px solid #ddd;
+                display: flex; padding: 5px; gap: 2px; overflow-x: auto; overflow-y: hidden;
             }
             .dr-ribbon-grp {
                 display: flex; flex-direction: column; align-items: center;
-                padding: 0 10px; border-right: 1px solid #ddd; height: 100%;
+                padding: 0 12px; border-right: 1px solid #ddd; height: 100%;
+                min-width: fit-content;
             }
-            .dr-actions-wrap { display: flex; align-items: center; flex: 1; gap: 8px; }
-            .dr-grp-label { font-size: 10px; color: #666; margin-top: auto; padding-bottom: 2px; }
+            .dr-actions-wrap { display: flex; align-items: center; flex: 1; gap: 10px; padding: 4px 0; }
+            .dr-grp-label { font-size: 10px; color: #777; margin-top: auto; padding-bottom: 4px; font-weight: 600; }
 
             .dr-btn-large {
                 background: transparent; border: 1px solid transparent;
                 display: flex; flex-direction: column; align-items: center; justify-content: center;
-                gap: 2px; padding: 4px; border-radius: 4px; cursor: pointer; min-width: 60px;
+                gap: 4px; padding: 6px; border-radius: 4px; cursor: pointer; min-width: 65px;
             }
-            .dr-btn-large:hover { background: #e1dfdd; }
-            .dr-btn-large .dr-icon { font-size: 1.6rem; line-height: 1; }
-            .dr-btn-large label { font-size: 10px; cursor: pointer; text-align: center; }
+            .dr-btn-large:hover { background: #e1dfdd; border-color: #c8c6c4; }
+            .dr-btn-large .dr-icon { font-size: 1.8rem; line-height: 1; }
+            .dr-btn-large label { font-size: 11px; cursor: pointer; text-align: center; line-height: 1.2; }
 
-            .dr-stacked-tools { display: flex; flex-direction: column; gap: 2px; }
+            .dr-stacked-tools { display: flex; flex-direction: column; gap: 4px; }
             .dr-btn-compact {
-                background: transparent; border: none; padding: 2px 6px; border-radius: 2px;
-                font-size: 11px; display: flex; align-items: center; gap: 6px; cursor: pointer;
+                background: transparent; border: none; padding: 3px 8px; border-radius: 3px;
+                font-size: 11px; display: flex; align-items: center; gap: 8px; cursor: pointer;
+                white-space: nowrap;
             }
             .dr-btn-compact:hover { background: #e1dfdd; }
 
-            .dr-select-compact { border: 1px solid #ddd; background: #fff; height: 22px; font-size: 11px; padding: 0 4px; }
-            .dr-btn-style { width: 24px; height: 24px; border: 1px solid transparent; background: transparent; cursor: pointer; }
-            .dr-btn-style:hover { background: #e1dfdd; }
-            .dr-v-sep { width: 1px; height: 20px; background: #ddd; margin: 0 4px; }
-            .dr-color-wrap { position: relative; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
+            .dr-select-compact { border: 1px solid #ddd; background: #fff; height: 24px; font-size: 12px; padding: 0 4px; border-radius: 3px; }
+            .dr-btn-style { width: 26px; height: 26px; border: 1px solid transparent; background: transparent; cursor: pointer; font-size: 13px; }
+            .dr-btn-style:hover { background: #e1dfdd; border-color: #c8c6c4; }
+            .dr-v-sep { width: 1px; height: 24px; background: #d2d0ce; margin: 0 6px; }
+            .dr-color-wrap { position: relative; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
             .dr-color-wrap input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
             .dr-color-wrap span { font-weight: bold; border-bottom: 3px solid #000; line-height: 1; }
 
-            .dr-styles-shelf { display: flex; gap: 5px; height: 100%; align-items: center; }
+            .dr-styles-shelf { display: flex; gap: 8px; height: 100%; align-items: center; }
             .dr-style-card {
-                width: 75px; height: 65px; border: 1px solid #ddd; background: #fff;
-                display: flex; flex-direction: column; padding: 4px; cursor: pointer;
+                width: 85px; height: 75px; border: 1px solid #ddd; background: #fff;
+                display: flex; flex-direction: column; padding: 6px; cursor: pointer; border-radius: 2px;
             }
-            .dr-style-card.active { border-color: var(--off-blue); background: #f0f4ff; }
-            .dr-style-card .preview { flex: 1; color: #666; font-size: 0.7rem; }
-            .dr-style-card label { font-size: 9px; font-weight: 600; }
+            .dr-style-card.active { border-color: var(--off-blue); background: #f0f4ff; box-shadow: 0 0 0 1px var(--off-blue); }
+            .dr-style-card .preview { flex: 1; color: #444; font-size: 0.75rem; overflow: hidden; }
+            .dr-style-card label { font-size: 10px; font-weight: 600; color: var(--off-blue); }
 
+            .off-main { display: flex; flex-direction: row; flex: 1; overflow: hidden; width: 100%; }
             .off-canvas {
                 flex: 1; background: #e1dfdd; overflow: auto; display: flex;
                 flex-direction: column; align-items: center; padding: 40px 10px;
