@@ -273,24 +273,29 @@ window.modalLegalDrafting = async function() {
                 flex-direction: column; align-items: center; padding: 40px 10px;
                 position: relative;
             }
+            .dr-workspace {
+                position: relative; transform-origin: top center; transition: transform 0.2s;
+                padding-top: 25px; padding-left: 25px; padding-right: 25px;
+                display: inline-block;
+            }
 
             /* Ruler Styles */
             .dr-ruler-h {
-                position: sticky; top: -40px; width: 210mm; height: 25px;
-                background: white; border-bottom: 1px solid #ddd; z-index: 50;
-                display: flex; align-items: flex-end; font-size: 8px; color: #888;
+                position: absolute; top: 0; left: 25px; width: 210mm; height: 25px;
+                background: white; border-bottom: 1px solid #ddd; border-top: 1px solid #ddd;
+                z-index: 50; display: flex; align-items: flex-end; font-size: 8px; color: #888;
                 padding-left: 2.5cm; padding-right: 2.5cm;
             }
             .dr-ruler-v-left {
-                position: absolute; left: calc(50% - 105mm - 25px); top: 65px; width: 25px; height: 297mm;
-                background: white; border-right: 1px solid #ddd; z-index: 40;
-                display: flex; flex-direction: column; align-items: flex-end; font-size: 8px; color: #888;
+                position: absolute; left: 0; top: 25px; width: 25px; height: 297mm;
+                background: white; border-right: 1px solid #ddd; border-left: 1px solid #ddd;
+                z-index: 40; display: flex; flex-direction: column; align-items: flex-end; font-size: 8px; color: #888;
                 padding-top: 2.5cm;
             }
             .dr-ruler-v-right {
-                position: absolute; left: calc(50% + 105mm); top: 65px; width: 25px; height: 297mm;
-                background: white; border-left: 1px solid #ddd; z-index: 40;
-                display: flex; flex-direction: column; align-items: flex-start; font-size: 8px; color: #888;
+                position: absolute; left: calc(210mm + 25px); top: 25px; width: 25px; height: 297mm;
+                background: white; border-left: 1px solid #ddd; border-right: 1px solid #ddd;
+                z-index: 40; display: flex; flex-direction: column; align-items: flex-start; font-size: 8px; color: #888;
                 padding-top: 2.5cm;
             }
             .tick { border-left: 1px solid #ccc; height: 4px; position: relative; }
@@ -300,7 +305,6 @@ window.modalLegalDrafting = async function() {
             .dr-page-a4 {
                 background: white; width: 210mm; min-height: 297mm; color: #000;
                 padding: 2.5cm; box-shadow: var(--off-shadow); position: relative;
-                transform-origin: top center; transition: transform 0.2s;
             }
             .dr-page-a4.grid-active {
                 background-image: linear-gradient(#f0f0f0 1px, transparent 1px), linear-gradient(90deg, #f0f0f0 1px, transparent 1px);
@@ -362,21 +366,23 @@ window.modalLegalDrafting = async function() {
             <div class="off-ribbon" id="officeRibbon">${getRibbonHtml('home')}</div>
             <div class="off-main">
                 <div class="off-canvas" id="suiteCanvas">
-                    <!-- Horizontal Ruler -->
-                    <div class="dr-ruler-h" id="suiteRulerH"></div>
-                    <!-- Vertical Ruler Left -->
-                    <div class="dr-ruler-v-left" id="suiteRulerVL"></div>
-                    <!-- Vertical Ruler Right -->
-                    <div class="dr-ruler-v-right" id="suiteRulerVR"></div>
+                    <div class="dr-workspace" id="suiteWorkspace">
+                        <!-- Horizontal Ruler -->
+                        <div class="dr-ruler-h" id="suiteRulerH"></div>
+                        <!-- Vertical Ruler Left -->
+                        <div class="dr-ruler-v-left" id="suiteRulerVL"></div>
+                        <!-- Vertical Ruler Right -->
+                        <div class="dr-ruler-v-right" id="suiteRulerVR"></div>
 
-                    <div class="dr-page-a4" id="suitePage">
-                        <div class="dr-header-box" id="suiteHeader" contenteditable="true" onfocus="window._currentArea=this">Header Text...</div>
-                        <div class="dr-editor" id="suiteEditor" contenteditable="true" onfocus="window._currentArea=this">
-                            <p style="text-align:center"><b>[JUDUL DOKUMEN]</b></p>
-                            <p style="text-align:center">Nomor: [NOMOR_SURAT]</p><br>
-                            <p>Mulai ketik draf hukum Anda di sini...</p>
+                        <div class="dr-page-a4" id="suitePage">
+                            <div class="dr-header-box" id="suiteHeader" contenteditable="true" onfocus="window._currentArea=this">Header Text...</div>
+                            <div class="dr-editor" id="suiteEditor" contenteditable="true" onfocus="window._currentArea=this">
+                                <p style="text-align:center"><b>[JUDUL DOKUMEN]</b></p>
+                                <p style="text-align:center">Nomor: [NOMOR_SURAT]</p><br>
+                                <p>Mulai ketik draf hukum Anda di sini...</p>
+                            </div>
+                            <div class="dr-footer-box" id="suiteFooter" contenteditable="true" onfocus="window._currentArea=this">Footer Text...</div>
                         </div>
-                        <div class="dr-footer-box" id="suiteFooter" contenteditable="true" onfocus="window._currentArea=this">Footer Text...</div>
                     </div>
                 </div>
                 <div class="off-ai-sidebar" id="suiteSidebar">
@@ -664,24 +670,23 @@ window.printDraft = function() {
 };
 
 window.setDocZoom = function(val) {
-    const page = document.getElementById("suitePage");
-    if (!page) return;
+    const ws = document.getElementById("suiteWorkspace");
+    if (!ws) return;
 
     if (val === 'in') {
         window._currentZoom = Math.min(window._currentZoom + 0.1, 2);
     } else if (val === 'out') {
         window._currentZoom = Math.max(window._currentZoom - 0.1, 0.5);
     } else if (val === 'page') {
-        // Simple Page Width logic
         const canvas = document.getElementById("suiteCanvas");
         const availableW = canvas.offsetWidth - 80;
-        const pageW = 210 * 3.78; // 210mm to px approx
+        const pageW = (210 * 3.78) + 50;
         window._currentZoom = availableW / pageW;
     } else {
         window._currentZoom = val;
     }
 
-    page.style.transform = `scale(${window._currentZoom})`;
+    ws.style.transform = `scale(${window._currentZoom})`;
     toast(`Zoom: ${Math.round(window._currentZoom * 100)}%`, "info");
 };
 
