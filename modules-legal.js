@@ -721,12 +721,12 @@ window.saveAiKey = function() {
 window.askGemini = async function() {
     const inputEl = document.getElementById("suiteAiInput");
     const prompt = inputEl.value.trim();
-    // Ambil key dan bersihkan spasi
-    const key = (localStorage.getItem("gemini_legal_api_key") || "").trim();
+    // Ambil key, bersihkan spasi, dan karakter aneh
+    const key = (localStorage.getItem("gemini_legal_api_key") || "").replace(/[^a-zA-Z0-9_-]/g, '').trim();
 
     if(!prompt) return;
     if(!key || !key.startsWith("AIzaSy")) {
-        toast("API Key tidak valid (harus diawali 'AIzaSy'). Cek pengaturan (⚙️)", "warning");
+        toast("API Key tidak valid! Pastikan diawali dengan 'AIzaSy'.", "warning");
         window.toggleAiSettings();
         return;
     }
@@ -734,59 +734,62 @@ window.askGemini = async function() {
     const chat = document.getElementById("suiteAiChat");
     const btn = document.getElementById("btnAskGemini");
 
-    // Tampilkan pesan user
     chat.innerHTML += `<div class="ai-msg user">${escHtml(prompt)}</div>`;
     inputEl.value = "";
     chat.scrollTop = chat.scrollHeight;
 
-    // Loading state
     btn.disabled = true;
     btn.innerHTML = "⏳ Thinking...";
     const botMsgId = "bot-" + Date.now();
     chat.innerHTML += `<div class="ai-msg bot" id="${botMsgId}">...</div>`;
 
-    try {
-        const editorContent = document.getElementById("suiteEditor").innerText;
-        const systemPrompt = `Anda adalah Legal Expert AI profesional.
-        Tugas: Membantu menyusun draf hukum secara adaptif dan cerdas.
-        Konteks Dokumen: "${editorContent.substring(0, 3000)}"
+    const models = ["gemini-1.5-flash", "gemini-pro"]; // Daftar model untuk dicoba
+    let success = false;
 
-        Aturan:
-        1. Jawab dengan pemikiran hukum yang mendalam.
-        2. Gunakan tag [ACTION:INSERT_HTML]<p>isi_draf_dalam_html</p>[/ACTION] untuk memasukkan draf langsung ke editor.
-        3. Gunakan Bahasa Indonesia formal.`;
+    for (const modelName of models) {
+        if (success) break;
+        try {
+            const editorContent = document.getElementById("suiteEditor").innerText;
+            const systemPrompt = `Anda adalah Legal AI Expert profesional. Bantu susun draf hukum secara cerdas dan adaptif.
+            Konteks Dokumen: "${editorContent.substring(0, 3000)}"
+            Aturan: Gunakan tag [ACTION:INSERT_HTML]isi_html[/ACTION] untuk memasukkan draf ke editor.`;
 
-        // Gunakan v1beta untuk kompatibilitas model terbaru
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: systemPrompt + "\n\nUser: " + prompt }] }]
-            })
-        });
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: systemPrompt + "\n\nUser: " + prompt }] }]
+                })
+            });
 
-        const data = await response.json();
+            const data = await response.json();
 
-        if (data.error) {
-            let errMsg = data.error.message;
-            if (errMsg.includes("blocked")) {
-                errMsg = "Permintaan DIBLOKIR oleh Google. Solusi: Buka Google Cloud Console -> Edit API Key -> Hapus 'HTTP Referrer' atau tambahkan domain Netlify Anda di sana.";
-            } else if (errMsg.includes("not found")) {
-                errMsg = "Model Gemini tidak ditemukan. Pastikan 'Generative Language API' sudah di-ENABLE di Google Cloud.";
+            if (data.error) {
+                if (data.error.status === "NOT_FOUND" || data.error.message.includes("not found")) {
+                    continue;
+                }
+
+                let msg = data.error.message;
+                if (msg.includes("blocked")) {
+                    msg = "DIBLOKIR oleh Google. Solusi: Buka Cloud Console -> Edit API Key -> Set 'Application restrictions' ke 'None' DAN 'API restrictions' ke 'Don't restrict key'.";
+                }
+                throw new Error(msg);
             }
-            throw new Error(errMsg);
+
+            window.processAiResponse(data, botMsgId);
+            success = true;
+
+        } catch (e) {
+            console.error(e);
+            if (modelName === models[models.length - 1]) {
+                document.getElementById(botMsgId).innerHTML = `<span style="color:red">Error: ${e.message}</span>`;
+            }
         }
-
-        window.processAiResponse(data, botMsgId);
-
-    } catch (e) {
-        console.error(e);
-        document.getElementById(botMsgId).innerHTML = `<span style="color:red">Error: ${e.message}</span>`;
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = "Ask Gemini ✨";
-        chat.scrollTop = chat.scrollHeight;
     }
+
+    btn.disabled = false;
+    btn.innerHTML = "Ask Gemini ✨";
+    chat.scrollTop = chat.scrollHeight;
 };
 ndow.processAiResponse = function(data, botMsgId) {
     if (!data.candidates || !data.candidates[0].content) {
