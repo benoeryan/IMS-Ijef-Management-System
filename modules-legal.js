@@ -721,11 +721,12 @@ window.saveAiKey = function() {
 window.askGemini = async function() {
     const inputEl = document.getElementById("suiteAiInput");
     const prompt = inputEl.value.trim();
-    const key = localStorage.getItem("gemini_legal_api_key");
+    // Ambil key dan bersihkan spasi
+    const key = (localStorage.getItem("gemini_legal_api_key") || "").trim();
 
     if(!prompt) return;
-    if(!key) {
-        toast("Masukkan API Key di pengaturan (⚙️) terlebih dahulu", "warning");
+    if(!key || !key.startsWith("AIzaSy")) {
+        toast("API Key tidak valid (harus diawali 'AIzaSy'). Cek pengaturan (⚙️)", "warning");
         window.toggleAiSettings();
         return;
     }
@@ -733,7 +734,7 @@ window.askGemini = async function() {
     const chat = document.getElementById("suiteAiChat");
     const btn = document.getElementById("btnAskGemini");
 
-    // Add user message
+    // Tampilkan pesan user
     chat.innerHTML += `<div class="ai-msg user">${escHtml(prompt)}</div>`;
     inputEl.value = "";
     chat.scrollTop = chat.scrollHeight;
@@ -745,18 +746,18 @@ window.askGemini = async function() {
     chat.innerHTML += `<div class="ai-msg bot" id="${botMsgId}">...</div>`;
 
     try {
-        const editorContent = document.getElementById("suiteEditor").innerHTML;
-        const systemPrompt = `Anda adalah Legal Expert AI. Tugas Anda membantu drafting draf hukum di editor.
-        Konteks Dokumen Saat Ini: "${editorContent.substring(0, 2000)}"
+        const editorContent = document.getElementById("suiteEditor").innerText;
+        const systemPrompt = `Anda adalah Legal Expert AI profesional.
+        Tugas: Membantu menyusun draf hukum secara adaptif dan cerdas.
+        Konteks Dokumen: "${editorContent.substring(0, 3000)}"
 
         Aturan:
-        1. Jika user minta dibuatkan draf, berikan teks draf tersebut.
-        2. Jika draf harus dimasukkan ke editor, sertakan tag [ACTION:INSERT_HTML]isi_html[/ACTION] di akhir jawaban Anda.
-        3. Gunakan bahasa hukum Indonesia yang formal dan tepat.
-        4. Berikan saran cerdas jika ada pasal yang kurang.`;
+        1. Jawab dengan pemikiran hukum yang mendalam.
+        2. Gunakan tag [ACTION:INSERT_HTML]<p>isi_draf_dalam_html</p>[/ACTION] untuk memasukkan draf langsung ke editor.
+        3. Gunakan Bahasa Indonesia formal.`;
 
-        // Try v1 first, then v1beta if needed. Use gemini-1.5-flash as default.
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`, {
+        // Gunakan v1beta untuk kompatibilitas model terbaru
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -767,39 +768,27 @@ window.askGemini = async function() {
         const data = await response.json();
 
         if (data.error) {
-            // Fallback to v1beta if v1 fails with "not found"
-            if (data.error.status === "NOT_FOUND" || data.error.message.includes("not found")) {
-                 const fallbackResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: systemPrompt + "\n\nUser: " + prompt }] }]
-                    })
-                });
-                const fallbackData = await fallbackResp.json();
-                if (fallbackData.error) throw new Error(fallbackData.error.message);
-                processAiResponse(fallbackData, botMsgId);
-            } else {
-                throw new Error(data.error.message);
+            let errMsg = data.error.message;
+            if (errMsg.includes("blocked")) {
+                errMsg = "Permintaan DIBLOKIR oleh Google. Solusi: Buka Google Cloud Console -> Edit API Key -> Hapus 'HTTP Referrer' atau tambahkan domain Netlify Anda di sana.";
+            } else if (errMsg.includes("not found")) {
+                errMsg = "Model Gemini tidak ditemukan. Pastikan 'Generative Language API' sudah di-ENABLE di Google Cloud.";
             }
-        } else {
-            processAiResponse(data, botMsgId);
+            throw new Error(errMsg);
         }
+
+        window.processAiResponse(data, botMsgId);
 
     } catch (e) {
         console.error(e);
-        let errMsg = e.message;
-        if (errMsg.includes("blocked")) errMsg = "API Key diblokir. Pastikan 'Generative Language API' sudah di-ENABLE di Google Cloud Console / AI Studio.";
-        if (errMsg.includes("API key not valid")) errMsg = "API Key tidak valid. Pastikan Anda menyalin Key yang benar (biasanya diawali 'AIzaSy').";
-        document.getElementById(botMsgId).innerHTML = `<span style="color:red">Error: ${errMsg}</span>`;
+        document.getElementById(botMsgId).innerHTML = `<span style="color:red">Error: ${e.message}</span>`;
     } finally {
         btn.disabled = false;
         btn.innerHTML = "Ask Gemini ✨";
         chat.scrollTop = chat.scrollHeight;
     }
 };
-
-window.processAiResponse = function(data, botMsgId) {
+ndow.processAiResponse = function(data, botMsgId) {
     if (!data.candidates || !data.candidates[0].content) {
         document.getElementById(botMsgId).innerHTML = "AI tidak memberikan respon valid. Coba lagi.";
         return;
