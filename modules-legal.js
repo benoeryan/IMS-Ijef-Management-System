@@ -181,12 +181,14 @@ function getRibbonHtml(tabId) {
             </div>
             <div class="dr-ribbon-grp">
                 <div class="dr-actions-wrap">
-                    <button class="dr-btn-large" onclick="window.setDocZoom(1.2)"><span class="dr-icon">🔍</span><label>Zoom</label></button>
+                    <button class="dr-btn-large" onclick="window.setDocZoom('in')"><span class="dr-icon">➕</span><label>Zoom In</label></button>
+                    <button class="dr-btn-large" onclick="window.setDocZoom('out')"><span class="dr-icon">➖</span><label>Zoom Out</label></button>
                     <button class="dr-btn-large" onclick="window.setDocZoom(1)"><span class="dr-icon">💯</span><label>100%</label></button>
                     <button class="dr-btn-large" onclick="window.setDocZoom('page')">↔️<label>Width</label></button>
                 </div>
                 <div class="dr-grp-label">Zoom</div>
-            </div>`;
+            </div>
+`;
     }
     return html;
 }
