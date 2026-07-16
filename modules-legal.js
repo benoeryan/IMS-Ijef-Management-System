@@ -801,7 +801,7 @@ window.askGemini = async function() {
     btn.innerHTML = "Ask Gemini ✨";
     chat.scrollTop = chat.scrollHeight;
 };
-ndow.processAiResponse = function(data, botMsgId) {
+window.processAiResponse = function(data, botMsgId) {
     if (!data.candidates || !data.candidates[0].content) {
         document.getElementById(botMsgId).innerHTML = "AI tidak memberikan respon valid. Coba lagi.";
         return;
