@@ -30,6 +30,7 @@ function getRibbonHtml(tabId) {
                     </div>
                     <div class="dr-v-sep"></div>
                     <div style="display:flex; gap:8px">
+                        <button class="dr-btn-large" onclick="window.printDraft()"><span class="dr-icon">🖨️</span><label>Print</label></button>
                         <button class="dr-btn-large" onclick="window.formatDoc('paste')"><span class="dr-icon">📋</span><label>Paste</label></button>
                         <div style="display:flex; flex-direction:column; gap:2px">
                             <button class="dr-btn-compact" onclick="window.formatDoc('cut')">✂️<span>Cut</span></button>
@@ -392,6 +393,7 @@ window.modalLegalDrafting = async function() {
 
     window._currentArea = document.getElementById("suiteEditor");
     window._formatPainter = null;
+    window._currentZoom = 1;
 
     // Add context menu or selection listener for table tools
     document.getElementById("suiteEditor").addEventListener("click", (e) => {
@@ -657,6 +659,28 @@ window.setDocView = function(view) {
 
 window.printDraft = function() {
     window.print();
+};
+
+window.setDocZoom = function(val) {
+    const page = document.getElementById("suitePage");
+    if (!page) return;
+
+    if (val === 'in') {
+        window._currentZoom = Math.min(window._currentZoom + 0.1, 2);
+    } else if (val === 'out') {
+        window._currentZoom = Math.max(window._currentZoom - 0.1, 0.5);
+    } else if (val === 'page') {
+        // Simple Page Width logic
+        const canvas = document.getElementById("suiteCanvas");
+        const availableW = canvas.offsetWidth - 80;
+        const pageW = 210 * 3.78; // 210mm to px approx
+        window._currentZoom = availableW / pageW;
+    } else {
+        window._currentZoom = val;
+    }
+
+    page.style.transform = `scale(${window._currentZoom})`;
+    toast(`Zoom: ${Math.round(window._currentZoom * 100)}%`, "info");
 };
 
 
