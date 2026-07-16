@@ -222,8 +222,8 @@ window.modalLegalDrafting = async function() {
             .off-tab.active { background: #f3f2f1; color: var(--off-blue); font-weight: 600; }
 
             .off-ribbon {
-                background: #f3f2f1; height: 120px; flex-shrink: 0; border-bottom: 1px solid #ddd;
-                display: flex; padding: 5px; gap: 2px; overflow-x: auto; overflow-y: hidden;
+                background: #f3f2f1; height: 135px; flex-shrink: 0; border-bottom: 1px solid #ddd;
+                display: flex; padding: 5px; gap: 2px; overflow-x: auto;
             }
             .dr-ribbon-grp {
                 display: flex; flex-direction: column; align-items: center;
@@ -231,15 +231,15 @@ window.modalLegalDrafting = async function() {
                 min-width: fit-content;
             }
             .dr-actions-wrap { display: flex; align-items: center; flex: 1; gap: 10px; padding: 4px 0; }
-            .dr-grp-label { font-size: 10px; color: #777; margin-top: auto; padding-bottom: 4px; font-weight: 600; }
+            .dr-grp-label { font-size: 10px; color: #777; margin-top: auto; padding-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
 
             .dr-btn-large {
                 background: transparent; border: 1px solid transparent;
                 display: flex; flex-direction: column; align-items: center; justify-content: center;
-                gap: 4px; padding: 6px; border-radius: 4px; cursor: pointer; min-width: 65px;
+                gap: 6px; padding: 8px; border-radius: 4px; cursor: pointer; min-width: 70px;
             }
             .dr-btn-large:hover { background: #e1dfdd; border-color: #c8c6c4; }
-            .dr-btn-large .dr-icon { font-size: 1.8rem; line-height: 1; }
+            .dr-btn-large .dr-icon { font-size: 2rem; line-height: 1; }
             .dr-btn-large label { font-size: 11px; cursor: pointer; text-align: center; line-height: 1.2; }
 
             .dr-stacked-tools { display: flex; flex-direction: column; gap: 4px; }
@@ -251,27 +251,27 @@ window.modalLegalDrafting = async function() {
             .dr-btn-compact:hover { background: #e1dfdd; }
 
             .dr-select-compact { border: 1px solid #ddd; background: #fff; height: 24px; font-size: 12px; padding: 0 4px; border-radius: 3px; }
-            .dr-btn-style { width: 26px; height: 26px; border: 1px solid transparent; background: transparent; cursor: pointer; font-size: 13px; }
+            .dr-btn-style { width: 28px; height: 28px; border: 1px solid transparent; background: transparent; cursor: pointer; font-size: 14px; }
             .dr-btn-style:hover { background: #e1dfdd; border-color: #c8c6c4; }
-            .dr-v-sep { width: 1px; height: 24px; background: #d2d0ce; margin: 0 6px; }
+            .dr-v-sep { width: 1px; height: 30px; background: #d2d0ce; margin: 0 6px; }
             .dr-color-wrap { position: relative; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
             .dr-color-wrap input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
             .dr-color-wrap span { font-weight: bold; border-bottom: 3px solid #000; line-height: 1; }
 
             .dr-styles-shelf { display: flex; gap: 8px; height: 100%; align-items: center; }
             .dr-style-card {
-                width: 85px; height: 75px; border: 1px solid #ddd; background: #fff;
-                display: flex; flex-direction: column; padding: 6px; cursor: pointer; border-radius: 2px;
+                width: 90px; height: 85px; border: 1px solid #ddd; background: #fff;
+                display: flex; flex-direction: column; padding: 8px; cursor: pointer; border-radius: 2px;
             }
             .dr-style-card.active { border-color: var(--off-blue); background: #f0f4ff; box-shadow: 0 0 0 1px var(--off-blue); }
-            .dr-style-card .preview { flex: 1; color: #444; font-size: 0.75rem; overflow: hidden; }
-            .dr-style-card label { font-size: 10px; font-weight: 600; color: var(--off-blue); }
+            .dr-style-card .preview { flex: 1; color: #444; font-size: 0.8rem; overflow: hidden; }
+            .dr-style-card label { font-size: 11px; font-weight: 600; color: var(--off-blue); }
 
-            .off-main { display: flex; flex-direction: row; flex: 1; overflow: hidden; width: 100%; }
+            .off-main { display: flex; flex-direction: row; flex: 1; overflow: hidden; width: 100%; height: calc(100vh - 210px); }
             .off-canvas {
                 flex: 1; background: #e1dfdd; overflow: auto; display: flex;
                 flex-direction: column; align-items: center; padding: 40px 10px;
-                position: relative;
+                position: relative; height: 100%;
             }
             .dr-workspace {
                 position: relative; transform-origin: top center; transition: transform 0.2s;
@@ -319,8 +319,8 @@ window.modalLegalDrafting = async function() {
             .dr-editor img { transition: 0.2s; }
             .dr-editor img:hover { outline: 2px solid var(--off-blue); }
 
-            .off-ai-sidebar { width: 350px; background: #fff; border-left: 1px solid #ddd; display: flex; flex-direction: column; transition: width 0.3s; flex-shrink: 0; }
-            .ai-head { padding: 10px 15px; background: linear-gradient(135deg, #1a73e8, #d93025); color: #fff; display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 14px; }
+            .off-ai-sidebar { width: 350px; flex-basis: 350px; background: #fff; border-left: 1px solid #ddd; display: flex; flex-direction: column; transition: width 0.3s; flex-shrink: 0; }
+            .ai-head { padding: 12px 15px; background: linear-gradient(135deg, #1a73e8, #d93025); color: #fff; display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 5; }
             .ai-chat { flex: 1; overflow-y: auto; padding: 15px; background: #f8f9fa; display: flex; flex-direction: column; gap: 12px; }
             .ai-msg { padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; max-width: 85%; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
             .ai-msg.user { background: #e8f0fe; align-self: flex-end; color: #1a73e8; border-bottom-right-radius: 2px; }
@@ -721,12 +721,12 @@ window.saveAiKey = function() {
 window.askGemini = async function() {
     const inputEl = document.getElementById("suiteAiInput");
     const prompt = inputEl.value.trim();
-    // Ambil key, bersihkan spasi, dan karakter aneh
-    const key = (localStorage.getItem("gemini_legal_api_key") || "").replace(/[^a-zA-Z0-9_-]/g, '').trim();
+    // Ambil key, bersihkan spasi, dan karakter aneh. Dukung format AIzaSy dan AQ.
+    const key = (localStorage.getItem("gemini_legal_api_key") || "").trim();
 
     if(!prompt) return;
-    if(!key || !key.startsWith("AIzaSy")) {
-        toast("API Key tidak valid! Pastikan diawali dengan 'AIzaSy'.", "warning");
+    if(!key || (!key.startsWith("AIzaSy") && !key.startsWith("AQ."))) {
+        toast("API Key tidak valid! Pastikan menyalin Key dari Google Cloud atau AI Studio.", "warning");
         window.toggleAiSettings();
         return;
     }
@@ -743,16 +743,20 @@ window.askGemini = async function() {
     const botMsgId = "bot-" + Date.now();
     chat.innerHTML += `<div class="ai-msg bot" id="${botMsgId}">...</div>`;
 
-    const models = ["gemini-1.5-flash", "gemini-pro"]; // Daftar model untuk dicoba
+    const models = ["gemini-1.5-flash", "gemini-pro"];
     let success = false;
 
     for (const modelName of models) {
         if (success) break;
         try {
             const editorContent = document.getElementById("suiteEditor").innerText;
-            const systemPrompt = `Anda adalah Legal AI Expert profesional. Bantu susun draf hukum secara cerdas dan adaptif.
+            const systemPrompt = `Anda adalah AI Pakar Hukum profesional.
+            Tugas: Membantu pembuatan draf hukum secara cerdas, adaptif, dan memiliki pemikiran sendiri.
             Konteks Dokumen: "${editorContent.substring(0, 3000)}"
-            Aturan: Gunakan tag [ACTION:INSERT_HTML]isi_html[/ACTION] untuk memasukkan draf ke editor.`;
+            Aturan:
+            1. Berikan saran hukum yang logis dan analitis.
+            2. Gunakan tag [ACTION:INSERT_HTML]kode_html_disini[/ACTION] untuk memasukkan draf atau tabel langsung ke editor.
+            3. Jika user meminta bantuan drafting, buatlah draf yang lengkap dan profesional.`;
 
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, {
                 method: "POST",
@@ -771,7 +775,13 @@ window.askGemini = async function() {
 
                 let msg = data.error.message;
                 if (msg.includes("blocked")) {
-                    msg = "DIBLOKIR oleh Google. Solusi: Buka Cloud Console -> Edit API Key -> Set 'Application restrictions' ke 'None' DAN 'API restrictions' ke 'Don't restrict key'.";
+                    msg = `<b>⚠️ PERMINTAAN DIBLOKIR GOOGLE</b><br><br>
+                           Solusi agar AI bisa berjalan:<br>
+                           1. Buka <b>Google Cloud Console > Credentials</b>.<br>
+                           2. Edit API Key Anda.<br>
+                           3. Set <b>"Application restrictions"</b> ke <b>None</b>.<br>
+                           4. Set <b>"API restrictions"</b> ke <b>Don't restrict key</b>.<br>
+                           5. Tunggu 5 menit, lalu coba lagi.`;
                 }
                 throw new Error(msg);
             }
@@ -782,7 +792,7 @@ window.askGemini = async function() {
         } catch (e) {
             console.error(e);
             if (modelName === models[models.length - 1]) {
-                document.getElementById(botMsgId).innerHTML = `<span style="color:red">Error: ${e.message}</span>`;
+                document.getElementById(botMsgId).innerHTML = `<div style="color:red; font-size:12px">${e.message}</div>`;
             }
         }
     }
