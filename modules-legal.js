@@ -755,7 +755,8 @@ window.askGemini = async function() {
         3. Gunakan bahasa hukum Indonesia yang formal dan tepat.
         4. Berikan saran cerdas jika ada pasal yang kurang.`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+        // Try v1 first, then v1beta if needed. Use gemini-1.5-flash as default.
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -764,29 +765,59 @@ window.askGemini = async function() {
         });
 
         const data = await response.json();
-        if (data.error) throw new Error(data.error.message);
 
-        let aiText = data.candidates[0].content.parts[0].text;
-
-        // Process Actions
-        let cleanText = aiText;
-        const actionMatch = aiText.match(/\[ACTION:INSERT_HTML\]([\s\S]*?)\[\/ACTION\]/);
-        if (actionMatch) {
-            const htmlToInsert = actionMatch[1];
-            document.getElementById("suiteEditor").focus(); // Ensure focus
-            window.formatDoc('insertHTML', htmlToInsert);
-            cleanText = aiText.replace(/\[ACTION:INSERT_HTML\]([\s\S]*?)\[\/ACTION\]/, "*(Draf telah disisipkan ke editor)*");
+        if (data.error) {
+            // Fallback to v1beta if v1 fails with "not found"
+            if (data.error.status === "NOT_FOUND" || data.error.message.includes("not found")) {
+                 const fallbackResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: systemPrompt + "\n\nUser: " + prompt }] }]
+                    })
+                });
+                const fallbackData = await fallbackResp.json();
+                if (fallbackData.error) throw new Error(fallbackData.error.message);
+                processAiResponse(fallbackData, botMsgId);
+            } else {
+                throw new Error(data.error.message);
+            }
+        } else {
+            processAiResponse(data, botMsgId);
         }
 
-        document.getElementById(botMsgId).innerHTML = cleanText.replace(/\n/g, "<br>");
     } catch (e) {
         console.error(e);
-        document.getElementById(botMsgId).innerHTML = `<span style="color:red">Error: ${e.message}</span>`;
+        let errMsg = e.message;
+        if (errMsg.includes("blocked")) errMsg = "API Key diblokir. Pastikan 'Generative Language API' sudah di-ENABLE di Google Cloud Console / AI Studio.";
+        if (errMsg.includes("API key not valid")) errMsg = "API Key tidak valid. Pastikan Anda menyalin Key yang benar (biasanya diawali 'AIzaSy').";
+        document.getElementById(botMsgId).innerHTML = `<span style="color:red">Error: ${errMsg}</span>`;
     } finally {
         btn.disabled = false;
         btn.innerHTML = "Ask Gemini ✨";
         chat.scrollTop = chat.scrollHeight;
     }
+};
+
+window.processAiResponse = function(data, botMsgId) {
+    if (!data.candidates || !data.candidates[0].content) {
+        document.getElementById(botMsgId).innerHTML = "AI tidak memberikan respon valid. Coba lagi.";
+        return;
+    }
+
+    let aiText = data.candidates[0].content.parts[0].text;
+
+    // Process Actions
+    let cleanText = aiText;
+    const actionMatch = aiText.match(/\[ACTION:INSERT_HTML\]([\s\S]*?)\[\/ACTION\]/);
+    if (actionMatch) {
+        const htmlToInsert = actionMatch[1];
+        document.getElementById("suiteEditor").focus(); // Ensure focus
+        window.formatDoc('insertHTML', htmlToInsert);
+        cleanText = aiText.replace(/\[ACTION:INSERT_HTML\][\s\S]*?\[\/ACTION\]/, "*(Draf telah disisipkan ke editor)*");
+    }
+
+    document.getElementById(botMsgId).innerHTML = cleanText.replace(/\n/g, "<br>");
 };
 
 // ── 5. DASHBOARD ────────────────────────────────────────────────────────────
