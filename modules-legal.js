@@ -319,15 +319,18 @@ window.modalLegalDrafting = async function() {
             .dr-editor img { transition: 0.2s; }
             .dr-editor img:hover { outline: 2px solid var(--off-blue); }
 
-            .off-ai-sidebar { width: 350px; background: #fff; border-left: 1px solid #ddd; display: flex; flex-direction: column; transition: width 0.3s; }
-            .ai-head { padding: 20px; background: linear-gradient(135deg, #1a73e8, #d93025); color: #fff; display: flex; align-items: center; gap: 12px; }
-            .ai-chat { flex: 1; overflow-y: auto; padding: 20px; background: #f8f9fa; display: flex; flex-direction: column; gap: 15px; }
-            .ai-msg { padding: 12px; border-radius: 8px; font-size: 0.9rem; max-width: 90%; }
-            .ai-msg.user { background: #e8f0fe; align-self: flex-end; color: #1a73e8; }
-            .ai-msg.bot { background: #fff; border: 1px solid #eee; align-self: flex-start; }
-            .ai-input-area { padding: 15px; border-top: 1px solid #eee; }
-            .ai-box { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 10px; min-height: 80px; resize: none; }
-            .ai-send-btn { width: 100%; background: #1a73e8; color: #fff; border: none; padding: 10px; border-radius: 6px; margin-top: 10px; cursor: pointer; }
+            .off-ai-sidebar { width: 350px; background: #fff; border-left: 1px solid #ddd; display: flex; flex-direction: column; transition: width 0.3s; flex-shrink: 0; }
+            .ai-head { padding: 10px 15px; background: linear-gradient(135deg, #1a73e8, #d93025); color: #fff; display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 14px; }
+            .ai-chat { flex: 1; overflow-y: auto; padding: 15px; background: #f8f9fa; display: flex; flex-direction: column; gap: 12px; }
+            .ai-msg { padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; max-width: 85%; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+            .ai-msg.user { background: #e8f0fe; align-self: flex-end; color: #1a73e8; border-bottom-right-radius: 2px; }
+            .ai-msg.bot { background: #fff; border: 1px solid #e1dfdd; align-self: flex-start; color: #333; border-bottom-left-radius: 2px; }
+            .ai-input-area { padding: 12px; border-top: 1px solid #edebe9; background: #fff; }
+            .ai-box { width: 100%; border: 1px solid #d2d0ce; border-radius: 6px; padding: 8px; min-height: 60px; resize: none; font-size: 13px; outline: none; }
+            .ai-box:focus { border-color: #1a73e8; }
+            .ai-send-btn { width: 100%; background: #1a73e8; color: #fff; border: none; padding: 10px; border-radius: 6px; margin-top: 8px; cursor: pointer; font-weight: 600; }
+            .ai-send-btn:hover { background: #1557b0; }
+            .ai-send-btn:disabled { background: #ccc; cursor: not-allowed; }
 
             .off-status { height: 25px; background: #00488e; color: #fff; display: flex; align-items: center; padding: 0 15px; font-size: 11px; gap: 20px; }
             .dr-input-mini { width: 45px; height: 20px; border: 1px solid #ddd; padding: 0 4px; font-size: 11px; }
@@ -386,11 +389,22 @@ window.modalLegalDrafting = async function() {
                     </div>
                 </div>
                 <div class="off-ai-sidebar" id="suiteSidebar">
-                    <div class="ai-head">✨ Gemini Legal AI</div>
-                    <div class="ai-chat" id="suiteAiChat"><div class="ai-msg bot">Halo! Saya Gemini Legal AI. Apa yang bisa saya bantu?</div></div>
+                    <div class="ai-head">
+                        <div style="flex:1">✨ Gemini Legal AI</div>
+                        <button class="btn btn-xs btn-outline" style="color:#fff; border-color:#fff; padding:2px 5px" onclick="window.toggleAiSettings()" title="AI Settings">⚙️</button>
+                    </div>
+                    <div id="aiSettingsArea" style="display:none; background:#f0f4ff; padding:10px; border-bottom:1px solid #ddd">
+                        <label style="font-size:10px; font-weight:600">Gemini API Key:</label>
+                        <div style="display:flex; gap:5px; margin-top:4px">
+                            <input type="password" id="geminiApiKey" class="dr-input-mini" style="flex:1; height:24px" placeholder="AIzaSy...">
+                            <button class="btn btn-xs btn-primary" onclick="window.saveAiKey()">Save</button>
+                        </div>
+                        <p style="font-size:9px; color:#666; margin-top:4px">Key disimpan secara lokal di browser Anda.</p>
+                    </div>
+                    <div class="ai-chat" id="suiteAiChat"><div class="ai-msg bot">Halo! Saya Gemini Legal AI. Masukkan API Key Anda untuk mulai draf secara cerdas.</div></div>
                     <div class="ai-input-area">
-                        <textarea class="ai-box" id="suiteAiInput" placeholder="Ketik perintah..."></textarea>
-                        <button class="ai-send-btn" onclick="window.askGemini()">Ask Gemini ✨</button>
+                        <textarea class="ai-box" id="suiteAiInput" placeholder="Ketik perintah (misal: 'buatkan draf PKWT')..."></textarea>
+                        <button class="ai-send-btn" id="btnAskGemini" onclick="window.askGemini()">Ask Gemini ✨</button>
                     </div>
                 </div>
             </div>
@@ -691,13 +705,88 @@ window.setDocZoom = function(val) {
 };
 
 
-window.askGemini = function() {
-    const prompt = document.getElementById("suiteAiInput").value;
+window.toggleAiSettings = function() {
+    const el = document.getElementById("aiSettingsArea");
+    el.style.display = el.style.display === "none" ? "block" : "none";
+};
+
+window.saveAiKey = function() {
+    const key = document.getElementById("geminiApiKey").value.trim();
+    if(!key) return toast("API Key wajib diisi", "warning");
+    localStorage.setItem("gemini_legal_api_key", key);
+    toast("API Key tersimpan", "success");
+    document.getElementById("aiSettingsArea").style.display = "none";
+};
+
+window.askGemini = async function() {
+    const inputEl = document.getElementById("suiteAiInput");
+    const prompt = inputEl.value.trim();
+    const key = localStorage.getItem("gemini_legal_api_key");
+
     if(!prompt) return;
+    if(!key) {
+        toast("Masukkan API Key di pengaturan (⚙️) terlebih dahulu", "warning");
+        window.toggleAiSettings();
+        return;
+    }
+
     const chat = document.getElementById("suiteAiChat");
+    const btn = document.getElementById("btnAskGemini");
+
+    // Add user message
     chat.innerHTML += `<div class="ai-msg user">${escHtml(prompt)}</div>`;
-    document.getElementById("suiteAiInput").value = "";
-    setTimeout(() => chat.innerHTML += `<div class="ai-msg bot">Saran Gemini: Gunakan pasal kerahasiaan standar...</div>`, 1000);
+    inputEl.value = "";
+    chat.scrollTop = chat.scrollHeight;
+
+    // Loading state
+    btn.disabled = true;
+    btn.innerHTML = "⏳ Thinking...";
+    const botMsgId = "bot-" + Date.now();
+    chat.innerHTML += `<div class="ai-msg bot" id="${botMsgId}">...</div>`;
+
+    try {
+        const editorContent = document.getElementById("suiteEditor").innerHTML;
+        const systemPrompt = `Anda adalah Legal Expert AI. Tugas Anda membantu drafting draf hukum di editor.
+        Konteks Dokumen Saat Ini: "${editorContent.substring(0, 2000)}"
+
+        Aturan:
+        1. Jika user minta dibuatkan draf, berikan teks draf tersebut.
+        2. Jika draf harus dimasukkan ke editor, sertakan tag [ACTION:INSERT_HTML]isi_html[/ACTION] di akhir jawaban Anda.
+        3. Gunakan bahasa hukum Indonesia yang formal dan tepat.
+        4. Berikan saran cerdas jika ada pasal yang kurang.`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: systemPrompt + "\n\nUser: " + prompt }] }]
+            })
+        });
+
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message);
+
+        let aiText = data.candidates[0].content.parts[0].text;
+
+        // Process Actions
+        let cleanText = aiText;
+        const actionMatch = aiText.match(/\[ACTION:INSERT_HTML\]([\s\S]*?)\[\/ACTION\]/);
+        if (actionMatch) {
+            const htmlToInsert = actionMatch[1];
+            document.getElementById("suiteEditor").focus(); // Ensure focus
+            window.formatDoc('insertHTML', htmlToInsert);
+            cleanText = aiText.replace(/\[ACTION:INSERT_HTML\]([\s\S]*?)\[\/ACTION\]/, "*(Draf telah disisipkan ke editor)*");
+        }
+
+        document.getElementById(botMsgId).innerHTML = cleanText.replace(/\n/g, "<br>");
+    } catch (e) {
+        console.error(e);
+        document.getElementById(botMsgId).innerHTML = `<span style="color:red">Error: ${e.message}</span>`;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = "Ask Gemini ✨";
+        chat.scrollTop = chat.scrollHeight;
+    }
 };
 
 // ── 5. DASHBOARD ────────────────────────────────────────────────────────────
