@@ -721,19 +721,17 @@ window.saveAiKey = function() {
 window.askGemini = async function() {
     const inputEl = document.getElementById("suiteAiInput");
     const prompt = inputEl.value.trim();
-    // Ambil key, bersihkan spasi, dan karakter aneh. Dukung format AIzaSy dan AQ.
     const key = (localStorage.getItem("gemini_legal_api_key") || "").trim();
 
     if(!prompt) return;
-    if(!key || (!key.startsWith("AIzaSy") && !key.startsWith("AQ."))) {
-        toast("API Key tidak valid! Pastikan menyalin Key dari Google Cloud atau AI Studio.", "warning");
+    if(!key || (!key.startsWith("AIzaSy") && !key.startsWith("AQ.") && !key.startsWith("sk-or-v1-"))) {
+        toast("API Key tidak valid! Masukkan Key Google Gemini atau OpenRouter.", "warning");
         window.toggleAiSettings();
         return;
     }
 
     const chat = document.getElementById("suiteAiChat");
     const btn = document.getElementById("btnAskGemini");
-
     chat.innerHTML += `<div class="ai-msg user">${escHtml(prompt)}</div>`;
     inputEl.value = "";
     chat.scrollTop = chat.scrollHeight;
@@ -743,109 +741,89 @@ window.askGemini = async function() {
     const botMsgId = "bot-" + Date.now();
     chat.innerHTML += `<div class="ai-msg bot" id="${botMsgId}">⏳ Memulai koneksi...</div>`;
 
-    const models = ["gemini-1.5-flash", "gemini-pro"];
-    let finalError = "Tidak dapat terhubung ke AI.";
+    const isOpenRouter = key.startsWith("sk-or-v1-");
 
-    for (const modelName of models) {
-        try {
-            document.getElementById(botMsgId).innerHTML = `⏳ Menghubungi ${modelName}...`;
+    try {
+        const editorContent = document.getElementById("suiteEditor").innerText;
+        const systemPrompt = `Anda adalah AI Pakar Hukum profesional.
+        Tugas: Membantu pembuatan draf hukum secara cerdas, adaptif, dan memiliki pemikiran sendiri.
+        Konteks Dokumen: "${editorContent.substring(0, 3000)}"
+        Aturan: Gunakan tag [ACTION:INSERT_HTML]kode_html_disini[/ACTION] untuk memasukkan draf ke editor.`;
 
-            const editorContent = document.getElementById("suiteEditor").innerText;
-            const systemPrompt = `Anda adalah AI Pakar Hukum profesional.
-            Tugas: Membantu pembuatan draf hukum secara cerdas, adaptif, dan memiliki pemikiran sendiri.
-            Konteks Dokumen: "${editorContent.substring(0, 3000)}"
-            Aturan:
-            1. Berikan saran hukum yang logis dan analitis.
-            2. Gunakan tag [ACTION:INSERT_HTML]kode_html_disini[/ACTION] untuk memasukkan draf atau tabel langsung ke editor.
-            3. Jika user meminta bantuan drafting, buatlah draf yang lengkap dan profesional.`;
-
-            // Timeout controller (15 seconds)
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, {
+        if (isOpenRouter) {
+            document.getElementById(botMsgId).innerHTML = `⏳ Menghubungi OpenRouter...`;
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Authorization": `Bearer ${key}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": window.location.origin
+                },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: systemPrompt + "\n\nUser: " + prompt }] }]
-                }),
-                signal: controller.signal
+                    model: "google/gemini-flash-1.5",
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: prompt }
+                    ]
+                })
             });
-
-            clearTimeout(timeoutId);
             const data = await response.json();
-
-            if (data.error) {
-                if (data.error.status === "NOT_FOUND" || data.error.message.includes("not found")) {
-                    continue;
-                }
-                let msg = data.error.message;
-                if (msg.includes("blocked")) {
-                    msg = `<b>⚠️ PERMINTAAN DIBLOKIR GOOGLE</b><br><br>
-                           Solusi agar AI bisa berjalan:<br>
-                           1. Buka <b>Google Cloud Console > Credentials</b>.<br>
-                           2. Edit API Key Anda.<br>
-                           3. Set <b>"Application restrictions"</b> ke <b>None</b>.<br>
-                           4. Set <b>"API restrictions"</b> ke <b>Don't restrict key</b>.<br>
-                           5. Tunggu 5 menit, lalu coba lagi.`;
-                }
-                throw new Error(msg);
+            if (data.error) throw new Error(data.error.message || "OpenRouter error");
+            window.processAiResponse(data, botMsgId);
+        } else {
+            const models = ["gemini-1.5-flash", "gemini-pro"];
+            let finalError = "Tidak dapat terhubung ke AI.";
+            for (const modelName of models) {
+                try {
+                    document.getElementById(botMsgId).innerHTML = `⏳ Menghubungi ${modelName}...`;
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt + "\n\nUser: " + prompt }] }] })
+                    });
+                    const data = await response.json();
+                    if (data.error) throw new Error(data.error.message);
+                    if (window.processAiResponse(data, botMsgId)) return;
+                } catch (e) { finalError = e.message; }
             }
-
-            const success = window.processAiResponse(data, botMsgId);
-            if (success) {
-                btn.disabled = false;
-                btn.innerHTML = "Ask Gemini ✨";
-                chat.scrollTop = chat.scrollHeight;
-                return; // Berhenti jika berhasil
-            }
-
-        } catch (e) {
-            console.error(`Error with ${modelName}:`, e);
-            finalError = e.message;
-            if (e.name === 'AbortError') finalError = "Koneksi timeout (15 detik). Coba lagi.";
+            throw new Error(finalError);
         }
+    } catch (e) {
+        document.getElementById(botMsgId).innerHTML = `<div style="color:red; font-size:12px">❌ Gagal: ${e.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = "Ask Gemini ✨";
+        chat.scrollTop = chat.scrollHeight;
     }
-
-    // Jika semua model gagal
-    document.getElementById(botMsgId).innerHTML = `<div style="color:red; font-size:12px">❌ Gagal: ${finalError}</div>`;
-    btn.disabled = false;
-    btn.innerHTML = "Ask Gemini ✨";
-    chat.scrollTop = chat.scrollHeight;
 };
 
 window.processAiResponse = function(data, botMsgId) {
     const el = document.getElementById(botMsgId);
-    if (!data.candidates || data.candidates.length === 0) {
-        el.innerHTML = "AI tidak memberikan kandidat jawaban. Coba lagi.";
-        return false;
+    let aiText = "";
+
+    if (data.choices && data.choices.length > 0) {
+        aiText = data.choices[0].message.content || "";
+    } else if (data.candidates && data.candidates.length > 0) {
+        const cand = data.candidates[0];
+        if (cand.finishReason === "SAFETY") {
+            el.innerHTML = "⚠️ Jawaban diblokir oleh sistem keamanan Google.";
+            return true;
+        }
+        aiText = cand.content?.parts[0]?.text || "";
     }
 
-    const cand = data.candidates[0];
-    if (cand.finishReason === "SAFETY") {
-        el.innerHTML = "⚠️ Jawaban diblokir oleh sistem keamanan AI Google (Safety Filter). Coba ubah pertanyaan Anda.";
-        return true;
-    }
-
-    if (!cand.content || !cand.content.parts || cand.content.parts.length === 0) {
-        el.innerHTML = "Respon AI kosong. Coba lagi.";
-        return false;
-    }
-
-    let aiText = cand.content.parts[0].text || "";
     if (!aiText) {
-        el.innerHTML = "AI tidak menghasilkan teks. Coba lagi.";
+        el.innerHTML = "AI tidak memberikan respon valid. Coba lagi.";
         return false;
     }
 
-    // Process Actions
     let cleanText = aiText;
     const actionMatch = aiText.match(/\[ACTION:INSERT_HTML\]([\s\S]*?)\[\/ACTION\]/);
     if (actionMatch) {
         const htmlToInsert = actionMatch[1];
         document.getElementById("suiteEditor").focus();
         window.formatDoc('insertHTML', htmlToInsert);
-        cleanText = aiText.replace(/\[ACTION:INSERT_HTML\]([\s\S]*?)\[\/ACTION\]/, "*(Draf telah disisipkan ke editor)*");
+        cleanText = aiText.replace(/\[ACTION:INSERT_HTML\][\s\S]*?\[\/ACTION\]/, "*(Draf telah disisipkan ke editor)*");
     }
 
     el.innerHTML = cleanText.replace(/\n/g, "<br>");
