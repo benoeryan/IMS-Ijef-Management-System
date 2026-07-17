@@ -2594,13 +2594,22 @@ function editCutiDoc(id) {
 async function updateCutiDoc(id) {
   const mulai = document.getElementById('ecMulai').value,
     selesai = document.getElementById('ecSelesai').value;
-  const durasi = Math.max(1, Math.ceil((new Date(selesai) - new Date(mulai)) / 86400000) + 1);
+  const jenis = document.getElementById('ecJenis').value;
+
+  // Perhitungan durasi yang diperbaiki:
+  let durasi = 0;
+  if (jenis === 'Cuti Melahirkan') {
+    durasi = Math.max(1, Math.ceil((new Date(selesai) - new Date(mulai)) / 86400000) + 1);
+  } else {
+    durasi = countWorkDays(mulai, selesai);
+  }
+
   await db
     .collection('hrd_cuti')
     .doc(id)
     .update({
       nama: document.getElementById('ecNama').value,
-      jenis: document.getElementById('ecJenis').value,
+      jenis: jenis,
       mulai,
       selesai,
       durasi,

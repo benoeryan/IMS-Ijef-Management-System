@@ -2,7 +2,9 @@
 // ── CUTI / IZIN / WFH ─────────────────────────────────────────
 async function renderCuti() {
   const main = document.getElementById('mainContent');
-  main.innerHTML = `<div class="page-title"><span>🏖️ Cuti / Izin / WFH</span><button class="btn btn-primary btn-sm" onclick="modalCuti()">+ Pengajuan</button></div>
+  // Tampilkan tombol untuk level Manager ke atas agar lebih mudah diakses
+  const fixBtn = hasAccess(3) ? '<button id="btnFixCuti" class="btn btn-warning btn-sm" onclick="fixExistingCutiDurasi()" style="box-shadow: 0 0 10px rgba(245,127,23,0.5)">🛠️ Perbaiki Data Durasi</button>' : '';
+  main.innerHTML = `<div class="page-title"><span>🏖️ Cuti / Izin / WFH</span><div class="flex gap-8">${fixBtn}<button class="btn btn-primary btn-sm" onclick="modalCuti()">+ Pengajuan</button></div></div>
     ${hasAccess(3) ? '<div class="card mb-16"><div class="card-title mb-8">📊 Sisa Jatah Cuti Karyawan</div><div id="cutiQuotaList">Loading...</div></div>' : ''}
     <div class="card"><div class="card-title mb-8">📋 Daftar Pengajuan</div><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Jenis</th><th>Tanggal</th><th>Durasi</th><th>Sisa Cuti</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblCuti"></tbody></table></div></div>`;
   // Load data
@@ -120,23 +122,60 @@ async function renderCuti() {
 
 // Hitung jatah cuti berdasarkan masa kerja, status, dan ketentuan
 function hitungJatahCuti(karyawan) {
-  // UU Cipta Kerja: minimal 12 hari/tahun setelah 1 tahun kerja
-  // < 1 tahun: proporsional (1 hari per bulan kerja)
-  // Karyawan tetap: 12 hari
-  // Kontrak: proporsional
-  // Probation: 0
+  // Standar Pemerintah (UU Cipta Kerja): minimal 12 hari/tahun setelah 1 tahun kerja
   if (!karyawan.tanggalMasuk) return 12;
   const masuk = new Date(karyawan.tanggalMasuk);
   const now = new Date();
-  const bulanKerja = Math.floor((now - masuk) / (30 * 24 * 60 * 60 * 1000));
-  const tahunKerja = Math.floor(bulanKerja / 12);
+
+  // Hitung perbedaan bulan secara akurat
+  let bulanKerja = (now.getFullYear() - masuk.getFullYear()) * 12 + (now.getMonth() - masuk.getMonth());
+  if (now.getDate() < masuk.getDate()) bulanKerja--;
 
   if (karyawan.status === 'probation') return 0;
-  if (bulanKerja < 12) return Math.min(12, bulanKerja); // Proporsional
-  // Setelah 1 tahun: 12 hari (standar UU)
-  // Bonus: +1 hari per 2 tahun kerja (kebijakan perusahaan, max 18)
-  const bonus = Math.min(3, Math.floor(tahunKerja / 2));
-  return Math.min(18, 12 + bonus);
+
+  // < 1 tahun: Proporsional (1 hari per bulan kerja)
+  if (bulanKerja < 12) return Math.max(0, bulanKerja);
+
+  // >= 1 tahun: Tetap 12 hari sesuai standar pemerintah (menghapus bonus masa kerja)
+  return 12;
+}
+
+/**
+ * Tool Pemeliharaan: Memperbaiki durasi pengajuan cuti yang sudah ada
+ * agar tidak menghitung hari Sabtu & Minggu (akhir pekan).
+ */
+async function fixExistingCutiDurasi() {
+  if (!confirm("Sistem akan memindai seluruh data cuti dan mengoreksi durasi jika menyertakan akhir pekan. Lanjutkan?")) return;
+
+  toast("Memulai perbaikan data...", "info");
+  const snap = await db.collection('hrd_cuti').get();
+  const batch = db.batch();
+  let count = 0;
+
+  snap.forEach(doc => {
+    const p = doc.data();
+    if (p.mulai && p.selesai) {
+      let newDurasi = 0;
+      if (p.jenis === 'Cuti Melahirkan') {
+        newDurasi = Math.max(1, Math.ceil((new Date(p.selesai) - new Date(p.mulai)) / 86400000) + 1);
+      } else {
+        newDurasi = countWorkDays(p.mulai, p.selesai);
+      }
+
+      if (newDurasi !== p.durasi) {
+        batch.update(doc.ref, { durasi: newDurasi, updatedBySystem: new Date().toISOString() });
+        count++;
+      }
+    }
+  });
+
+  if (count > 0) {
+    await batch.commit();
+    toast(`Berhasil memperbaiki ${count} data cuti.`, "success");
+  } else {
+    toast("Semua data sudah akurat.", "success");
+  }
+  renderCuti();
 }
 
 function hitungMasaKerja(tanggalMasuk) {
@@ -157,11 +196,22 @@ function modalCuti() {
 async function simpanCuti() {
   const mulai = document.getElementById('ctMulai').value,
     selesai = document.getElementById('ctSelesai').value;
-  const durasi = Math.max(1, Math.ceil((new Date(selesai) - new Date(mulai)) / 86400000) + 1);
+  const jenis = document.getElementById('ctJenis').value;
+
+  // Perhitungan durasi:
+  // Cuti Melahirkan dihitung hari kalender (termasuk Sabtu-Minggu)
+  // Jenis lainnya (Cuti Tahunan, Sakit, Izin, WFH) hanya menghitung hari kerja
+  let durasi = 0;
+  if (jenis === 'Cuti Melahirkan') {
+    durasi = Math.max(1, Math.ceil((new Date(selesai) - new Date(mulai)) / 86400000) + 1);
+  } else {
+    durasi = countWorkDays(mulai, selesai);
+  }
+
   const attachments = await getFilesAsBase64('ctFiles');
   const data = {
     nama: document.getElementById('ctNama').value,
-    jenis: document.getElementById('ctJenis').value,
+    jenis: jenis,
     mulai,
     selesai,
     durasi,

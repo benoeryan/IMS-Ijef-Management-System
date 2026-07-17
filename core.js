@@ -411,7 +411,7 @@ function renderApp() {
   <div class="sidebar" id="sidebar">
     <div class="logo">🏛️ <span>IMS</span></div>
     <nav>${buildNavItems(isPortalUser)}</nav>
-    <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,.1)"><div style="font-size:.75rem;color:rgba(255,255,255,.5)">v5.0 — ${currentUser.nama}</div></div>
+    <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,.1)"><div style="font-size:.75rem;color:rgba(255,255,255,.5)">v8.1 (LATEST) — ${currentUser.nama}</div></div>
   </div>
   <div class="header">
     <button class="menu-btn" onclick="toggleSidebar()">☰</button>
@@ -670,99 +670,84 @@ function navigateTo(page) {
   if (!main) return;
   closeSidebar();
   const routes = {
-    dashboard: () => window.renderDashboard && window.renderDashboard(),
-    departemen: () => window.renderDepartemen && window.renderDepartemen(),
-    posisi: () => window.renderPosisi && window.renderPosisi(),
-    cabang: () => window.renderCabang && window.renderCabang(),
-    karyawan: () => window.renderKaryawan && window.renderKaryawan(),
-    'struktur-org': () => window.renderStrukturOrg && window.renderStrukturOrg(),
-    onboarding: () => window.renderOnboarding && window.renderOnboarding(),
-    offboarding: () => window.renderOffboarding && window.renderOffboarding(),
-    'jobdesk-mgmt': () => window.renderJobdeskMgmt && window.renderJobdeskMgmt(),
-    lowongan: () => window.renderLowongan && window.renderLowongan(),
-    pipeline: () => window.renderPipeline && window.renderPipeline(),
-    kandidat: () => window.renderKandidat && window.renderKandidat(),
-    absensi: () => window.renderAbsensiAdmin && window.renderAbsensiAdmin(),
-    cuti: () => window.renderCuti && window.renderCuti(),
-    overtime: () => window.renderOvertime && window.renderOvertime(),
-    'hari-libur': () => window.renderHariLibur && window.renderHariLibur(),
-    penalty: () => window.renderPenalty && window.renderPenalty(),
-    penggajian: () => window.renderPenggajian && window.renderPenggajian(),
-    'laporan-keuangan': () => window.renderLaporanKeuangan && window.renderLaporanKeuangan(),
-    'tax-calc': () => window.renderTaxCalc && window.renderTaxCalc(),
-    insentif: () => window.renderInsentif && window.renderInsentif(),
-    'system-admin': () => window.renderSystemAdmin && window.renderSystemAdmin(),
-    reimbursement: () => window.renderReimbursement && window.renderReimbursement(),
-    kasbon: () => window.renderKasbon && window.renderKasbon(),
-    tunjangan: () => window.renderTunjangan && window.renderTunjangan(),
-    kpi: () => window.renderKPI && window.renderKPI(),
-    pelatihan: () => window.renderPelatihan && window.renderPelatihan(),
-    'disc-test': () => window.renderDiscTestPage && window.renderDiscTestPage(),
-    kontrak: () => window.renderKontrak && window.renderKontrak(),
-    'legal-perizinan': () => window.renderLegalPerizinan && window.renderLegalPerizinan(),
-    'legal-kajian': () => window.renderKajianHukum && window.renderKajianHukum(),
-    'legal-sengketa': () => window.renderLegalSengketa && window.renderLegalSengketa(),
-    asset: () => window.renderAsset && window.renderAsset(),
-    peraturan: () => window.renderPeraturan && window.renderPeraturan(),
-    surat: () => window.renderSurat && window.renderSurat(),
-    meeting: () => window.renderMeeting && window.renderMeeting(),
-    chat: () => window.renderChat && window.renderChat(),
-    broadcast: () => window.renderBroadcast && window.renderBroadcast(),
-    inbox: () => window.renderInbox && window.renderInbox(),
-    notifikasi: () => window.renderNotifikasi && window.renderNotifikasi(),
-    pengumuman: () => window.renderPengumuman && window.renderPengumuman(),
-    akun: () => window.renderAkun && window.renderAkun(),
-    'approval-center': () => window.renderApprovalCenter && window.renderApprovalCenter(),
-    'approval-mgmt': () => window.renderApprovalMgmt && window.renderApprovalMgmt(),
-    'qr-share': () => window.renderQRShare && window.renderQRShare(),
-    portal: () => window.renderPortal && window.renderPortal(),
-    'portal-absensi': () => window.renderPortalAbsensi && window.renderPortalAbsensi(),
-    'portal-cuti': () => window.renderPortalCuti && window.renderPortalCuti(),
-    'portal-gaji': () => window.renderPortalGaji && window.renderPortalGaji(),
-    'portal-jobdesk': () => window.renderPortalJobdesk && window.renderPortalJobdesk(),
-    'portal-dokumen': () => window.renderPortalDokumen && window.renderPortalDokumen(),
-    'portal-peraturan': () => window.renderPortalPeraturan && window.renderPortalPeraturan(),
-    'portal-disc': () => window.renderPortalDisc && window.renderPortalDisc(),
-    'portal-reimburse': () => window.renderPortalReimburse && window.renderPortalReimburse(),
-    'portal-kasbon': () => window.renderPortalKasbon && window.renderPortalKasbon(),
-    'portal-kpi': () => window.renderPortalKPI && window.renderPortalKPI(),
-    'portal-struktur': () => window.renderStrukturOrg && window.renderStrukturOrg(),
-    'portal-libur': () => window.renderHariLibur && window.renderHariLibur(),
-    'portal-pengumuman': () => window.renderPortalPengumuman && window.renderPortalPengumuman(),
-    'portal-broadcast': () => window.renderPortalBroadcast && window.renderPortalBroadcast(),
-    'portal-meeting': () => window.renderPortalMeeting && window.renderPortalMeeting(),
-    'portal-invite': () => window.renderPortalInvite && window.renderPortalInvite(),
-    'portal-overtime': () => window.renderPortalOvertime && window.renderPortalOvertime(),
-    'portal-setting': () => window.renderPortalSetting && window.renderPortalSetting(),
-    'portal-share': () => window.renderPortalShare && window.renderPortalShare(),
-    'perjalanan-dinas': () => window.renderPerjalananDinas && window.renderPerjalananDinas(),
-    'portal-perjalanan-dinas': () => window.renderPortalPerjalananDinas && window.renderPortalPerjalananDinas(),
-    'test-kesehatan': () => window.renderTestKesehatan && window.renderTestKesehatan(),
-    'portal-test-kesehatan': () => window.renderPortalTestKesehatan && window.renderPortalTestKesehatan(),
-    'daily-task': () => window.renderDailyTask && window.renderDailyTask(),
-    'report-summary': () => window.renderReportSummary && window.renderReportSummary(),
-    kaizen: () => window.renderFormKaizen && window.renderFormKaizen(),
-    panduan: () => window.renderPanduan && window.renderPanduan(),
+    dashboard: renderDashboard,
+    departemen: renderDepartemen,
+    posisi: renderPosisi,
+    cabang: renderCabang,
+    karyawan: renderKaryawan,
+    'struktur-org': renderStrukturOrg,
+    onboarding: renderOnboarding,
+    offboarding: renderOffboarding,
+    'jobdesk-mgmt': renderJobdeskMgmt,
+    lowongan: renderLowongan,
+    pipeline: renderPipeline,
+    kandidat: renderKandidat,
+    absensi: renderAbsensiAdmin,
+    cuti: renderCuti,
+    overtime: renderOvertime,
+    'hari-libur': renderHariLibur,
+    penalty: renderPenalty,
+    penggajian: renderPenggajian,
+    'laporan-keuangan': renderLaporanKeuangan,
+    'tax-calc': renderTaxCalc,
+    insentif: renderInsentif,
+    'system-admin': renderSystemAdmin,
+    reimbursement: renderReimbursement,
+    kasbon: renderKasbon,
+    tunjangan: renderTunjangan,
+    kpi: renderKPI,
+    pelatihan: renderPelatihan,
+    'disc-test': renderDiscTestPage,
+    kontrak: renderKontrak,
+    'legal-perizinan': renderLegalPerizinan,
+    'legal-kajian': renderKajianHukum,
+    'legal-sengketa': renderLegalSengketa,
+    asset: renderAsset,
+    peraturan: renderPeraturan,
+    surat: renderSurat,
+    meeting: renderMeeting,
+    chat: renderChat,
+    broadcast: renderBroadcast,
+    inbox: renderInbox,
+    notifikasi: renderNotifikasi,
+    pengumuman: renderPengumuman,
+    akun: renderAkun,
+    'approval-center': renderApprovalCenter,
+    'approval-mgmt': renderApprovalMgmt,
+    'qr-share': renderQRShare,
+    portal: renderPortal,
+    'portal-absensi': renderPortalAbsensi,
+    'portal-cuti': renderPortalCuti,
+    'portal-gaji': renderPortalGaji,
+    'portal-jobdesk': renderPortalJobdesk,
+    'portal-dokumen': renderPortalDokumen,
+    'portal-peraturan': renderPortalPeraturan,
+    'portal-disc': renderPortalDisc,
+    'portal-reimburse': renderPortalReimburse,
+    'portal-kasbon': renderPortalKasbon,
+    'portal-kpi': renderPortalKPI,
+    'portal-struktur': renderStrukturOrg,
+    'portal-libur': renderHariLibur,
+    'portal-pengumuman': renderPortalPengumuman,
+    'portal-broadcast': renderPortalBroadcast,
+    'portal-meeting': renderPortalMeeting,
+    'portal-invite': renderPortalInvite,
+    'portal-overtime': renderPortalOvertime,
+    'portal-setting': renderPortalSetting,
+    'portal-share': renderPortalShare,
+    'perjalanan-dinas': renderPerjalananDinas,
+    'portal-perjalanan-dinas': renderPortalPerjalananDinas,
+    'test-kesehatan': renderTestKesehatan,
+    'portal-test-kesehatan': renderPortalTestKesehatan,
+    'daily-task': renderDailyTask,
+    'report-summary': renderReportSummary,
+    kaizen: renderFormKaizen,
+    panduan: renderPanduan,
   };
   const fn = routes[page];
-  if (fn) {
-    // Jalankan fungsi navigasi
-    fn();
-  } else {
-    // Jika fungsi belum tersedia (mungkin script modul belum selesai muat), tunggu 300ms lalu coba lagi sekali
-    setTimeout(() => {
-        const retryFn = routes[page];
-        if (typeof retryFn === 'function') {
-            const result = retryFn();
-            if (result === undefined && page.includes('legal')) {
-                 main.innerHTML = `<div class="empty-state"><div class="icon">⏳</div><p>Memuat modul Legal...</p></div>`;
-                 setTimeout(() => retryFn(), 500);
-            }
-        } else {
-            main.innerHTML = `<div class="empty-state"><div class="icon">🚧</div><p>Halaman "${page}" dalam pengembangan</p></div>`;
-        }
-    }, 300);
-  }
+  if (fn) fn();
+  else
+    main.innerHTML = `<div class="empty-state"><div class="icon">🚧</div><p>Halaman "${page}" dalam pengembangan</p></div>`;
 }
 
 function toggleSidebar() {
@@ -940,6 +925,27 @@ function monthStr() {
 function getMonthDays(ym) {
   const [y, m] = ym.split('-').map(Number);
   return new Date(y, m, 0).getDate();
+}
+
+/**
+ * Counts work days between two dates, excluding Saturdays and Sundays.
+ */
+function countWorkDays(startDate, endDate) {
+  if (!startDate || !endDate) return 0;
+  let start = new Date(startDate);
+  let end = new Date(endDate);
+  if (start > end) return 0;
+
+  let count = 0;
+  let cur = new Date(start);
+  while (cur <= end) {
+    let day = cur.getDay();
+    if (day !== 0 && day !== 6) { // 0 = Sunday, 6 = Saturday
+      count++;
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
 }
 
 function listenNotifications() {
