@@ -439,6 +439,16 @@ window.modalLegalDrafting = async function() {
     });
 
     window.initRulers();
+
+    // Auto-fill API Key if exists
+    const savedKey = localStorage.getItem("gemini_legal_api_key");
+    if (savedKey) {
+        const keyInput = document.getElementById("geminiApiKey");
+        if (keyInput) keyInput.value = savedKey;
+        // Also update initial bot message if key is present
+        const chat = document.getElementById("suiteAiChat");
+        if (chat) chat.innerHTML = `<div class="ai-msg bot">✨ Gemini AI siap membantu. Ketik perintah draf Anda di bawah.</div>`;
+    }
 };
 
 window.initRulers = function() {
