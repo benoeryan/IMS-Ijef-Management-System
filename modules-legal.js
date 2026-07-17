@@ -772,8 +772,14 @@ window.askGemini = async function() {
 
         if (isOpenRouter) {
             document.getElementById(botMsgId).innerHTML = `⏳ Menghubungi OpenRouter...`;
-            // Coba beberapa model OpenRouter jika gagal
-            const orModels = ["google/gemini-flash-1.5", "google/gemini-pro-1.5", "openai/gpt-4o-mini"];
+            // Coba beberapa model OpenRouter (Paid -> Free fallback)
+            const orModels = [
+                "google/gemini-flash-1.5",
+                "google/gemini-pro-1.5",
+                "openai/gpt-4o-mini",
+                "google/gemini-flash-1.5-8b:free",
+                "meta-llama/llama-3.1-8b-instruct:free"
+            ];
             let orError = "Gagal menghubungi OpenRouter.";
 
             for (const orModel of orModels) {
