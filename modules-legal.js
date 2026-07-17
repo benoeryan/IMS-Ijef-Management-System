@@ -772,24 +772,27 @@ window.askGemini = async function() {
 
         if (isOpenRouter) {
             document.getElementById(botMsgId).innerHTML = `⏳ Menghubungi OpenRouter...`;
-            // Coba beberapa model OpenRouter (Paid -> Free fallback)
+            // Coba urutan model: Paid (jika ada saldo) -> Free (Cadangan)
             const orModels = [
                 "google/gemini-flash-1.5",
-                "google/gemini-pro-1.5",
-                "openai/gpt-4o-mini",
                 "google/gemini-flash-1.5-8b:free",
-                "meta-llama/llama-3.1-8b-instruct:free"
+                "meta-llama/llama-3.1-8b-instruct:free",
+                "mistralai/mistral-7b-instruct:free",
+                "microsoft/phi-3-mini-128k-instruct:free",
+                "qwen/qwen-2-7b-instruct:free"
             ];
             let orError = "Gagal menghubungi OpenRouter.";
 
             for (const orModel of orModels) {
                 try {
+                    document.getElementById(botMsgId).innerHTML = `⏳ Mencoba model ${orModel}...`;
                     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                         method: "POST",
                         headers: {
                             "Authorization": `Bearer ${key}`,
                             "Content-Type": "application/json",
-                            "HTTP-Referer": window.location.origin
+                            "HTTP-Referer": window.location.origin,
+                            "X-Title": "IMS Legal Suite"
                         },
                         body: JSON.stringify({
                             model: orModel,
@@ -800,10 +803,26 @@ window.askGemini = async function() {
                         })
                     });
                     const data = await response.json();
-                    if (data.error) throw new Error(data.error.message || "Model error");
+
+                    if (data.error) {
+                        const code = data.error.code || 0;
+                        const msg = data.error.message || "";
+
+                        // Jika error saldo (402) atau model tidak tersedia, lanjut ke model berikutnya
+                        if (code === 402 || msg.includes("credits") || msg.includes("unavailable") || msg.includes("free")) {
+                            console.warn(`Model ${orModel} gagal: ${msg}. Mencoba cadangan...`);
+                            continue;
+                        }
+                        throw new Error(msg);
+                    }
                     if (window.processAiResponse(data, botMsgId)) return;
                 } catch (e) {
                     orError = e.message;
+                    console.warn(`OR Model ${orModel} catch:`, e.message);
+                }
+            }
+            throw new Error(orError);
+        } else {
                     console.warn(`OR Model ${orModel} failed:`, e.message);
                 }
             }
