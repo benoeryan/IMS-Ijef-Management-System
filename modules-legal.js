@@ -1,5 +1,7 @@
 "use strict";
 
+console.log("Modules Legal v2.6 Loaded");
+
 /**
  * MODULES-LEGAL.JS
  * Ultimate Microsoft Word Clone - Accurate Ribbon UI Implementation
@@ -819,11 +821,6 @@ window.askGemini = async function() {
                 } catch (e) {
                     orError = e.message;
                     console.warn(`OR Model ${orModel} catch:`, e.message);
-                }
-            }
-            throw new Error(orError);
-        } else {
-                    console.warn(`OR Model ${orModel} failed:`, e.message);
                 }
             }
             throw new Error(orError);

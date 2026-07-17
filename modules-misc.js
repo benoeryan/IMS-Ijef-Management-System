@@ -527,7 +527,7 @@ async function simpanPelatihan(id) {
 }
 
 // ── KONTRAK ───────────────────────────────────────────────────
-async function renderKontrak() {
+window.renderKontrak = async function() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
   main.innerHTML = `<div class="page-title">
