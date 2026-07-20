@@ -2149,15 +2149,54 @@ async function submitAbsenDinas() {
 // ══════════════════════════════════════════════════════════════
 
 function renderRekapAbsensi(container) {
-  container.innerHTML = `<div class="card"><div class="card-header"><div class="card-title">📊 Rekap Absensi</div><div class="flex gap-8"><input class="form-control" type="month" id="rekapBulan" value="${monthStr()}" onchange="loadRekapGrid()"><button class="btn btn-sm btn-info" onclick="loadRekapGrid()">🔍</button>${hasAccess(6) ? '<button class="btn btn-sm btn-success" onclick="modalGenerateAbsensi()">⚡ Generate Periode</button>' : ''}</div></div><div id="rekapGrid">Loading...</div><div class="mt-16" id="rekapSummary"></div></div>`;
+  container.innerHTML = `<div class="card">
+    <div class="card-header">
+      <div class="card-title">📊 Rekap Absensi</div>
+      <div class="flex gap-8 flex-wrap">
+        <select class="form-control" id="rekapMode" onchange="loadRekapGrid()" style="max-width:160px">
+          <option value="calendar">📅 Bulan Kalender</option>
+          <option value="payroll" selected>💰 Periode Gaji (20-20)</option>
+        </select>
+        <input class="form-control" type="month" id="rekapBulan" value="${monthStr()}" onchange="loadRekapGrid()" style="max-width:140px">
+        <button class="btn btn-sm btn-info" onclick="loadRekapGrid()">🔍</button>
+        ${hasAccess(6) ? '<button class="btn btn-sm btn-success" onclick="modalGenerateAbsensi()">⚡ Generate Periode</button>' : ''}
+      </div>
+    </div>
+    <div id="rekapGrid">Loading...</div>
+    <div class="mt-16" id="rekapSummary"></div>
+  </div>`;
   loadRekapGrid();
 }
 
 async function loadRekapGrid() {
   const bulan = document.getElementById('rekapBulan')?.value || monthStr();
-  const days = getMonthDays(bulan);
-  const startDate = bulan + '-01',
+  const mode = document.getElementById('rekapMode')?.value || 'calendar';
+
+  let startDate, endDate, labelRange = '';
+  const [year, month] = bulan.split('-').map(Number);
+
+  if (mode === 'payroll') {
+    // Periode gaji: tgl 21 bulan lalu s/d tgl 20 bulan ini
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    startDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-21`;
+    endDate = `${year}-${String(month).padStart(2, '0')}-20`;
+    labelRange = ` (${formatDate(startDate)} - ${formatDate(endDate)})`;
+  } else {
+    const days = getMonthDays(bulan);
+    startDate = bulan + '-01';
     endDate = bulan + '-' + String(days).padStart(2, '0');
+  }
+
+  // Generate list of dates to display
+  const dateList = [];
+  let cur = new Date(startDate + 'T00:00:00');
+  const end = new Date(endDate + 'T00:00:00');
+  while (cur <= end) {
+      dateList.push(new Date(cur));
+      cur.setDate(cur.getDate() + 1);
+  }
+
   const [
     usersSnap,
     absenSnap,
@@ -2174,215 +2213,174 @@ async function loadRekapGrid() {
     db.collection('hrd_cuti').get(),
     db.collection('hrd_overtime').get(),
     db.collection('hrd_hari_libur').get(),
-    db
-      .collection('hrd_dinas_luar')
-      .get()
-      .catch(() => ({ forEach: () => {} })),
-    db
-      .collection('hrd_perjalanan_dinas')
-      .get()
-      .catch(() => ({ forEach: () => {} })),
+    db.collection('hrd_dinas_luar').get().catch(() => ({ forEach: () => {} })),
+    db.collection('hrd_perjalanan_dinas').get().catch(() => ({ forEach: () => {} })),
   ]);
   const sett = settDoc.exists ? settDoc.data() : {};
   const flex = sett.flexTime || { enabled: true, durasiKerja: 8, durasiIstirahat: 1 };
-  // Build cuti map: userId -> {day: jenis}
+
+  // Build holiday set based on dateList
+  const liburSet = new Set();
+  hariLiburSnap.forEach((d) => {
+    const h = d.data();
+    if (h.tanggal && h.tanggal >= startDate && h.tanggal <= endDate) liburSet.add(h.tanggal);
+  });
+
+  // Build maps using full YYYY-MM-DD keys for robustness
   const cutiMap = {};
   cutiSnap.forEach((d) => {
     const c = d.data();
     if (c.status !== 'approved' && !c.approvedAt) return;
     if (!c.mulai || !c.selesai) return;
-    const uid = c.userId || '';
-    const namaRaw = (c.nama || '').trim();
-    const nama = namaRaw.toLowerCase();
+    const uids = [c.userId, (c.nama || '').toLowerCase().trim()].filter(Boolean);
     const start = new Date(c.mulai + 'T00:00:00');
     const end = new Date(c.selesai + 'T00:00:00');
     for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
-      const day = dt.getDate();
-      const m = dt.getMonth() + 1;
-      const y = dt.getFullYear();
-      const ds = y + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+      const ds = dt.toISOString().split('T')[0];
       if (ds >= startDate && ds <= endDate) {
-        if (uid) {
-          if (!cutiMap[uid]) cutiMap[uid] = {};
-          cutiMap[uid][day] = c.jenis || 'Cuti';
-        }
-        if (nama) {
-          if (!cutiMap[nama]) cutiMap[nama] = {};
-          cutiMap[nama][day] = c.jenis || 'Cuti';
-        }
-        if (namaRaw) {
-          if (!cutiMap[namaRaw]) cutiMap[namaRaw] = {};
-          cutiMap[namaRaw][day] = c.jenis || 'Cuti';
-        }
+        uids.forEach(uid => {
+            if (!cutiMap[uid]) cutiMap[uid] = {};
+            cutiMap[uid][ds] = c.jenis || 'Cuti';
+        });
       }
     }
   });
-  // Build overtime map: userId -> {day: durasi}
+
   const otMap = {};
   overtimeSnap.forEach((d) => {
     const o = d.data();
-    if (
-      !o.tanggal ||
-      o.tanggal < startDate ||
-      o.tanggal > endDate ||
-      (o.status !== 'approved' && !o.approvedAt)
-    )
-      return;
-    const uid = o.userId || '';
-    const namaRaw = (o.nama || '').trim();
-    const nama = namaRaw.toLowerCase();
-    const day = parseInt(o.tanggal.split('-')[2]);
+    if (!o.tanggal || o.tanggal < startDate || o.tanggal > endDate || (o.status !== 'approved' && !o.approvedAt)) return;
+    const uids = [o.userId, (o.nama || '').toLowerCase().trim()].filter(Boolean);
     const dur = parseFloat(o.durasi) || 0;
-    if (uid) {
-      if (!otMap[uid]) otMap[uid] = {};
-      otMap[uid][day] = dur;
-    }
-    if (nama) {
-      if (!otMap[nama]) otMap[nama] = {};
-      otMap[nama][day] = dur;
-    }
-    if (namaRaw) {
-      if (!otMap[namaRaw]) otMap[namaRaw] = {};
-      otMap[namaRaw][day] = dur;
-    }
+    uids.forEach(uid => {
+        if (!otMap[uid]) otMap[uid] = {};
+        otMap[uid][o.tanggal] = dur;
+    });
   });
-  // Build dinas luar map: userId -> {day: true}
+
   const dinasLuarMap = {};
-  dinasLuarSnap.forEach((d) => {
-    const dl = d.data();
-    if (dl.status !== 'approved' && !dl.approvedAt) return;
-    const uid = dl.userId || '';
-    const dlNamaRaw = (dl.nama || '').trim();
-    const dlNama = dlNamaRaw.toLowerCase();
-    const startD = dl.tanggalMulai || dl.tanggal;
-    const endD = dl.tanggalSelesai || dl.tanggal;
-    if (!startD) return;
-    const endDt = new Date((endD || startD) + 'T00:00:00');
-    let maxIter = 366;
-    for (let dt = new Date(startD + 'T00:00:00'); dt <= endDt; dt.setDate(dt.getDate() + 1)) {
-      if (--maxIter < 0) break;
-      const day = dt.getDate();
-      const m = dt.getMonth() + 1;
-      const y = dt.getFullYear();
-      const ds = y + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-      if (ds >= startDate && ds <= endDate) {
-        if (uid) {
-          if (!dinasLuarMap[uid]) dinasLuarMap[uid] = {};
-          dinasLuarMap[uid][day] = true;
-        }
-        if (dlNama) {
-          if (!dinasLuarMap[dlNama]) dinasLuarMap[dlNama] = {};
-          dinasLuarMap[dlNama][day] = true;
-        }
-        if (dlNamaRaw) {
-          if (!dinasLuarMap[dlNamaRaw]) dinasLuarMap[dlNamaRaw] = {};
-          dinasLuarMap[dlNamaRaw][day] = true;
+  const processDinas = (dl) => {
+      if (dl.status !== 'approved' && !dl.approvedAt) return;
+      const startD = dl.tanggalMulai || dl.tanggal;
+      const endD = dl.tanggalSelesai || dl.tanggal;
+      if (!startD) return;
+      const uids = [dl.userId, (dl.nama || '').toLowerCase().trim()].filter(Boolean);
+      const endDt = new Date((endD || startD) + 'T00:00:00');
+      for (let dt = new Date(startD + 'T00:00:00'); dt <= endDt; dt.setDate(dt.getDate() + 1)) {
+        const ds = dt.toISOString().split('T')[0];
+        if (ds >= startDate && ds <= endDate) {
+          uids.forEach(uid => {
+              if (!dinasLuarMap[uid]) dinasLuarMap[uid] = {};
+              dinasLuarMap[uid][ds] = true;
+          });
         }
       }
-    }
-  });
-  sppdSnap.forEach((d) => {
-    const sp = d.data();
-    if (sp.status !== 'approved' && !sp.approvedAt) return;
-    const uid = sp.userId || '';
-    const spNamaRaw = (sp.nama || '').trim();
-    const spNama = spNamaRaw.toLowerCase();
-    if (!sp.tanggalMulai) return;
-    const endDt = new Date((sp.tanggalSelesai || sp.tanggalMulai) + 'T00:00:00');
-    let maxIter = 366;
-    for (
-      let dt = new Date(sp.tanggalMulai + 'T00:00:00');
-      dt <= endDt;
-      dt.setDate(dt.getDate() + 1)
-    ) {
-      if (--maxIter < 0) break;
-      const day = dt.getDate();
-      const m = dt.getMonth() + 1;
-      const y = dt.getFullYear();
-      const ds = y + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-      if (ds >= startDate && ds <= endDate) {
-        if (uid) {
-          if (!dinasLuarMap[uid]) dinasLuarMap[uid] = {};
-          dinasLuarMap[uid][day] = true;
-        }
-        if (spNama) {
-          if (!dinasLuarMap[spNama]) dinasLuarMap[spNama] = {};
-          dinasLuarMap[spNama][day] = true;
-        }
-        if (spNamaRaw) {
-          if (!dinasLuarMap[spNamaRaw]) dinasLuarMap[spNamaRaw] = {};
-          dinasLuarMap[spNamaRaw][day] = true;
-        }
-      }
-    }
-  });
-  // Build hari libur set
-  const liburSet = new Set();
-  hariLiburSnap.forEach((d) => {
-    const h = d.data();
-    if (h.tanggal && h.tanggal >= startDate && h.tanggal <= endDate)
-      liburSet.add(parseInt(h.tanggal.split('-')[2]));
-  });
-  // Build weekend set (Saturday=6, Sunday=0)
-  const weekendDays = new Set();
-  for (let i = 1; i <= days; i++) {
-    const d = new Date(bulan + '-' + String(i).padStart(2, '0') + 'T00:00:00');
-    if (d.getDay() === 0 || d.getDay() === 6) weekendDays.add(i);
-  }
+  };
+  dinasLuarSnap.forEach(processDinas);
+  sppdSnap.forEach(processDinas);
+
   const users = [];
   usersSnap.forEach((d) => users.push({ id: d.id, ...d.data() }));
-  // Portal mode: only show current user (unless GM/admin)
   const isPortalMode = !hasAccess(3);
-  const filteredUsers = isPortalMode
-    ? users.filter(
-        (u) => u.nama?.toLowerCase() === currentUser.nama?.toLowerCase() || u.id === currentUser.id
-      )
-    : users;
+  const filteredUsers = isPortalMode ? users.filter(u => u.nama?.toLowerCase() === currentUser.nama?.toLowerCase() || u.id === currentUser.id) : users;
+
   const absenMap = {};
   const jamKerjaMap = {};
   const lemburMap = {};
   absenSnap.forEach((d) => {
     const p = d.data();
     if (!p.tanggal || p.tanggal < startDate || p.tanggal > endDate) return;
-    const uid = p.userId || '';
-    const pNama = (p.nama || '').toLowerCase();
-    const day = parseInt(p.tanggal.split('-')[2]);
-    // Index by userId
-    if (uid) {
-      if (!absenMap[uid]) absenMap[uid] = {};
-      if (p.tipe === 'masuk') absenMap[uid][day] = p.status || 'hadir';
-      else if (p.tipe === 'pulang' && p.lembur) {
-        absenMap[uid][day] = 'lembur';
-        if (!lemburMap[uid]) lemburMap[uid] = {};
-        lemburMap[uid][day] = p.lemburJam || 0;
-      } else if (p.tipe === 'pulang' && (p.status === 'kurang_jam' || p.status === 'lengkap'))
-        absenMap[uid][day] = p.status;
-      else if (p.tipe === 'pulang' && p.jamKerjaActual) {
+    const uids = [p.userId, (p.nama || '').toLowerCase().trim()].filter(Boolean);
+    uids.forEach(uid => {
+        if (!absenMap[uid]) absenMap[uid] = {};
         if (!jamKerjaMap[uid]) jamKerjaMap[uid] = {};
-        jamKerjaMap[uid][day] = p.jamKerjaActual;
-      }
-    }
-    // Index by lowercase nama
-    if (pNama) {
-      if (!absenMap[pNama]) absenMap[pNama] = {};
-      if (p.tipe === 'masuk' && !absenMap[pNama][day]) absenMap[pNama][day] = p.status || 'hadir';
-      else if (p.tipe === 'pulang' && p.lembur && !absenMap[pNama][day])
-        absenMap[pNama][day] = 'lembur';
-      else if (p.tipe === 'pulang' && p.status === 'lengkap' && !absenMap[pNama][day])
-        absenMap[pNama][day] = 'lengkap';
-      else if (p.tipe === 'pulang' && p.status === 'kurang_jam' && !absenMap[pNama][day])
-        absenMap[pNama][day] = 'kurang_jam';
-    }
+        if (!lemburMap[uid]) lemburMap[uid] = {};
+
+        if (p.tipe === 'masuk') absenMap[uid][p.tanggal] = p.status || 'hadir';
+        else if (p.tipe === 'pulang') {
+            if (p.lembur) {
+                absenMap[uid][p.tanggal] = 'lembur';
+                lemburMap[uid][p.tanggal] = p.lemburJam || 0;
+            } else if (p.status === 'kurang_jam' || p.status === 'lengkap') {
+                absenMap[uid][p.tanggal] = p.status;
+            }
+            if (p.jamKerjaActual) jamKerjaMap[uid][p.tanggal] = p.jamKerjaActual;
+        }
+    });
   });
 
-  let h = '<div class="table-wrap"><table><thead><tr><th style="min-width:120px">Nama</th>';
-  for (let i = 1; i <= days; i++) {
-    const isWknd = weekendDays.has(i);
-    const hdrStyle = isWknd || liburSet.has(i) ? 'background:#9e9e9e;color:#fff;' : '';
-    h += `<th style="width:28px;text-align:center;font-size:.65rem;${hdrStyle}">${i}</th>`;
-  }
+  let h = `<div class="text-xs mb-8 fw-700 color-primary">Rentang: ${labelRange || (bulan + '-01 s/d ' + endDate)}</div>`;
+  h += '<div class="table-wrap"><table><thead><tr><th style="min-width:120px">Nama</th>';
+  dateList.forEach(dt => {
+      const ds = dt.toISOString().split('T')[0];
+      const day = dt.getDate();
+      const isWknd = dt.getDay() === 0 || dt.getDay() === 6;
+      const hdrStyle = isWknd || liburSet.has(ds) ? 'background:#9e9e9e;color:#fff;' : '';
+      h += `<th style="width:28px;text-align:center;font-size:.65rem;${hdrStyle}">${day}</th>`;
+  });
   h += '<th>Total</th><th>Lembur</th><th>Aksi</th></tr></thead><tbody>';
-  let totalH = 0,
+
+  let totalH = 0, totalT = 0, totalD = 0, totalK = 0, totalL = 0, totalLembur = 0, totalLemburJam = 0;
+
+  filteredUsers.forEach((u) => {
+    const namaLow = (u.nama || '').toLowerCase().trim();
+    const userAbsen = { ...(absenMap[u.id] || {}), ...(absenMap[namaLow] || {}) };
+    const userJamKerja = { ...(jamKerjaMap[u.id] || {}), ...(jamKerjaMap[namaLow] || {}) };
+    const userLemburMap2 = { ...(lemburMap[u.id] || {}), ...(lemburMap[namaLow] || {}) };
+    const userCuti = { ...(cutiMap[u.id] || {}), ...(cutiMap[namaLow] || {}) };
+    const userDinas = { ...(dinasLuarMap[u.id] || {}), ...(dinasLuarMap[namaLow] || {}) };
+    const userOT = { ...(otMap[u.id] || {}), ...(otMap[namaLow] || {}) };
+
+    h += `<tr><td class="text-sm fw-700">${escHtml(u.nama)}</td>`;
+    let ut = 0, userLemburJamTotal = 0;
+
+    dateList.forEach(dt => {
+      const ds = dt.toISOString().split('T')[0];
+      const st = userAbsen[ds];
+      const jamKerja = userJamKerja[ds];
+      const lemburJam = userLemburMap2[ds];
+      const cutiStatus = userCuti[ds];
+      const isDinas = userDinas[ds];
+      const otDurasi = userOT[ds] || 0;
+      const isLibur = liburSet.has(ds);
+      const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
+
+      let color = '#eee', text = '-', title = '';
+
+      if (cutiStatus) {
+          const cTypes = {'WFH':['#009688','W','WFH'], 'Cuti Sakit':['#e91e63','S','Cuti Sakit'], 'Izin Pribadi':['#ffc107','I','Izin Pribadi'], 'Cuti Melahirkan':['#9c27b0','M','Cuti Melahirkan']};
+          const ct = cTypes[cutiStatus] || ['#00bcd4','C',cutiStatus];
+          color = ct[0]; text = ct[1]; title = ` title="${ct[2]}"`;
+          if (!isWeekend && !isLibur) ut++;
+      } else if (isDinas) {
+          color = '#2196f3'; text = 'D'; title = ' title="Dinas Luar"';
+          if (!isWeekend && !isLibur) { ut++; totalD++; }
+      } else if (otDurasi > 0 || (st === 'lembur')) {
+          color = '#7b1fa2'; text = 'L'; ut++; totalLembur++;
+          const lJam = Math.max(otDurasi, lemburJam || 0);
+          userLemburJamTotal += lJam; totalLemburJam += lJam;
+      } else if (st === 'tepat_waktu' || st === 'hadir' || st === 'lengkap') {
+          color = '#4caf50'; text = '✓'; ut++; totalH++;
+      } else if (st === 'terlambat') {
+          color = '#ff9800'; text = 'T'; ut++; totalT++;
+      } else if (st === 'kurang_jam') {
+          color = '#ff5722'; text = 'K'; ut++; totalK++;
+      } else if (isLibur) {
+          color = '#9e9e9e'; text = 'H'; title = ' title="Hari Libur"';
+      } else if (isWeekend) {
+          color = '#9e9e9e'; text = '-'; title = ' title="Weekend"';
+      }
+
+      if (flex.enabled && jamKerja) title = ` title="${jamKerja.toFixed(1)} jam"`;
+      h += `<td style="text-align:center;background:${color};color:#fff;font-size:.6rem;font-weight:700;padding:3px"${title}>${text}</td>`;
+    });
+
+    h += `<td class="fw-700 text-center">${ut}</td>`;
+    h += `<td class="fw-700 text-center" style="color:#7b1fa2">${userLemburJamTotal > 0 ? userLemburJamTotal.toFixed(1) + 'j' : '-'}</td>`;
+    h += `<td>${hasAccess(6) ? `<button class="btn btn-xs btn-info" onclick="editAbsenKaryawan('${u.id}','${(u.nama || '').replace(/'/g, "\\'")}','${bulan}')">✏️</button>` : ''}</td></tr>`;
+  });
+  h += '</tbody></table></div>';
+  document.getElementById('rekapGrid').innerHTML = h;
     totalT = 0,
     totalD = 0,
     totalK = 0,

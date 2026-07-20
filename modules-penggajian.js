@@ -364,6 +364,8 @@ async function doGenerateAllGaji() {
       const k = doc.data();
       const namaLow = (k.nama || '').trim().toLowerCase();
       const uid = getUserId(doc);
+      const isBOD = (k.role === 'bod' || (k.gradeJabatan || '').toUpperCase() === 'BOD');
+
       const gaji = k.gajiPokok || 0;
       const gajiPerHari = Math.round(gaji / (hariKerja || 22));
 
@@ -374,19 +376,33 @@ async function doGenerateAllGaji() {
       const cutiHari = cutiMap[uid] || cutiMap[namaLow] || 0;
       const dinasHari = dinasMap[uid] || dinasMap[namaLow] || 0;
 
-      // Total Hari Efektif (cannot exceed hari kerja)
-      const hariEfektif = Math.min(kehadiran + cutiHari + dinasHari, hariKerja);
-      const tidakHadir = Math.max(0, hariKerja - hariEfektif);
+      // Track actual absent dates for transparency
+      const absentDates = [];
+      if (!isBOD) {
+          for (let dt = new Date(periodeStart + 'T00:00:00'); dt <= new Date(periodeEnd + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
+            const ds = dt.toISOString().split('T')[0];
+            if (isWorkDay(ds)) {
+                const hasPresence = presence && presence.has(ds);
+                const hasCuti = (cutiMap[uid] && cutiMap[uid][ds]) || (cutiMap[namaLow] && cutiMap[namaLow][ds]);
+                const hasDinas = (dinasMap[uid] && dinasMap[uid][ds]) || (dinasMap[namaLow] && dinasMap[namaLow][ds]);
+
+                if (!hasPresence && !hasCuti && !hasDinas) {
+                    absentDates.push(ds);
+                }
+            }
+          }
+      }
+
+      // Total Hari Efektif
+      const hariEfektif = isBOD ? hariKerja : Math.min(kehadiran + cutiHari + dinasHari, hariKerja);
+      const tidakHadir = isBOD ? 0 : Math.max(0, hariKerja - hariEfektif);
       const potonganAbsen = tidakHadir * gajiPerHari;
 
       // Lembur
       const autoLembur = (absenMap[uid]?.lembur || absenMap[namaLow]?.lembur) || 0;
       const manualLembur = otMap[uid] || otMap[namaLow] || 0;
-      console.log(
-        `[PAYROLL] ${k.nama} (uid:${uid}, namaLow:"${namaLow}"): autoLembur=${autoLembur}, manualLembur=${manualLembur}, otMap[namaLow]=${otMap[namaLow]}, otMap[uid]=${otMap[uid]}`
-      );
       const lemburJam = autoLembur + manualLembur;
-      const gajiPerJam = Math.round(gaji / (hariKerja * 8)); // 8 jam per hari
+      const gajiPerJam = Math.round(gaji / (hariKerja * 8));
       let lemburNominal = 0;
       if (lemburJam > 0) {
         const jam1 = Math.min(lemburJam, 1);
@@ -400,49 +416,50 @@ async function doGenerateAllGaji() {
         const p = (t.penerima || 'Semua').toLowerCase();
         if (p === 'semua' || p.includes(namaLow)) tunj += t.nominal || 0;
       });
-      // Tunjangan cuti TIDAK di-generate otomatis (dikelola manual di menu Tunjangan)
       const tunjCuti = incTunjCuti ? Math.round(gaji / 12) : 0;
 
-      // Insentif
-      const insentif = insentifMap[namaLow] || 0;
-      // Reimbursement & Loan
-      const reimb = reimbMap[namaLow] || 0;
+      // Insentif (Filter by period)
+      let insentif = 0;
+      insentifSnap.forEach(d => {
+          const ins = d.data();
+          if ((ins.nama || '').toLowerCase().trim() === namaLow && ins.status === 'approved') {
+              const appDate = ins.approvedAt || ins.createdAt;
+              if (appDate >= periodeStart && appDate <= periodeEnd) insentif += (ins.nominal || 0);
+          }
+      });
+
+      // Reimbursement (Filter by period)
+      let reimb = 0;
+      reimbSnap.forEach(d => {
+          const r = d.data();
+          if ((r.nama || '').toLowerCase().trim() === namaLow && r.status === 'approved') {
+              const appDate = r.approvedAt || r.createdAt;
+              if (appDate >= periodeStart && appDate <= periodeEnd) reimb += (r.jumlah || 0);
+          }
+      });
+
       const loan = kasbonMap[namaLow] || 0;
-      // BPJS (sesuai ketentuan pemerintah) - conditional based on checkbox
       const bpjsKes = incBPJSKes ? Math.round(gaji * 0.01) : 0;
       const bpjsTK = incBPJSTK ? Math.round(gaji * 0.02) : 0;
-      // PPH21 Progressive (UU HPP 2022) - conditional
+
       const bruto = gaji + tunj + tunjCuti + insentif + reimb + lemburNominal - potonganAbsen;
       let pph21 = 0;
       if (incPPH) {
-        const penghasilanNetto = Math.max(
-          0,
-          (gaji + tunj + tunjCuti - bpjsKes - bpjsTK) * 12 - 54000000
-        );
+        const penghasilanNetto = Math.max(0, (gaji + tunj + tunjCuti - bpjsKes - bpjsTK) * 12 - 54000000);
         let pphT = 0;
         if (penghasilanNetto <= 60000000) pphT = penghasilanNetto * 0.05;
-        else if (penghasilanNetto <= 250000000)
-          pphT = 3000000 + (penghasilanNetto - 60000000) * 0.15;
-        else if (penghasilanNetto <= 500000000)
-          pphT = 3000000 + 28500000 + (penghasilanNetto - 250000000) * 0.25;
-        else pphT = 3000000 + 28500000 + 62500000 + (penghasilanNetto - 500000000) * 0.3;
+        else if (penghasilanNetto <= 250000000) pphT = 3000000 + (penghasilanNetto - 60000000) * 0.15;
+        else if (penghasilanNetto <= 500000000) pphT = 31500000 + (penghasilanNetto - 250000000) * 0.25;
+        else pphT = 94000000 + (penghasilanNetto - 500000000) * 0.3;
         pph21 = Math.max(0, Math.round(pphT / 12));
       }
-      // THP
-      const totalPotongan = bpjsKes + bpjsTK + loan + pph21 + potonganAbsen;
-      const thp = bruto - bpjsKes - bpjsTK - loan - pph21;
 
-      const potonganDetail = {
-        absen: potonganAbsen,
-        bpjsKes,
-        bpjsTK,
-        loan,
-        pph21
-      };
+      const totalBersih = bruto - bpjsKes - bpjsTK - loan - pph21;
 
       await db.collection('hrd_penggajian').add({
         nama: k.nama,
-        karyawanId: uid,
+        karyawanId: doc.id,
+        userId: uid,
         periode: bulan,
         periodeStart,
         periodeEnd,
@@ -454,15 +471,13 @@ async function doGenerateAllGaji() {
         reimbursement: reimb,
         lembur: lemburNominal,
         lemburJam,
-        lemburDetail: { auto: autoLembur, manual: manualLembur, total: lemburJam },
         bpjsKesehatan: bpjsKes,
         bpjsTK,
         potongan: potonganAbsen,
-        potonganDetail,
+        absentDates,
         kasbon: loan,
         pph21,
-        totalBersih: thp,
-        // Detail kehadiran
+        totalBersih,
         hariKerja,
         kehadiran,
         cutiHari,
@@ -860,6 +875,26 @@ function lihatSlip(id) {
     <div><div class="fw-700 text-sm color-primary mb-8">💰 Pendapatan</div><table style="width:100%;font-size:.82rem"><tr><td>Gaji Pokok</td><td style="text-align:right">${formatCurrency(p.gajiPokok)}</td></tr><tr><td>Tunjangan</td><td style="text-align:right">${formatCurrency(p.tunjangan)}</td></tr>${p.tunjCuti ? `<tr><td>Tunj. Cuti (1/12)</td><td style="text-align:right">${formatCurrency(p.tunjCuti)}</td></tr>` : ''}${p.lembur ? `<tr><td>Lembur (${p.lemburJam || 0} jam)</td><td style="text-align:right">${formatCurrency(p.lembur)}</td></tr>` : ''}${p.insentif ? `<tr><td>Insentif</td><td style="text-align:right">${formatCurrency(p.insentif)}</td></tr>` : ''}${p.bonus ? `<tr><td>Bonus</td><td style="text-align:right">${formatCurrency(p.bonus)}</td></tr>` : ''}${p.reimbursement ? `<tr><td>Reimbursement</td><td style="text-align:right">${formatCurrency(p.reimbursement)}</td></tr>` : ''}<tr style="border-top:2px solid var(--primary);font-weight:700"><td>Total Bruto</td><td style="text-align:right">${formatCurrency(bruto)}</td></tr></table></div>
     <div><div class="fw-700 text-sm color-danger mb-8">📉 Potongan</div><table style="width:100%;font-size:.82rem">${potDetailHtml}<tr style="border-top:2px solid var(--danger);font-weight:700"><td>Total Potongan</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(totPot)}</td></tr></table></div></div>
     <div style="background:var(--primary);color:#fff;padding:16px;border-radius:8px;text-align:center"><div style="font-size:.8rem;opacity:.8">TAKE HOME PAY</div><div style="font-size:1.5rem;font-weight:700">${formatCurrency(p.totalBersih)}</div></div>
+
+    <div class="mt-16" style="background:#f8f9ff;padding:12px;border-radius:8px;border:1px solid #d0d9ff">
+        <div class="fw-700 text-sm color-primary mb-8">📊 Detail Absensi (Periode 20-20)</div>
+        <div class="grid-2" style="font-size:.8rem;gap:8px">
+            <div>Jatah Hari Kerja: <b>${p.hariKerja} hari</b></div>
+            <div>Hadir (Check-in): <b>${p.kehadiran} hari</b></div>
+            <div>Cuti (Approved): <b>${p.cutiHari} hari</b></div>
+            <div>Dinas Luar: <b>${p.dinasHari} hari</b></div>
+            <div style="grid-column:1/-1;border-top:1px solid #ddd;padding-top:8px;margin-top:4px">
+                <span style="color:var(--danger);font-weight:700">Mangkir/Tidak Absen: ${p.tidakHadir} hari</span>
+            </div>
+        </div>
+        ${p.absentDates && p.absentDates.length > 0 ? `
+            <div class="mt-8 text-xs" style="background:#fff;padding:8px;border-radius:4px;border:1px solid #eee">
+                <b style="color:var(--danger)">Daftar Tanggal Mangkir:</b><br>
+                ${p.absentDates.map(d => formatDate(d)).join(", ")}
+            </div>
+        ` : ""}
+    </div>
+
     ${p.hariKerja ? `<div class="mt-16 slip-no-print" style="background:#fff3e0;padding:10px;border-radius:6px;font-size:.72rem;line-height:1.6"><b>Dasar Perhitungan:</b><br>• Gaji/hari: ${formatCurrency(Math.round((p.gajiPokok || 0) / (p.hariKerja || 22)))} (${p.gajiPokok ? formatCurrency(p.gajiPokok) : '-'} ÷ ${p.hariKerja} hari)<br>• Lembur: 1.5x jam pertama + 2x jam berikutnya (UU Cipta Kerja)<br>• PPH21: Tarif progresif UU HPP 2022 (PTKP TK/0 = Rp 54.000.000)<br>• Periode: Tgl 20 bulan lalu s/d Tgl 20 bulan ini</div>` : ''}</div>
     <div class="mt-16 flex gap-8" style="justify-content:center"><button class="btn btn-primary btn-sm" onclick="cetakSlipPDF()">📄 Cetak / Save PDF</button><button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Print</button></div>`,
         true
