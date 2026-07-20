@@ -130,10 +130,10 @@ async function doGenerateAllGaji() {
     );
     const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
     const [year, month] = bulan.split('-').map(Number);
-    // Periode gaji: tgl 20 bulan lalu s/d tgl 20 bulan ini
+    // Periode gaji: tgl 21 bulan lalu s/d tgl 20 bulan ini
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
-    const periodeStart = `${prevYear}-${String(prevMonth).padStart(2, '0')}-20`;
+    const periodeStart = `${prevYear}-${String(prevMonth).padStart(2, '0')}-21`;
     const periodeEnd = `${year}-${String(month).padStart(2, '0')}-20`;
 
     const kSnapAll = await db.collection('hrd_karyawan').get();
@@ -229,31 +229,29 @@ async function doGenerateAllGaji() {
         return karyToUserMap[kId] || userToKaryMap[kName] || kId;
     };
 
-    // Cuti map: userId -> jumlah hari cuti dalam periode (ONLY WORK DAYS)
+    // Cuti map: userId -> {ds: jenis} (ONLY WORK DAYS)
     const cutiMap = {};
+    const cutiDatesMap = {}; // userId -> array of dates
     cutiSnap.forEach((d) => {
       const c = d.data();
       if (c.status !== 'approved') return;
-      // Index by userId AND name (fallback)
-      const uids = [];
-      if (c.userId) uids.push(c.userId);
-      if (c.nama) {
-          const n = c.nama.trim().toLowerCase();
-          if (userToKaryMap[n]) uids.push(userToKaryMap[n]);
-          uids.push(n);
-      }
-
+      const uids = [c.userId, (c.nama || '').toLowerCase().trim()].filter(Boolean);
       const start = new Date(c.mulai + 'T00:00:00');
       const end = new Date(c.selesai + 'T00:00:00');
-      let days = 0;
+
+      const dates = [];
       for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
         const ds = dt.toISOString().split('T')[0];
-        if (ds >= periodeStart && ds <= periodeEnd && isWorkDay(ds)) days++;
+        if (ds >= periodeStart && ds <= periodeEnd && isWorkDay(ds)) dates.push(ds);
       }
 
       uids.forEach(uid => {
-          if (!cutiMap[uid]) cutiMap[uid] = 0;
-          cutiMap[uid] += days;
+          if (!cutiMap[uid]) cutiMap[uid] = {};
+          if (!cutiDatesMap[uid]) cutiDatesMap[uid] = [];
+          dates.forEach(ds => {
+              cutiMap[uid][ds] = c.jenis || 'Cuti';
+              if (!cutiDatesMap[uid].includes(ds)) cutiDatesMap[uid].push(ds);
+          });
       });
     });
 
@@ -270,14 +268,7 @@ async function doGenerateAllGaji() {
               ? parseFloat(o.durasi.replace(/[^0-9.]/g, '')) || 0
               : parseFloat(o.durasi) || 0;
 
-        const uids = [];
-        if (o.userId) uids.push(o.userId);
-        if (o.nama) {
-            const n = o.nama.trim().toLowerCase();
-            if (userToKaryMap[n]) uids.push(userToKaryMap[n]);
-            uids.push(n);
-        }
-
+        const uids = [o.userId, (o.nama || '').toLowerCase().trim()].filter(Boolean);
         uids.forEach(uid => {
             if (!otMap[uid]) otMap[uid] = 0;
             otMap[uid] += dur;
@@ -285,34 +276,33 @@ async function doGenerateAllGaji() {
       }
     });
 
-    // Dinas luar map: userId -> jumlah hari dinas dalam periode (ONLY WORK DAYS)
+    // Dinas luar map: userId -> {ds: true} (ONLY WORK DAYS)
     const dinasMap = {};
+    const dinasDatesMap = {}; // userId -> array of dates
     dinasLuarSnap.forEach((d) => {
       const dl = d.data();
       if (dl.status !== 'approved') return;
       const startD = dl.tanggalMulai || dl.tanggal;
       const endD = dl.tanggalSelesai || dl.tanggal;
       if (!startD) return;
-      let days = 0;
+
+      const dates = [];
       const endTime = new Date((endD || startD) + 'T00:00:00').getTime();
       let maxIter = 366;
       for (let dt = new Date(startD + 'T00:00:00'); dt.getTime() <= endTime; dt.setDate(dt.getDate() + 1)) {
         if (--maxIter < 0) break;
         const ds = dt.toISOString().split('T')[0];
-        if (ds >= periodeStart && ds <= periodeEnd && isWorkDay(ds)) days++;
+        if (ds >= periodeStart && ds <= periodeEnd && isWorkDay(ds)) dates.push(ds);
       }
 
-      const uids = [];
-      if (dl.userId) uids.push(dl.userId);
-      if (dl.nama) {
-          const n = dl.nama.trim().toLowerCase();
-          if (userToKaryMap[n]) uids.push(userToKaryMap[n]);
-          uids.push(n);
-      }
-
+      const uids = [dl.userId, (dl.nama || '').toLowerCase().trim()].filter(Boolean);
       uids.forEach(uid => {
-          if (!dinasMap[uid]) dinasMap[uid] = 0;
-          dinasMap[uid] += days;
+          if (!dinasMap[uid]) dinasMap[uid] = {};
+          if (!dinasDatesMap[uid]) dinasDatesMap[uid] = [];
+          dates.forEach(ds => {
+              dinasMap[uid][ds] = true;
+              if (!dinasDatesMap[uid].includes(ds)) dinasDatesMap[uid].push(ds);
+          });
       });
     });
 
@@ -369,12 +359,19 @@ async function doGenerateAllGaji() {
       const gaji = k.gajiPokok || 0;
       const gajiPerHari = Math.round(gaji / (hariKerja || 22));
 
-      // Kehadiran (check by userId AND name fallback)
-      const presence = absenMap[uid]?.hadirDays || absenMap[namaLow]?.hadirDays;
-      const kehadiran = presence ? presence.size : 0;
+      // Kehadiran (check by userId AND name fallback) - ONLY WORK DAYS
+      const presenceSet = absenMap[uid]?.hadirDays || absenMap[namaLow]?.hadirDays;
+      let kehadiran = 0;
+      if (presenceSet) {
+          presenceSet.forEach(d => {
+              if (isWorkDay(d)) kehadiran++;
+          });
+      }
 
-      const cutiHari = cutiMap[uid] || cutiMap[namaLow] || 0;
-      const dinasHari = dinasMap[uid] || dinasMap[namaLow] || 0;
+      const cutiDates = (cutiDatesMap[uid] || cutiDatesMap[namaLow] || []);
+      const dinasDates = (dinasDatesMap[uid] || dinasDatesMap[namaLow] || []);
+      const cutiHari = cutiDates.length;
+      const dinasHari = dinasDates.length;
 
       // Track actual absent dates for transparency
       const absentDates = [];
@@ -382,7 +379,7 @@ async function doGenerateAllGaji() {
           for (let dt = new Date(periodeStart + 'T00:00:00'); dt <= new Date(periodeEnd + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
             const ds = dt.toISOString().split('T')[0];
             if (isWorkDay(ds)) {
-                const hasPresence = presence && presence.has(ds);
+                const hasPresence = presenceSet && presenceSet.has(ds);
                 const hasCuti = (cutiMap[uid] && cutiMap[uid][ds]) || (cutiMap[namaLow] && cutiMap[namaLow][ds]);
                 const hasDinas = (dinasMap[uid] && dinasMap[uid][ds]) || (dinasMap[namaLow] && dinasMap[namaLow][ds]);
 
@@ -475,6 +472,8 @@ async function doGenerateAllGaji() {
         bpjsTK,
         potongan: potonganAbsen,
         absentDates,
+        cutiDates,
+        dinasDates,
         kasbon: loan,
         pph21,
         totalBersih,
@@ -883,16 +882,28 @@ function lihatSlip(id) {
             <div>Hadir (Check-in): <b>${p.kehadiran} hari</b></div>
             <div>Cuti (Approved): <b>${p.cutiHari} hari</b></div>
             <div>Dinas Luar: <b>${p.dinasHari} hari</b></div>
-            <div style="grid-column:1/-1;border-top:1px solid #ddd;padding-top:8px;margin-top:4px">
-                <span style="color:var(--danger);font-weight:700">Mangkir/Tidak Absen: ${p.tidakHadir} hari</span>
+        </div>
+
+        <div style="border-top:1px solid #ddd;padding-top:8px;margin-top:8px">
+            ${p.cutiDates && p.cutiDates.length > 0 ? `
+                <div class="mb-4 text-xs">
+                    <b style="color:var(--info)">Daftar Tanggal Cuti:</b><br>
+                    ${p.cutiDates.map(d => formatDate(d)).join(", ")}
+                </div>
+            ` : ""}
+            ${p.dinasDates && p.dinasDates.length > 0 ? `
+                <div class="mb-4 text-xs">
+                    <b style="color:var(--primary)">Daftar Tanggal Dinas:</b><br>
+                    ${p.dinasDates.map(d => formatDate(d)).join(", ")}
+                </div>
+            ` : ""}
+            <div class="mt-4 text-xs" style="background:#fff;padding:8px;border-radius:4px;border:1px solid #eee">
+                <b style="color:var(--danger)">Mangkir/Tidak Absen: ${p.tidakHadir} hari</b><br>
+                ${p.absentDates && p.absentDates.length > 0 ? `
+                    <div style="margin-top:4px">Daftar Tanggal: ${p.absentDates.map(d => formatDate(d)).join(", ")}</div>
+                ` : "Tidak ada data mangkir."}
             </div>
         </div>
-        ${p.absentDates && p.absentDates.length > 0 ? `
-            <div class="mt-8 text-xs" style="background:#fff;padding:8px;border-radius:4px;border:1px solid #eee">
-                <b style="color:var(--danger)">Daftar Tanggal Mangkir:</b><br>
-                ${p.absentDates.map(d => formatDate(d)).join(", ")}
-            </div>
-        ` : ""}
     </div>
 
     ${p.hariKerja ? `<div class="mt-16 slip-no-print" style="background:#fff3e0;padding:10px;border-radius:6px;font-size:.72rem;line-height:1.6"><b>Dasar Perhitungan:</b><br>• Gaji/hari: ${formatCurrency(Math.round((p.gajiPokok || 0) / (p.hariKerja || 22)))} (${p.gajiPokok ? formatCurrency(p.gajiPokok) : '-'} ÷ ${p.hariKerja} hari)<br>• Lembur: 1.5x jam pertama + 2x jam berikutnya (UU Cipta Kerja)<br>• PPH21: Tarif progresif UU HPP 2022 (PTKP TK/0 = Rp 54.000.000)<br>• Periode: Tgl 20 bulan lalu s/d Tgl 20 bulan ini</div>` : ''}</div>

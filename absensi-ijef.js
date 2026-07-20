@@ -2365,186 +2365,28 @@ async function loadRekapGrid() {
           color = '#ff9800'; text = 'T'; ut++; totalT++;
       } else if (st === 'kurang_jam') {
           color = '#ff5722'; text = 'K'; ut++; totalK++;
+      } else if (!isWeekend && !isLibur) {
+          color = '#ffebee'; text = '<span style="color:#f44336">⚠️</span>'; title = ' title="Mangkir (Tanpa Keterangan)"';
       } else if (isLibur) {
           color = '#9e9e9e'; text = 'H'; title = ' title="Hari Libur"';
       } else if (isWeekend) {
           color = '#9e9e9e'; text = '-'; title = ' title="Weekend"';
       }
 
-      if (flex.enabled && jamKerja) title = ` title="${jamKerja.toFixed(1)} jam"`;
-      h += `<td style="text-align:center;background:${color};color:#fff;font-size:.6rem;font-weight:700;padding:3px"${title}>${text}</td>`;
-    });
-
-    h += `<td class="fw-700 text-center">${ut}</td>`;
-    h += `<td class="fw-700 text-center" style="color:#7b1fa2">${userLemburJamTotal > 0 ? userLemburJamTotal.toFixed(1) + 'j' : '-'}</td>`;
-    h += `<td>${hasAccess(6) ? `<button class="btn btn-xs btn-info" onclick="editAbsenKaryawan('${u.id}','${(u.nama || '').replace(/'/g, "\\'")}','${bulan}')">✏️</button>` : ''}</td></tr>`;
-  });
-  h += '</tbody></table></div>';
-  document.getElementById('rekapGrid').innerHTML = h;
-    totalT = 0,
-    totalD = 0,
-    totalK = 0,
-    totalL = 0,
-    totalLembur = 0,
-    totalLemburJam = 0;
-
-    filteredUsers.forEach((u) => {
-    // Merge absenMap from all possible keys (id, nama lowercase)
-    const namaLow = (u.nama || '').toLowerCase();
-    const userAbsen = { ...(absenMap[u.id] || {}), ...(absenMap[namaLow] || {}) };
-    const userJamKerja = { ...(jamKerjaMap[u.id] || {}), ...(jamKerjaMap[namaLow] || {}) };
-    const userLemburMap2 = { ...(lemburMap[u.id] || {}), ...(lemburMap[namaLow] || {}) };
-
-    // Track clock-in but no clock-out
-    const userRawAbsen = absenSnap.docs.filter(d => {
-        const p = d.data();
-        return (p.userId === u.id || (p.nama && p.nama.toLowerCase() === namaLow)) &&
-               p.tanggal >= startDate && p.tanggal <= endDate;
-    }).map(d => d.data());
-
-    h += `<tr><td class="text-sm fw-700">${escHtml(u.nama)}</td>`;
-    let ut = 0;
-    let userLemburJam = 0;
-    for (let i = 1; i <= days; i++) {
-      const st = userAbsen[i];
-      const jamKerja = userJamKerja[i];
-      const lemburJam = userLemburMap2[i];
-
-      // Check for missing clock-out
-      const dayStr = bulan + '-' + String(i).padStart(2, '0');
-      const hasMasuk = userRawAbsen.some(a => a.tanggal === dayStr && a.tipe === 'masuk');
-      const hasPulang = userRawAbsen.some(a => a.tanggal === dayStr && a.tipe === 'pulang');
-      const isMissingPulang = hasMasuk && !hasPulang && dayStr < todayStr();
-
-      // Check cuti/izin first (by userId or nama)
-      const cutiStatus =
-        cutiMap[u.id]?.[i] ||
-        cutiMap[u.nama]?.[i] ||
-        cutiMap[(u.nama || '').trim()]?.[i] ||
-        cutiMap[(u.nama || '').trim().toLowerCase()]?.[i];
-      const isOT =
-        otMap[u.id]?.[i] !== undefined ||
-        otMap[u.nama]?.[i] !== undefined ||
-        otMap[(u.nama || '').trim().toLowerCase()]?.[i] !== undefined;
-      const otDurasi =
-        otMap[u.id]?.[i] ??
-        otMap[u.nama]?.[i] ??
-        otMap[(u.nama || '').trim().toLowerCase()]?.[i] ??
-        0;
-      const isLibur = liburSet.has(i);
-      const isWeekend = weekendDays.has(i);
-      let color = '#eee',
-        text = '-',
-        title = '';
-      if ((isLibur || isWeekend) && isOT) {
-        color = '#7b1fa2';
-        text = 'L';
-        ut++;
-        totalLembur++;
-        const effectiveLemburJam = Math.max(otDurasi || 0, lemburJam || 0);
-        if (effectiveLemburJam > 0) {
-          userLemburJam += effectiveLemburJam;
-          totalLemburJam += effectiveLemburJam;
-        }
-      } else if (isLibur && !st) {
-        color = '#9e9e9e';
-        text = 'H';
-        title = ' title="Hari Libur"';
-      } else if (isWeekend && !st) {
-        color = '#9e9e9e';
-        text = '-';
-        title = ' title="Weekend"';
-      } else if (isLibur && st && !isOT) {
-        color = '#9e9e9e';
-        text = 'H';
-        title = ' title="Hari Libur"';
-      } else if (isWeekend && st && !isOT) {
-        color = '#9e9e9e';
-        text = '-';
-        title = ' title="Weekend"';
-      } else if (cutiStatus) {
-        if (cutiStatus === 'WFH') {
-          color = '#009688';
-          text = 'W';
-          title = ' title="WFH"';
-          ut++;
-        } else if (cutiStatus === 'Cuti Sakit') {
-          color = '#e91e63';
-          text = 'S';
-          title = ' title="Cuti Sakit"';
-          ut++;
-        } else if (cutiStatus === 'Izin Pribadi') {
-          color = '#ffc107';
-          text = 'I';
-          title = ' title="Izin Pribadi"';
-          ut++;
-        } else if (cutiStatus === 'Cuti Melahirkan') {
-          color = '#9c27b0';
-          text = 'M';
-          title = ' title="Cuti Melahirkan"';
-          ut++;
-        } else {
-          color = '#00bcd4';
-          text = 'C';
-          title = ` title="${cutiStatus}"`;
-          ut++;
-        }
-      } else if (
-        dinasLuarMap[u.id]?.[i] ||
-        dinasLuarMap[u.nama]?.[i] ||
-        dinasLuarMap[namaLow]?.[i]
-      ) {
-        color = '#2196f3';
-        text = 'D';
-        title = ' title="Dinas Luar (SPPD)"';
-        ut++;
-        totalD++;
-      } else if (isOT) {
-        color = '#7b1fa2';
-        text = 'L';
-        ut++;
-        totalLembur++;
-        const effectiveLemburJam = Math.max(otDurasi || 0, lemburJam || 0);
-        if (effectiveLemburJam > 0) {
-          userLemburJam += effectiveLemburJam;
-          totalLemburJam += effectiveLemburJam;
-        }
-      } else if (st === 'tepat_waktu' || st === 'hadir') {
-        color = '#4caf50';
-        text = '✓';
-        ut++;
-        totalH++;
-      } else if (st === 'terlambat') {
-        color = '#ff9800';
-        text = 'T';
-        ut++;
-        totalT++;
-      } else if (st === 'lengkap') {
-        color = '#4caf50';
-        text = '✓';
-        ut++;
-        totalL++;
-      } else if (st === 'kurang_jam') {
-        color = '#ff5722';
-        text = 'K';
-        ut++;
-        totalK++;
-      }
-      if (flex.enabled && jamKerja) {
-        title = ` title="${jamKerja.toFixed(1)} jam"`;
-      }
+      if (flex.enabled && jamKerja) title = (title || '') + ` title="${jamKerja.toFixed(1)} jam"`;
 
       let cellContent = text;
-      if (isMissingPulang) {
+      if (isMissingPulang && !cutiStatus && !isDinas) {
           cellContent = `<span style="position:relative">${text}<span style="position:absolute;top:-4px;right:-4px;color:#f44336;font-size:8px">⚠️</span></span>`;
           if (!title) title = ' title="Belum absen pulang"';
           else title = title.replace('"', ' (Belum absen pulang)"');
       }
 
       h += `<td style="text-align:center;background:${color};color:#fff;font-size:.6rem;font-weight:700;padding:3px"${title}>${cellContent}</td>`;
-    }
+    });
+
     h += `<td class="fw-700 text-center">${ut}</td>`;
-    h += `<td class="fw-700 text-center" style="color:#7b1fa2">${userLemburJam > 0 ? userLemburJam.toFixed(1) + 'j' : '-'}</td>`;
+    h += `<td class="fw-700 text-center" style="color:#7b1fa2">${userLemburJamTotal > 0 ? userLemburJamTotal.toFixed(1) + 'j' : '-'}</td>`;
     h += `<td>${hasAccess(6) ? `<button class="btn btn-xs btn-info" onclick="editAbsenKaryawan('${u.id}','${(u.nama || '').replace(/'/g, "\\'")}','${bulan}')">✏️</button>` : ''}</td></tr>`;
   });
   h += '</tbody></table></div>';
@@ -2571,7 +2413,7 @@ async function loadRekapGrid() {
       <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#009688;border-radius:2px"></span> WFH (W)</span>
       <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#9c27b0;border-radius:2px"></span> Cuti Melahirkan (M)</span>
       <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#9e9e9e;border-radius:2px"></span> Weekend / Hari Libur</span>
-      <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#eee;border-radius:2px"></span> Tidak Hadir</span>
+      <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#ffebee;border-radius:2px;border:1px solid #f44336;text-align:center;line-height:12px;font-size:8px;color:#f44336">⚠️</span> Mangkir (Tanpa Keterangan)</span>
     </div>`;
   document.getElementById('rekapSummary').innerHTML = summaryHtml;
 }
