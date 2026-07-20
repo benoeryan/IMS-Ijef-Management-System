@@ -4,7 +4,7 @@ async function renderCuti() {
   const main = document.getElementById('mainContent');
   // Tampilkan tombol untuk level Manager ke atas agar lebih mudah diakses
   const fixBtn = hasAccess(3) ? '<button id="btnFixCuti" class="btn btn-warning btn-sm" onclick="fixExistingCutiDurasi()" style="box-shadow: 0 0 10px rgba(245,127,23,0.5)">🛠️ Perbaiki Data Durasi</button>' : '';
-  main.innerHTML = `<div class="page-title"><span>🏖️ Cuti / Izin / WFH</span><div class="flex gap-8">${fixBtn}<button class="btn btn-primary btn-sm" onclick="modalCuti()">+ Pengajuan</button></div></div>
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🏖️ Cuti / Izin / WFH</span><div class="flex gap-8">${fixBtn}<button class="btn btn-primary btn-sm" onclick="modalCuti()">+ Pengajuan</button></div></div>
     ${hasAccess(3) ? '<div class="card mb-16"><div class="card-title mb-8">📊 Sisa Jatah Cuti Karyawan</div><div id="cutiQuotaList">Loading...</div></div>' : ''}
     <div class="card"><div class="card-title mb-8">📋 Daftar Pengajuan</div><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Jenis</th><th>Tanggal</th><th>Durasi</th><th>Sisa Cuti</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblCuti"></tbody></table></div></div>`;
   // Load data
@@ -362,7 +362,7 @@ async function viewCutiDetail(id) {
 // ── OVERTIME ──────────────────────────────────────────────────
 async function renderOvertime() {
   const main = document.getElementById('mainContent');
-  main.innerHTML = `<div class="page-title"><span>⏰ Overtime</span><button class="btn btn-primary btn-sm" onclick="modalOvertime()">+ Pengajuan</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tanggal</th><th>Jam</th><th>Durasi</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblOT"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}⏰ Overtime</span><button class="btn btn-primary btn-sm" onclick="modalOvertime()">+ Pengajuan</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tanggal</th><th>Jam</th><th>Durasi</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblOT"></tbody></table></div></div>`;
   let snap;
   if (!hasAccess(3)) {
     // Staff/Leader: only own overtime
@@ -529,7 +529,7 @@ async function renderHariLibur() {
     hariLiburCalendarMonth = { year: now.getFullYear(), month: now.getMonth() };
   }
   main.innerHTML = `
-    <div class="page-title"><span>📅 Hari Libur</span></div>
+    <div class="page-title"><span>${renderBackButton()}📅 Hari Libur</span></div>
     <div class="card">
       <div class="tabs mb-16" id="hariLiburTabs">
         <div class="tab ${hariLiburViewMode === 'myCalendar' ? 'active' : ''}" onclick="switchHariLiburView('myCalendar')">📅 Kalender</div>
@@ -953,7 +953,7 @@ async function checkHoliday(dateStr) {
 async function renderPenalty() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
-  main.innerHTML = `<div class="page-title"><span>⚠️ Penalty Point</span><div class="flex gap-8">${hasAccess(4) && !isBOD ? '<button class="btn btn-info btn-sm" onclick="syncPenaltyToKPI()">🔄 Sinkronisasi ke KPI</button>' : ''}${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalPenalty()">+ Tambah</button>' : ''}</div></div>
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}⚠️ Penalty Point</span><div class="flex gap-8">${hasAccess(4) && !isBOD ? '<button class="btn btn-info btn-sm" onclick="syncPenaltyToKPI()">🔄 Sinkronisasi ke KPI</button>' : ''}${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalPenalty()">+ Tambah</button>' : ''}</div></div>
     <div class="card mb-16"><div class="card-title mb-8">📊 Ringkasan Poin per Karyawan</div><div id="penaltySummary">Loading...</div></div>
     <div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tanggal</th><th>Jenis</th><th>Poin</th><th>Keterangan</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblPenalty"></tbody></table></div></div>`;
   const [penSnap, karyawanSnap] = await Promise.all([
@@ -997,7 +997,7 @@ async function renderPenalty() {
         if ((k.departemen || '').toLowerCase().trim() !== myDept) return;
       }
     }
-    summary[k.nama] = { nama: k.nama, departemen: k.departemen || '-', poin: 0 };
+    summary[k.nama] = { nama: k.nama, departemen: k.departemen || '-', poin: 0, detail: {} };
   });
   visiblePenalty.forEach((p) => {
     if (!summary[p.nama])
@@ -1005,8 +1005,11 @@ async function renderPenalty() {
         nama: p.nama,
         departemen: karyDeptMap[(p.nama || '').toLowerCase().trim()] || '-',
         poin: 0,
+        detail: {},
       };
     summary[p.nama].poin += parseInt(p.poin) || 0;
+    const j = p.jenis || 'Lainnya';
+    summary[p.nama].detail[j] = (summary[p.nama].detail[j] || 0) + 1;
   });
   // Render summary - only employees with points > 0
   const summaryItems = Object.values(summary).filter((s) => s.poin > 0);
@@ -1016,7 +1019,7 @@ async function renderPenalty() {
     sumH = '<p class="text-sm" style="color:#999">Belum ada karyawan dengan penalty point</p>';
   } else {
     sumH =
-      '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Departemen</th><th>Total Poin</th><th>Status</th><th>Aksi</th></tr></thead><tbody>';
+      '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Departemen</th><th>Total Poin</th><th>Rincian</th><th>Status</th><th>Aksi</th></tr></thead><tbody>';
     summaryItems.forEach((s) => {
       const badgeClass =
         s.poin >= 10 ? 'badge-danger' : s.poin >= 5 ? 'badge-warning' : 'badge-info';
@@ -1028,8 +1031,10 @@ async function renderPenalty() {
             : s.poin >= 4
               ? '<span class="badge badge-warning">SP I</span>'
               : '<span class="badge badge-info">Peringatan</span>';
+
+      const details = Object.entries(s.detail).map(([k, v]) => `${v} ${k}`).join(', ');
       const jsName = escHtml(s.nama).replace(/'/g, "\\'");
-      sumH += `<tr><td class="fw-700">${escHtml(s.nama)}</td><td>${escHtml(s.departemen)}</td><td><span class="badge ${badgeClass}">${s.poin}</span></td><td>${statusLabel}</td><td><button class="btn btn-xs btn-info" onclick="viewPenaltyDetail('${jsName}')">👁️</button>${hasAccess(2) && !isBOD ? ` <button class="btn btn-xs btn-primary" onclick="modalPenalty('${jsName}')">+ Tambah</button>` : ''}</td></tr>`;
+      sumH += `<tr><td class="fw-700">${escHtml(s.nama)}</td><td>${escHtml(s.departemen)}</td><td><span class="badge ${badgeClass}">${s.poin}</span></td><td class="text-xs" style="color:#666">${escHtml(details)}</td><td>${statusLabel}</td><td><button class="btn btn-xs btn-info" onclick="viewPenaltyDetail('${jsName}')">👁️</button>${hasAccess(2) && !isBOD ? ` <button class="btn btn-xs btn-primary" onclick="modalPenalty('${jsName}')">+ Tambah</button>` : ''}</td></tr>`;
     });
     sumH += '</tbody></table></div>';
   }

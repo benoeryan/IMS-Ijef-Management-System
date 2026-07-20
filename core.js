@@ -286,6 +286,7 @@ const DEFAULT_ACCOUNTS = [
 
 let currentUser = null;
 let currentPage = 'dashboard';
+let lastPage = null;
 let unsubscribers = [];
 
 async function initApp() {
@@ -650,6 +651,9 @@ function toggleNavGroup(el) {
 }
 
 function navigateTo(page) {
+  if (currentPage !== page) {
+    lastPage = currentPage;
+  }
   currentPage = page;
   unsubscribers.forEach((fn) => fn());
   unsubscribers = [];
@@ -748,6 +752,11 @@ function navigateTo(page) {
   if (fn) fn();
   else
     main.innerHTML = `<div class="empty-state"><div class="icon">🚧</div><p>Halaman "${page}" dalam pengembangan</p></div>`;
+}
+
+function renderBackButton() {
+  if (!lastPage || lastPage === currentPage) return '';
+  return `<button class="btn btn-xs btn-outline" onclick="navigateTo('${lastPage}')" style="margin-right:8px;padding:4px 8px;display:inline-flex;align-items:center;gap:4px">← Kembali</button>`;
 }
 
 function toggleSidebar() {

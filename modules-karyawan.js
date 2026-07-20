@@ -7,7 +7,7 @@
 async function renderDashboard() {
   const main = document.getElementById('mainContent');
   main.innerHTML =
-    '<div class="page-title"><span>🏠 Beranda</span></div><div class="stats-grid" id="dashStats">Loading...</div><div class="grid-2" id="dashWidgets"></div>';
+    `<div class="page-title"><span>${renderBackButton()}🏠 Beranda</span></div><div class="stats-grid" id="dashStats">Loading...</div><div class="grid-2" id="dashWidgets"></div>`;
   const [karyawan, cuti, absen, pengumuman, overtime, reimburse, dinas] = await Promise.all([
     db.collection('hrd_karyawan').where('status', '==', 'aktif').get(),
     db.collection('hrd_cuti').where('status', '==', 'pending').get(),
@@ -246,7 +246,7 @@ async function renderDashboard() {
 async function renderDepartemen() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
-  main.innerHTML = `<div class="page-title"><span>🏢 Departemen</span>${!isBOD ? '<div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalDepartemen()">+ Tambah</button><button class="btn btn-info btn-sm" onclick="syncDeptFromKaryawan()">🔄 Sinkron dari Karyawan</button></div>' : ''}</div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Kode</th><th>Kepala</th><th>Jumlah</th>${!isBOD ? '<th>Aksi</th>' : ''}</tr></thead><tbody id="tblDept"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🏢 Departemen</span>${!isBOD ? '<div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalDepartemen()">+ Tambah</button><button class="btn btn-info btn-sm" onclick="syncDeptFromKaryawan()">🔄 Sinkron dari Karyawan</button></div>' : ''}</div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Kode</th><th>Kepala</th><th>Jumlah</th>${!isBOD ? '<th>Aksi</th>' : ''}</tr></thead><tbody id="tblDept"></tbody></table></div></div>`;
   const snap = await db.collection('hrd_departemen').get();
   const karySnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
   const countMap = {};
@@ -348,7 +348,7 @@ async function syncDeptFromKaryawan() {
 async function renderPosisi() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
-  main.innerHTML = `<div class="page-title"><span>💼 Posisi</span>${!isBOD ? '<div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalPosisi()">+ Tambah</button><button class="btn btn-info btn-sm" onclick="syncPosFromKaryawan()">🔄 Sinkron dari Karyawan</button></div>' : ''}</div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Departemen</th><th>Level</th>${!isBOD ? '<th>Aksi</th>' : ''}</tr></thead><tbody id="tblPos"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}💼 Posisi</span>${!isBOD ? '<div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalPosisi()">+ Tambah</button><button class="btn btn-info btn-sm" onclick="syncPosFromKaryawan()">🔄 Sinkron dari Karyawan</button></div>' : ''}</div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Departemen</th><th>Level</th>${!isBOD ? '<th>Aksi</th>' : ''}</tr></thead><tbody id="tblPos"></tbody></table></div></div>`;
   const snap = await db.collection('hrd_posisi').get();
   let h = '';
   if (snap.empty) h = `<tr><td colspan="${isBOD ? 3 : 4}" class="text-center">Belum ada</td></tr>`;
@@ -435,7 +435,7 @@ async function syncPosFromKaryawan() {
 // ── CABANG ────────────────────────────────────────────────────
 async function renderCabang() {
   const main = document.getElementById('mainContent');
-  main.innerHTML = `<div class="page-title"><span>🏛️ Cabang</span><button class="btn btn-primary btn-sm" onclick="modalCabang()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Kota</th><th>Lat/Lng</th><th>Radius</th><th>Aksi</th></tr></thead><tbody id="tblCab"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🏛️ Cabang</span><button class="btn btn-primary btn-sm" onclick="modalCabang()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Kota</th><th>Lat/Lng</th><th>Radius</th><th>Aksi</th></tr></thead><tbody id="tblCab"></tbody></table></div></div>`;
   const snap = await db.collection('hrd_cabang').get();
   let h = '';
   if (snap.empty) h = '<tr><td colspan="5" class="text-center">Belum ada</td></tr>';

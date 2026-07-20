@@ -14,7 +14,7 @@ window.renderKajianHukum = async function() {
     if (!main) return;
     main.innerHTML = `
     <div class="page-title">
-        <span>🔨 Kajian Hukum / Tiket</span>
+        <span>${renderBackButton()}🔨 Kajian Hukum / Tiket</span>
         <div class="flex gap-8">
             <button class="btn btn-info btn-sm" onclick="modalLegalDrafting()">✍️ Buat Draft Dokumen</button>
             <button class="btn btn-primary btn-sm" onclick="modalKajianHukum()">+ Buat Tiket Kajian</button>
@@ -40,7 +40,7 @@ window.renderLegalPerizinan = async function() {
     if (!main) return;
     main.innerHTML = `
     <div class="page-title">
-        <span>⚖️ Legalitas & Perizinan</span>
+        <span>${renderBackButton()}⚖️ Legalitas & Perizinan</span>
         <button class="btn btn-primary btn-sm" onclick="modalPerizinan()">+ Tambah Dokumen</button>
     </div>
     <div class="card">
@@ -63,7 +63,7 @@ window.renderLegalSengketa = async function() {
     if (!main) return;
     main.innerHTML = `
     <div class="page-title">
-        <span>⚠️ Sengketa & Kasus Hukum</span>
+        <span>${renderBackButton()}⚠️ Sengketa & Kasus Hukum</span>
         <button class="btn btn-primary btn-sm" onclick="modalSengketa()">+ Tambah Kasus</button>
     </div>
     <div class="card">

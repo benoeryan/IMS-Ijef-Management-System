@@ -7,7 +7,7 @@
 async function renderMeeting() {
   const main = document.getElementById("mainContent");
   main.innerHTML = `
-    <div class="page-title"><span>📅 Meeting & Invite</span><div class="flex gap-8"><button class="btn btn-success btn-sm" onclick="startInstantMeeting()">🎥 Meeting Online Sekarang</button><button class="btn btn-primary btn-sm" onclick="modalMeetingCreate()">+ Buat Meeting</button></div></div>
+    <div class="page-title"><span>${renderBackButton()}📅 Meeting & Invite</span><div class="flex gap-8"><button class="btn btn-success btn-sm" onclick="startInstantMeeting()">🎥 Meeting Online Sekarang</button><button class="btn btn-primary btn-sm" onclick="modalMeetingCreate()">+ Buat Meeting</button></div></div>
     <div class="tabs">
       <div class="tab active" onclick="loadMeetingTab('saya')">📤 Meeting Saya (Dibuat)</div>
       <div class="tab" onclick="loadMeetingTab('semua')">📋 Semua Meeting</div>
@@ -832,7 +832,7 @@ function cetakNotulensi() {
 
 async function renderInbox() {
   const main = document.getElementById("mainContent");
-  main.innerHTML = `<div class="page-title"><span>📥 Inbox Saya</span></div><div class="card" id="inboxList">Loading...</div>`;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📥 Inbox Saya</span></div><div class="card" id="inboxList">Loading...</div>`;
 
   // Real-time listener untuk inbox user ini
   const unsub = db
@@ -965,7 +965,7 @@ async function rsvpInvite(inviteId, meetingId, status) {
 async function renderChat() {
   const main = document.getElementById("mainContent");
   main.innerHTML = `
-    <div class="page-title"><span>💬 Obrolan</span><div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalNewChat()">+ Chat</button><button class="btn btn-info btn-sm" onclick="modalGroupChat()">👥 Group</button><button class="btn btn-danger btn-sm" onclick="hapusSemuaChat()">🗑️</button></div></div>
+    <div class="page-title"><span>${renderBackButton()}💬 Obrolan</span><div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalNewChat()">+ Chat</button><button class="btn btn-info btn-sm" onclick="modalGroupChat()">👥 Group</button><button class="btn btn-danger btn-sm" onclick="hapusSemuaChat()">🗑️</button></div></div>
     <div class="chat-layout">
       <div class="card chat-sidebar-panel" id="chatSidebarPanel">
         <div class="card-title mb-8">📤 Percakapan</div>
@@ -1527,7 +1527,7 @@ async function kirimChatMsg(threadId) {
 // ── BROADCAST ─────────────────────────────────────────────────
 async function renderBroadcast() {
   const main = document.getElementById("mainContent");
-  main.innerHTML = `<div class="page-title"><span>📡 Broadcast</span><button class="btn btn-primary btn-sm" onclick="modalBroadcast()">+ Kirim</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Pesan</th><th>Target</th><th>Pengirim</th><th>Tanggal</th><th>Aksi</th></tr></thead><tbody id="tblBroadcast"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📡 Broadcast</span><button class="btn btn-primary btn-sm" onclick="modalBroadcast()">+ Kirim</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Pesan</th><th>Target</th><th>Pengirim</th><th>Tanggal</th><th>Aksi</th></tr></thead><tbody id="tblBroadcast"></tbody></table></div></div>`;
   const snap = await db.collection("hrd_broadcast").get();
   const allItems = [];
   snap.forEach((d) => allItems.push({ id: d.id, ...d.data() }));
@@ -1649,7 +1649,7 @@ async function kirimBroadcast() {
 // ── NOTIFIKASI ────────────────────────────────────────────────
 async function renderNotifikasi() {
   const main = document.getElementById("mainContent");
-  main.innerHTML = `<div class="page-title"><span>🔔 Notifikasi</span><div class="flex gap-8"><button class="btn btn-sm btn-danger" onclick="hapusSemuaNotif()">🗑️ Hapus Semua</button></div></div><div class="card" id="notifList">Loading...</div>`;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🔔 Notifikasi</span><div class="flex gap-8"><button class="btn btn-sm btn-danger" onclick="hapusSemuaNotif()">🗑️ Hapus Semua</button></div></div><div class="card" id="notifList">Loading...</div>`;
   try {
     const [snap1, snap2] = await Promise.all([
       db
@@ -1777,7 +1777,7 @@ async function markAllRead() {
 // ── PENGUMUMAN ────────────────────────────────────────────────
 async function renderPengumuman() {
   const main = document.getElementById("mainContent");
-  main.innerHTML = `<div class="page-title"><span>📢 Pengumuman</span>${hasAccess(3) ? '<button class="btn btn-primary btn-sm" onclick="modalPengumuman()">+ Tambah</button>' : ""}</div><div id="pengumumanList">Loading...</div>`;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📢 Pengumuman</span>${hasAccess(3) ? '<button class="btn btn-primary btn-sm" onclick="modalPengumuman()">+ Tambah</button>' : ""}</div><div id="pengumumanList">Loading...</div>`;
   try {
     const snap = await db.collection("hrd_pengumuman").get();
     const items = [];

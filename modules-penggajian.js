@@ -3,7 +3,7 @@
 async function renderPenggajian() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
-  main.innerHTML = `<div class="page-title"><span>💰 Penggajian</span>${!isBOD ? '<div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalGaji()">+ Generate Slip</button><button class="btn btn-success btn-sm" onclick="generateAllGaji()">⚡ Generate Semua</button><button class="btn btn-secondary btn-sm" onclick="modalImportPenggajian()">⬇️ Import</button></div>' : ''}</div><div class="card"><div class="flex gap-8 mb-16 flex-wrap"><input class="form-control" type="month" id="filterBulanGaji" value="${monthStr()}" onchange="loadGaji()" style="max-width:160px"><input class="form-control" placeholder="🔍 Cari nama..." id="filterNamaGaji" oninput="filterGajiTable()" style="max-width:180px"><select class="form-control" id="filterDeptGaji" onchange="filterGajiTable()" style="max-width:160px"><option value="">Semua Dept</option></select><select class="form-control" id="filterGajiRange" onchange="filterGajiTable()" style="max-width:160px"><option value="">Semua Gaji</option><option value="0-3000000">&lt; 3 Juta</option><option value="3000000-5000000">3-5 Juta</option><option value="5000000-10000000">5-10 Juta</option><option value="10000000-99999999">&gt; 10 Juta</option></select><button class="btn btn-sm btn-info" onclick="loadGaji()">🔍</button></div><div id="gajiSummary" class="stats-grid mb-16"></div>${!isBOD ? '<div class="flex gap-8 mb-8"><label style="font-size:.78rem;display:flex;align-items:center;gap:4px"><input type="checkbox" id="selectAllGaji" onchange="toggleSelectAllGaji()"> Pilih Semua</label><button class="btn btn-xs btn-danger" onclick="hapusSelectedGaji()">🗑️ Hapus Terpilih</button><button class="btn btn-xs btn-danger" onclick="hapusSemuaGaji()">🗑️ Hapus Semua</button></div>' : ''}<div class="table-wrap"><table><thead><tr>${!isBOD ? '<th style="width:30px"><input type="checkbox" id="selectAllGajiHead" onchange="toggleSelectAllGaji()"></th>' : ''}<th>Karyawan</th><th>Gaji Pokok</th><th>Tunjangan</th><th>Insentif</th><th>Reimburse</th><th>Lembur</th><th>Potongan</th><th>Loan</th><th>PPH21</th><th>THP</th><th>Aksi</th></tr></thead><tbody id="tblGaji"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}💰 Penggajian</span>${!isBOD ? '<div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalGaji()">+ Generate Slip</button><button class="btn btn-success btn-sm" onclick="generateAllGaji()">⚡ Generate Semua</button><button class="btn btn-secondary btn-sm" onclick="modalImportPenggajian()">⬇️ Import</button></div>' : ''}</div><div class="card"><div class="flex gap-8 mb-16 flex-wrap"><input class="form-control" type="month" id="filterBulanGaji" value="${monthStr()}" onchange="loadGaji()" style="max-width:160px"><input class="form-control" placeholder="🔍 Cari nama..." id="filterNamaGaji" oninput="filterGajiTable()" style="max-width:180px"><select class="form-control" id="filterDeptGaji" onchange="filterGajiTable()" style="max-width:160px"><option value="">Semua Dept</option></select><select class="form-control" id="filterGajiRange" onchange="filterGajiTable()" style="max-width:160px"><option value="">Semua Gaji</option><option value="0-3000000">&lt; 3 Juta</option><option value="3000000-5000000">3-5 Juta</option><option value="5000000-10000000">5-10 Juta</option><option value="10000000-99999999">&gt; 10 Juta</option></select><button class="btn btn-sm btn-info" onclick="loadGaji()">🔍</button></div><div id="gajiSummary" class="stats-grid mb-16"></div>${!isBOD ? '<div class="flex gap-8 mb-8"><label style="font-size:.78rem;display:flex;align-items:center;gap:4px"><input type="checkbox" id="selectAllGaji" onchange="toggleSelectAllGaji()"> Pilih Semua</label><button class="btn btn-xs btn-danger" onclick="hapusSelectedGaji()">🗑️ Hapus Terpilih</button><button class="btn btn-xs btn-danger" onclick="hapusSemuaGaji()">🗑️ Hapus Semua</button></div>' : ''}<div class="table-wrap"><table><thead><tr>${!isBOD ? '<th style="width:30px"><input type="checkbox" id="selectAllGajiHead" onchange="toggleSelectAllGaji()"></th>' : ''}<th>Karyawan</th><th>Gaji Pokok</th><th>Tunjangan</th><th>Insentif</th><th>Reimburse</th><th>Lembur</th><th>Potongan</th><th>Loan</th><th>PPH21</th><th>THP</th><th>Aksi</th></tr></thead><tbody id="tblGaji"></tbody></table></div></div>`;
   loadGaji();
 }
 async function loadGaji() {
@@ -381,6 +381,14 @@ async function doGenerateAllGaji() {
       const totalPotongan = bpjsKes + bpjsTK + loan + pph21 + potonganAbsen;
       const thp = bruto - bpjsKes - bpjsTK - loan - pph21;
 
+      const potonganDetail = {
+        absen: potonganAbsen,
+        bpjsKes,
+        bpjsTK,
+        loan,
+        pph21
+      };
+
       await db.collection('hrd_penggajian').add({
         nama: k.nama,
         karyawanId: uid,
@@ -399,6 +407,7 @@ async function doGenerateAllGaji() {
         bpjsKesehatan: bpjsKes,
         bpjsTK,
         potongan: potonganAbsen,
+        potonganDetail,
         kasbon: loan,
         pph21,
         totalBersih: thp,
@@ -774,13 +783,31 @@ function lihatSlip(id) {
         (p.potongan || 0) +
         (p.kasbon || 0) +
         (p.pph21 || 0);
+
+      // Build deduction details list
+      let potDetailHtml = '';
+      if (p.potongan) potDetailHtml += `<tr><td>Pot. Absen (${p.tidakHadir || 0} hari)</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.potongan)}</td></tr>`;
+      if (p.bpjsKesehatan) potDetailHtml += `<tr><td>BPJS Kesehatan (1%)</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.bpjsKesehatan)}</td></tr>`;
+      if (p.bpjsTK) potDetailHtml += `<tr><td>BPJS TK (2%)</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.bpjsTK)}</td></tr>`;
+      if (p.kasbon) potDetailHtml += `<tr><td>Kasbon/Loan</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.kasbon)}</td></tr>`;
+      if (p.pph21) potDetailHtml += `<tr><td>PPH 21</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.pph21)}</td></tr>`;
+
+      // Extra details from generation if available
+      if (p.potonganDetail) {
+        Object.entries(p.potonganDetail).forEach(([k, v]) => {
+          if (k !== 'absen' && k !== 'bpjsKes' && k !== 'bpjsTK' && k !== 'loan' && k !== 'pph21') {
+            potDetailHtml += `<tr><td>Pot. ${escHtml(k)}</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(v)}</td></tr>`;
+          }
+        });
+      }
+
       openModal(
         `<div id="slipGajiPrint">
     <div style="text-align:center;padding:16px;border:2px solid var(--primary);border-radius:8px;margin-bottom:16px"><div class="fw-700 color-primary" style="font-size:1.2rem">LPK IJEF CORP</div><div class="text-xs">Slip Gaji Periode: ${p.periode}</div><div class="text-xs" style="color:#999">${p.periodeStart ? `(${p.periodeStart} s/d ${p.periodeEnd})` : ''}</div></div>
     <div style="background:#f8f9ff;padding:12px;border-radius:8px;margin-bottom:16px"><div style="font-size:.82rem;display:grid;grid-template-columns:1fr 1fr;gap:6px"><div><b>Nama:</b> ${escHtml(p.nama)}</div><div><b>Periode:</b> ${p.periode}</div><div><b>Jabatan:</b> ${escHtml(jabatan)}</div><div><b>Departemen:</b> ${escHtml(departemen)}</div><div><b>Status:</b> <span class="badge badge-${statusKary === 'tetap' || statusKary === 'aktif' ? 'success' : 'warning'}" style="font-size:.7rem">${escHtml(statusKary)}</span></div><div></div></div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
     <div><div class="fw-700 text-sm color-primary mb-8">💰 Pendapatan</div><table style="width:100%;font-size:.82rem"><tr><td>Gaji Pokok</td><td style="text-align:right">${formatCurrency(p.gajiPokok)}</td></tr><tr><td>Tunjangan</td><td style="text-align:right">${formatCurrency(p.tunjangan)}</td></tr>${p.tunjCuti ? `<tr><td>Tunj. Cuti (1/12)</td><td style="text-align:right">${formatCurrency(p.tunjCuti)}</td></tr>` : ''}${p.lembur ? `<tr><td>Lembur (${p.lemburJam || 0} jam)</td><td style="text-align:right">${formatCurrency(p.lembur)}</td></tr>` : ''}${p.insentif ? `<tr><td>Insentif</td><td style="text-align:right">${formatCurrency(p.insentif)}</td></tr>` : ''}${p.bonus ? `<tr><td>Bonus</td><td style="text-align:right">${formatCurrency(p.bonus)}</td></tr>` : ''}${p.reimbursement ? `<tr><td>Reimbursement</td><td style="text-align:right">${formatCurrency(p.reimbursement)}</td></tr>` : ''}<tr style="border-top:2px solid var(--primary);font-weight:700"><td>Total Bruto</td><td style="text-align:right">${formatCurrency(bruto)}</td></tr></table></div>
-    <div><div class="fw-700 text-sm color-danger mb-8">📉 Potongan</div><table style="width:100%;font-size:.82rem">${p.potongan ? `<tr><td>Pot. Absen (${p.tidakHadir || 0} hari)</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.potongan)}</td></tr>` : ''}<tr><td>BPJS Kesehatan (1%)</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.bpjsKesehatan)}</td></tr><tr><td>BPJS TK (2%)</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.bpjsTK)}</td></tr>${p.kasbon ? `<tr><td>Kasbon/Loan</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.kasbon)}</td></tr>` : ''}<tr><td>PPH 21</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.pph21)}</td></tr><tr style="border-top:2px solid var(--danger);font-weight:700"><td>Total Potongan</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(totPot)}</td></tr></table></div></div>
+    <div><div class="fw-700 text-sm color-danger mb-8">📉 Potongan</div><table style="width:100%;font-size:.82rem">${potDetailHtml}<tr style="border-top:2px solid var(--danger);font-weight:700"><td>Total Potongan</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(totPot)}</td></tr></table></div></div>
     <div style="background:var(--primary);color:#fff;padding:16px;border-radius:8px;text-align:center"><div style="font-size:.8rem;opacity:.8">TAKE HOME PAY</div><div style="font-size:1.5rem;font-weight:700">${formatCurrency(p.totalBersih)}</div></div>
     ${p.hariKerja ? `<div class="mt-16 slip-no-print" style="background:#fff3e0;padding:10px;border-radius:6px;font-size:.72rem;line-height:1.6"><b>Dasar Perhitungan:</b><br>• Gaji/hari: ${formatCurrency(Math.round((p.gajiPokok || 0) / (p.hariKerja || 22)))} (${p.gajiPokok ? formatCurrency(p.gajiPokok) : '-'} ÷ ${p.hariKerja} hari)<br>• Lembur: 1.5x jam pertama + 2x jam berikutnya (UU Cipta Kerja)<br>• PPH21: Tarif progresif UU HPP 2022 (PTKP TK/0 = Rp 54.000.000)<br>• Periode: Tgl 20 bulan lalu s/d Tgl 20 bulan ini</div>` : ''}</div>
     <div class="mt-16 flex gap-8" style="justify-content:center"><button class="btn btn-primary btn-sm" onclick="cetakSlipPDF()">📄 Cetak / Save PDF</button><button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Print</button></div>`,

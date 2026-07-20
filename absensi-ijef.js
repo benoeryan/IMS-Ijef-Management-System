@@ -32,7 +32,7 @@ function renderAbsensiIJEF() {
   const main = document.getElementById('mainContent');
   const isPortal = window._portalAbsensiMode || currentUser.role === 'karyawan';
   const showImport = hasAccess(3);
-  main.innerHTML = `<div class="page-title"><span>📍 Absensi IJEF</span></div>
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📍 Absensi IJEF</span></div>
     <div class="tabs" id="absenTabs">
       <div class="tab active" onclick="showAbsenTab('clock')">⏰ Clock In/Out</div>
       <div class="tab" onclick="showAbsenTab('dinas')">🚗 Dinas Luar</div>
@@ -2390,12 +2390,20 @@ async function loadRekapGrid() {
     totalLembur = 0,
     totalLemburJam = 0;
 
-  filteredUsers.forEach((u) => {
+    filteredUsers.forEach((u) => {
     // Merge absenMap from all possible keys (id, nama lowercase)
     const namaLow = (u.nama || '').toLowerCase();
     const userAbsen = { ...(absenMap[u.id] || {}), ...(absenMap[namaLow] || {}) };
     const userJamKerja = { ...(jamKerjaMap[u.id] || {}), ...(jamKerjaMap[namaLow] || {}) };
     const userLemburMap2 = { ...(lemburMap[u.id] || {}), ...(lemburMap[namaLow] || {}) };
+
+    // Track clock-in but no clock-out
+    const userRawAbsen = absenSnap.docs.filter(d => {
+        const p = d.data();
+        return (p.userId === u.id || (p.nama && p.nama.toLowerCase() === namaLow)) &&
+               p.tanggal >= startDate && p.tanggal <= endDate;
+    }).map(d => d.data());
+
     h += `<tr><td class="text-sm fw-700">${escHtml(u.nama)}</td>`;
     let ut = 0;
     let userLemburJam = 0;
@@ -2403,6 +2411,13 @@ async function loadRekapGrid() {
       const st = userAbsen[i];
       const jamKerja = userJamKerja[i];
       const lemburJam = userLemburMap2[i];
+
+      // Check for missing clock-out
+      const dayStr = bulan + '-' + String(i).padStart(2, '0');
+      const hasMasuk = userRawAbsen.some(a => a.tanggal === dayStr && a.tipe === 'masuk');
+      const hasPulang = userRawAbsen.some(a => a.tanggal === dayStr && a.tipe === 'pulang');
+      const isMissingPulang = hasMasuk && !hasPulang && dayStr < todayStr();
+
       // Check cuti/izin first (by userId or nama)
       const cutiStatus =
         cutiMap[u.id]?.[i] ||
@@ -2520,7 +2535,15 @@ async function loadRekapGrid() {
       if (flex.enabled && jamKerja) {
         title = ` title="${jamKerja.toFixed(1)} jam"`;
       }
-      h += `<td style="text-align:center;background:${color};color:#fff;font-size:.6rem;font-weight:700;padding:3px"${title}>${text}</td>`;
+
+      let cellContent = text;
+      if (isMissingPulang) {
+          cellContent = `<span style="position:relative">${text}<span style="position:absolute;top:-4px;right:-4px;color:#f44336;font-size:8px">⚠️</span></span>`;
+          if (!title) title = ' title="Belum absen pulang"';
+          else title = title.replace('"', ' (Belum absen pulang)"');
+      }
+
+      h += `<td style="text-align:center;background:${color};color:#fff;font-size:.6rem;font-weight:700;padding:3px"${title}>${cellContent}</td>`;
     }
     h += `<td class="fw-700 text-center">${ut}</td>`;
     h += `<td class="fw-700 text-center" style="color:#7b1fa2">${userLemburJam > 0 ? userLemburJam.toFixed(1) + 'j' : '-'}</td>`;
