@@ -199,29 +199,50 @@ async function doGenerateAllGaji() {
         return day !== 0 && day !== 6 && !holidays.has(dateStr);
     };
 
-    // Build userId -> nama map from hrd_users for cross-referencing overtime
-    const userNamaMap = {};
+    // Build mapping between hrd_karyawan and hrd_users
+    const karyToUserMap = {};
+    const userToKaryMap = {}; // name (lower) to userId
     usersSnap.forEach((d) => {
       const u = d.data();
-      userNamaMap[d.id] = (u.nama || '').trim().toLowerCase();
+      const userId = d.id;
+      if (u.linkedKaryawan) karyToUserMap[u.linkedKaryawan] = userId;
+      userToKaryMap[(u.nama || '').trim().toLowerCase()] = userId;
     });
+
     // Build attendance map: userId -> { hadirDays: Set, lembur: 0 }
     const absenMap = {};
     absenSnap.forEach((d) => {
       const p = d.data();
       if (p.tanggal < periodeStart || p.tanggal > periodeEnd) return;
       const uid = p.userId;
+      if (!uid) return;
       if (!absenMap[uid]) absenMap[uid] = { hadirDays: new Set(), lembur: 0 };
       if (p.tipe === 'masuk') absenMap[uid].hadirDays.add(p.tanggal);
       if (p.tipe === 'pulang' && p.lembur && p.lemburJam) absenMap[uid].lembur += p.lemburJam;
     });
+
+    // Build cross-collection data maps indexed by userId for consistent lookup
+    // Helper to get userId from karyawan doc
+    const getUserId = (kDoc) => {
+        const kId = kDoc.id;
+        const kName = (kDoc.data().nama || '').trim().toLowerCase();
+        return karyToUserMap[kId] || userToKaryMap[kName] || kId;
+    };
+
     // Cuti map: userId -> jumlah hari cuti dalam periode (ONLY WORK DAYS)
     const cutiMap = {};
     cutiSnap.forEach((d) => {
       const c = d.data();
       if (c.status !== 'approved') return;
-      const uid = c.userId;
-      if (!uid) return;
+      // Index by userId AND name (fallback)
+      const uids = [];
+      if (c.userId) uids.push(c.userId);
+      if (c.nama) {
+          const n = c.nama.trim().toLowerCase();
+          if (userToKaryMap[n]) uids.push(userToKaryMap[n]);
+          uids.push(n);
+      }
+
       const start = new Date(c.mulai + 'T00:00:00');
       const end = new Date(c.selesai + 'T00:00:00');
       let days = 0;
@@ -229,46 +250,46 @@ async function doGenerateAllGaji() {
         const ds = dt.toISOString().split('T')[0];
         if (ds >= periodeStart && ds <= periodeEnd && isWorkDay(ds)) days++;
       }
-      if (!cutiMap[uid]) cutiMap[uid] = 0;
-      cutiMap[uid] += days;
+
+      uids.forEach(uid => {
+          if (!cutiMap[uid]) cutiMap[uid] = 0;
+          cutiMap[uid] += days;
+      });
     });
+
     // Overtime map...
     const otMap = {};
     overtimeSnap.forEach((d) => {
       const o = d.data();
       if (o.status !== 'approved') return;
       if (o.tanggal >= periodeStart && o.tanggal <= periodeEnd) {
-        const uid = o.userId || '';
-        const nama = (o.nama || '').trim().toLowerCase();
-        const userNama = uid ? userNamaMap[uid] || '' : '';
         const dur =
           typeof o.durasi === 'number'
             ? o.durasi
             : typeof o.durasi === 'string'
               ? parseFloat(o.durasi.replace(/[^0-9.]/g, '')) || 0
               : parseFloat(o.durasi) || 0;
-        if (uid) {
-          if (!otMap[uid]) otMap[uid] = 0;
-          otMap[uid] += dur;
+
+        const uids = [];
+        if (o.userId) uids.push(o.userId);
+        if (o.nama) {
+            const n = o.nama.trim().toLowerCase();
+            if (userToKaryMap[n]) uids.push(userToKaryMap[n]);
+            uids.push(n);
         }
-        if (nama) {
-          if (!otMap[nama]) otMap[nama] = 0;
-          otMap[nama] += dur;
-        }
-        if (userNama && userNama !== nama) {
-          if (!otMap[userNama]) otMap[userNama] = 0;
-          otMap[userNama] += dur;
-        }
+
+        uids.forEach(uid => {
+            if (!otMap[uid]) otMap[uid] = 0;
+            otMap[uid] += dur;
+        });
       }
     });
-    console.log('[PAYROLL DEBUG] otMap keys:', Object.keys(otMap), 'values:', otMap);
-    console.log('[PAYROLL DEBUG] Periode:', periodeStart, '->', periodeEnd);
+
     // Dinas luar map: userId -> jumlah hari dinas dalam periode (ONLY WORK DAYS)
     const dinasMap = {};
     dinasLuarSnap.forEach((d) => {
       const dl = d.data();
       if (dl.status !== 'approved') return;
-      const uid = dl.userId || dl.nama;
       const startD = dl.tanggalMulai || dl.tanggal;
       const endD = dl.tanggalSelesai || dl.tanggal;
       if (!startD) return;
@@ -280,10 +301,22 @@ async function doGenerateAllGaji() {
         const ds = dt.toISOString().split('T')[0];
         if (ds >= periodeStart && ds <= periodeEnd && isWorkDay(ds)) days++;
       }
-      if (!dinasMap[uid]) dinasMap[uid] = 0;
-      dinasMap[uid] += days;
+
+      const uids = [];
+      if (dl.userId) uids.push(dl.userId);
+      if (dl.nama) {
+          const n = dl.nama.trim().toLowerCase();
+          if (userToKaryMap[n]) uids.push(userToKaryMap[n]);
+          uids.push(n);
+      }
+
+      uids.forEach(uid => {
+          if (!dinasMap[uid]) dinasMap[uid] = 0;
+          dinasMap[uid] += days;
+      });
     });
-    // Build other maps...
+
+    // Build other maps
     const reimbMap = {},
       kasbonMap = {},
       kpiMap = {},
@@ -291,25 +324,25 @@ async function doGenerateAllGaji() {
     reimbSnap.forEach((d) => {
       const r = d.data();
       if (r.status !== 'approved') return;
-      const n = (r.nama || '').toLowerCase();
+      const n = (r.nama || '').toLowerCase().trim();
       reimbMap[n] = (reimbMap[n] || 0) + (r.jumlah || 0);
     });
     kasbonSnap.forEach((d) => {
       const r = d.data();
       if (r.status === 'aktif') {
-        const n = (r.nama || '').toLowerCase();
+        const n = (r.nama || '').toLowerCase().trim();
         const angsuran = Math.ceil((r.jumlah || 0) / (r.cicilan || 1));
         kasbonMap[n] = (kasbonMap[n] || 0) + angsuran;
       }
     });
     kpiSnap.forEach((d) => {
       const r = d.data();
-      const n = (r.nama || '').toLowerCase();
+      const n = (r.nama || '').toLowerCase().trim();
       if (!kpiMap[n] || r.skor > kpiMap[n]) kpiMap[n] = r.skor || 0;
     });
     insentifSnap.forEach((d) => {
       const r = d.data();
-      const n = (r.nama || '').toLowerCase();
+      const n = (r.nama || '').toLowerCase().trim();
       insentifMap[n] = (insentifMap[n] || 0) + (r.nominal || 0);
     });
     const tunjList = [];
@@ -330,20 +363,24 @@ async function doGenerateAllGaji() {
     for (const doc of kSnap.docs) {
       const k = doc.data();
       const namaLow = (k.nama || '').trim().toLowerCase();
-      const uid = doc.id;
+      const uid = getUserId(doc);
       const gaji = k.gajiPokok || 0;
       const gajiPerHari = Math.round(gaji / (hariKerja || 22));
 
-      // Kehadiran
-      const kehadiran = absenMap[uid]?.hadirDays?.size || 0;
-      const cutiHari = cutiMap[uid] || 0;
+      // Kehadiran (check by userId AND name fallback)
+      const presence = absenMap[uid]?.hadirDays || absenMap[namaLow]?.hadirDays;
+      const kehadiran = presence ? presence.size : 0;
+
+      const cutiHari = cutiMap[uid] || cutiMap[namaLow] || 0;
       const dinasHari = dinasMap[uid] || dinasMap[namaLow] || 0;
-      const hariEfektif = Math.min(kehadiran + cutiHari + dinasHari, hariKerja); // Cuti & dinas dihitung hadir
+
+      // Total Hari Efektif (cannot exceed hari kerja)
+      const hariEfektif = Math.min(kehadiran + cutiHari + dinasHari, hariKerja);
       const tidakHadir = Math.max(0, hariKerja - hariEfektif);
       const potonganAbsen = tidakHadir * gajiPerHari;
 
-      // Lembur: 1.5x gaji per jam untuk 1 jam pertama, 2x setelahnya (UU Cipta Kerja)
-      const autoLembur = absenMap[uid]?.lembur || 0;
+      // Lembur
+      const autoLembur = (absenMap[uid]?.lembur || absenMap[namaLow]?.lembur) || 0;
       const manualLembur = otMap[uid] || otMap[namaLow] || 0;
       console.log(
         `[PAYROLL] ${k.nama} (uid:${uid}, namaLow:"${namaLow}"): autoLembur=${autoLembur}, manualLembur=${manualLembur}, otMap[namaLow]=${otMap[namaLow]}, otMap[uid]=${otMap[uid]}`
