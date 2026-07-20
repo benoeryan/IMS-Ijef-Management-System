@@ -225,9 +225,74 @@ async function renderKPI() {
               : liveSkor >= 60
                 ? 'D'
                 : 'E';
-      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.periode)}</td><td>${skorMurni}/100</td><td>${liveDed > 0 ? '<span class="badge badge-danger">-' + liveDed + '</span>' : '<span class="badge badge-success">0</span>'}</td><td><span class="badge badge-${liveSkor >= 80 ? 'success' : liveSkor >= 60 ? 'warning' : 'danger'}">${liveSkor}/100</span></td><td class="fw-700">${grade}</td><td>${escHtml(p.penilai || '-')}</td>${currentUser.role === 'admin' ? `<td><button class="btn btn-xs btn-primary" onclick="editKPI('${p.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusKPI('${p.id}')">🗑️</button></td>` : currentUser.role !== 'bod' ? `<td><button class="btn btn-xs btn-primary" onclick="editKPI('${p.id}')">✏️</button></td>` : ''}</tr>`;
+      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.periode)}</td><td>${skorMurni}/100</td><td>${liveDed > 0 ? '<span class="badge badge-danger">-' + liveDed + '</span>' : '<span class="badge badge-success">0</span>'}</td><td><span class="badge badge-${liveSkor >= 80 ? 'success' : liveSkor >= 60 ? 'warning' : 'danger'}">${liveSkor}/100</span></td><td class="fw-700">${grade}</td><td>${escHtml(p.penilai || '-')}</td><td><button class="btn btn-xs btn-info" onclick="viewKPIDetail('${p.id}')">👁️</button>${currentUser.role === 'admin' ? ` <button class="btn btn-xs btn-primary" onclick="editKPI('${p.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusKPI('${p.id}')">🗑️</button>` : currentUser.role !== 'bod' ? ` <button class="btn btn-xs btn-primary" onclick="editKPI('${p.id}')">✏️</button>` : ''}</td></tr>`;
     });
   document.getElementById('tblKPI').innerHTML = h;
+}
+
+function viewKPIDetail(id) {
+  db.collection('hrd_kapi') // Checking if it's hrd_kpi or hrd_kapi, in modules-misc.js it is used as hrd_kpi in renderKPI. Wait, I should check the collection name.
+  // Actually, renderKPI uses hrd_kpi.
+  db.collection('hrd_kpi').doc(id).get().then(async doc => {
+    if (!doc.exists) return toast('Data tidak ditemukan', 'warning');
+    const p = doc.data();
+
+    // Fetch live penalty for current status
+    const penSnap = await db.collection('hrd_penalty').where('nama', '==', p.nama).get();
+    let totalPenalty = 0;
+    let penDetails = '';
+    penSnap.forEach(d => {
+        const pd = d.data();
+        totalPenalty += (parseInt(pd.poin) || 0);
+        penDetails += `<div class="text-xs mb-4">• ${formatDate(pd.tanggal)}: ${escHtml(pd.jenis)} (${pd.poin} poin) - ${escHtml(pd.deskripsi || '-')}</div>`;
+    });
+
+    const skorMurni = p.skorMurni != null ? p.skorMurni : p.skor;
+    const deduksi = totalPenalty * 2;
+    const skorAkhir = Math.max(0, skorMurni - deduksi);
+
+    openModal(`
+      <div class="modal-title">👁️ Detail Penilaian KPI — ${escHtml(p.nama)}</div>
+      <div style="background:#f8f9ff;padding:16px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
+        <div class="grid-2" style="font-size:.85rem;gap:10px">
+          <div><b>Karyawan:</b> ${escHtml(p.nama)}</div>
+          <div><b>Periode:</b> ${escHtml(p.periode)}</div>
+          <div><b>Penilai:</b> ${escHtml(p.penilai || '-')}</div>
+          <div><b>Tanggal Nilai:</b> ${formatDateTime(p.createdAt)}</div>
+        </div>
+      </div>
+
+      <div class="fw-700 text-sm mb-8 color-primary">📊 Nilai Komponen</div>
+      <div class="grid-2 mb-16" style="background:#fff;border:1px solid #eee;border-radius:8px;padding:12px;gap:12px">
+        <div class="text-sm">Produktivitas: <b>${p.produktivitas || 0}/100</b></div>
+        <div class="text-sm">Kualitas: <b>${p.kualitas || 0}/100</b></div>
+        <div class="text-sm">Kedisiplinan: <b>${p.kedisiplinan || 0}/100</b></div>
+        <div class="text-sm">Kerjasama: <b>${p.kerjasama || 0}/100</b></div>
+        <div class="text-sm" style="grid-column:1/-1;border-top:1px solid #eee;padding-top:8px;margin-top:4px">Rata-rata (Skor Murni): <b>${skorMurni}/100</b></div>
+      </div>
+
+      <div class="fw-700 text-sm mb-8 color-danger">⚠️ Pelanggaran & Penalty (Live)</div>
+      <div style="background:#fff;border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:16px">
+        ${penDetails || '<p class="text-xs" style="color:#999">Tidak ada data penalty</p>'}
+        <div class="text-sm mt-8" style="border-top:1px solid #eee;padding-top:8px">Total Penalty: <b>${totalPenalty} Poin</b> | Deduksi: <b class="color-danger">-${deduksi} Skor</b></div>
+      </div>
+
+      <div style="background:linear-gradient(135deg, var(--primary), #283593);color:#fff;padding:16px;border-radius:10px;text-align:center">
+        <div style="font-size:.85rem;opacity:.8">SKOR AKHIR</div>
+        <div style="font-size:2rem;font-weight:700">${skorAkhir}/100</div>
+        <div style="font-size:1.1rem;font-weight:700;margin-top:4px">GRADE ${skorAkhir >= 90 ? 'A' : skorAkhir >= 80 ? 'B' : skorAkhir >= 70 ? 'C' : skorAkhir >= 60 ? 'D' : 'E'}</div>
+      </div>
+
+      <div class="mt-16">
+        <div class="fw-700 text-sm mb-4">📝 Catatan Penilai:</div>
+        <div style="background:#f5f5f5;padding:12px;border-radius:6px;font-size:.85rem;min-height:60px;white-space:pre-wrap">${escHtml(p.catatan || '-')}</div>
+      </div>
+
+      <div class="mt-16 flex gap-8" style="justify-content:center">
+        <button class="btn btn-outline btn-sm" onclick="closeModalDirect()">Tutup</button>
+      </div>
+    `, true);
+  });
 }
 function sinkronPenaltyKPI() {
   toast('Menyinkronkan data penalty...', 'info');

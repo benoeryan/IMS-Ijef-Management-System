@@ -170,6 +170,7 @@ async function doGenerateAllGaji() {
       overtimeSnap,
       dinasLuarSnap,
       usersSnap,
+      liburSnap,
     ] = await Promise.all([
       db.collection('hrd_absensi').get(),
       db.collection('hrd_reimbursement').get(),
@@ -179,46 +180,59 @@ async function doGenerateAllGaji() {
       db.collection('hrd_insentif').get(),
       db.collection('hrd_cuti').get(),
       db.collection('hrd_overtime').get(),
-      db
-        .collection('hrd_dinas_luar')
-        .get()
-        .catch(() => ({ forEach: () => {} })),
+      db.collection('hrd_dinas_luar').get().catch(() => ({ forEach: () => {} })),
       db.collection('hrd_users').get(),
+      db.collection('hrd_hari_libur').get(),
     ]);
+
+    // Build holiday set for the period
+    const holidays = new Set();
+    liburSnap.forEach(d => {
+        const h = d.data();
+        if (h.tanggal >= periodeStart && h.tanggal <= periodeEnd) holidays.add(h.tanggal);
+    });
+
+    // Helper: is work day?
+    const isWorkDay = (dateStr) => {
+        const dt = new Date(dateStr + 'T00:00:00');
+        const day = dt.getDay();
+        return day !== 0 && day !== 6 && !holidays.has(dateStr);
+    };
+
     // Build userId -> nama map from hrd_users for cross-referencing overtime
     const userNamaMap = {};
     usersSnap.forEach((d) => {
       const u = d.data();
       userNamaMap[d.id] = (u.nama || '').trim().toLowerCase();
     });
-    // Build attendance map: userId -> {hadir, izin, cuti, lembur_jam}
+    // Build attendance map: userId -> { hadirDays: Set, lembur: 0 }
     const absenMap = {};
     absenSnap.forEach((d) => {
       const p = d.data();
       if (p.tanggal < periodeStart || p.tanggal > periodeEnd) return;
       const uid = p.userId;
-      if (!absenMap[uid]) absenMap[uid] = { hadir: 0, lembur: 0 };
-      if (p.tipe === 'masuk') absenMap[uid].hadir++;
+      if (!absenMap[uid]) absenMap[uid] = { hadirDays: new Set(), lembur: 0 };
+      if (p.tipe === 'masuk') absenMap[uid].hadirDays.add(p.tanggal);
       if (p.tipe === 'pulang' && p.lembur && p.lemburJam) absenMap[uid].lembur += p.lemburJam;
     });
-    // Cuti map: userId -> jumlah hari cuti dalam periode
+    // Cuti map: userId -> jumlah hari cuti dalam periode (ONLY WORK DAYS)
     const cutiMap = {};
     cutiSnap.forEach((d) => {
       const c = d.data();
       if (c.status !== 'approved') return;
       const uid = c.userId;
       if (!uid) return;
-      const start = new Date(c.mulai);
-      const end = new Date(c.selesai);
+      const start = new Date(c.mulai + 'T00:00:00');
+      const end = new Date(c.selesai + 'T00:00:00');
       let days = 0;
       for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
         const ds = dt.toISOString().split('T')[0];
-        if (ds >= periodeStart && ds <= periodeEnd) days++;
+        if (ds >= periodeStart && ds <= periodeEnd && isWorkDay(ds)) days++;
       }
       if (!cutiMap[uid]) cutiMap[uid] = 0;
       cutiMap[uid] += days;
     });
-    // Overtime map: index by userId, overtime nama, AND hrd_users nama for reliable lookup
+    // Overtime map...
     const otMap = {};
     overtimeSnap.forEach((d) => {
       const o = d.data();
@@ -249,7 +263,7 @@ async function doGenerateAllGaji() {
     });
     console.log('[PAYROLL DEBUG] otMap keys:', Object.keys(otMap), 'values:', otMap);
     console.log('[PAYROLL DEBUG] Periode:', periodeStart, '->', periodeEnd);
-    // Dinas luar map: userId -> jumlah hari dinas dalam periode
+    // Dinas luar map: userId -> jumlah hari dinas dalam periode (ONLY WORK DAYS)
     const dinasMap = {};
     dinasLuarSnap.forEach((d) => {
       const dl = d.data();
@@ -259,17 +273,17 @@ async function doGenerateAllGaji() {
       const endD = dl.tanggalSelesai || dl.tanggal;
       if (!startD) return;
       let days = 0;
-      const endTime = new Date(endD || startD).getTime();
+      const endTime = new Date((endD || startD) + 'T00:00:00').getTime();
       let maxIter = 366;
-      for (let dt = new Date(startD); dt.getTime() <= endTime; dt.setDate(dt.getDate() + 1)) {
+      for (let dt = new Date(startD + 'T00:00:00'); dt.getTime() <= endTime; dt.setDate(dt.getDate() + 1)) {
         if (--maxIter < 0) break;
         const ds = dt.toISOString().split('T')[0];
-        if (ds >= periodeStart && ds <= periodeEnd) days++;
+        if (ds >= periodeStart && ds <= periodeEnd && isWorkDay(ds)) days++;
       }
       if (!dinasMap[uid]) dinasMap[uid] = 0;
       dinasMap[uid] += days;
     });
-    // Build other maps
+    // Build other maps...
     const reimbMap = {},
       kasbonMap = {},
       kpiMap = {},
@@ -301,15 +315,15 @@ async function doGenerateAllGaji() {
     const tunjList = [];
     tunjSnap.forEach((d) => tunjList.push(d.data()));
 
-    // Hitung hari kerja dalam periode (exclude weekend)
+    // Hitung hari kerja dalam periode (exclude weekend & holidays)
     let hariKerja = 0;
     for (
-      let dt = new Date(periodeStart);
-      dt <= new Date(periodeEnd);
+      let dt = new Date(periodeStart + 'T00:00:00');
+      dt <= new Date(periodeEnd + 'T00:00:00');
       dt.setDate(dt.getDate() + 1)
     ) {
-      const day = dt.getDay();
-      if (day !== 0 && day !== 6) hariKerja++;
+      const ds = dt.toISOString().split('T')[0];
+      if (isWorkDay(ds)) hariKerja++;
     }
 
     let count = 0;
@@ -318,10 +332,10 @@ async function doGenerateAllGaji() {
       const namaLow = (k.nama || '').trim().toLowerCase();
       const uid = doc.id;
       const gaji = k.gajiPokok || 0;
-      const gajiPerHari = Math.round(gaji / hariKerja);
+      const gajiPerHari = Math.round(gaji / (hariKerja || 22));
 
       // Kehadiran
-      const kehadiran = absenMap[uid]?.hadir || 0;
+      const kehadiran = absenMap[uid]?.hadirDays?.size || 0;
       const cutiHari = cutiMap[uid] || 0;
       const dinasHari = dinasMap[uid] || dinasMap[namaLow] || 0;
       const hariEfektif = Math.min(kehadiran + cutiHari + dinasHari, hariKerja); // Cuti & dinas dihitung hadir

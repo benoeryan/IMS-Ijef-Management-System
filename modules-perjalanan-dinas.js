@@ -312,7 +312,7 @@ function getGradePeraturanSync(grade) {
 function renderPerjalananDinas() {
   window._portalDinasMode = false;
   const main = document.getElementById('mainContent');
-  main.innerHTML = `<div class="page-title"><span>✈️ Prosedur Perjalanan Dinas</span><button class="btn btn-primary btn-sm" onclick="modalAjukanSPPD()">+ Ajukan SPPD</button></div>
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}✈️ Prosedur Perjalanan Dinas</span><button class="btn btn-primary btn-sm" onclick="modalAjukanSPPD()">+ Ajukan SPPD</button></div>
     <div class="tabs" id="sppdTabs">
       <div class="tab active" onclick="showSPPDTab('daftar')">📋 Daftar SPPD</div>
       <div class="tab" onclick="showSPPDTab('prosedur')">📖 Prosedur</div>
