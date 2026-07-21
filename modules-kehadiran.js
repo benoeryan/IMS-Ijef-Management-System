@@ -2,9 +2,16 @@
 // ── CUTI / IZIN / WFH ─────────────────────────────────────────
 async function renderCuti() {
   const main = document.getElementById('mainContent');
-  // Tampilkan tombol untuk level Manager ke atas agar lebih mudah diakses
-  const fixBtn = hasAccess(3) ? '<button id="btnFixCuti" class="btn btn-warning btn-sm" onclick="fixExistingCutiDurasi()" style="box-shadow: 0 0 10px rgba(245,127,23,0.5)">🛠️ Perbaiki Data Durasi</button>' : '';
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🏖️ Cuti / Izin / WFH</span><div class="flex gap-8">${fixBtn}<button class="btn btn-primary btn-sm" onclick="modalCuti()">+ Pengajuan</button></div></div>
+  // Tombol Admin/Manager
+  let adminBtns = '';
+  if (hasAccess(3)) {
+      adminBtns = `
+        <button class="btn btn-info btn-sm" onclick="modalCutiBersamaMassal()">⚡ Cuti Bersama Massal</button>
+        <button id="btnFixCuti" class="btn btn-warning btn-sm" onclick="fixExistingCutiDurasi()">🛠️ Perbaiki Data</button>
+      `;
+  }
+
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🏖️ Cuti / Izin / WFH</span><div class="flex gap-8">${adminBtns}<button class="btn btn-primary btn-sm" onclick="modalCuti()">+ Pengajuan pribadi</button></div></div>
     ${hasAccess(3) ? '<div class="card mb-16"><div class="card-title mb-8">📊 Sisa Jatah Cuti Karyawan</div><div id="cutiQuotaList">Loading...</div></div>' : ''}
     <div class="card"><div class="card-title mb-8">📋 Daftar Pengajuan</div><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Keterangan</th><th>Tanggal</th><th>Durasi</th><th>Sisa Cuti</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblCuti"></tbody></table></div></div>`;
   // Load data
@@ -5779,4 +5786,137 @@ async function deleteKaizenLog(taskId, timestamp) {
     } catch (e) {
         toast('Gagal hapus: ' + e.message, 'error');
     }
+}
+
+// ── CUTI BERSAMA MASSAL (ADMIN ONLY) ──────────────────────────
+function modalCutiBersamaMassal() {
+  if (!hasAccess(3)) return toast('Akses ditolak', 'warning');
+  openModal(`
+    <div class="modal-title">⚡ Input Cuti Bersama Massal</div>
+    <p class="text-xs mb-16" style="color:#666">
+        Gunakan fitur ini untuk menginput Cuti Bersama secara serentak ke <b>SELURUH KARYAWAN AKTIF</b>.<br>
+        <b style="color:var(--danger)">⚠️ Penting:</b> Sesuai Pasal 16, Cuti Bersama akan otomatis memotong jatah cuti tahunan (12 hari) setiap karyawan.
+    </p>
+    <div class="grid-2">
+      <div class="form-group"><label>Tanggal Mulai</label><input class="form-control" type="date" id="massCtMulai" value="${todayStr()}"></div>
+      <div class="form-group"><label>Tanggal Selesai</label><input class="form-control" type="date" id="massCtSelesai" value="${todayStr()}"></div>
+    </div>
+    <div class="form-group">
+        <label>Keterangan / Nama Libur</label>
+        <input class="form-control" id="massCtKet" placeholder="Contoh: Libur Idul Fitri 1447H">
+    </div>
+    <div style="background:#fff3e0; padding:12px; border-radius:8px; border-left:4px solid var(--warning); margin-bottom:16px">
+        <div class="text-sm fw-700 color-warning mb-4">Konfirmasi</div>
+        <p class="text-xs" style="line-height:1.4">Sistem akan membuat record cuti <b>Approved</b> untuk seluruh staf aktif. Data yang sudah ada di tanggal yang sama tidak akan dibuat ganda.</p>
+    </div>
+    <button class="btn btn-info" style="width:100%; padding:12px" onclick="doInputCutiBersamaMassal()">⚡ Proses Input Massal</button>
+  `);
+}
+
+async function doInputCutiBersamaMassal() {
+  const mulai = document.getElementById('massCtMulai').value;
+  const selesai = document.getElementById('massCtSelesai').value;
+  const keterangan = document.getElementById('massCtKet').value;
+
+  if (!mulai || !selesai || !keterangan) return toast('Lengkapi semua data', 'warning');
+
+  const durasi = countWorkDays(mulai, selesai);
+  if (durasi <= 0) return toast('Durasi tidak valid atau hanya hari libur/weekend', 'warning');
+
+  if (!confirm(`Input Cuti Bersama "${keterangan}" (${durasi} hari) untuk SEMUA karyawan aktif?\nIni akan memotong jatah cuti mereka.`)) return;
+
+  toast('⏳ Sedang memproses data massal...', 'info');
+
+  try {
+    // 1. Ambil semua karyawan aktif
+    const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
+
+    // 2. Ambil data cuti yang sudah ada untuk cek duplikasi
+    const existSnap = await db.collection('hrd_cuti')
+        .where('mulai', '==', mulai)
+        .where('jenis', '==', 'Cuti Bersama')
+        .get();
+    const existSet = new Set();
+    existSnap.forEach(d => existSet.add(d.data().nama?.toLowerCase().trim()));
+
+    let added = 0;
+    let batch = db.batch();
+    const createdAt = new Date().toISOString();
+
+    kSnap.forEach(doc => {
+      const k = doc.data();
+      const namaLow = (k.nama || '').toLowerCase().trim();
+
+      // Skip if already added for this exact start date
+      if (existSet.has(namaLow)) return;
+
+      const newRef = db.collection('hrd_cuti').doc();
+      batch.set(newRef, {
+        nama: k.nama,
+        userId: '', // Optional for mass input
+        jenis: 'Cuti Bersama',
+        mulai,
+        selesai,
+        durasi,
+        keterangan: keterangan,
+        status: 'approved',
+        approvedBy: currentUser.nama,
+        approvedAt: createdAt,
+        createdAt,
+        isMassive: true
+      });
+
+      added++;
+      // Batch limit is 500
+      if (added % 400 === 0) {
+          // This part is tricky with await in forEach, let's use a better loop
+      }
+    });
+
+    // Re-do with proper for...of loop for batching safety if large headcount
+    const karyawanDocs = kSnap.docs;
+    let currentBatch = db.batch();
+    let batchCount = 0;
+    let totalProcessed = 0;
+
+    for (const doc of karyawanDocs) {
+        const k = doc.data();
+        const namaLow = (k.nama || '').toLowerCase().trim();
+        if (existSet.has(namaLow)) continue;
+
+        const newRef = db.collection('hrd_cuti').doc();
+        currentBatch.set(newRef, {
+            nama: k.nama,
+            jenis: 'Cuti Bersama',
+            mulai,
+            selesai,
+            durasi,
+            keterangan: keterangan,
+            status: 'approved',
+            approvedBy: currentUser.nama,
+            approvedAt: createdAt,
+            createdAt,
+            isMassive: true
+        });
+
+        batchCount++;
+        totalProcessed++;
+
+        if (batchCount >= 400) {
+            await currentBatch.commit();
+            currentBatch = db.batch();
+            batchCount = 0;
+        }
+    }
+
+    if (batchCount > 0) await currentBatch.commit();
+
+    closeModalDirect();
+    toast(`✅ Berhasil menginput Cuti Bersama untuk ${totalProcessed} karyawan`, 'success');
+    renderCuti();
+
+  } catch (e) {
+    console.error(e);
+    toast('Error: ' + e.message, 'error');
+  }
 }
