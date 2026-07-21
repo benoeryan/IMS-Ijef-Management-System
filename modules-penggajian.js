@@ -254,28 +254,34 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
 
     // Load data masal
     const [
-      absenSnap,
-      reimbSnap,
-      kasbonSnap,
-      tunjSnap,
-      insentifSnap,
-      cutiSnap,
-      overtimeSnap,
-      dinasLuarSnap,
-      liburSnap,
-      offboardingSnap
+      absenSnap, reimbSnap, kasbonSnap, tunjSnap, insentifSnap,
+      cutiSnap, overtimeSnap, dinasLuarSnap, liburSnap, offboardingSnap
     ] = await Promise.all([
       db.collection('hrd_absensi').where('tanggal', '>=', periodeStart).where('tanggal', '<=', periodeEnd).get(),
       db.collection('hrd_reimbursement').where('status', '==', 'approved').get(),
       db.collection('hrd_kasbon').where('status', 'in', ['aktif', 'approved']).get(),
       db.collection('hrd_tunjangan').get(),
-      db.collection('hrd_insentif').get(), // Fetch all to handle records without status
-      db.collection('hrd_cuti').get(), // Fetch all approved via manual filter
+      db.collection('hrd_insentif').get(),
+      db.collection('hrd_cuti').get(),
       db.collection('hrd_overtime').where('status', '==', 'approved').get(),
       db.collection('hrd_dinas_luar').where('status', '==', 'approved').get(),
       db.collection('hrd_hari_libur').get(),
       db.collection('hrd_offboarding').get()
     ]);
+
+    // Cache snapshots to standard arrays for safer iteration and performance
+    const absenList = [], reimbList = [], kasbonList = [], tunjList = [], insentifList = [],
+          cutiList = [], otList = [], dinasList = [], offList = [];
+
+    absenSnap.forEach(d => absenList.push({ id: d.id, ...d.data() }));
+    reimbSnap.forEach(d => reimbList.push({ id: d.id, ...d.data() }));
+    kasbonSnap.forEach(d => kasbonList.push({ id: d.id, ...d.data() }));
+    tunjSnap.forEach(d => tunjList.push({ id: d.id, ...d.data() }));
+    insentifSnap.forEach(d => insentifList.push({ id: d.id, ...d.data() }));
+    cutiSnap.forEach(d => cutiList.push({ id: d.id, ...d.data() }));
+    overtimeSnap.forEach(d => otList.push({ id: d.id, ...d.data() }));
+    dinasLuarSnap.forEach(d => dinasList.push({ id: d.id, ...d.data() }));
+    offboardingSnap.forEach(d => offList.push({ id: d.id, ...d.data() }));
 
     const holidays = new Set();
     liburSnap.forEach(d => {
@@ -298,6 +304,9 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
 
     for (const k of kDocs) {
       const namaLow = (k.nama || '').trim().toLowerCase();
+      // Exempt specific people and BOD role from attendance docking
+      const isExempt = (k.role === 'bod' || (k.gradeJabatan || '').toUpperCase() === 'BOD' ||
+                        ['mahpudin', 'misriana', 'budi cahyo'].includes(namaLow));
 
       // 1. Hitung Masa Aktif Prorata (Kalender)
       const tglMasuk = k.tanggalMasuk || periodeStart;
@@ -313,72 +322,80 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
           hariAktifKalender = Math.round((re - rs) / (1000 * 60 * 60 * 24)) + 1;
       }
 
-      // Gaji Pokok Prorata atau Full
       const isFullMonth = (tglMasuk <= periodeStart && tglKeluar >= periodeEnd);
-      let gajiPokok = k.gajiPokok || 0;
+      let gajiPokok = Number(k.gajiPokok) || 0;
       if (!isFullMonth) {
-          gajiPokok = Math.round((hariAktifKalender / totalKalender) * (k.gajiPokok || 0));
+          gajiPokok = Math.round((hariAktifKalender / totalKalender) * (Number(k.gajiPokok) || 0));
       }
 
       // 2. Kehadiran & Mangkir (Hanya di dalam range aktif)
-      let kehadiran = 0, mangkir = 0, cuti = 0, dinas = 0, lemburJam = 0;
-      const absenDates = new Set();
-      absenSnap.forEach(d => {
-          const a = d.data();
-          if ((a.userId === k.id || (a.nama || '').trim().toLowerCase() === namaLow) &&
-              a.tanggal >= rangeStart && a.tanggal <= rangeEnd && (a.tipe === 'masuk' || a.tipe === 'dinas_luar')) {
-              absenDates.add(a.tanggal);
+      const absenDatesSet = new Set();
+      absenList.forEach(a => {
+          if (((a.userId === k.id || (a.nama || '').trim().toLowerCase() === namaLow)) &&
+              a.tanggal >= rangeStart && a.tanggal <= rangeEnd) {
+              // Mark as present if any record (masuk/pulang/etc) exists for that day
+              absenDatesSet.add(a.tanggal);
           }
       });
 
-      const cutiDates = new Set();
-      cutiSnap.forEach(d => {
-          const c = d.data();
-          if (c.status !== 'approved') return;
+      const cutiDatesArr = [], dinasDatesArr = [], absentDatesArr = [];
+      const cutiSet = new Set(), dinasSet = new Set();
 
+      cutiList.forEach(c => {
+          if (c.status !== 'approved') return;
           const cNama = (c.nama || '').trim().toLowerCase();
           const isMatch = (c.userId === k.id || cNama === namaLow || namaLow.includes(cNama) || cNama.includes(namaLow));
-
           if (isMatch) {
               const start = c.mulai;
               const end = c.selesai || c.mulai;
               for (let dt = new Date(start + 'T00:00:00'); dt <= new Date(end + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
                   const ds = getSafeDateString(dt);
-                  if (ds >= rangeStart && ds <= rangeEnd) cutiDates.add(ds);
+                  if (ds >= rangeStart && ds <= rangeEnd) {
+                      cutiSet.add(ds);
+                      if (!cutiDatesArr.includes(ds)) cutiDatesArr.push(ds);
+                  }
               }
           }
       });
 
-      const dinasDates = new Set();
-      dinasLuarSnap.forEach(d => {
-          const dl = d.data();
-          if ((dl.userId === k.id || (dl.nama || '').trim().toLowerCase() === namaLow)) {
+      dinasList.forEach(dl => {
+          const dNama = (dl.nama || '').trim().toLowerCase();
+          if (dl.userId === k.id || dNama === namaLow || dNama.includes(namaLow)) {
               const start = dl.tanggalMulai || dl.tanggal;
               const end = dl.tanggalSelesai || dl.tanggal;
               for (let dt = new Date(start + 'T00:00:00'); dt <= new Date(end + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
                   const ds = getSafeDateString(dt);
-                  if (ds >= rangeStart && ds <= rangeEnd) dinasDates.add(ds);
+                  if (ds >= rangeStart && ds <= rangeEnd) {
+                      dinasSet.add(ds);
+                      if (!dinasDatesArr.includes(ds)) dinasDatesArr.push(ds);
+                  }
               }
           }
       });
 
-      // Hitung per hari kerja (Mon-Fri) menggunakan Timezone-Safe Date
+      let hadirCount = 0, mangkirCount = 0;
       for (let dt = new Date(rangeStart + 'T00:00:00'); dt <= new Date(rangeEnd + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
           const ds = getSafeDateString(dt);
           if (isWorkDay(ds)) {
-              if (absenDates.has(ds)) kehadiran++;
-              else if (cutiDates.has(ds)) cuti++;
-              else if (dinasDates.has(ds)) dinas++;
-              else mangkir++;
+              if (absenDatesSet.has(ds)) {
+                  hadirCount++;
+              } else if (cutiSet.has(ds)) {
+                  // Cuti counted as active, not mangkir
+              } else if (dinasSet.has(ds)) {
+                  // Dinas counted as active, not mangkir
+              } else {
+                  mangkirCount++;
+                  absentDatesArr.push(ds);
+              }
           }
       }
 
       // 3. Potongan Mangkir: (Jumlah Mangkir / Total Hari Kalender Periode) x Gaji Pokok
-      const potonganMangkir = Math.round((mangkir / totalKalender) * (Number(k.gajiPokok) || 0));
+      const potonganMangkir = isExempt ? 0 : Math.round((mangkirCount / totalKalender) * (Number(k.gajiPokok) || 0));
 
       // 4. Lembur
-      overtimeSnap.forEach(d => {
-          const o = d.data();
+      let lemburJam = 0;
+      otList.forEach(o => {
           if ((o.userId === k.id || (o.nama || '').trim().toLowerCase() === namaLow) && o.tanggal >= periodeStart && o.tanggal <= periodeEnd) {
               lemburJam += (parseFloat(o.durasi) || 0);
           }
@@ -387,61 +404,48 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
       const lemburNominal = Math.round(lemburJam * gajiPerJam);
 
       // 5. Tunjangan & Keuangan
-      let tunjTetap = 0, tunjLain = 0;
+      let tunjTetap = 0, tunjLain = 0, insentif = 0, reimb = 0, loan = 0;
       if (incTunj) {
-          tunjSnap.forEach(d => {
-              const t = d.data();
+          tunjList.forEach(t => {
               const p = (t.penerima || 'Semua').trim().toLowerCase();
+              // Enhanced matching: "Semua", or recipient list includes employee name, or name is exactly the recipient
               if (p === 'semua' || p === 'all' || p.split(',').map(x => x.trim()).includes(namaLow) || namaLow.includes(p)) {
                   if (t.jenis === 'tetap') tunjTetap += (Number(t.nominal) || 0);
                   else tunjLain += (Number(t.nominal) || 0);
               }
           });
       }
-
-      let insentif = 0;
       if (incInsentif) {
-          insentifSnap.forEach(d => {
-              const ins = d.data();
+          insentifList.forEach(ins => {
               if (ins.status && ins.status !== 'approved') return;
-
               const insDate = getSafeDateString(ins.approvedAt || ins.createdAt);
               const insPeriode = ins.periode || "";
               const insNama = (ins.nama || '').trim().toLowerCase();
-
               const isMatch = insNama === namaLow || namaLow.includes(insNama) || insNama.includes(namaLow);
-              if (isMatch && ( (insDate >= periodeStart && insDate <= periodeEnd) || insPeriode === bulan )) {
+              if (isMatch && ( (insDate >= periodeStart && insDate <= periodeEnd) || ins.periode === bulan )) {
                   insentif += (Number(ins.nominal) || 0);
               }
           });
       }
-
-      let reimb = 0;
       if (incReimb) {
-          reimbSnap.forEach(d => {
-              const r = d.data();
-              const rDate = getSafeDateString(r.approvedAt || r.createdAt);
-              if ((r.nama || '').trim().toLowerCase() === namaLow && rDate >= periodeStart && rDate <= periodeEnd) {
+          reimbList.forEach(r => {
+              const rNama = (r.nama || '').trim().toLowerCase();
+              if ((rNama === namaLow || namaLow.includes(rNama)) && getSafeDateString(r.approvedAt || r.createdAt) >= periodeStart) {
                   reimb += (Number(r.jumlah) || 0);
               }
           });
       }
-
-      let loan = 0;
       if (incKasbon) {
-          kasbonSnap.forEach(d => {
-              const r = d.data();
-              if ((r.nama || '').trim().toLowerCase() === namaLow) {
+          kasbonList.forEach(r => {
+              const rNama = (r.nama || '').trim().toLowerCase();
+              if (rNama === namaLow || namaLow.includes(rNama)) {
                   loan += (Number(r.angsuran) || Number(r.jumlah) || 0);
               }
           });
       }
 
-      // 6. BPJS & PPh21 (Merujuk pada GAJI POKOK UTUH)
       const bpjsKes = incBPJSKes ? Math.round((Number(k.gajiPokok) || 0) * 0.01) : 0;
       const bpjsTK = incBPJSTK ? Math.round((Number(k.gajiPokok) || 0) * 0.02) : 0;
-
-      // Bruto = Gaji Pokok (Prorata) + Tunjangan + Insentif + Reimb + Lembur - Potongan Mangkir
       const bruto = gajiPokok + tunjTetap + tunjLain + insentif + reimb + lemburNominal - potonganMangkir;
 
       let pph21 = 0;
@@ -471,15 +475,19 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
           bpjsKesehatan: bpjsKes,
           bpjsTK,
           potonganMangkir,
-          mangkirHari: mangkir,
+          mangkirHari: mangkirCount,
           potongan: potonganMangkir + bpjsKes + bpjsTK, // Consolidated for UI
           kasbon: loan,
           pph21,
           totalBersih: thp,
-          hariKerja: kehadiran + mangkir + cuti + dinas,
-          kehadiran,
-          cuti: cuti,
-          dinas: dinas,
+          hariKerja: hadirCount + mangkirCount + cutiSet.size + dinasSet.size,
+          kehadiran: hadirCount,
+          cutiHari: cutiSet.size,
+          dinasHari: dinasSet.size,
+          tidakHadir: mangkirCount,
+          cutiDates: cutiDatesArr,
+          dinasDates: dinasDatesArr,
+          absentDates: absentDatesArr,
           isProrata: !isFullMonth,
           activeCalendarDays: hariAktifKalender,
           totalCalendarDays: totalKalender,
@@ -887,10 +895,10 @@ function lihatSlip(id) {
     <div class="mt-16" style="background:#f8f9ff;padding:12px;border-radius:8px;border:1px solid #d0d9ff">
         <div class="fw-700 text-sm color-primary mb-8">📊 Detail Absensi (Periode 20-20)</div>
         <div class="grid-2" style="font-size:.8rem;gap:8px">
-            <div>Jatah Hari Kerja: <b>${p.hariKerja} hari</b></div>
-            <div>Hadir (Check-in): <b>${p.kehadiran} hari</b></div>
-            <div>Cuti (Approved): <b>${p.cutiHari} hari</b></div>
-            <div>Dinas Luar: <b>${p.dinasHari} hari</b></div>
+            <div>Jatah Hari Kerja: <b>${Number(p.hariKerja) || 0} hari</b></div>
+            <div>Hadir (Check-in): <b>${Number(p.kehadiran) || 0} hari</b></div>
+            <div>Cuti (Approved): <b>${Number(p.cutiHari) || 0} hari</b></div>
+            <div>Dinas Luar: <b>${Number(p.dinasHari) || 0} hari</b></div>
         </div>
 
         <div style="border-top:1px solid #ddd;padding-top:8px;margin-top:8px">
@@ -907,7 +915,7 @@ function lihatSlip(id) {
                 </div>
             ` : ""}
             <div class="mt-4 text-xs" style="background:#fff;padding:8px;border-radius:4px;border:1px solid #eee">
-                <b style="color:var(--danger)">Mangkir/Tidak Absen: ${p.tidakHadir} hari</b><br>
+                <b style="color:var(--danger)">Mangkir/Tidak Absen: ${Number(p.tidakHadir) || 0} hari</b><br>
                 ${p.absentDates && p.absentDates.length > 0 ? `
                     <div style="margin-top:4px">Daftar Tanggal: ${p.absentDates.map(d => formatDate(d)).join(", ")}</div>
                 ` : "Tidak ada data mangkir."}
