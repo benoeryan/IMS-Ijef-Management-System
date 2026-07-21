@@ -368,9 +368,10 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
           tunjSnap.forEach(d => {
               const t = d.data();
               const p = (t.penerima || 'Semua').trim().toLowerCase();
-              if (p === 'semua' || p.includes(namaLow) || namaLow.includes(p)) {
-                  if (t.jenis === 'tetap') tunjTetap += (t.nominal || 0);
-                  else tunjLain += (t.nominal || 0);
+              // Enhanced matching: "Semua", or recipient list includes employee name, or name is exactly the recipient
+              if (p === 'semua' || p === 'all' || p.split(',').map(x => x.trim()).includes(namaLow) || namaLow.includes(p)) {
+                  if (t.jenis === 'tetap') tunjTetap += (Number(t.nominal) || 0);
+                  else tunjLain += (Number(t.nominal) || 0);
               }
           });
       }
@@ -379,10 +380,9 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
       if (incInsentif) {
           insentifSnap.forEach(d => {
               const ins = d.data();
-              const insDateRaw = ins.approvedAt || ins.createdAt || "";
-              const insDate = typeof insDateRaw === 'string' ? insDateRaw.split('T')[0] : "";
+              const insDate = getSafeDateString(ins.approvedAt || ins.createdAt);
               if ((ins.nama || '').trim().toLowerCase() === namaLow && insDate >= periodeStart && insDate <= periodeEnd) {
-                  insentif += (ins.nominal || 0);
+                  insentif += (Number(ins.nominal) || 0);
               }
           });
       }
@@ -391,10 +391,9 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
       if (incReimb) {
           reimbSnap.forEach(d => {
               const r = d.data();
-              const rDateRaw = r.approvedAt || r.createdAt || "";
-              const rDate = typeof rDateRaw === 'string' ? rDateRaw.split('T')[0] : "";
+              const rDate = getSafeDateString(r.approvedAt || r.createdAt);
               if ((r.nama || '').trim().toLowerCase() === namaLow && rDate >= periodeStart && rDate <= periodeEnd) {
-                  reimb += (r.jumlah || 0);
+                  reimb += (Number(r.jumlah) || 0);
               }
           });
       }
@@ -404,21 +403,21 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
           kasbonSnap.forEach(d => {
               const r = d.data();
               if ((r.nama || '').trim().toLowerCase() === namaLow) {
-                  loan += (r.angsuran || r.jumlah || 0);
+                  loan += (Number(r.angsuran) || Number(r.jumlah) || 0);
               }
           });
       }
 
       // 6. BPJS & PPh21 (Merujuk pada GAJI POKOK UTUH)
-      const bpjsKes = incBPJSKes ? Math.round((k.gajiPokok || 0) * 0.01) : 0;
-      const bpjsTK = incBPJSTK ? Math.round((k.gajiPokok || 0) * 0.02) : 0;
+      const bpjsKes = incBPJSKes ? Math.round((Number(k.gajiPokok) || 0) * 0.01) : 0;
+      const bpjsTK = incBPJSTK ? Math.round((Number(k.gajiPokok) || 0) * 0.02) : 0;
 
       // Bruto = Gaji Pokok (Prorata) + Tunjangan + Insentif + Reimb + Lembur - Potongan Mangkir
       const bruto = gajiPokok + tunjTetap + tunjLain + insentif + reimb + lemburNominal - potonganMangkir;
 
       let pph21 = 0;
       if (incPPH) {
-          const nettoTahunan = Math.max(0, ( (k.gajiPokok || 0) + tunjTetap - bpjsKes - bpjsTK ) * 12 - 54000000);
+          const nettoTahunan = Math.max(0, ( (Number(k.gajiPokok) || 0) + tunjTetap - bpjsKes - bpjsTK ) * 12 - 54000000);
           let pphT = 0;
           if (nettoTahunan <= 60000000) pphT = nettoTahunan * 0.05;
           else if (nettoTahunan <= 250000000) pphT = 3000000 + (nettoTahunan - 60000000) * 0.15;
@@ -433,8 +432,8 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
           periode: bulan,
           periodeStart,
           periodeEnd,
-          gajiPokok, // Prorata
-          gajiPokokUtuh: k.gajiPokok,
+          gajiPokok,
+          gajiPokokUtuh: Number(k.gajiPokok) || 0,
           tunjangan: tunjTetap + tunjLain,
           insentif,
           reimbursement: reimb,
@@ -444,7 +443,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
           bpjsTK,
           potonganMangkir,
           mangkirHari: mangkir,
-          potongan: potonganMangkir + bpjsKes + bpjsTK, // Consolidated for table
+          potongan: potonganMangkir + bpjsKes + bpjsTK, // Consolidated for UI
           kasbon: loan,
           pph21,
           totalBersih: thp,
@@ -808,23 +807,23 @@ function lihatSlip(id) {
         }
       }
       const bruto =
-        (p.gajiPokok || 0) +
-        (p.tunjangan || 0) +
-        (p.tunjCuti || 0) +
-        (p.insentif || 0) +
-        (p.bonus || 0) +
-        (p.reimbursement || 0) +
-        (p.lembur || 0);
+        (Number(p.gajiPokok) || 0) +
+        (Number(p.tunjangan) || 0) +
+        (Number(p.tunjCuti) || 0) +
+        (Number(p.insentif) || 0) +
+        (Number(p.bonus) || 0) +
+        (Number(p.reimbursement) || 0) +
+        (Number(p.lembur) || 0);
       const totPot =
-        (p.bpjsKesehatan || 0) +
-        (p.bpjsTK || 0) +
-        (p.potongan || 0) +
-        (p.kasbon || 0) +
-        (p.pph21 || 0);
+        (Number(p.bpjsKesehatan) || 0) +
+        (Number(p.bpjsTK) || 0) +
+        (Number(p.potonganMangkir) || 0) +
+        (Number(p.kasbon) || 0) +
+        (Number(p.pph21) || 0);
 
       // Build deduction details list
       let potDetailHtml = '';
-      if (p.potongan) potDetailHtml += `<tr><td>Pot. Absen (${p.tidakHadir || 0} hari)</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.potongan)}</td></tr>`;
+      if (p.potonganMangkir) potDetailHtml += `<tr><td>Pot. Absen / Mangkir (${p.mangkirHari || 0} hari)</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.potonganMangkir)}</td></tr>`;
       if (p.bpjsKesehatan) potDetailHtml += `<tr><td>BPJS Kesehatan (1%)</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.bpjsKesehatan)}</td></tr>`;
       if (p.bpjsTK) potDetailHtml += `<tr><td>BPJS TK (2%)</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.bpjsTK)}</td></tr>`;
       if (p.kasbon) potDetailHtml += `<tr><td>Kasbon/Loan</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.kasbon)}</td></tr>`;

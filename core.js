@@ -931,6 +931,13 @@ function todayStr() {
 function monthStr() {
   return new Date().toISOString().slice(0, 7);
 }
+function getSafeDateString(val) {
+    if (!val) return "";
+    if (typeof val === 'string') return val.split('T')[0];
+    if (val.toDate) return val.toDate().toISOString().split('T')[0];
+    if (val instanceof Date) return val.toISOString().split('T')[0];
+    return String(val).split('T')[0];
+}
 function getMonthDays(ym) {
   const [y, m] = ym.split('-').map(Number);
   return new Date(y, m, 0).getDate();
