@@ -1230,13 +1230,30 @@ async function renderKasbon() {
               ? 'badge-danger'
               : 'badge-warning';
       const canApprove = p.status === 'pending' && hasAccess(3) && !isBOD;
-      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.jenis || '-')}</td><td>${formatCurrency(jumlah)}</td><td class="fw-700">${formatCurrency(angsuran)}</td><td>${cicilan} bulan</td><td>${formatCurrency(sudahBayar)}</td><td class="fw-700" style="color:${sisa > 0 ? 'var(--danger)' : 'var(--success)'}">${formatCurrency(sisa)}</td><td>${p.status === 'lunas' ? '✅ Lunas' : sisaBulan + ' bln'}</td><td><span class="badge ${badge}">${p.status || 'pending'}</span></td><td>${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveKasbon('${p.id}','aktif')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveKasbon('${p.id}','rejected')">❌</button>` : ''} ${p.status === 'aktif' ? `<button class="btn btn-xs btn-info" onclick="bayarAngsuran('${p.id}')">💰 Bayar</button>` : ''} <button class="btn btn-xs btn-warning" onclick="editKasbonDoc('${p.id}')">✏️</button> ${hasAccess(6) ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kasbon','${p.id}','kasbon')">🗑️</button>` : ''}</td></tr>`;
+      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.jenis || '-')}</td><td>${formatCurrency(jumlah)}</td><td class="fw-700">${formatCurrency(angsuran)}</td><td>${cicilan} bulan</td><td>${formatCurrency(sudahBayar)}</td><td class="fw-700" style="color:${sisa > 0 ? 'var(--danger)' : 'var(--success)'}">${formatCurrency(sisa)}</td><td>${p.status === 'lunas' ? '✅ Lunas' : sisaBulan + ' bln'}</td><td><span class="badge ${badge}">${p.status || 'pending'}</span></td><td><button class="btn btn-xs btn-info" onclick="viewKasbon('${p.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveKasbon('${p.id}','aktif')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveKasbon('${p.id}','rejected')">❌</button>` : ''} ${p.status === 'aktif' ? `<button class="btn btn-xs btn-info" onclick="bayarAngsuran('${p.id}')">💰 Bayar</button>` : ''} <button class="btn btn-xs btn-warning" onclick="editKasbonDoc('${p.id}')">✏️</button> ${hasAccess(6) ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kasbon','${p.id}','kasbon')">🗑️</button>` : ''}</td></tr>`;
     });
   document.getElementById('tblKasbon').innerHTML = h;
 }
 function modalKasbon() {
   openModal(
-    `<div class="modal-title">Pengajuan Kasbon/Loan</div><div class="grid-2"><div class="form-group"><label>Nama</label><input class="form-control" id="kbNama" value="${currentUser.nama}"></div><div class="form-group"><label>Jenis</label><select class="form-control" id="kbJenis"><option>Kasbon</option><option>Pinjaman Karyawan</option></select></div></div><div class="grid-2"><div class="form-group"><label>Total Pinjaman (Rp)</label><input class="form-control" type="number" id="kbJumlah" oninput="calcKasbonPreview()"></div><div class="form-group"><label>Durasi Cicilan (bulan)</label><input class="form-control" type="number" id="kbCicilan" value="3" min="1" oninput="calcKasbonPreview()"></div></div><div style="background:#f8f9ff;border-radius:8px;padding:10px;margin-bottom:14px"><div class="grid-2" style="font-size:.82rem"><div><b>Angsuran/bulan:</b> <span id="kbAngsuranPreview">Rp 0</span></div><div><b>Potongan gaji otomatis:</b> Ya</div></div></div><div class="form-group"><label>Keterangan</label><input class="form-control" id="kbKet" placeholder="Keperluan pinjaman"></div><button class="btn btn-primary" onclick="simpanKasbon()">Ajukan</button>`
+    `<div class="modal-title">Pengajuan Kasbon/Loan</div>
+    <div class="grid-2">
+      <div class="form-group"><label>Nama</label><input class="form-control" id="kbNama" value="${currentUser.nama}"></div>
+      <div class="form-group"><label>Jenis</label><select class="form-control" id="kbJenis"><option>Kasbon</option><option>Pinjaman Karyawan</option></select></div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group"><label>Total Pinjaman (Rp)</label><input class="form-control" type="number" id="kbJumlah" oninput="calcKasbonPreview()"></div>
+      <div class="form-group"><label>Durasi Cicilan (bulan)</label><input class="form-control" type="number" id="kbCicilan" value="3" min="1" oninput="calcKasbonPreview()"></div>
+    </div>
+    <div style="background:#f8f9ff;border-radius:8px;padding:10px;margin-bottom:14px">
+      <div class="grid-2" style="font-size:.82rem"><div><b>Angsuran/bulan:</b> <span id="kbAngsuranPreview">Rp 0</span></div><div><b>Potongan gaji otomatis:</b> Ya</div></div>
+    </div>
+    <div class="form-group">
+      <label>Lampiran / Eviden (JPG, PNG, PDF, Word, Excel)</label>
+      <input type="file" id="kbFile" class="form-control" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx">
+    </div>
+    <div class="form-group"><label>Keterangan</label><input class="form-control" id="kbKet" placeholder="Keperluan pinjaman"></div>
+    <button class="btn btn-primary" onclick="simpanKasbon()">Ajukan</button>`
   );
 }
 function calcKasbonPreview() {
@@ -1245,25 +1262,86 @@ function calcKasbonPreview() {
   document.getElementById('kbAngsuranPreview').textContent = formatCurrency(Math.ceil(jml / cic));
 }
 async function simpanKasbon() {
+  const btn = event.target;
+  const originalText = btn.innerText;
+
   const jumlah = Number(document.getElementById('kbJumlah').value) || 0;
   const cicilan = Number(document.getElementById('kbCicilan').value) || 1;
   if (!jumlah) return toast('Jumlah wajib', 'warning');
-  const data = {
-    nama: document.getElementById('kbNama').value,
-    jenis: document.getElementById('kbJenis').value,
-    jumlah,
-    cicilan,
-    angsuran: Math.ceil(jumlah / cicilan),
-    sudahBayar: 0,
-    keterangan: document.getElementById('kbKet').value,
-    status: 'pending',
-    userId: currentUser.id,
-    createdAt: new Date().toISOString(),
-  };
-  await db.collection('hrd_kasbon').add(data);
-  closeModalDirect();
-  toast('Diajukan', 'success');
-  renderKasbon();
+
+  const fileInput = document.getElementById('kbFile');
+  let evidenceURL = '';
+
+  try {
+    btn.disabled = true;
+    btn.innerText = 'Uploading...';
+
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      const path = `kasbon/${Date.now()}_${file.name}`;
+      evidenceURL = await uploadFileToStorage(file, path);
+    }
+
+    const data = {
+      nama: document.getElementById('kbNama').value,
+      jenis: document.getElementById('kbJenis').value,
+      jumlah,
+      cicilan,
+      angsuran: Math.ceil(jumlah / cicilan),
+      sudahBayar: 0,
+      keterangan: document.getElementById('kbKet').value,
+      evidenceURL: evidenceURL,
+      status: 'pending',
+      userId: currentUser.id,
+      createdAt: new Date().toISOString(),
+    };
+    await db.collection('hrd_kasbon').add(data);
+    closeModalDirect();
+    toast('Diajukan', 'success');
+    renderKasbon();
+  } catch (e) {
+    console.error(e);
+    toast('Gagal: ' + e.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerText = originalText;
+  }
+}
+async function viewKasbon(id) {
+  const d = await db.collection('hrd_kasbon').doc(id).get();
+  if (!d.exists) return toast('Data tidak ditemukan', 'danger');
+  const p = d.data();
+
+  const angsuran = Math.ceil((p.jumlah || 0) / (p.cicilan || 1));
+  const sisa = Math.max(0, (p.jumlah || 0) - (p.sudahBayar || 0));
+
+  let h = `<div class="modal-title">📑 Detail Kasbon/Loan</div>
+    <div class="grid-2">
+      <div><label class="text-xs color-gray">Nama</label><div class="fw-700">${escHtml(p.nama)}</div></div>
+      <div><label class="text-xs color-gray">Jenis</label><div class="fw-700">${escHtml(p.jenis || '-')}</div></div>
+      <div><label class="text-xs color-gray">Total Pinjaman</label><div class="fw-700 color-primary">${formatCurrency(p.jumlah)}</div></div>
+      <div><label class="text-xs color-gray">Angsuran / Bln</label><div class="fw-700 color-danger">${formatCurrency(angsuran)}</div></div>
+      <div><label class="text-xs color-gray">Durasi</label><div>${p.cicilan} bulan</div></div>
+      <div><label class="text-xs color-gray">Status</label><div><span class="badge badge-${p.status === 'lunas' ? 'primary' : p.status === 'aktif' || p.status === 'approved' ? 'success' : p.status === 'rejected' ? 'danger' : 'warning'}">${p.status || 'pending'}</span></div></div>
+      <div><label class="text-xs color-gray">Sudah Bayar</label><div>${formatCurrency(p.sudahBayar || 0)}</div></div>
+      <div><label class="text-xs color-gray">Sisa</label><div class="fw-700">${formatCurrency(sisa)}</div></div>
+    </div>
+    <div class="mt-12"><label class="text-xs color-gray">Keterangan</label><div class="text-sm">${escHtml(p.keterangan || '-')}</div></div>`;
+
+  if (p.evidenceURL) {
+    const isImg = p.evidenceURL.match(/\.(jpg|jpeg|png|gif|webp)/i);
+    h += `<div class="mt-12"><label class="text-xs color-gray">Lampiran / Bukti</label>
+      <div class="mt-4">
+        ${isImg ? `<img src="${p.evidenceURL}" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open('${p.evidenceURL}')">` : `<a href="${p.evidenceURL}" target="_blank" class="btn btn-xs btn-outline-primary">📎 Lihat Dokumen</a>`}
+      </div>
+    </div>`;
+  }
+
+  if (p.approvalComment || p.alasanTolak) {
+    h += `<div class="mt-12 p-8 bg-light border-radius-8"><label class="text-xs color-gray">Catatan Approval</label><div class="text-sm italic">${escHtml(p.approvalComment || p.alasanTolak)}</div></div>`;
+  }
+
+  openModal(h);
 }
 async function approveKasbon(id, status) {
   var komentar = '';

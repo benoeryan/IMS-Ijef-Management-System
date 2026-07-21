@@ -1406,19 +1406,19 @@ async function renderPortalReimburse() {
 // ── PORTAL: KASBON ────────────────────────────────────────────
 async function renderPortalKasbon() {
   const main = document.getElementById('mainContent');
-  main.innerHTML = `<div class="page-title"><span>💳 Kasbon & Loan Saya</span><button class="btn btn-primary btn-sm" onclick="modalKasbon()">+ Ajukan</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Total</th><th>Angsuran/Bln</th><th>Sudah Bayar</th><th>Sisa</th><th>Status</th></tr></thead><tbody id="tblMyKasbon"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title"><span>💳 Kasbon & Loan Saya</span><button class="btn btn-primary btn-sm" onclick="modalKasbon()">+ Ajukan</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Total</th><th>Angsuran/Bln</th><th>Sudah Bayar</th><th>Sisa</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblMyKasbon"></tbody></table></div></div>`;
   const snap = await db.collection('hrd_kasbon').where('nama', '==', currentUser.nama).get();
   const items = [];
   snap.forEach((d) => {
-    items.push(d.data());
+    items.push({ id: d.id, ...d.data() });
   });
   let h = '';
-  if (!items.length) h = '<tr><td colspan="6" class="text-center">Belum ada</td></tr>';
+  if (!items.length) h = '<tr><td colspan="7" class="text-center">Belum ada</td></tr>';
   else
     items.forEach((p) => {
       const angsuran = Math.ceil((p.jumlah || 0) / (p.cicilan || 1));
       const sisa = Math.max(0, (p.jumlah || 0) - (p.sudahBayar || 0));
-      h += `<tr><td>${escHtml(p.jenis || '-')}</td><td>${formatCurrency(p.jumlah)}</td><td>${formatCurrency(angsuran)}</td><td>${formatCurrency(p.sudahBayar || 0)}</td><td class="fw-700" style="color:${sisa > 0 ? 'var(--danger)' : 'var(--success)'}">${formatCurrency(sisa)}</td><td><span class="badge badge-${p.status === 'aktif' ? 'success' : p.status === 'lunas' ? 'primary' : 'warning'}">${p.status}</span></td></tr>`;
+      h += `<tr><td>${escHtml(p.jenis || '-')}</td><td>${formatCurrency(p.jumlah)}</td><td>${formatCurrency(angsuran)}</td><td>${formatCurrency(p.sudahBayar || 0)}</td><td class="fw-700" style="color:${sisa > 0 ? 'var(--danger)' : 'var(--success)'}">${formatCurrency(sisa)}</td><td><span class="badge badge-${p.status === 'aktif' ? 'success' : p.status === 'lunas' ? 'primary' : 'warning'}">${p.status}</span></td><td><button class="btn btn-xs btn-info" onclick="viewKasbon('${p.id}')">👁️ Lihat</button></td></tr>`;
     });
   document.getElementById('tblMyKasbon').innerHTML = h;
 }

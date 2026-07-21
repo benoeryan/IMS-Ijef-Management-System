@@ -837,7 +837,11 @@ async function modalAjukanSPPD() {
     </div>
     <div id="sppdWarningGrade" class="mb-8"></div>
     <div class="form-group"><label>Catatan Tambahan</label><textarea class="form-control" id="sppdCatatan" placeholder="Catatan khusus (opsional)"></textarea></div>
-    <button class="btn btn-primary" style="width:100%;padding:12px" onclick="simpanSPPD('${noSPPD}')">📝 Ajukan SPPD</button>`,
+    <div class="form-group">
+      <label>Lampiran / Eviden (JPG, PNG, PDF, Word, Excel)</label>
+      <input type="file" id="sppdFile" class="form-control" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx">
+    </div>
+    <button class="btn btn-primary" id="btnAjukanSPPD" style="width:100%;padding:12px" onclick="simpanSPPD('${noSPPD}')">📝 Ajukan SPPD</button>`,
     true
   );
 }
@@ -907,57 +911,91 @@ function cekBatasGrade() {
 }
 
 async function simpanSPPD(noSPPD) {
+  const btn = document.getElementById('btnAjukanSPPD');
+  const originalText = btn.innerText;
+
   const grade = currentUser.gradeJabatan || 'STAFF';
   const gradeConfig = await getGradeConfig(grade);
-  const data = {
-    noSPPD,
-    nama: document.getElementById('sppdNama').value,
-    departemen: document.getElementById('sppdDept').value,
-    tujuan: document.getElementById('sppdTujuan').value,
-    klien: document.getElementById('sppdKlien').value,
-    tanggalMulai: document.getElementById('sppdMulai').value,
-    tanggalSelesai: document.getElementById('sppdSelesai').value,
-    keperluan: document.getElementById('sppdKeperluan').value,
-    transportasi: document.getElementById('sppdTransport').value,
-    akomodasi: document.getElementById('sppdAkomodasi').value,
-    biayaTransport: parseInt(document.getElementById('sppdBiayaTransport').value) || 0,
-    biayaAkomodasi: parseInt(document.getElementById('sppdBiayaAkomodasi').value) || 0,
-    biayaMakan: parseInt(document.getElementById('sppdBiayaMakan').value) || 0,
-    biayaLain: parseInt(document.getElementById('sppdBiayaLain').value) || 0,
-    catatan: document.getElementById('sppdCatatan').value,
-    gradeJabatan: grade,
-    gradeConfigUsed: gradeConfig.label,
-    status: 'pending',
-    userId: currentUser.id,
-    createdAt: new Date().toISOString(),
-  };
-  data.totalEstimasi = data.biayaTransport + data.biayaAkomodasi + data.biayaMakan + data.biayaLain;
-  if (!data.tujuan) return toast('Tujuan wajib diisi', 'warning');
-  if (!data.tanggalMulai || !data.tanggalSelesai)
-    return toast('Tanggal mulai dan selesai wajib', 'warning');
-  if (!data.keperluan) return toast('Keperluan wajib diisi', 'warning');
-  // Check if any amount exceeds grade limits
-  const _hari = Math.ceil(
-    (new Date(data.tanggalSelesai) - new Date(data.tanggalMulai)) / (1000 * 60 * 60 * 24) + 1
-  );
-  const _malam = Math.max(_hari - 1, 0);
-  if (_hari > 0) {
-    let _exceeded = false;
-    if (data.biayaTransport > gradeConfig.maxTransport) _exceeded = true;
-    if (_malam > 0 && data.biayaAkomodasi > gradeConfig.maxHotel * _malam) _exceeded = true;
-    if (data.biayaMakan > (gradeConfig.maxMakan + gradeConfig.uangSaku) * _hari) _exceeded = true;
-    if (_exceeded && !confirm('Estimasi melebihi batas grade Anda, tetap ajukan?')) return;
+
+  const fileInput = document.getElementById('sppdFile');
+  let evidenceURL = '';
+
+  try {
+    btn.disabled = true;
+    btn.innerText = '⏳ Mengupload...';
+
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      const path = `sppd/${Date.now()}_${file.name}`;
+      evidenceURL = await uploadFileToStorage(file, path);
+    }
+
+    const data = {
+      noSPPD,
+      nama: document.getElementById('sppdNama').value,
+      departemen: document.getElementById('sppdDept').value,
+      tujuan: document.getElementById('sppdTujuan').value,
+      klien: document.getElementById('sppdKlien').value,
+      tanggalMulai: document.getElementById('sppdMulai').value,
+      tanggalSelesai: document.getElementById('sppdSelesai').value,
+      keperluan: document.getElementById('sppdKeperluan').value,
+      transportasi: document.getElementById('sppdTransport').value,
+      akomodasi: document.getElementById('sppdAkomodasi').value,
+      biayaTransport: parseInt(document.getElementById('sppdBiayaTransport').value) || 0,
+      biayaAkomodasi: parseInt(document.getElementById('sppdBiayaAkomodasi').value) || 0,
+      biayaMakan: parseInt(document.getElementById('sppdBiayaMakan').value) || 0,
+      biayaLain: parseInt(document.getElementById('sppdBiayaLain').value) || 0,
+      catatan: document.getElementById('sppdCatatan').value,
+      evidenceURL: evidenceURL,
+      gradeJabatan: grade,
+      gradeConfigUsed: gradeConfig.label,
+      status: 'pending',
+      userId: currentUser.id,
+      createdAt: new Date().toISOString(),
+    };
+    data.totalEstimasi = data.biayaTransport + data.biayaAkomodasi + data.biayaMakan + data.biayaLain;
+    if (!data.tujuan) return toast('Tujuan wajib diisi', 'warning');
+    if (!data.tanggalMulai || !data.tanggalSelesai)
+      return toast('Tanggal mulai dan selesai wajib', 'warning');
+    if (!data.keperluan) return toast('Keperluan wajib diisi', 'warning');
+    // Check if any amount exceeds grade limits
+    const _hari = Math.ceil(
+      (new Date(data.tanggalSelesai) - new Date(data.tanggalMulai)) / (1000 * 60 * 60 * 24) + 1
+    );
+    const _malam = Math.max(_hari - 1, 0);
+    if (_hari > 0) {
+      let _exceeded = false;
+      if (data.biayaTransport > gradeConfig.maxTransport) _exceeded = true;
+      if (_malam > 0 && data.biayaAkomodasi > gradeConfig.maxHotel * _malam) _exceeded = true;
+      if (data.biayaMakan > (gradeConfig.maxMakan + gradeConfig.uangSaku) * _hari) _exceeded = true;
+      if (_exceeded && !confirm('Estimasi melebihi batas grade Anda, tetap ajukan?')) return;
+    }
+    const sppdRef = await db.collection('hrd_perjalanan_dinas').add(data);
+    // Juga tambahkan ke hrd_dinas_luar agar terintegrasi dengan modul absensi
+    const dinasLuarRef = await db.collection('hrd_dinas_luar').add({
+      nama: data.nama,
+      tanggal: data.tanggalMulai,
+      tanggalSelesai: data.tanggalSelesai,
+      tujuan: data.tujuan,
+      keperluan: data.keperluan,
+      transportasi: data.transportasi,
+      akomodasi: data.akomodasi,
+      noSPPD: data.noSPPD,
+      status: 'pending',
+      userId: data.userId,
+      createdAt: data.createdAt,
+    });
+    closeModalDirect();
+    toast('SPPD diajukan', 'success');
+    showSPPDTab('daftar');
+  } catch (e) {
+    console.error(e);
+    toast('Gagal: ' + e.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerText = originalText;
   }
-  const sppdRef = await db.collection('hrd_perjalanan_dinas').add(data);
-  // Juga tambahkan ke hrd_dinas_luar agar terintegrasi dengan modul absensi
-  const dinasLuarRef = await db.collection('hrd_dinas_luar').add({
-    nama: data.nama,
-    tanggal: data.tanggalMulai,
-    tanggalSelesai: data.tanggalSelesai,
-    tujuan: data.tujuan,
-    keperluan: data.keperluan,
-    transportasi: data.transportasi,
-    akomodasi: data.akomodasi,
+}
     gradeJabatan: grade,
     totalEstimasi: data.totalEstimasi,
     jamBerangkat: '',
@@ -1064,36 +1102,65 @@ async function editSPPD(id) {
     </div>
     <div class="form-group"><label>Status</label><select class="form-control" id="editSppdStatus"><option value="pending" ${p.status === 'pending' ? 'selected' : ''}>Pending</option><option value="approved" ${p.status === 'approved' ? 'selected' : ''}>Approved</option><option value="rejected" ${p.status === 'rejected' ? 'selected' : ''}>Rejected</option><option value="selesai" ${p.status === 'selesai' ? 'selected' : ''}>Selesai</option></select></div>
     <div class="form-group"><label>Catatan</label><textarea class="form-control" id="editSppdCatatan">${escHtml(p.catatan || '')}</textarea></div>
-    <button class="btn btn-primary" onclick="simpanEditSPPD('${id}')">💾 Simpan Perubahan</button>`,
+    <div class="form-group">
+      <label>Lampiran / Eviden (JPG, PNG, PDF, Word, Excel)</label>
+      <input type="file" id="editSppdFile" class="form-control" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx">
+      ${p.evidenceURL ? `<p class="text-xs mt-4">File saat ini: <a href="${p.evidenceURL}" target="_blank" class="color-primary fw-700">Lihat File</a></p>` : ''}
+    </div>
+    <button class="btn btn-primary" id="btnSimpanEditSPPD" onclick="simpanEditSPPD('${id}')">💾 Simpan Perubahan</button>`,
     true
   );
 }
 
 async function simpanEditSPPD(id) {
-  const data = {
-    nama: document.getElementById('editSppdNama').value,
-    departemen: document.getElementById('editSppdDept').value,
-    tujuan: document.getElementById('editSppdTujuan').value,
-    klien: document.getElementById('editSppdKlien').value,
-    tanggalMulai: document.getElementById('editSppdMulai').value,
-    tanggalSelesai: document.getElementById('editSppdSelesai').value,
-    keperluan: document.getElementById('editSppdKeperluan').value,
-    transportasi: document.getElementById('editSppdTransport').value,
-    akomodasi: document.getElementById('editSppdAkomodasi').value,
-    biayaTransport: parseInt(document.getElementById('editSppdBiayaTransport').value) || 0,
-    biayaAkomodasi: parseInt(document.getElementById('editSppdBiayaAkomodasi').value) || 0,
-    biayaMakan: parseInt(document.getElementById('editSppdBiayaMakan').value) || 0,
-    biayaLain: parseInt(document.getElementById('editSppdBiayaLain').value) || 0,
-    status: document.getElementById('editSppdStatus').value,
-    catatan: document.getElementById('editSppdCatatan').value,
-    updatedAt: new Date().toISOString(),
-    editedBy: currentUser.nama,
-  };
-  data.totalEstimasi = data.biayaTransport + data.biayaAkomodasi + data.biayaMakan + data.biayaLain;
-  await db.collection('hrd_perjalanan_dinas').doc(id).update(data);
-  closeModalDirect();
-  toast('SPPD berhasil diupdate', 'success');
-  showSPPDTab('daftar');
+  const btn = document.getElementById('btnSimpanEditSPPD');
+  const originalText = btn.innerText;
+
+  const fileInput = document.getElementById('editSppdFile');
+  let evidenceURL = '';
+
+  try {
+    btn.disabled = true;
+    btn.innerText = '⏳ Menyimpan...';
+
+    const updateData = {
+      nama: document.getElementById('editSppdNama').value,
+      departemen: document.getElementById('editSppdDept').value,
+      tujuan: document.getElementById('editSppdTujuan').value,
+      klien: document.getElementById('editSppdKlien').value,
+      tanggalMulai: document.getElementById('editSppdMulai').value,
+      tanggalSelesai: document.getElementById('editSppdSelesai').value,
+      keperluan: document.getElementById('editSppdKeperluan').value,
+      transportasi: document.getElementById('editSppdTransport').value,
+      akomodasi: document.getElementById('editSppdAkomodasi').value,
+      biayaTransport: parseInt(document.getElementById('editSppdBiayaTransport').value) || 0,
+      biayaAkomodasi: parseInt(document.getElementById('editSppdBiayaAkomodasi').value) || 0,
+      biayaMakan: parseInt(document.getElementById('editSppdBiayaMakan').value) || 0,
+      biayaLain: parseInt(document.getElementById('editSppdBiayaLain').value) || 0,
+      status: document.getElementById('editSppdStatus').value,
+      catatan: document.getElementById('editSppdCatatan').value,
+      updatedAt: new Date().toISOString(),
+      editedBy: currentUser.nama,
+    };
+
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      const path = `sppd/${Date.now()}_${file.name}`;
+      updateData.evidenceURL = await uploadFileToStorage(file, path);
+    }
+
+    updateData.totalEstimasi = updateData.biayaTransport + updateData.biayaAkomodasi + updateData.biayaMakan + updateData.biayaLain;
+    await db.collection('hrd_perjalanan_dinas').doc(id).update(updateData);
+    closeModalDirect();
+    toast('SPPD berhasil diupdate', 'success');
+    showSPPDTab('daftar');
+  } catch (e) {
+    console.error(e);
+    toast('Gagal update: ' + e.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerText = originalText;
+  }
 }
 
 async function viewSPPD(id) {
@@ -1169,6 +1236,7 @@ async function viewSPPD(id) {
       <div class="fw-700" style="grid-column:span 2;border-top:1px solid var(--border);padding-top:8px;margin-top:4px">Total: ${formatCurrency(p.totalEstimasi)}</div>
     </div>
     ${p.catatan ? `<div class="mb-16"><b>Catatan:</b><div class="text-sm mt-4">${escHtml(p.catatan)}</div></div>` : ''}
+    ${p.evidenceURL ? `<div class="mb-16"><b>Lampiran / Eviden:</b><div class="mt-4">${p.evidenceURL.match(/\.(jpg|jpeg|png|gif|webp)/i) ? `<img src="${p.evidenceURL}" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open('${p.evidenceURL}')">` : `<a href="${p.evidenceURL}" target="_blank" class="btn btn-xs btn-outline-primary">📎 Lihat Dokumen</a>`}</div></div>` : ''}
     <div style="margin-top:16px;padding:14px;border-radius:10px;border:1px solid #e0e0e0;background:${p.status === 'approved' || p.status === 'selesai' ? '#e8f5e9' : p.status === 'rejected' ? '#fce4ec' : '#fff8e1'}">
       <div class="fw-700 mb-8" style="color:${p.status === 'approved' || p.status === 'selesai' ? '#2e7d32' : p.status === 'rejected' ? '#c62828' : '#f57f17'}">📋 Status Approval</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.85rem">

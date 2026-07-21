@@ -2800,26 +2800,65 @@ function editKasbonDoc(id) {
     .get()
     .then((d) => {
       const p = d.data();
+      let evidenceHtml = '';
+      if (p.evidenceURL) {
+        evidenceHtml = `<div class="mb-8"><label class="text-xs color-gray">Lampiran Saat Ini</label><div><a href="${p.evidenceURL}" target="_blank" class="text-sm color-primary">📎 Lihat Lampiran</a></div></div>`;
+      }
       openModal(
-        `<div class="modal-title">✏️ Edit Kasbon/Loan</div><div class="grid-2"><div class="form-group"><label>Nama</label><input class="form-control" id="ekNama" value="${escHtml(p.nama || '')}"></div><div class="form-group"><label>Jenis</label><select class="form-control" id="ekJenis"><option ${p.jenis === 'Kasbon' ? 'selected' : ''}>Kasbon</option><option ${p.jenis === 'Pinjaman Karyawan' ? 'selected' : ''}>Pinjaman Karyawan</option></select></div></div><div class="grid-2"><div class="form-group"><label>Jumlah</label><input class="form-control" type="number" id="ekJumlah" value="${p.jumlah || 0}"></div><div class="form-group"><label>Cicilan (bln)</label><input class="form-control" type="number" id="ekCicilan" value="${p.cicilan || 1}"></div></div><div class="form-group"><label>Status</label><select class="form-control" id="ekStatus"><option value="pending" ${p.status === 'pending' ? 'selected' : ''}>Pending</option><option value="approved" ${p.status === 'approved' ? 'selected' : ''}>Approved</option><option value="rejected" ${p.status === 'rejected' ? 'selected' : ''}>Rejected</option><option value="lunas" ${p.status === 'lunas' ? 'selected' : ''}>Lunas</option></select></div><button class="btn btn-primary" onclick="updateKasbonDoc('${id}')">💾 Simpan</button><button class="btn btn-danger" style="margin-left:8px" onclick="hapusDoc('hrd_kasbon','${id}','kasbon')">🗑️ Hapus</button>`
+        `<div class="modal-title">✏️ Edit Kasbon/Loan</div>
+        <div class="grid-2">
+          <div class="form-group"><label>Nama</label><input class="form-control" id="ekNama" value="${escHtml(p.nama || '')}"></div>
+          <div class="form-group"><label>Jenis</label><select class="form-control" id="ekJenis"><option ${p.jenis === 'Kasbon' ? 'selected' : ''}>Kasbon</option><option ${p.jenis === 'Pinjaman Karyawan' ? 'selected' : ''}>Pinjaman Karyawan</option></select></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label>Jumlah</label><input class="form-control" type="number" id="ekJumlah" value="${p.jumlah || 0}"></div>
+          <div class="form-group"><label>Cicilan (bln)</label><input class="form-control" type="number" id="ekCicilan" value="${p.cicilan || 1}"></div>
+        </div>
+        ${evidenceHtml}
+        <div class="form-group"><label>Ganti Lampiran (JPG, PNG, PDF, Word, Excel)</label><input type="file" id="ekFile" class="form-control" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"></div>
+        <div class="form-group"><label>Status</label><select class="form-control" id="ekStatus"><option value="pending" ${p.status === 'pending' ? 'selected' : ''}>Pending</option><option value="approved" ${p.status === 'approved' ? 'selected' : ''}>Approved</option><option value="rejected" ${p.status === 'rejected' ? 'selected' : ''}>Rejected</option><option value="lunas" ${p.status === 'lunas' ? 'selected' : ''}>Lunas</option></select></div>
+        <button class="btn btn-primary" onclick="updateKasbonDoc('${id}')">💾 Simpan</button>
+        <button class="btn btn-danger" style="margin-left:8px" onclick="hapusDoc('hrd_kasbon','${id}','kasbon')">🗑️ Hapus</button>`
       );
     });
 }
 async function updateKasbonDoc(id) {
-  await db
-    .collection('hrd_kasbon')
-    .doc(id)
-    .update({
+  const btn = event.target;
+  const originalText = btn.innerText;
+
+  const fileInput = document.getElementById('ekFile');
+  let evidenceURL = '';
+
+  try {
+    btn.disabled = true;
+    btn.innerText = 'Saving...';
+
+    const updateData = {
       nama: document.getElementById('ekNama').value,
       jenis: document.getElementById('ekJenis').value,
       jumlah: Number(document.getElementById('ekJumlah').value) || 0,
       cicilan: Number(document.getElementById('ekCicilan').value) || 1,
       status: document.getElementById('ekStatus').value,
       updatedAt: new Date().toISOString(),
-    });
-  closeModalDirect();
-  toast('Kasbon diupdate', 'success');
-  renderKasbon();
+    };
+
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      const path = `kasbon/${Date.now()}_${file.name}`;
+      updateData.evidenceURL = await uploadFileToStorage(file, path);
+    }
+
+    await db.collection('hrd_kasbon').doc(id).update(updateData);
+    closeModalDirect();
+    toast('Kasbon diupdate', 'success');
+    renderKasbon();
+  } catch (e) {
+    console.error(e);
+    toast('Gagal update: ' + e.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerText = originalText;
+  }
 }
 
 // ── HELPER HAPUS ──────────────────────────────────────────────
