@@ -153,395 +153,272 @@ async function generateAllGaji() {
     </div>
     <button class="btn btn-success" onclick="doGenerateAllGaji()">⚡ Generate Sekarang</button>`);
 }
-async function doGenerateAllGaji() {
-  const incTunjCuti = document.getElementById('genIncTunjCuti')?.checked || false;
-  const incBPJSKes = document.getElementById('genIncBPJSKes')?.checked || false;
-  const incBPJSTK = document.getElementById('genIncBPJSTK')?.checked || false;
-  const incPPH = document.getElementById('genIncPPH')?.checked || false;
-  closeModalDirect();
-  if (!confirm('Konfirmasi: Generate slip gaji untuk semua karyawan aktif?')) return;
+async function doGenerateAllGaji(forcedBulan, isAuto = false) {
+  const incTunjCuti = document.getElementById('genIncTunjCuti') ? document.getElementById('genIncTunjCuti').checked : false;
+  const incBPJSKes = document.getElementById('genIncBPJSKes') ? document.getElementById('genIncBPJSKes').checked : true;
+  const incBPJSTK = document.getElementById('genIncBPJSTK') ? document.getElementById('genIncBPJSTK').checked : true;
+  const incPPH = document.getElementById('genIncPPH') ? document.getElementById('genIncPPH').checked : true;
+
+  if (!isAuto) closeModalDirect();
+  if (!isAuto && !confirm('Konfirmasi: Generate slip gaji untuk semua karyawan aktif?')) return;
+
   try {
-    console.log(
-      '[PAYROLL] Starting generate for period:',
-      document.getElementById('filterBulanGaji')?.value || monthStr()
-    );
-    const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
+    const bulan = forcedBulan || document.getElementById('filterBulanGaji')?.value || monthStr();
     const [year, month] = bulan.split('-').map(Number);
+
     // Periode gaji: tgl 21 bulan lalu s/d tgl 20 bulan ini
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
     const periodeStart = `${prevYear}-${String(prevMonth).padStart(2, '0')}-21`;
     const periodeEnd = `${year}-${String(month).padStart(2, '0')}-20`;
 
+    // Hitung Total Hari Kalender dalam Periode
+    const dStart = new Date(periodeStart + 'T00:00:00');
+    const dEnd = new Date(periodeEnd + 'T00:00:00');
+    const totalKalender = Math.round((dEnd - dStart) / (1000 * 60 * 60 * 24)) + 1;
+
     const kSnapAll = await db.collection('hrd_karyawan').get();
     const kDocs = [];
     kSnapAll.forEach((d) => {
       const data = d.data();
-      if (data.status === 'aktif') kDocs.push({ id: d.id, data: () => data, ref: d.ref });
+      if (data.status === 'aktif' || data.status === 'probation' || data.status === 'kontrak') {
+          kDocs.push({ id: d.id, ...data });
+      }
     });
-    const kSnap = { empty: kDocs.length === 0, docs: kDocs, size: kDocs.length };
-    if (kSnap.empty) {
-      toast('Tidak ada karyawan aktif', 'warning');
+
+    if (kDocs.length === 0) {
+      if (!isAuto) toast('Tidak ada karyawan aktif', 'warning');
       return;
     }
+
     // Delete existing slips for this period
-    const existSnapAll = await db.collection('hrd_penggajian').get();
-    const toDelete = [];
-    existSnapAll.forEach((d) => {
-      if (d.data().periode === bulan) toDelete.push(d.ref);
-    });
-    if (toDelete.length > 0) {
-      for (const ref of toDelete) {
-        await ref.delete();
-      }
+    const existSnapAll = await db.collection('hrd_penggajian').where('periode', '==', bulan).get();
+    for (const doc of existSnapAll.docs) {
+        await doc.ref.delete();
     }
-    // Load all related data (using simple queries + client-side filtering to avoid composite index requirements)
+
+    // Load data masal
     const [
       absenSnap,
       reimbSnap,
       kasbonSnap,
       tunjSnap,
-      kpiSnap,
       insentifSnap,
       cutiSnap,
       overtimeSnap,
       dinasLuarSnap,
-      usersSnap,
       liburSnap,
+      offboardingSnap
     ] = await Promise.all([
-      db.collection('hrd_absensi').get(),
-      db.collection('hrd_reimbursement').get(),
-      db.collection('hrd_kasbon').get(),
+      db.collection('hrd_absensi').where('tanggal', '>=', periodeStart).where('tanggal', '<=', periodeEnd).get(),
+      db.collection('hrd_reimbursement').where('status', '==', 'approved').get(),
+      db.collection('hrd_kasbon').where('status', 'in', ['aktif', 'approved']).get(),
       db.collection('hrd_tunjangan').get(),
-      db.collection('hrd_kpi').get(),
-      db.collection('hrd_insentif').get(),
-      db.collection('hrd_cuti').get(),
-      db.collection('hrd_overtime').get(),
-      db.collection('hrd_dinas_luar').get().catch(() => ({ forEach: () => {} })),
-      db.collection('hrd_users').get(),
+      db.collection('hrd_insentif').where('status', '==', 'approved').get(),
+      db.collection('hrd_cuti').where('status', '==', 'approved').get(),
+      db.collection('hrd_overtime').where('status', '==', 'approved').get(),
+      db.collection('hrd_dinas_luar').where('status', '==', 'approved').get(),
       db.collection('hrd_hari_libur').get(),
+      db.collection('hrd_offboarding').get()
     ]);
 
-    // Build holiday set for the period
     const holidays = new Set();
     liburSnap.forEach(d => {
         const h = d.data();
         if (h.tanggal >= periodeStart && h.tanggal <= periodeEnd) holidays.add(h.tanggal);
     });
 
-    // Helper: is work day?
     const isWorkDay = (dateStr) => {
         const dt = new Date(dateStr + 'T00:00:00');
         const day = dt.getDay();
         return day !== 0 && day !== 6 && !holidays.has(dateStr);
     };
 
-    // Build mapping between hrd_karyawan and hrd_users
-    const karyToUserMap = {};
-    const userToKaryMap = {}; // name (lower) to userId
-    usersSnap.forEach((d) => {
-      const u = d.data();
-      const userId = d.id;
-      if (u.linkedKaryawan) karyToUserMap[u.linkedKaryawan] = userId;
-      userToKaryMap[(u.nama || '').trim().toLowerCase()] = userId;
+    // Resign map
+    const resignMap = {};
+    offboardingSnap.forEach(d => {
+        const o = d.data();
+        if (o.tanggalKeluar) resignMap[(o.nama || '').toLowerCase().trim()] = o.tanggalKeluar;
     });
 
-    // Build attendance map: userId -> { hadirDays: Set }
-    const absenMap = {};
-    absenSnap.forEach((d) => {
-      const p = d.data();
-      if (p.tanggal < periodeStart || p.tanggal > periodeEnd) return;
-      const uid = p.userId;
-      if (!uid) return;
-      if (!absenMap[uid]) absenMap[uid] = { hadirDays: new Set() };
-      if (p.tipe === 'masuk' || p.tipe === 'dinas_luar') absenMap[uid].hadirDays.add(p.tanggal);
-    });
-
-    // Build cross-collection data maps indexed by userId for consistent lookup
-    // Helper to get userId from karyawan doc
-    const getUserId = (kDoc) => {
-        const kId = kDoc.id;
-        const kName = (kDoc.data().nama || '').trim().toLowerCase();
-        return karyToUserMap[kId] || userToKaryMap[kName] || kId;
-    };
-
-    // Cuti map: userId -> {ds: jenis} (ONLY WORK DAYS)
-    const cutiMap = {};
-    const cutiDatesMap = {}; // userId -> array of dates
-    cutiSnap.forEach((d) => {
-      const c = d.data();
-      if (c.status !== 'approved') return;
-      const uids = [c.userId, (c.nama || '').toLowerCase().trim()].filter(Boolean);
-      const start = new Date(c.mulai + 'T00:00:00');
-      const end = new Date(c.selesai + 'T00:00:00');
-
-      const dates = [];
-      for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
-        const ds = dt.toISOString().split('T')[0];
-        if (ds >= periodeStart && ds <= periodeEnd && isWorkDay(ds)) dates.push(ds);
-      }
-
-      uids.forEach(uid => {
-          if (!cutiMap[uid]) cutiMap[uid] = {};
-          if (!cutiDatesMap[uid]) cutiDatesMap[uid] = [];
-          dates.forEach(ds => {
-              cutiMap[uid][ds] = c.jenis || 'Cuti';
-              if (!cutiDatesMap[uid].includes(ds)) cutiDatesMap[uid].push(ds);
-          });
-      });
-    });
-
-    // Overtime map...
-    const otMap = {};
-    overtimeSnap.forEach((d) => {
-      const o = d.data();
-      if (o.status !== 'approved') return;
-      if (o.tanggal >= periodeStart && o.tanggal <= periodeEnd) {
-        const dur =
-          typeof o.durasi === 'number'
-            ? o.durasi
-            : typeof o.durasi === 'string'
-              ? parseFloat(o.durasi.replace(/[^0-9.]/g, '')) || 0
-              : parseFloat(o.durasi) || 0;
-
-        const uids = [o.userId, (o.nama || '').toLowerCase().trim()].filter(Boolean);
-        uids.forEach(uid => {
-            if (!otMap[uid]) otMap[uid] = 0;
-            otMap[uid] += dur;
-        });
-      }
-    });
-
-    // Dinas luar map: userId -> {ds: true} (ONLY WORK DAYS)
-    const dinasMap = {};
-    const dinasDatesMap = {}; // userId -> array of dates
-    dinasLuarSnap.forEach((d) => {
-      const dl = d.data();
-      if (dl.status !== 'approved') return;
-      const startD = dl.tanggalMulai || dl.tanggal;
-      const endD = dl.tanggalSelesai || dl.tanggal;
-      if (!startD) return;
-
-      const dates = [];
-      const endTime = new Date((endD || startD) + 'T00:00:00').getTime();
-      let maxIter = 366;
-      for (let dt = new Date(startD + 'T00:00:00'); dt.getTime() <= endTime; dt.setDate(dt.getDate() + 1)) {
-        if (--maxIter < 0) break;
-        const ds = dt.toISOString().split('T')[0];
-        if (ds >= periodeStart && ds <= periodeEnd && isWorkDay(ds)) dates.push(ds);
-      }
-
-      const uids = [dl.userId, (dl.nama || '').toLowerCase().trim()].filter(Boolean);
-      uids.forEach(uid => {
-          if (!dinasMap[uid]) dinasMap[uid] = {};
-          if (!dinasDatesMap[uid]) dinasDatesMap[uid] = [];
-          dates.forEach(ds => {
-              dinasMap[uid][ds] = true;
-              if (!dinasDatesMap[uid].includes(ds)) dinasDatesMap[uid].push(ds);
-          });
-      });
-    });
-
-    // Build other maps
-    const reimbMap = {},
-      kasbonMap = {},
-      kpiMap = {},
-      insentifMap = {};
-    reimbSnap.forEach((d) => {
-      const r = d.data();
-      if (r.status !== 'approved') return;
-      const n = (r.nama || '').toLowerCase().trim();
-      reimbMap[n] = (reimbMap[n] || 0) + (r.jumlah || 0);
-    });
-    kasbonSnap.forEach((d) => {
-      const r = d.data();
-      if (r.status === 'aktif') {
-        const n = (r.nama || '').toLowerCase().trim();
-        const angsuran = Math.ceil((r.jumlah || 0) / (r.cicilan || 1));
-        kasbonMap[n] = (kasbonMap[n] || 0) + angsuran;
-      }
-    });
-    kpiSnap.forEach((d) => {
-      const r = d.data();
-      const n = (r.nama || '').toLowerCase().trim();
-      if (!kpiMap[n] || r.skor > kpiMap[n]) kpiMap[n] = r.skor || 0;
-    });
-    insentifSnap.forEach((d) => {
-      const r = d.data();
-      const n = (r.nama || '').toLowerCase().trim();
-      insentifMap[n] = (insentifMap[n] || 0) + (r.nominal || 0);
-    });
-    const tunjList = [];
-    tunjSnap.forEach((d) => tunjList.push(d.data()));
-
-    // Hitung hari kerja dalam periode (exclude weekend & holidays)
-    let hariKerja = 0;
-    for (
-      let dt = new Date(periodeStart + 'T00:00:00');
-      dt <= new Date(periodeEnd + 'T00:00:00');
-      dt.setDate(dt.getDate() + 1)
-    ) {
-      const ds = dt.toISOString().split('T')[0];
-      if (isWorkDay(ds)) hariKerja++;
-    }
-
-    let count = 0;
-    for (const doc of kSnap.docs) {
-      const k = doc.data();
+    for (const k of kDocs) {
       const namaLow = (k.nama || '').trim().toLowerCase();
-      const uid = getUserId(doc);
-      const isBOD = (k.role === 'bod' || (k.gradeJabatan || '').toUpperCase() === 'BOD');
 
-      const gaji = k.gajiPokok || 0;
-      const gajiPerHari = Math.round(gaji / (hariKerja || 22));
+      // 1. Hitung Masa Aktif Prorata (Kalender)
+      const tglMasuk = k.tanggalMasuk || periodeStart;
+      const tglKeluar = resignMap[namaLow] || '9999-12-31';
 
-      // Kehadiran (check by userId AND name fallback) - ONLY WORK DAYS
-      const presenceSet = absenMap[uid]?.hadirDays || absenMap[namaLow]?.hadirDays;
-      let kehadiran = 0;
-      if (presenceSet) {
-          presenceSet.forEach(d => {
-              if (isWorkDay(d)) kehadiran++;
-          });
+      const rangeStart = tglMasuk > periodeStart ? tglMasuk : periodeStart;
+      const rangeEnd = tglKeluar < periodeEnd ? tglKeluar : periodeEnd;
+
+      let hariAktifKalender = 0;
+      if (rangeEnd >= rangeStart) {
+          const rs = new Date(rangeStart + 'T00:00:00');
+          const re = new Date(rangeEnd + 'T00:00:00');
+          hariAktifKalender = Math.round((re - rs) / (1000 * 60 * 60 * 24)) + 1;
       }
 
-      const cutiDates = (cutiDatesMap[uid] || cutiDatesMap[namaLow] || []);
-      const dinasDates = (dinasDatesMap[uid] || dinasDatesMap[namaLow] || []);
-      const cutiHari = cutiDates.length;
-      const dinasHari = dinasDates.length;
-
-      // Track actual absent dates for transparency
-      const absentDates = [];
-      if (!isBOD) {
-          for (let dt = new Date(periodeStart + 'T00:00:00'); dt <= new Date(periodeEnd + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
-            const ds = dt.toISOString().split('T')[0];
-            if (isWorkDay(ds)) {
-                const hasPresence = presenceSet && presenceSet.has(ds);
-                const hasCuti = (cutiMap[uid] && cutiMap[uid][ds]) || (cutiMap[namaLow] && cutiMap[namaLow][ds]);
-                const hasDinas = (dinasMap[uid] && dinasMap[uid][ds]) || (dinasMap[namaLow] && dinasMap[namaLow][ds]);
-
-                if (!hasPresence && !hasCuti && !hasDinas) {
-                    absentDates.push(ds);
-                }
-            }
-          }
+      // Gaji Pokok Prorata atau Full
+      const isFullMonth = (tglMasuk <= periodeStart && tglKeluar >= periodeEnd);
+      let gajiPokok = k.gajiPokok || 0;
+      if (!isFullMonth) {
+          gajiPokok = Math.round((hariAktifKalender / totalKalender) * (k.gajiPokok || 0));
       }
 
-      // Total Hari Efektif
-      const hariEfektif = isBOD ? hariKerja : Math.min(kehadiran + cutiHari + dinasHari, hariKerja);
-      const tidakHadir = isBOD ? 0 : Math.max(0, hariKerja - hariEfektif);
-      const potonganAbsen = tidakHadir * gajiPerHari;
-
-      // Lembur (ONLY approved requests)
-      const lemburJam = otMap[uid] || otMap[namaLow] || 0;
-      const gajiPerJam = Math.round(gaji / (hariKerja * 8));
-      let lemburNominal = 0;
-      if (lemburJam > 0) {
-        const jam1 = Math.min(lemburJam, 1);
-        const jamSisa = Math.max(0, lemburJam - 1);
-        lemburNominal = Math.round(jam1 * gajiPerJam * 1.5 + jamSisa * gajiPerJam * 2);
-      }
-
-      // Tunjangan
-      let tunj = 0;
-      tunjList.forEach((t) => {
-        const p = (t.penerima || 'Semua').toLowerCase();
-        if (p === 'semua' || p.includes(namaLow)) tunj += t.nominal || 0;
-      });
-      const tunjCuti = incTunjCuti ? Math.round(gaji / 12) : 0;
-
-      // Insentif (Strict period filtering)
-      let insentif = 0;
-      insentifSnap.forEach(d => {
-          const ins = d.data();
-          if ((ins.nama || '').toLowerCase().trim() === namaLow && ins.status === 'approved') {
-              const appDate = ins.approvedAt || ins.createdAt;
-              const ds = typeof appDate === 'string' ? appDate.split('T')[0] : "";
-              if (ds >= periodeStart && ds <= periodeEnd) insentif += (ins.nominal || 0);
+      // 2. Kehadiran & Mangkir (Hanya di dalam range aktif)
+      let kehadiran = 0, mangkir = 0, cuti = 0, dinas = 0, lemburJam = 0;
+      const absenDates = new Set();
+      absenSnap.forEach(d => {
+          const a = d.data();
+          if ((a.userId === k.id || (a.nama || '').toLowerCase().trim() === namaLow) &&
+              a.tanggal >= rangeStart && a.tanggal <= rangeEnd && (a.tipe === 'masuk' || a.tipe === 'dinas_luar')) {
+              absenDates.add(a.tanggal);
           }
       });
 
-      // Reimbursement (Strict period filtering + detail for view)
-      let reimb = 0;
-      const reimbDetails = [];
-      reimbSnap.forEach(d => {
-          const r = d.data();
-          if ((r.nama || '').toLowerCase().trim() === namaLow && r.status === 'approved') {
-              const appDate = r.approvedAt || r.createdAt;
-              const ds = typeof appDate === 'string' ? appDate.split('T')[0] : "";
-              if (ds >= periodeStart && ds <= periodeEnd) {
-                  reimb += (r.jumlah || 0);
-                  reimbDetails.push({
-                      id: d.id,
-                      judul: r.judul || "Reimbursement",
-                      nominal: r.jumlah || 0,
-                      bukti: r.buktiURL || r.bukti || "",
-                      tanggal: ds
-                  });
+      const cutiDates = new Set();
+      cutiSnap.forEach(d => {
+          const c = d.data();
+          if ((c.userId === k.id || (c.nama || '').toLowerCase().trim() === namaLow)) {
+              for (let dt = new Date(c.mulai + 'T00:00:00'); dt <= new Date(c.selesai + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
+                  const ds = dt.toISOString().split('T')[0];
+                  if (ds >= rangeStart && ds <= rangeEnd) cutiDates.add(ds);
               }
           }
       });
 
-      const loan = kasbonMap[namaLow] || 0;
-      const bpjsKes = incBPJSKes ? Math.round(gaji * 0.01) : 0;
-      const bpjsTK = incBPJSTK ? Math.round(gaji * 0.02) : 0;
+      const dinasDates = new Set();
+      dinasLuarSnap.forEach(d => {
+          const dl = d.data();
+          if ((dl.userId === k.id || (dl.nama || '').toLowerCase().trim() === namaLow)) {
+              const start = dl.tanggalMulai || dl.tanggal;
+              const end = dl.tanggalSelesai || dl.tanggal;
+              for (let dt = new Date(start + 'T00:00:00'); dt <= new Date(end + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
+                  const ds = dt.toISOString().split('T')[0];
+                  if (ds >= rangeStart && ds <= rangeEnd) dinasDates.add(ds);
+              }
+          }
+      });
 
-      const bruto = gaji + tunj + tunjCuti + insentif + reimb + lemburNominal - potonganAbsen;
-      let pph21 = 0;
-      if (incPPH) {
-        const penghasilanNetto = Math.max(0, (gaji + tunj + tunjCuti - bpjsKes - bpjsTK) * 12 - 54000000);
-        let pphT = 0;
-        if (penghasilanNetto <= 60000000) pphT = penghasilanNetto * 0.05;
-        else if (penghasilanNetto <= 250000000) pphT = 3000000 + (penghasilanNetto - 60000000) * 0.15;
-        else if (penghasilanNetto <= 500000000) pphT = 31500000 + (penghasilanNetto - 250000000) * 0.25;
-        else pphT = 94000000 + (penghasilanNetto - 500000000) * 0.3;
-        pph21 = Math.max(0, Math.round(pphT / 12));
+      // Hitung per hari kerja (Mon-Fri)
+      for (let dt = new Date(rangeStart + 'T00:00:00'); dt <= new Date(rangeEnd + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
+          const ds = dt.toISOString().split('T')[0];
+          if (isWorkDay(ds)) {
+              if (absenDates.has(ds)) kehadiran++;
+              else if (cutiDates.has(ds)) cuti++;
+              else if (dinasDates.has(ds)) dinas++;
+              else mangkir++;
+          }
       }
 
-      const totalBersih = bruto - bpjsKes - bpjsTK - loan - pph21;
+      // 3. Potongan Mangkir: (Jumlah Mangkir / Total Hari Kalender Periode) x Gaji Pokok
+      const potonganMangkir = Math.round((mangkir / totalKalender) * (k.gajiPokok || 0));
+
+      // 4. Lembur
+      overtimeSnap.forEach(d => {
+          const o = d.data();
+          if ((o.userId === k.id || (o.nama || '').toLowerCase().trim() === namaLow) && o.tanggal >= periodeStart && o.tanggal <= periodeEnd) {
+              lemburJam += (parseFloat(o.durasi) || 0);
+          }
+      });
+      const gajiPerJam = Math.round((k.gajiPokok || 0) / 173);
+      const lemburNominal = Math.round(lemburJam * gajiPerJam);
+
+      // 5. Tunjangan & Keuangan
+      let tunjTetap = 0, tunjLain = 0;
+      tunjSnap.forEach(d => {
+          const t = d.data();
+          const p = (t.penerima || 'Semua').toLowerCase();
+          if (p === 'semua' || p.includes(namaLow)) {
+              if (t.jenis === 'tetap') tunjTetap += (t.nominal || 0);
+              else tunjLain += (t.nominal || 0);
+          }
+      });
+
+      let insentif = 0;
+      insentifSnap.forEach(d => {
+          const ins = d.data();
+          const insDate = ins.approvedAt || ins.createdAt;
+          if ((ins.nama || '').toLowerCase().trim() === namaLow && insDate >= periodeStart && insDate <= periodeEnd) {
+              insentif += (ins.nominal || 0);
+          }
+      });
+
+      let reimb = 0;
+      reimbSnap.forEach(d => {
+          const r = d.data();
+          const rDate = r.approvedAt || r.createdAt;
+          if ((r.nama || '').toLowerCase().trim() === namaLow && rDate >= periodeStart && rDate <= periodeEnd) {
+              reimb += (r.jumlah || 0);
+          }
+      });
+
+      let loan = 0;
+      kasbonSnap.forEach(d => {
+          const r = d.data();
+          if ((r.nama || '').toLowerCase().trim() === namaLow) {
+              loan += (r.angsuran || r.jumlah || 0);
+          }
+      });
+
+      // 6. BPJS & PPh21 (Merujuk pada GAJI POKOK UTUH)
+      const bpjsKes = incBPJSKes ? Math.round((k.gajiPokok || 0) * 0.01) : 0;
+      const bpjsTK = incBPJSTK ? Math.round((k.gajiPokok || 0) * 0.02) : 0;
+
+      // Bruto = Gaji Pokok (Prorata) + Tunjangan + Insentif + Reimb + Lembur - Potongan Mangkir
+      const bruto = gajiPokok + tunjTetap + tunjLain + insentif + reimb + lemburNominal - potonganMangkir;
+
+      let pph21 = 0;
+      if (incPPH) {
+          const nettoTahunan = Math.max(0, ( (k.gajiPokok || 0) + tunjTetap - bpjsKes - bpjsTK ) * 12 - 54000000);
+          let pphT = 0;
+          if (nettoTahunan <= 60000000) pphT = nettoTahunan * 0.05;
+          else if (nettoTahunan <= 250000000) pphT = 3000000 + (nettoTahunan - 60000000) * 0.15;
+          pph21 = Math.round(pphT / 12);
+      }
+
+      const thp = bruto - bpjsKes - bpjsTK - loan - pph21;
 
       await db.collection('hrd_penggajian').add({
-        nama: k.nama,
-        karyawanId: doc.id,
-        userId: uid,
-        periode: bulan,
-        periodeStart,
-        periodeEnd,
-        gajiPokok: gaji,
-        tunjangan: tunj,
-        tunjCuti,
-        insentif,
-        bonus: 0,
-        reimbursement: reimb,
-        reimbursementDetails: reimbDetails,
-        lembur: lemburNominal,
-        lemburJam,
-        bpjsKesehatan: bpjsKes,
-        bpjsTK,
-        potongan: potonganAbsen,
-        absentDates,
-        cutiDates,
-        dinasDates,
-        kasbon: loan,
-        pph21,
-        totalBersih,
-        hariKerja,
-        kehadiran,
-        cutiHari,
-        dinasHari,
-        tidakHadir,
-        kpiScore: kpiMap[namaLow] || 0,
-        createdAt: new Date().toISOString(),
+          nama: k.nama,
+          karyawanId: k.id,
+          periode: bulan,
+          periodeStart,
+          periodeEnd,
+          gajiPokok, // Ini yang sudah diprorata jika masuk tengah periode
+          gajiPokokUtuh: k.gajiPokok,
+          tunjangan: tunjTetap + tunjLain,
+          insentif,
+          reimbursement: reimb,
+          lembur: lemburNominal,
+          lemburJam,
+          bpjsKesehatan: bpjsKes,
+          bpjsTK,
+          potonganMangkir,
+          mangkirHari: mangkir,
+          kasbon: loan,
+          pph21,
+          totalBersih: thp,
+          hariKerja: kehadiran + mangkir + cuti + dinas,
+          kehadiran,
+          cuti: cuti,
+          dinas: dinas,
+          isProrata: !isFullMonth,
+          activeCalendarDays: hariAktifKalender,
+          totalCalendarDays: totalKalender,
+          createdAt: new Date().toISOString(),
+          status: 'pending'
       });
-      count++;
     }
-    toast(
-      `${count} slip gaji di-generate.\nPeriode: ${periodeStart} s/d ${periodeEnd}\nTerintegrasi: Kehadiran, Lembur, Cuti, PPH21 (UU HPP)`,
-      'success'
-    );
-    loadGaji();
+
+    if (!isAuto) {
+        toast('✅ Slip gaji berhasil digenerate', 'success');
+        loadGaji();
+    }
   } catch (e) {
-    console.error('Generate gaji error:', e);
-    toast('Error: ' + e.message, 'error');
+    console.error('Payroll generate error:', e);
+    if (!isAuto) toast('Gagal: ' + e.message, 'danger');
+    throw e;
   }
 }
 function modalGaji() {

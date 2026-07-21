@@ -2962,72 +2962,127 @@ function viewAbsenDinas(id) {
 // ── GENERATE ABSENSI PERIODE ──────────────────────────────────
 function modalGenerateAbsensi() {
   if (!hasAccess(6)) return toast('Akses ditolak', 'warning');
+
+  const bulan = document.getElementById('rekapBulan')?.value || monthStr();
+  const [year, month] = bulan.split('-').map(Number);
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear = month === 1 ? year - 1 : year;
+  const startDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-21`;
+  const endDate = `${year}-${String(month).padStart(2, '0')}-20`;
+
   openModal(
-    `<div class="modal-title">⚡ Generate Absensi Periode</div>
-    <p class="text-sm mb-16" style="color:#666">Generate kehadiran (Clock In + Clock Out) untuk semua karyawan aktif pada hari kerja (Senin-Jumat) dalam periode yang ditentukan.</p>
+    `<div class="modal-title">⚡ Generate Absensi & Penggajian</div>
+    <p class="text-sm mb-16" style="color:#666">Periode: <b>${formatDate(startDate)} - ${formatDate(endDate)}</b>. Fitur ini akan meng-generate kehadiran otomatis dan menghitung slip gaji periode tersebut.</p>
     <div class="grid-2">
-      <div class="form-group"><label>Tanggal Mulai</label><input class="form-control" type="date" id="genAbsStart" value="2026-04-20"></div>
-      <div class="form-group"><label>Tanggal Selesai</label><input class="form-control" type="date" id="genAbsEnd" value="2026-05-20"></div>
+      <div class="form-group"><label>Tanggal Mulai</label><input class="form-control" type="date" id="genAbsStart" value="${startDate}"></div>
+      <div class="form-group"><label>Tanggal Selesai</label><input class="form-control" type="date" id="genAbsEnd" value="${endDate}"></div>
     </div>
     <div class="grid-2">
       <div class="form-group"><label>Jam Masuk</label><input class="form-control" type="time" id="genAbsJamIn" value="08:00"></div>
       <div class="form-group"><label>Jam Pulang</label><input class="form-control" type="time" id="genAbsJamOut" value="17:00"></div>
     </div>
-    <div class="form-group"><label>Status</label><select class="form-control" id="genAbsStatus"><option value="hadir">Hadir</option><option value="tepat_waktu">Tepat Waktu</option><option value="lengkap">Lengkap</option></select></div>
-    <div style="background:#fff3e0;padding:10px;border-radius:6px;margin-bottom:16px;font-size:.78rem;border-left:4px solid var(--warning)">⚠️ Ini akan menambahkan data absensi untuk SEMUA karyawan aktif di setiap hari kerja dalam periode. Weekend (Sabtu-Minggu) akan di-skip. Data yang sudah ada TIDAK akan ditimpa.</div>
-    <button class="btn btn-success" onclick="doGenerateAbsensi()">⚡ Generate Sekarang</button>`,
+    <div class="form-group"><label>Status Kehadiran</label><select class="form-control" id="genAbsStatus"><option value="lengkap">Lengkap (Hijau)</option><option value="hadir">Hadir</option><option value="tepat_waktu">Tepat Waktu</option></select></div>
+    <div style="background:#f8f9ff;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genAutoPayroll" checked> <b>Otomatis Generate Slip Gaji</b></label>
+        <p class="text-xs mt-4" style="color:#666">Jika dicentang, sistem akan langsung menghitung Gaji Pokok, Lembur, dan Potongan sesuai aturan IMS.</p>
+    </div>
+    <button class="btn btn-success" id="btnDoGenAbs" onclick="doGenerateAbsensi()">⚡ Generate Sekarang</button>`,
     true
   );
 }
 
 async function doGenerateAbsensi() {
+  const btn = document.getElementById('btnDoGenAbs');
   const startDate = document.getElementById('genAbsStart').value;
   const endDate = document.getElementById('genAbsEnd').value;
   const jamIn = document.getElementById('genAbsJamIn').value || '08:00';
   const jamOut = document.getElementById('genAbsJamOut').value || '17:00';
   const status = document.getElementById('genAbsStatus').value || 'hadir';
+  const autoPayroll = document.getElementById('genAutoPayroll')?.checked || false;
+
   if (!startDate || !endDate) return toast('Isi tanggal mulai dan selesai', 'warning');
-  if (
-    !confirm(
-      `Generate absensi dari ${startDate} s/d ${endDate} untuk semua karyawan aktif?\nHari kerja saja (Senin-Jumat).`
-    )
-  )
-    return;
-  toast('Memproses generate...', 'info');
-  // Load karyawan aktif
-  const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
-  const karyawan = [];
-  kSnap.forEach((d) => karyawan.push({ id: d.id, ...d.data() }));
-  // Load existing absensi to avoid duplicates
-  const existSnap = await db.collection('hrd_absensi').get();
-  const existSet = new Set();
-  existSnap.forEach((d) => {
-    const p = d.data();
-    existSet.add(`${(p.nama || '').toLowerCase()}_${p.tanggal}_${p.tipe}`);
-  });
-  // Generate for each work day
-  let count = 0;
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
-    const day = dt.getDay();
-    if (day === 0 || day === 6) continue; // Skip weekend
-    const tgl = dt.toISOString().split('T')[0];
-    for (const k of karyawan) {
-      const namaLow = (k.nama || '').toLowerCase();
-      // Skip if already exists
-      if (existSet.has(`${namaLow}_${tgl}_masuk`)) continue;
-      // Add Clock In
-      await db.collection('hrd_absensi').add({
-        userId: k.id,
-        nama: k.nama,
-        tanggal: tgl,
-        waktu: jamIn,
-        tipe: 'masuk',
-        status,
-        departemen: k.departemen || '',
-        manual: true,
-        editedBy: currentUser.nama,
+  if (!confirm(`Generate absensi dari ${startDate} s/d ${endDate}?\nSistem akan mengisi kehadiran hari kerja dan mengkalkulasi slip gaji.`)) return;
+
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Memproses...';
+  toast('Memproses data kehadiran...', 'info');
+
+  try {
+    // 1. Load data essential
+    const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
+    const karyawan = [];
+    kSnap.forEach((d) => karyawan.push({ id: d.id, ...d.data() }));
+
+    // Load existing to avoid dupes
+    const existSnap = await db.collection('hrd_absensi').where('tanggal', '>=', startDate).where('tanggal', '<=', endDate).get();
+    const existSet = new Set();
+    existSnap.forEach((d) => {
+        const p = d.data();
+        existSet.add(`${(p.nama || '').toLowerCase()}_${p.tanggal}_${p.tipe}`);
+    });
+
+    // 2. Generate Attendance
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    let countAbs = 0;
+
+    for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+        const day = dt.getDay();
+        if (day === 0 || day === 6) continue; // Skip weekend
+        const tgl = dt.toISOString().split('T')[0];
+
+        for (const k of karyawan) {
+            const namaLow = (k.nama || '').toLowerCase();
+            // Skip if exists
+            if (existSet.has(`${namaLow}_${tgl}_masuk`)) continue;
+
+            await db.collection('hrd_absensi').add({
+                userId: k.id,
+                nama: k.nama,
+                tanggal: tgl,
+                waktu: jamIn,
+                tipe: 'masuk',
+                status,
+                departemen: k.departemen || '',
+                manual: true,
+                editedBy: currentUser.nama,
+                createdAt: new Date().toISOString()
+            });
+            await db.collection('hrd_absensi').add({
+                userId: k.id,
+                nama: k.nama,
+                tanggal: tgl,
+                waktu: jamOut,
+                tipe: 'pulang',
+                status,
+                departemen: k.departemen || '',
+                manual: true,
+                editedBy: currentUser.nama,
+                createdAt: new Date().toISOString()
+            });
+            countAbs++;
+        }
+    }
+
+    toast(`✅ ${countAbs} data kehadiran berhasil digenerate`, 'success');
+
+    // 3. Auto Payroll Generation
+    if (autoPayroll && typeof doGenerateAllGaji === 'function') {
+        toast('⏳ Menghitung slip gaji...', 'info');
+        const targetBulan = endDate.slice(0, 7); // YYYY-MM
+        await doGenerateAllGaji(targetBulan, true);
+    }
+
+    closeModalDirect();
+    loadRekapGrid();
+  } catch (e) {
+    console.error(e);
+    toast('Error: ' + e.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '⚡ Generate Sekarang';
+  }
+}
         createdAt: new Date().toISOString(),
       });
       // Add Clock Out
