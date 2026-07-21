@@ -407,18 +407,33 @@ window.viewLegalPerizinan = async function(id) {
     const status = p.status || "Aktif";
 
     let attachHtml = '';
-    if (p.attachments && p.attachments.length) {
+    const allAttachments = p.attachments || [];
+
+    // Support legacy format (fileURL / fileName)
+    if (p.fileURL && !allAttachments.some(a => a.data === p.fileURL)) {
+        allAttachments.push({
+            name: p.fileName || 'Dokumen',
+            type: (p.fileName || '').toLowerCase().endsWith('.pdf') ? 'application/pdf' :
+                  (p.fileName || '').toLowerCase().match(/\.(jpg|jpeg|png)$/) ? 'image/jpeg' : 'application/octet-stream',
+            data: p.fileURL
+        });
+    }
+
+    if (allAttachments.length) {
         attachHtml = `
         <div class="mt-16" style="border-top:1px solid #eee; padding-top:12px">
             <div class="fw-700 text-sm mb-8">📎 Lampiran Dokumen:</div>
             <div style="display:flex; gap:8px; flex-wrap:wrap">`;
 
-        p.attachments.forEach(a => {
+        allAttachments.forEach(a => {
             // Re-encoding for safety
             const fileObj = { name: a.name, type: a.type, data: a.data };
             const fileData = encodeURIComponent(JSON.stringify(fileObj));
 
-            if (a.data && (a.type || '').startsWith('image/')) {
+            const isImage = (a.type || '').startsWith('image/') || (a.name || '').toLowerCase().match(/\.(jpg|jpeg|png)$/);
+            const isPdf = a.type === 'application/pdf' || (a.name || '').toLowerCase().endsWith('.pdf');
+
+            if (a.data && isImage) {
                 attachHtml += `
                     <div style="text-align:center">
                         <div onclick="viewEviden('${fileData}')" style="cursor:pointer">
@@ -431,7 +446,7 @@ window.viewLegalPerizinan = async function(id) {
                 attachHtml += `
                     <div style="text-align:center">
                         <div style="cursor:pointer; padding:8px 12px; background:#f0f4ff; border-radius:6px; font-size:.75rem; border:1px solid #d0d9ff; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:80px" onclick="viewEviden('${fileData}')">
-                            <span style="font-size:1.5rem">${(a.type === 'application/pdf' ? '📕' : '📄')}</span>
+                            <span style="font-size:1.5rem">${isPdf ? '📕' : '📄'}</span>
                             <b style="color:var(--primary)">LIHAT/PRINT</b>
                         </div>
                         <div class="text-xs mt-4" style="max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${escHtml(a.name)}</div>
