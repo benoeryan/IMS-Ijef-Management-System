@@ -933,19 +933,21 @@ function monthStr() {
 }
 function getSafeDateString(val) {
     if (!val) return "";
-    let d;
-    if (typeof val === 'string') {
-        if (val.includes('T')) d = new Date(val);
-        else d = new Date(val + 'T00:00:00');
-    } else if (val.toDate) {
-        d = val.toDate();
-    } else if (val instanceof Date) {
-        d = val;
-    } else {
-        d = new Date(val);
-    }
+    let d = null;
+    try {
+        if (typeof val === 'string') {
+            if (val.includes('T')) d = new Date(val);
+            else d = new Date(val + 'T00:00:00');
+        } else if (val && typeof val === 'object' && typeof val.toDate === 'function') {
+            d = val.toDate();
+        } else if (val instanceof Date) {
+            d = val;
+        } else {
+            d = new Date(val);
+        }
+    } catch (e) { return ""; }
 
-    if (isNaN(d.getTime())) return "";
+    if (!d || isNaN(d.getTime())) return "";
 
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');

@@ -304,14 +304,15 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
 
     for (const k of kDocs) {
       const namaLow = (k.nama || '').trim().toLowerCase();
-      // Exempt specific people and BOD role from attendance docking
-      const isExempt = (k.role === 'bod' || (k.gradeJabatan || '').toUpperCase() === 'BOD' ||
-                        ['mahpudin', 'misriana', 'budi cahyo'].includes(namaLow));
+      // ROOT FIX: Management Exemption (BOD, Grade BOD, or specifically named individuals)
+      const isExempt = ( (k.role || '').toLowerCase() === 'bod' ||
+                         (k.gradeJabatan || '').toUpperCase() === 'BOD' ||
+                         (k.posisi || '').toUpperCase() === 'FOUNDER' ||
+                         ['mahpudin', 'misriana', 'budi cahyo'].some(n => namaLow.includes(n)) );
 
-      // 1. Hitung Masa Aktif Prorata (Kalender)
+      // 1. Masa Aktif Prorata
       const tglMasuk = k.tanggalMasuk || periodeStart;
       const tglKeluar = resignMap[namaLow] || '9999-12-31';
-
       const rangeStart = tglMasuk > periodeStart ? tglMasuk : periodeStart;
       const rangeEnd = tglKeluar < periodeEnd ? tglKeluar : periodeEnd;
 
@@ -321,19 +322,18 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
           const re = new Date(rangeEnd + 'T00:00:00');
           hariAktifKalender = Math.round((re - rs) / (1000 * 60 * 60 * 24)) + 1;
       }
-
       const isFullMonth = (tglMasuk <= periodeStart && tglKeluar >= periodeEnd);
       let gajiPokok = Number(k.gajiPokok) || 0;
       if (!isFullMonth) {
           gajiPokok = Math.round((hariAktifKalender / totalKalender) * (Number(k.gajiPokok) || 0));
       }
 
-      // 2. Kehadiran & Mangkir (Hanya di dalam range aktif)
+      // 2. Attendance & Mangkir (Match any activity as 'present')
       const absenDatesSet = new Set();
       absenList.forEach(a => {
-          if (((a.userId === k.id || (a.nama || '').trim().toLowerCase() === namaLow)) &&
+          const aNama = (a.nama || '').trim().toLowerCase();
+          if ((a.userId === k.id || aNama === namaLow || aNama.includes(namaLow) || namaLow.includes(aNama)) &&
               a.tanggal >= rangeStart && a.tanggal <= rangeEnd) {
-              // Mark as present if any record (masuk/pulang/etc) exists for that day
               absenDatesSet.add(a.tanggal);
           }
       });
@@ -360,7 +360,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
 
       dinasList.forEach(dl => {
           const dNama = (dl.nama || '').trim().toLowerCase();
-          if (dl.userId === k.id || dNama === namaLow || dNama.includes(namaLow)) {
+          if (dl.userId === k.id || dNama === namaLow || dNama.includes(namaLow) || namaLow.includes(dNama)) {
               const start = dl.tanggalMulai || dl.tanggal;
               const end = dl.tanggalSelesai || dl.tanggal;
               for (let dt = new Date(start + 'T00:00:00'); dt <= new Date(end + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
@@ -379,10 +379,8 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
           if (isWorkDay(ds)) {
               if (absenDatesSet.has(ds)) {
                   hadirCount++;
-              } else if (cutiSet.has(ds)) {
-                  // Cuti counted as active, not mangkir
-              } else if (dinasSet.has(ds)) {
-                  // Dinas counted as active, not mangkir
+              } else if (cutiSet.has(ds) || dinasSet.has(ds)) {
+                  // Valid absence, not mangkir
               } else {
                   mangkirCount++;
                   absentDatesArr.push(ds);
@@ -390,26 +388,25 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
           }
       }
 
-      // 3. Potongan Mangkir: (Jumlah Mangkir / Total Hari Kalender Periode) x Gaji Pokok
       const potonganMangkir = isExempt ? 0 : Math.round((mangkirCount / totalKalender) * (Number(k.gajiPokok) || 0));
 
       // 4. Lembur
       let lemburJam = 0;
       otList.forEach(o => {
-          if ((o.userId === k.id || (o.nama || '').trim().toLowerCase() === namaLow) && o.tanggal >= periodeStart && o.tanggal <= periodeEnd) {
+          const oNama = (o.nama || '').trim().toLowerCase();
+          if ((o.userId === k.id || oNama === namaLow || oNama.includes(namaLow)) && o.tanggal >= periodeStart && o.tanggal <= periodeEnd) {
               lemburJam += (parseFloat(o.durasi) || 0);
           }
       });
       const gajiPerJam = Math.round((Number(k.gajiPokok) || 0) / 173);
       const lemburNominal = Math.round(lemburJam * gajiPerJam);
 
-      // 5. Tunjangan & Keuangan
+      // 5. Tunjangan & Finance Sync
       let tunjTetap = 0, tunjLain = 0, insentif = 0, reimb = 0, loan = 0;
       if (incTunj) {
           tunjList.forEach(t => {
               const p = (t.penerima || 'Semua').trim().toLowerCase();
-              // Enhanced matching: "Semua", or recipient list includes employee name, or name is exactly the recipient
-              if (p === 'semua' || p === 'all' || p.split(',').map(x => x.trim()).includes(namaLow) || namaLow.includes(p)) {
+              if (p === 'semua' || p === 'all' || p.split(',').some(x => namaLow.includes(x.trim()))) {
                   if (t.jenis === 'tetap') tunjTetap += (Number(t.nominal) || 0);
                   else tunjLain += (Number(t.nominal) || 0);
               }
@@ -418,19 +415,23 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
       if (incInsentif) {
           insentifList.forEach(ins => {
               if (ins.status && ins.status !== 'approved') return;
-              const insDate = getSafeDateString(ins.approvedAt || ins.createdAt);
-              const insPeriode = ins.periode || "";
               const insNama = (ins.nama || '').trim().toLowerCase();
-              const isMatch = insNama === namaLow || namaLow.includes(insNama) || insNama.includes(namaLow);
-              if (isMatch && ( (insDate >= periodeStart && insDate <= periodeEnd) || ins.periode === bulan )) {
-                  insentif += (Number(ins.nominal) || 0);
+              // PRIORITY: If periode matches exactly, use it. Otherwise use date range.
+              const isNameMatch = (insNama === namaLow || namaLow.includes(insNama) || insNama.includes(namaLow));
+              if (isNameMatch) {
+                  const insPeriode = ins.periode || "";
+                  const insDate = getSafeDateString(ins.approvedAt || ins.createdAt);
+                  if (insPeriode === bulan || (insPeriode === "" && insDate >= periodeStart && insDate <= periodeEnd)) {
+                      insentif += (Number(ins.nominal) || 0);
+                  }
               }
           });
       }
       if (incReimb) {
           reimbList.forEach(r => {
               const rNama = (r.nama || '').trim().toLowerCase();
-              if ((rNama === namaLow || namaLow.includes(rNama)) && getSafeDateString(r.approvedAt || r.createdAt) >= periodeStart) {
+              const rDate = getSafeDateString(r.approvedAt || r.createdAt);
+              if ((rNama === namaLow || namaLow.includes(rNama)) && rDate >= periodeStart && rDate <= periodeEnd) {
                   reimb += (Number(r.jumlah) || 0);
               }
           });
@@ -476,7 +477,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
           bpjsTK,
           potonganMangkir,
           mangkirHari: mangkirCount,
-          potongan: potonganMangkir + bpjsKes + bpjsTK, // Consolidated for UI
+          potongan: potonganMangkir + bpjsKes + bpjsTK,
           kasbon: loan,
           pph21,
           totalBersih: thp,
