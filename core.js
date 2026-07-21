@@ -1,8 +1,7 @@
-'use strict';
-// ============================================================
-// CORE.JS — HRD & Legal IJEF Corp v5.0
+// CORE.JS — HRD & Legal IJEF Corp v5.1
 // Firebase Config, Auth, Router, Helpers
 // ============================================================
+console.log('IMS Core Initializing...');
 
 const firebaseConfig = {
   apiKey: 'AIzaSyAWlNi_iBOWxZBD6E20aHOSrRpPsirDdOM',
