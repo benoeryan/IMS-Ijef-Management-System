@@ -331,10 +331,16 @@ window.loadLegalTickets = async function() {
 window.loadLegalPerizinan = async function() {
     const tbody = document.getElementById("tblLegalPerizinan");
     if(!tbody) return;
-    const snap = await db.collection("hrd_legal_perizinan").orderBy("createdAt", "desc").get();
+    // Remove orderBy to ensure old data without 'createdAt' is still loaded
+    const snap = await db.collection("hrd_legal_perizinan").get();
+    let items = [];
+    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+
+    // Sort client-side instead
+    items.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+
     let h = "";
-    snap.forEach(d => {
-        const p = d.data();
+    items.forEach(p => {
         const stClass = p.status === "Aktif" ? "badge-success" : (p.status === "Non-aktif" ? "badge-danger" : "badge-warning");
 
         // Auto-check expiry
@@ -352,8 +358,8 @@ window.loadLegalPerizinan = async function() {
             <td>${labelTgl}</td>
             <td><span class="badge ${stClass}">${p.status || "Aktif"}</span></td>
             <td>
-                <button class="btn btn-xs btn-info" onclick="viewLegalPerizinan('${d.id}')">👁️</button>
-                <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_legal_perizinan','${d.id}','perizinan')">🗑️</button>
+                <button class="btn btn-xs btn-info" onclick="viewLegalPerizinan('${p.id}')">👁️</button>
+                <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_legal_perizinan','${p.id}','perizinan')">🗑️</button>
             </td>
         </tr>`;
     });
