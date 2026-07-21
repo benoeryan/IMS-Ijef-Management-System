@@ -331,13 +331,54 @@ window.loadLegalTickets = async function() {
 window.loadLegalPerizinan = async function() {
     const tbody = document.getElementById("tblLegalPerizinan");
     if(!tbody) return;
-    const snap = await db.collection("hrd_legal_perizinan").get();
+    const snap = await db.collection("hrd_legal_perizinan").orderBy("createdAt", "desc").get();
     let h = "";
     snap.forEach(d => {
         const p = d.data();
-        h += `<tr><td>${escHtml(p.nama)}</td><td>-</td><td>-</td><td>-</td><td><span class="badge badge-success">Aktif</span></td><td>-</td></tr>`;
+        const stClass = p.status === "Aktif" ? "badge-success" : (p.status === "Non-aktif" ? "badge-danger" : "badge-warning");
+
+        // Auto-check expiry
+        let tglMasa = p.masaBerlaku || "-";
+        let labelTgl = tglMasa === "-" ? "-" : formatDate(tglMasa);
+        if (tglMasa !== "-" && tglMasa < todayStr()) {
+            labelTgl = `<span class="color-danger" title="Sudah kadaluarsa">${labelTgl} ⚠️</span>`;
+        }
+
+        h += `
+        <tr>
+            <td class="fw-700">${escHtml(p.nama)}</td>
+            <td>${escHtml(p.nomor || "-")}</td>
+            <td>${escHtml(p.instansi || "-")}</td>
+            <td>${labelTgl}</td>
+            <td><span class="badge ${stClass}">${p.status || "Aktif"}</span></td>
+            <td>
+                <button class="btn btn-xs btn-info" onclick="viewLegalPerizinan('${d.id}')">👁️</button>
+                <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_legal_perizinan','${d.id}','perizinan')">🗑️</button>
+            </td>
+        </tr>`;
     });
-    tbody.innerHTML = h || '<tr><td colspan="6" class="text-center">Kosong</td></tr>';
+    tbody.innerHTML = h || '<tr><td colspan="6" class="text-center">Belum ada data dokumen</td></tr>';
+};
+
+window.viewLegalPerizinan = async function(id) {
+    const doc = await db.collection("hrd_legal_perizinan").doc(id).get();
+    if (!doc.exists) return toast("Data tidak ditemukan", "warning");
+    const p = doc.data();
+
+    openModal(`
+        <div class="modal-title">📑 Detail Dokumen Legalitas</div>
+        <table class="table-detail">
+            <tr><td>Nama Dokumen</td><td><b>${escHtml(p.nama)}</b></td></tr>
+            <tr><td>Nomor Dokumen</td><td>${escHtml(p.nomor)}</td></tr>
+            <tr><td>Instansi Penerbit</td><td>${escHtml(p.instansi)}</td></tr>
+            <tr><td>Masa Berlaku</td><td>${p.masaBerlaku !== "-" ? formatDate(p.masaBerlaku) : "-"}</td></tr>
+            <tr><td>Status</td><td><span class="badge ${p.status === 'Aktif' ? 'badge-success' : 'badge-danger'}">${p.status}</span></td></tr>
+            <tr><td>Keterangan</td><td>${escHtml(p.keterangan || "-")}</td></tr>
+        </table>
+        <div class="mt-16 text-right">
+            <button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>
+        </div>
+    `, true);
 };
 
 window.loadLegalSengketa = async function() {
@@ -373,14 +414,53 @@ window.simpanKajianHukum = async function() {
 window.modalPerizinan = function() {
     openModal(`
         <div class="modal-title">Tambah Dokumen Perizinan</div>
-        <div class="form-group"><label>Nama Dokumen</label><input class="form-control" id="pzNama"></div>
-        <button class="btn btn-primary" onclick="simpanPerizinan()">Simpan</button>`, true);
+        <div class="form-group"><label>Nama Dokumen</label><input class="form-control" id="pzNama" placeholder="Contoh: NIB, Akta Notaris, dll"></div>
+        <div class="grid-2">
+            <div class="form-group"><label>Nomor Dokumen</label><input class="form-control" id="pzNomor" placeholder="No. 123/ABC/2026"></div>
+            <div class="form-group"><label>Instansi Penerbit</label><input class="form-control" id="pzInstansi" placeholder="Kemenkumham / OSS"></div>
+        </div>
+        <div class="grid-2">
+            <div class="form-group"><label>Masa Berlaku (Selesai)</label><input class="form-control" type="date" id="pzTgl"></div>
+            <div class="form-group"><label>Status</label>
+                <select class="form-control" id="pzStatus">
+                    <option value="Aktif">Aktif</option>
+                    <option value="Proses Perpanjangan">Proses Perpanjangan</option>
+                    <option value="Non-aktif">Non-aktif</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group"><label>Keterangan</label><textarea class="form-control" id="pzKet"></textarea></div>
+        <button class="btn btn-primary" onclick="simpanPerizinan()">💾 Simpan Dokumen</button>`, true);
 };
+
 window.simpanPerizinan = async function() {
     const nama = document.getElementById("pzNama").value;
+    const nomor = document.getElementById("pzNomor").value;
+    const instansi = document.getElementById("pzInstansi").value;
+    const masaBerlaku = document.getElementById("pzTgl").value;
+    const status = document.getElementById("pzStatus").value;
+    const keterangan = document.getElementById("pzKet").value;
+
     if(!nama) return toast("Nama dokumen wajib", "warning");
-    await db.collection("hrd_legal_perizinan").add({nama, createdAt: new Date().toISOString()});
-    closeModalDirect(); renderLegalPerizinan();
+
+    const data = {
+        nama,
+        nomor: nomor || "-",
+        instansi: instansi || "-",
+        masaBerlaku: masaBerlaku || "-",
+        status: status || "Aktif",
+        keterangan: keterangan || "",
+        createdAt: new Date().toISOString()
+    };
+
+    try {
+        await db.collection("hrd_legal_perizinan").add(data);
+        toast("✅ Dokumen berhasil disimpan", "success");
+        closeModalDirect();
+        renderLegalPerizinan();
+    } catch (e) {
+        toast("Gagal simpan: " + e.message, "error");
+    }
 };
 window.modalSengketa = function() {
     openModal(`
