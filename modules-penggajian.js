@@ -3,8 +3,45 @@
 async function renderPenggajian() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}💰 Penggajian</span>${!isBOD ? '<div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalGaji()">+ Generate Slip</button><button class="btn btn-success btn-sm" onclick="generateAllGaji()">⚡ Generate Semua</button><button class="btn btn-secondary btn-sm" onclick="modalImportPenggajian()">⬇️ Import</button></div>' : ''}</div><div class="card"><div class="flex gap-8 mb-16 flex-wrap"><input class="form-control" type="month" id="filterBulanGaji" value="${monthStr()}" onchange="loadGaji()" style="max-width:160px"><input class="form-control" placeholder="🔍 Cari nama..." id="filterNamaGaji" oninput="filterGajiTable()" style="max-width:180px"><select class="form-control" id="filterDeptGaji" onchange="filterGajiTable()" style="max-width:160px"><option value="">Semua Dept</option></select><select class="form-control" id="filterGajiRange" onchange="filterGajiTable()" style="max-width:160px"><option value="">Semua Gaji</option><option value="0-3000000">&lt; 3 Juta</option><option value="3000000-5000000">3-5 Juta</option><option value="5000000-10000000">5-10 Juta</option><option value="10000000-99999999">&gt; 10 Juta</option></select><button class="btn btn-sm btn-info" onclick="loadGaji()">🔍</button></div><div id="gajiSummary" class="stats-grid mb-16"></div>${!isBOD ? '<div class="flex gap-8 mb-8"><label style="font-size:.78rem;display:flex;align-items:center;gap:4px"><input type="checkbox" id="selectAllGaji" onchange="toggleSelectAllGaji()"> Pilih Semua</label><button class="btn btn-xs btn-danger" onclick="hapusSelectedGaji()">🗑️ Hapus Terpilih</button><button class="btn btn-xs btn-danger" onclick="hapusSemuaGaji()">🗑️ Hapus Semua</button></div>' : ''}<div class="table-wrap"><table><thead><tr>${!isBOD ? '<th style="width:30px"><input type="checkbox" id="selectAllGajiHead" onchange="toggleSelectAllGaji()"></th>' : ''}<th>Karyawan</th><th>Gaji Pokok</th><th>Tunjangan</th><th>Insentif</th><th>Reimburse</th><th>Lembur</th><th>Potongan</th><th>Loan</th><th>PPH21</th><th>THP</th><th>Aksi</th></tr></thead><tbody id="tblGaji"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title">
+    <span>${renderBackButton()}💰 Penggajian</span>
+    ${!isBOD ? `
+    <div class="flex gap-8">
+        <button class="btn btn-info btn-sm" onclick="syncAllPayrollData()">🔄 Sinkronisasi</button>
+        <button class="btn btn-primary btn-sm" onclick="modalGaji()">+ Generate Slip</button>
+        <button class="btn btn-success btn-sm" onclick="generateAllGaji()">⚡ Generate Semua</button>
+        <button class="btn btn-secondary btn-sm" onclick="modalImportPenggajian()">⬇️ Import</button>
+    </div>` : ''}
+  </div>
+  <div class="card">
+    <div class="flex gap-8 mb-16 flex-wrap">
+      <input class="form-control" type="month" id="filterBulanGaji" value="${monthStr()}" onchange="loadGaji()" style="max-width:160px">
+      <input class="form-control" placeholder="🔍 Cari nama..." id="filterNamaGaji" oninput="filterGajiTable()" style="max-width:180px">
+      <select class="form-control" id="filterDeptGaji" onchange="filterGajiTable()" style="max-width:160px"><option value="">Semua Dept</option></select>
+      <select class="form-control" id="filterGajiRange" onchange="filterGajiTable()" style="max-width:160px"><option value="">Semua Gaji</option><option value="0-3000000">&lt; 3 Juta</option><option value="3000000-5000000">3-5 Juta</option><option value="5000000-10000000">5-10 Juta</option><option value="10000000-99999999">&gt; 10 Juta</option></select>
+      <button class="btn btn-sm btn-info" onclick="loadGaji()">🔍</button>
+    </div>
+    <div id="gajiSummary" class="stats-grid mb-16"></div>
+    ${!isBOD ? '<div class="flex gap-8 mb-8"><label style="font-size:.78rem;display:flex;align-items:center;gap:4px"><input type="checkbox" id="selectAllGaji" onchange="toggleSelectAllGaji()"> Pilih Semua</label><button class="btn btn-xs btn-danger" onclick="hapusSelectedGaji()">🗑️ Hapus Terpilih</button><button class="btn btn-xs btn-danger" onclick="hapusSemuaGaji()">🗑️ Hapus Semua</button></div>' : ''}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            ${!isBOD ? '<th style="width:30px"><input type="checkbox" id="selectAllGajiHead" onchange="toggleSelectAllGaji()"></th>' : ''}
+            <th>Karyawan</th><th>Gaji Pokok</th><th>Tunjangan</th><th>Insentif</th><th>Reimburse</th><th>Lembur</th><th>Potongan</th><th>Loan</th><th>PPH21</th><th>THP</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tblGaji"></tbody>
+      </table>
+    </div>
+  </div>`;
   loadGaji();
+}
+
+async function syncAllPayrollData() {
+    if (!confirm("Sinkronisasi ulang semua slip gaji bulan ini berdasarkan data kehadiran, lembur, insentif & reimbursement terbaru?")) return;
+    toast("⏳ Memulai sinkronisasi massal...", "info");
+    await doGenerateAllGaji();
 }
 async function loadGaji() {
   const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
@@ -209,16 +246,15 @@ async function doGenerateAllGaji() {
       userToKaryMap[(u.nama || '').trim().toLowerCase()] = userId;
     });
 
-    // Build attendance map: userId -> { hadirDays: Set, lembur: 0 }
+    // Build attendance map: userId -> { hadirDays: Set }
     const absenMap = {};
     absenSnap.forEach((d) => {
       const p = d.data();
       if (p.tanggal < periodeStart || p.tanggal > periodeEnd) return;
       const uid = p.userId;
       if (!uid) return;
-      if (!absenMap[uid]) absenMap[uid] = { hadirDays: new Set(), lembur: 0 };
-      if (p.tipe === 'masuk') absenMap[uid].hadirDays.add(p.tanggal);
-      if (p.tipe === 'pulang' && p.lembur && p.lemburJam) absenMap[uid].lembur += p.lemburJam;
+      if (!absenMap[uid]) absenMap[uid] = { hadirDays: new Set() };
+      if (p.tipe === 'masuk' || p.tipe === 'dinas_luar') absenMap[uid].hadirDays.add(p.tanggal);
     });
 
     // Build cross-collection data maps indexed by userId for consistent lookup
@@ -395,10 +431,8 @@ async function doGenerateAllGaji() {
       const tidakHadir = isBOD ? 0 : Math.max(0, hariKerja - hariEfektif);
       const potonganAbsen = tidakHadir * gajiPerHari;
 
-      // Lembur
-      const autoLembur = (absenMap[uid]?.lembur || absenMap[namaLow]?.lembur) || 0;
-      const manualLembur = otMap[uid] || otMap[namaLow] || 0;
-      const lemburJam = autoLembur + manualLembur;
+      // Lembur (ONLY approved requests)
+      const lemburJam = otMap[uid] || otMap[namaLow] || 0;
       const gajiPerJam = Math.round(gaji / (hariKerja * 8));
       let lemburNominal = 0;
       if (lemburJam > 0) {
@@ -415,23 +449,35 @@ async function doGenerateAllGaji() {
       });
       const tunjCuti = incTunjCuti ? Math.round(gaji / 12) : 0;
 
-      // Insentif (Filter by period)
+      // Insentif (Strict period filtering)
       let insentif = 0;
       insentifSnap.forEach(d => {
           const ins = d.data();
           if ((ins.nama || '').toLowerCase().trim() === namaLow && ins.status === 'approved') {
               const appDate = ins.approvedAt || ins.createdAt;
-              if (appDate >= periodeStart && appDate <= periodeEnd) insentif += (ins.nominal || 0);
+              const ds = typeof appDate === 'string' ? appDate.split('T')[0] : "";
+              if (ds >= periodeStart && ds <= periodeEnd) insentif += (ins.nominal || 0);
           }
       });
 
-      // Reimbursement (Filter by period)
+      // Reimbursement (Strict period filtering + detail for view)
       let reimb = 0;
+      const reimbDetails = [];
       reimbSnap.forEach(d => {
           const r = d.data();
           if ((r.nama || '').toLowerCase().trim() === namaLow && r.status === 'approved') {
               const appDate = r.approvedAt || r.createdAt;
-              if (appDate >= periodeStart && appDate <= periodeEnd) reimb += (r.jumlah || 0);
+              const ds = typeof appDate === 'string' ? appDate.split('T')[0] : "";
+              if (ds >= periodeStart && ds <= periodeEnd) {
+                  reimb += (r.jumlah || 0);
+                  reimbDetails.push({
+                      id: d.id,
+                      judul: r.judul || "Reimbursement",
+                      nominal: r.jumlah || 0,
+                      bukti: r.buktiURL || r.bukti || "",
+                      tanggal: ds
+                  });
+              }
           }
       });
 
@@ -466,6 +512,7 @@ async function doGenerateAllGaji() {
         insentif,
         bonus: 0,
         reimbursement: reimb,
+        reimbursementDetails: reimbDetails,
         lembur: lemburNominal,
         lemburJam,
         bpjsKesehatan: bpjsKes,
@@ -857,13 +904,19 @@ function lihatSlip(id) {
       if (p.kasbon) potDetailHtml += `<tr><td>Kasbon/Loan</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.kasbon)}</td></tr>`;
       if (p.pph21) potDetailHtml += `<tr><td>PPH 21</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(p.pph21)}</td></tr>`;
 
-      // Extra details from generation if available
-      if (p.potonganDetail) {
-        Object.entries(p.potonganDetail).forEach(([k, v]) => {
-          if (k !== 'absen' && k !== 'bpjsKes' && k !== 'bpjsTK' && k !== 'loan' && k !== 'pph21') {
-            potDetailHtml += `<tr><td>Pot. ${escHtml(k)}</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(v)}</td></tr>`;
-          }
-        });
+      // Build reimbursement evidence list
+      let reimbDetailHtml = '';
+      if (p.reimbursementDetails && p.reimbursementDetails.length > 0) {
+          reimbDetailHtml = '<div class="mt-16" style="border-top:1px solid #ddd; padding-top:8px"><div class="fw-700 text-xs color-primary mb-4">📎 Bukti Reimbursement:</div><div style="display:flex; gap:8px; flex-wrap:wrap">';
+          p.reimbursementDetails.forEach(r => {
+              const fileData = encodeURIComponent(JSON.stringify({ name: r.judul, type: "image/jpeg", data: r.bukti }));
+              reimbDetailHtml += `
+              <div style="cursor:pointer; background:#fff; border:1px solid #ddd; border-radius:4px; padding:4px; display:flex; align-items:center; gap:6px" onclick="viewEviden('${fileData}')">
+                <span style="font-size:.7rem">🖼️ ${escHtml(r.judul)}</span>
+                <span class="text-xs fw-700 color-primary">${formatCurrency(r.nominal)}</span>
+              </div>`;
+          });
+          reimbDetailHtml += '</div></div>';
       }
 
       openModal(
@@ -874,6 +927,8 @@ function lihatSlip(id) {
     <div><div class="fw-700 text-sm color-primary mb-8">💰 Pendapatan</div><table style="width:100%;font-size:.82rem"><tr><td>Gaji Pokok</td><td style="text-align:right">${formatCurrency(p.gajiPokok)}</td></tr><tr><td>Tunjangan</td><td style="text-align:right">${formatCurrency(p.tunjangan)}</td></tr>${p.tunjCuti ? `<tr><td>Tunj. Cuti (1/12)</td><td style="text-align:right">${formatCurrency(p.tunjCuti)}</td></tr>` : ''}${p.lembur ? `<tr><td>Lembur (${p.lemburJam || 0} jam)</td><td style="text-align:right">${formatCurrency(p.lembur)}</td></tr>` : ''}${p.insentif ? `<tr><td>Insentif</td><td style="text-align:right">${formatCurrency(p.insentif)}</td></tr>` : ''}${p.bonus ? `<tr><td>Bonus</td><td style="text-align:right">${formatCurrency(p.bonus)}</td></tr>` : ''}${p.reimbursement ? `<tr><td>Reimbursement</td><td style="text-align:right">${formatCurrency(p.reimbursement)}</td></tr>` : ''}<tr style="border-top:2px solid var(--primary);font-weight:700"><td>Total Bruto</td><td style="text-align:right">${formatCurrency(bruto)}</td></tr></table></div>
     <div><div class="fw-700 text-sm color-danger mb-8">📉 Potongan</div><table style="width:100%;font-size:.82rem">${potDetailHtml}<tr style="border-top:2px solid var(--danger);font-weight:700"><td>Total Potongan</td><td style="text-align:right;color:var(--danger)">-${formatCurrency(totPot)}</td></tr></table></div></div>
     <div style="background:var(--primary);color:#fff;padding:16px;border-radius:8px;text-align:center"><div style="font-size:.8rem;opacity:.8">TAKE HOME PAY</div><div style="font-size:1.5rem;font-weight:700">${formatCurrency(p.totalBersih)}</div></div>
+
+    ${reimbDetailHtml}
 
     <div class="mt-16" style="background:#f8f9ff;padding:12px;border-radius:8px;border:1px solid #d0d9ff">
         <div class="fw-700 text-sm color-primary mb-8">📊 Detail Absensi (Periode 20-20)</div>

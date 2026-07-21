@@ -414,18 +414,27 @@ window.viewLegalPerizinan = async function(id) {
             <div style="display:flex; gap:8px; flex-wrap:wrap">`;
 
         p.attachments.forEach(a => {
-            const fileData = encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }));
+            // Re-encoding for safety
+            const fileObj = { name: a.name, type: a.type, data: a.data };
+            const fileData = encodeURIComponent(JSON.stringify(fileObj));
+
             if (a.data && (a.type || '').startsWith('image/')) {
                 attachHtml += `
                     <div style="text-align:center">
-                        <img src="${a.data}" style="width:80px; height:80px; border-radius:6px; border:1px solid #ddd; cursor:pointer; object-fit:cover" onclick="viewEviden('${fileData}')">
+                        <div onclick="viewEviden('${fileData}')" style="cursor:pointer">
+                            <img src="${a.data}" style="width:80px; height:80px; border-radius:6px; border:1px solid #ddd; object-fit:cover">
+                            <div class="text-xs mt-4 color-primary fw-700">LIHAT/PRINT</div>
+                        </div>
                         <div class="text-xs mt-4" style="max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${escHtml(a.name)}</div>
                     </div>`;
             } else {
                 attachHtml += `
-                    <div style="cursor:pointer; padding:8px 12px; background:#f0f4ff; border-radius:6px; font-size:.75rem; border:1px solid #d0d9ff; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:80px" onclick="viewEviden('${fileData}')">
-                        <span>📄 ${escHtml((a.name || 'Dokumen').substring(0, 10))}...</span>
-                        <b style="color:var(--primary)">LIHAT/PRINT</b>
+                    <div style="text-align:center">
+                        <div style="cursor:pointer; padding:8px 12px; background:#f0f4ff; border-radius:6px; font-size:.75rem; border:1px solid #d0d9ff; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:80px" onclick="viewEviden('${fileData}')">
+                            <span style="font-size:1.5rem">${(a.type === 'application/pdf' ? '📕' : '📄')}</span>
+                            <b style="color:var(--primary)">LIHAT/PRINT</b>
+                        </div>
+                        <div class="text-xs mt-4" style="max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${escHtml(a.name)}</div>
                     </div>`;
             }
         });

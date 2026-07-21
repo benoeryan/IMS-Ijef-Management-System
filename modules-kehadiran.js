@@ -373,7 +373,7 @@ async function simpanCuti() {
     'approval-center'
   );
   closeModalDirect();
-  toast('Diajukan ke atasan & HR', 'success');
+  toast('Diajukan ke atasan & HR. Data akan sinkron ke penggajian setelah disetujui.', 'success');
   renderCuti();
 }
 
@@ -5912,7 +5912,7 @@ async function doInputCutiBersamaMassal() {
     if (batchCount > 0) await currentBatch.commit();
 
     closeModalDirect();
-    toast(`✅ Berhasil menginput Cuti Bersama untuk ${totalProcessed} karyawan`, 'success');
+    toast(`✅ Berhasil menginput Cuti Bersama untuk ${totalProcessed} karyawan. Jangan lupa klik "Sinkronisasi" di menu Penggajian.`, 'success');
     renderCuti();
 
   } catch (e) {

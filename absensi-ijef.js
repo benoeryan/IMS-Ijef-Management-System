@@ -2743,7 +2743,7 @@ async function simpanEditAbsen() {
       editedBy: currentUser.nama,
       createdAt: new Date().toISOString(),
     });
-    toast('✅ Absensi berhasil ditambahkan!', 'success');
+    toast('✅ Absensi berhasil ditambahkan! Jangan lupa klik "Sinkronisasi" di menu Penggajian.', 'success');
     closeModalDirect();
     setTimeout(() => loadRekapGrid(), 500);
   } catch (e) {
@@ -2754,7 +2754,7 @@ async function simpanEditAbsen() {
 async function hapusSatuAbsen(docId) {
   if (!confirm('Hapus record absensi ini?')) return;
   await db.collection('hrd_absensi').doc(docId).delete();
-  toast('Record dihapus', 'success');
+  toast('Record dihapus. Jangan lupa klik "Sinkronisasi" di menu Penggajian.', 'success');
   closeModalDirect();
   setTimeout(() => loadRekapGrid(), 300);
 }
@@ -2847,7 +2847,7 @@ async function hapusAbsenHari() {
   const batch = db.batch();
   toDelete.forEach((ref) => batch.delete(ref));
   await batch.commit();
-  toast(`${toDelete.length} record dihapus`, 'success');
+  toast(`${toDelete.length} record dihapus. Jangan lupa klik "Sinkronisasi" di menu Penggajian.`, 'success');
   closeModalDirect();
   setTimeout(() => loadRekapGrid(), 500);
 }
