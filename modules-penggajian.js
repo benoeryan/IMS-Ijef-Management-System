@@ -1101,30 +1101,69 @@ async function renderReimbursement() {
             : 'badge-warning';
       const canApprove = p.status === 'pending' && hasAccess(3) && !isBOD;
       const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
-      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.kategori)}</td><td>${formatCurrency(p.jumlah)}</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td>${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveReimb('${d.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveReimb('${d.id}','rejected')">❌</button>` : ''} <button class="btn btn-xs btn-warning" onclick="editReimb('${d.id}')">✏️</button> ${hasAccess(6) ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_reimbursement','${d.id}','reimbursement')">🗑️</button>` : ''}</td></tr>`;
+      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.kategori)}</td><td>${formatCurrency(p.jumlah)}</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewReimb('${d.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveReimb('${d.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveReimb('${d.id}','rejected')">❌</button>` : ''} <button class="btn btn-xs btn-warning" onclick="editReimb('${d.id}')">✏️</button> ${hasAccess(6) ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_reimbursement','${d.id}','reimbursement')">🗑️</button>` : ''}</td></tr>`;
     });
   document.getElementById('tblReimb').innerHTML = h;
 }
 function modalReimburse() {
   openModal(
-    `<div class="modal-title">Pengajuan Reimbursement</div><div class="grid-2"><div class="form-group"><label>Nama</label><input class="form-control" id="rbNama" value="${currentUser.nama}"></div><div class="form-group"><label>Kategori</label><select class="form-control" id="rbKat"><option>Transport</option><option>Makan</option><option>Kesehatan</option><option>Operasional</option></select></div></div><div class="form-group"><label>Jumlah (Rp)</label><input class="form-control" type="number" id="rbJumlah"></div><div class="form-group"><label>Keterangan</label><textarea class="form-control" id="rbKet"></textarea></div><button class="btn btn-primary" onclick="simpanReimburse()">Ajukan</button>`
+    `<div class="modal-title">Pengajuan Reimbursement</div>
+    <div class="grid-2">
+      <div class="form-group"><label>Nama</label><input class="form-control" id="rbNama" value="${currentUser.nama}"></div>
+      <div class="form-group"><label>Kategori</label><select class="form-control" id="rbKat"><option>Transport</option><option>Makan</option><option>Kesehatan</option><option>Operasional</option></select></div>
+    </div>
+    <div class="form-group">
+      <label>Jumlah (Rp)</label>
+      <input class="form-control" type="number" id="rbJumlah" oninput="document.getElementById('rbJumlahHelper').innerText = formatCurrency(this.value)">
+      <div id="rbJumlahHelper" class="text-xs mt-4 color-primary fw-700">Rp 0</div>
+    </div>
+    <div class="form-group"><label>Eviden (JPG, PNG, PDF, Word)</label><input type="file" id="rbFile" class="form-control" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"></div>
+    <div class="form-group"><label>Keterangan</label><textarea class="form-control" id="rbKet"></textarea></div>
+    <button class="btn btn-primary" onclick="simpanReimburse()">Ajukan</button>`
   );
 }
 async function simpanReimburse() {
-  const data = {
-    nama: document.getElementById('rbNama').value,
-    kategori: document.getElementById('rbKat').value,
-    jumlah: Number(document.getElementById('rbJumlah').value) || 0,
-    keterangan: document.getElementById('rbKet').value,
-    status: 'pending',
-    userId: currentUser.id,
-    createdAt: new Date().toISOString(),
-  };
-  if (!data.jumlah) return toast('Jumlah wajib', 'warning');
-  await db.collection('hrd_reimbursement').add(data);
-  closeModalDirect();
-  toast('Diajukan', 'success');
-  renderReimbursement();
+  const btn = event.target;
+  const originalText = btn.innerText;
+
+  const jumlah = Number(document.getElementById('rbJumlah').value) || 0;
+  if (!jumlah) return toast('Jumlah wajib', 'warning');
+
+  const fileInput = document.getElementById('rbFile');
+  let evidenceURL = '';
+
+  try {
+    btn.disabled = true;
+    btn.innerText = 'Uploading...';
+
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      const path = `reimbursements/${Date.now()}_${file.name}`;
+      evidenceURL = await uploadFileToStorage(file, path);
+    }
+
+    const data = {
+      nama: document.getElementById('rbNama').value,
+      kategori: document.getElementById('rbKat').value,
+      jumlah: jumlah,
+      keterangan: document.getElementById('rbKet').value,
+      evidenceURL: evidenceURL,
+      status: 'pending',
+      userId: currentUser.id,
+      createdAt: new Date().toISOString(),
+    };
+
+    await db.collection('hrd_reimbursement').add(data);
+    closeModalDirect();
+    toast('Diajukan', 'success');
+    renderReimbursement();
+  } catch (e) {
+    console.error(e);
+    toast('Gagal: ' + e.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerText = originalText;
+  }
 }
 async function approveReimb(id, status) {
   var komentar = '';
@@ -1150,6 +1189,35 @@ async function approveReimb(id, status) {
     'success'
   );
   renderReimbursement();
+}
+async function viewReimb(id) {
+  const d = await db.collection('hrd_reimbursement').doc(id).get();
+  if (!d.exists) return toast('Data tidak ditemukan', 'danger');
+  const p = d.data();
+  let h = `<div class="modal-title">🧾 Detail Reimbursement</div>
+    <div class="grid-2">
+      <div><label class="text-xs color-gray">Nama</label><div class="fw-700">${escHtml(p.nama)}</div></div>
+      <div><label class="text-xs color-gray">Kategori</label><div class="fw-700">${escHtml(p.kategori)}</div></div>
+      <div><label class="text-xs color-gray">Jumlah</label><div class="fw-700 color-primary">${formatCurrency(p.jumlah)}</div></div>
+      <div><label class="text-xs color-gray">Status</label><div><span class="badge badge-${p.status === 'approved' ? 'success' : p.status === 'rejected' ? 'danger' : 'warning'}">${p.status}</span></div></div>
+      <div><label class="text-xs color-gray">Tanggal</label><div>${formatDate(p.createdAt)}</div></div>
+    </div>
+    <div class="mt-12"><label class="text-xs color-gray">Keterangan</label><div class="text-sm">${escHtml(p.keterangan || '-')}</div></div>`;
+
+  if (p.evidenceURL) {
+    const isImg = p.evidenceURL.match(/\.(jpg|jpeg|png|gif|webp)/i);
+    h += `<div class="mt-12"><label class="text-xs color-gray">Eviden / Bukti</label>
+      <div class="mt-4">
+        ${isImg ? `<img src="${p.evidenceURL}" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open('${p.evidenceURL}')">` : `<a href="${p.evidenceURL}" target="_blank" class="btn btn-xs btn-outline-primary">📎 Lihat Dokumen</a>`}
+      </div>
+    </div>`;
+  }
+
+  if (p.approvalComment || p.alasanTolak) {
+    h += `<div class="mt-12 p-8 bg-light border-radius-8"><label class="text-xs color-gray">Catatan Approval</label><div class="text-sm italic">${escHtml(p.approvalComment || p.alasanTolak)}</div></div>`;
+  }
+
+  openModal(h);
 }
 
 // ── KASBON & LOAN ─────────────────────────────────────────────

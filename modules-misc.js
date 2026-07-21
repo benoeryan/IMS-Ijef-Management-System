@@ -2731,26 +2731,67 @@ function editReimb(id) {
     .get()
     .then((d) => {
       const p = d.data();
+      let evidenceHtml = '';
+      if (p.evidenceURL) {
+        evidenceHtml = `<div class="mb-8"><label class="text-xs color-gray">Eviden Saat Ini</label><div><a href="${p.evidenceURL}" target="_blank" class="text-sm color-primary">📎 Lihat File</a></div></div>`;
+      }
       openModal(
-        `<div class="modal-title">✏️ Edit Reimbursement</div><div class="grid-2"><div class="form-group"><label>Nama</label><input class="form-control" id="erNama" value="${escHtml(p.nama || '')}"></div><div class="form-group"><label>Kategori</label><select class="form-control" id="erKat"><option ${p.kategori === 'Transport' ? 'selected' : ''}>Transport</option><option ${p.kategori === 'Makan' ? 'selected' : ''}>Makan</option><option ${p.kategori === 'Kesehatan' ? 'selected' : ''}>Kesehatan</option><option ${p.kategori === 'Operasional' ? 'selected' : ''}>Operasional</option></select></div></div><div class="form-group"><label>Jumlah (Rp)</label><input class="form-control" type="number" id="erJumlah" value="${p.jumlah || 0}"></div><div class="form-group"><label>Status</label><select class="form-control" id="erStatus"><option value="pending" ${p.status === 'pending' ? 'selected' : ''}>Pending</option><option value="approved" ${p.status === 'approved' ? 'selected' : ''}>Approved</option><option value="rejected" ${p.status === 'rejected' ? 'selected' : ''}>Rejected</option></select></div><div class="form-group"><label>Keterangan</label><textarea class="form-control" id="erKet">${escHtml(p.keterangan || '')}</textarea></div><button class="btn btn-primary" onclick="updateReimb('${id}')">💾 Simpan</button><button class="btn btn-danger" style="margin-left:8px" onclick="hapusDoc('hrd_reimbursement','${id}','reimbursement')">🗑️ Hapus</button>`
+        `<div class="modal-title">✏️ Edit Reimbursement</div>
+        <div class="grid-2">
+          <div class="form-group"><label>Nama</label><input class="form-control" id="erNama" value="${escHtml(p.nama || '')}"></div>
+          <div class="form-group"><label>Kategori</label><select class="form-control" id="erKat"><option ${p.kategori === 'Transport' ? 'selected' : ''}>Transport</option><option ${p.kategori === 'Makan' ? 'selected' : ''}>Makan</option><option ${p.kategori === 'Kesehatan' ? 'selected' : ''}>Kesehatan</option><option ${p.kategori === 'Operasional' ? 'selected' : ''}>Operasional</option></select></div>
+        </div>
+        <div class="form-group">
+          <label>Jumlah (Rp)</label>
+          <input class="form-control" type="number" id="erJumlah" value="${p.jumlah || 0}" oninput="document.getElementById('erJumlahHelper').innerText = formatCurrency(this.value)">
+          <div id="erJumlahHelper" class="text-xs mt-4 color-primary fw-700">${formatCurrency(p.jumlah || 0)}</div>
+        </div>
+        ${evidenceHtml}
+        <div class="form-group"><label>Ganti Eviden (JPG, PNG, PDF, Word)</label><input type="file" id="erFile" class="form-control" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"></div>
+        <div class="form-group"><label>Status</label><select class="form-control" id="erStatus"><option value="pending" ${p.status === 'pending' ? 'selected' : ''}>Pending</option><option value="approved" ${p.status === 'approved' ? 'selected' : ''}>Approved</option><option value="rejected" ${p.status === 'rejected' ? 'selected' : ''}>Rejected</option></select></div>
+        <div class="form-group"><label>Keterangan</label><textarea class="form-control" id="erKet">${escHtml(p.keterangan || '')}</textarea></div>
+        <button class="btn btn-primary" onclick="updateReimb('${id}')">💾 Simpan</button>
+        <button class="btn btn-danger" style="margin-left:8px" onclick="hapusDoc('hrd_reimbursement','${id}','reimbursement')">🗑️ Hapus</button>`
       );
     });
 }
 async function updateReimb(id) {
-  await db
-    .collection('hrd_reimbursement')
-    .doc(id)
-    .update({
+  const btn = event.target;
+  const originalText = btn.innerText;
+
+  const fileInput = document.getElementById('erFile');
+  let evidenceURL = '';
+
+  try {
+    btn.disabled = true;
+    btn.innerText = 'Saving...';
+
+    const updateData = {
       nama: document.getElementById('erNama').value,
       kategori: document.getElementById('erKat').value,
       jumlah: Number(document.getElementById('erJumlah').value) || 0,
       status: document.getElementById('erStatus').value,
       keterangan: document.getElementById('erKet').value,
       updatedAt: new Date().toISOString(),
-    });
-  closeModalDirect();
-  toast('Reimbursement diupdate', 'success');
-  renderReimbursement();
+    };
+
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      const path = `reimbursements/${Date.now()}_${file.name}`;
+      updateData.evidenceURL = await uploadFileToStorage(file, path);
+    }
+
+    await db.collection('hrd_reimbursement').doc(id).update(updateData);
+    closeModalDirect();
+    toast('Reimbursement diupdate', 'success');
+    renderReimbursement();
+  } catch (e) {
+    console.error(e);
+    toast('Gagal update: ' + e.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerText = originalText;
+  }
 }
 
 function editKasbonDoc(id) {

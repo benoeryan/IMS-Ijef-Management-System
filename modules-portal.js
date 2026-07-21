@@ -1384,21 +1384,21 @@ async function viewMyDiscDetail(id) {
 // ── PORTAL: REIMBURSE ─────────────────────────────────────────
 async function renderPortalReimburse() {
   const main = document.getElementById('mainContent');
-  main.innerHTML = `<div class="page-title"><span>🧾 Reimbursement Saya</span><button class="btn btn-primary btn-sm" onclick="modalReimburse()">+ Ajukan</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Kategori</th><th>Jumlah</th><th>Status</th><th>Tanggal</th></tr></thead><tbody id="tblMyReimb"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title"><span>🧾 Reimbursement Saya</span><button class="btn btn-primary btn-sm" onclick="modalReimburse()">+ Ajukan</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Kategori</th><th>Jumlah</th><th>Status</th><th>Tanggal</th><th>Aksi</th></tr></thead><tbody id="tblMyReimb"></tbody></table></div></div>`;
   const [snap, flows] = await Promise.all([
     db.collection('hrd_reimbursement').where('nama', '==', currentUser.nama).get(),
     loadApprovalFlows(),
   ]);
   const items = [];
   snap.forEach((d) => {
-    items.push(d.data());
+    items.push({ id: d.id, ...d.data() });
   });
   let h = '';
-  if (!items.length) h = '<tr><td colspan="4" class="text-center">Belum ada</td></tr>';
+  if (!items.length) h = '<tr><td colspan="5" class="text-center">Belum ada</td></tr>';
   else
     items.forEach((p) => {
       const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
-      h += `<tr><td>${escHtml(p.kategori || '-')}</td><td>${formatCurrency(p.jumlah)}</td><td><span class="badge badge-${p.status === 'approved' ? 'success' : p.status === 'rejected' ? 'danger' : 'warning'}">${p.status}</span>${pendingInfo}</td><td>${formatDate(p.createdAt)}</td></tr>`;
+      h += `<tr><td>${escHtml(p.kategori || '-')}</td><td>${formatCurrency(p.jumlah)}</td><td><span class="badge badge-${p.status === 'approved' ? 'success' : p.status === 'rejected' ? 'danger' : 'warning'}">${p.status}</span>${pendingInfo}</td><td>${formatDate(p.createdAt)}</td><td><button class="btn btn-xs btn-info" onclick="viewReimb('${p.id}')">👁️ Lihat</button></td></tr>`;
     });
   document.getElementById('tblMyReimb').innerHTML = h;
 }

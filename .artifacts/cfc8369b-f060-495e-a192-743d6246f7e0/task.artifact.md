@@ -1,0 +1,4 @@
+- [/] Hardcode API Key in `modules-legal.js`
+- [/] Fix OpenRouter model ID and add fallback
+- [/] Update version in `index.html`
+- [ ] Push to GitHub

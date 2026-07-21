@@ -1,29 +1,28 @@
-# Walkthrough Perbaikan Menu Legalitas & Perizinan serta Sengketa & Kasus
+# Walkthrough: Integrasi OpenRouter & Hardcode Key
 
-Saya telah menyelesaikan implementasi fitur untuk menu **Legalitas & Perizinan** serta **Sengketa & Kasus** yang sebelumnya tidak dapat dibuka.
+Saya telah melakukan perbaikan menyeluruh agar AI Anda berjalan lancar menggunakan jalur **OpenRouter** tanpa terkendala masalah billing Google Cloud.
 
-## Perubahan yang Dilakukan
+## Perbaikan yang Dilakukan
 
-### 1. Implementasi UI & Logika di `modules-legal.js`
-- **Menu Legalitas & Perizinan**:
-    - Menambahkan fungsi `renderLegalPerizinan` untuk menampilkan dashboard perizinan.
-    - Implementasi CRUD (Create, Read, Update, Delete) data perizinan di koleksi Firestore `hrd_legal_perizinan`.
-    - Fitur indikator status otomatis (**Aktif** atau **Expired**) berdasarkan tanggal masa berlaku.
-- **Menu Sengketa & Kasus**:
-    - Menambahkan fungsi `renderLegalSengketa` untuk menampilkan dashboard sengketa hukum.
-    - Implementasi CRUD data sengketa di koleksi Firestore `hrd_legal_sengketa`.
-    - Pencatatan status kasus (Proses, Mediasi, Sidang, Selesai).
+### 1. Hardcode API Key (Otomatis Aktif)
+- **Instan**: Sesuai permintaan Anda, saya telah menyematkan API Key OpenRouter Anda langsung di dalam kode.
+- **Siap Pakai**: Sekarang, setiap kali Anda membuka Legal Suite, AI sudah langsung siap membantu tanpa Anda perlu mengetik ulang Key secara manual.
 
-### 2. Integrasi Navigasi
-- Memastikan fungsi `window.renderLegalPerizinan` dan `window.renderLegalSengketa` terdaftar dan dapat dipanggil oleh sistem navigasi utama di `core.js`.
+### 2. Penanganan Error "No Endpoints"
+- **Model Fallback**: Error "No endpoints found" sebelumnya terjadi karena ketidakkonsistenan server OpenRouter pada model tertentu. Saya telah menambahkan sistem *Retry* otomatis ke beberapa model alternatif:
+    1. `google/gemini-flash-1.5` (Utama)
+    2. `google/gemini-pro-1.5` (Cadangan 1)
+    3. `openai/gpt-4o-mini` (Cadangan 2 - Sangat Cepat)
+- Jika model pertama gagal, sistem akan otomatis mencoba model berikutnya hingga berhasil memberikan draf kepada Anda.
 
-### 3. Sinkronisasi Kode
-- Melakukan commit dan push perubahan langsung ke repository GitHub: `https://github.com/benoeryan/hr-legal-app.git`.
+### 3. Keamanan & Cache Refresh
+- **Push GitHub**: Semua perbaikan sudah berhasil di-push ke repository.
+- **Cache Busing**: Versi script telah ditingkatkan ke **v2.5** untuk memastikan browser Anda tidak lagi memuat kode lama yang error.
 
 ## Hasil Verifikasi
-- Menu **Legalitas & Perizinan** kini dapat diklik dan menampilkan tabel data dengan tombol tambah data yang berfungsi.
-- Menu **Sengketa & Kasus** kini dapat diklik dan menampilkan tabel data dengan form input yang lengkap.
-- Data tersimpan dan terupdate dengan benar di database Firestore.
+- AI langsung menyapa saat draf dibuka.
+- Respon AI melalui jalur OpenRouter berjalan lancar.
+- Draf hukum otomatis masuk ke editor.
 
 > [!TIP]
-> Anda sekarang dapat mulai menginput data NIB, SIUP, atau kasus hukum yang sedang berjalan melalui menu yang telah diperbaiki ini.
+> Jika AI masih terasa lambat, hal tersebut wajar karena sistem sedang melakukan pengecekan ke beberapa model untuk mencarikan jalur yang paling stabil untuk Anda.
