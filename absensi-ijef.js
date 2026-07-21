@@ -2171,251 +2171,265 @@ function renderRekapAbsensi(container) {
 async function loadRekapGrid() {
   const bulan = document.getElementById('rekapBulan')?.value || monthStr();
   const mode = document.getElementById('rekapMode')?.value || 'calendar';
+  const gridEl = document.getElementById('rekapGrid');
+  if (!gridEl) return;
+  gridEl.innerHTML = 'Memuat data...';
 
-  let startDate, endDate, labelRange = '';
-  const [year, month] = bulan.split('-').map(Number);
+  try {
+    let startDate, endDate, labelRange = '';
+    const [year, month] = bulan.split('-').map(Number);
 
-  if (mode === 'payroll') {
-    // Periode gaji: tgl 21 bulan lalu s/d tgl 20 bulan ini
-    const prevMonth = month === 1 ? 12 : month - 1;
-    const prevYear = month === 1 ? year - 1 : year;
-    startDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-21`;
-    endDate = `${year}-${String(month).padStart(2, '0')}-20`;
-    labelRange = ` (${formatDate(startDate)} - ${formatDate(endDate)})`;
-  } else {
-    const days = getMonthDays(bulan);
-    startDate = bulan + '-01';
-    endDate = bulan + '-' + String(days).padStart(2, '0');
-  }
-
-  // Generate list of dates to display
-  const dateList = [];
-  let cur = new Date(startDate + 'T00:00:00');
-  const end = new Date(endDate + 'T00:00:00');
-  while (cur <= end) {
-      dateList.push(new Date(cur));
-      cur.setDate(cur.getDate() + 1);
-  }
-
-  const [
-    usersSnap,
-    absenSnap,
-    settDoc,
-    cutiSnap,
-    overtimeSnap,
-    hariLiburSnap,
-    dinasLuarSnap,
-    sppdSnap,
-  ] = await Promise.all([
-    db.collection('hrd_karyawan').where('status', '==', 'aktif').get(),
-    db.collection('hrd_absensi').get(),
-    db.collection('hrd_settings').doc('absensi').get(),
-    db.collection('hrd_cuti').get(),
-    db.collection('hrd_overtime').get(),
-    db.collection('hrd_hari_libur').get(),
-    db.collection('hrd_dinas_luar').get().catch(() => ({ forEach: () => {} })),
-    db.collection('hrd_perjalanan_dinas').get().catch(() => ({ forEach: () => {} })),
-  ]);
-  const sett = settDoc.exists ? settDoc.data() : {};
-  const flex = sett.flexTime || { enabled: true, durasiKerja: 8, durasiIstirahat: 1 };
-
-  // Build holiday set based on dateList
-  const liburSet = new Set();
-  hariLiburSnap.forEach((d) => {
-    const h = d.data();
-    if (h.tanggal && h.tanggal >= startDate && h.tanggal <= endDate) liburSet.add(h.tanggal);
-  });
-
-  // Build maps using full YYYY-MM-DD keys for robustness
-  const cutiMap = {};
-  cutiSnap.forEach((d) => {
-    const c = d.data();
-    if (c.status !== 'approved' && !c.approvedAt) return;
-    if (!c.mulai || !c.selesai) return;
-    const uids = [c.userId, (c.nama || '').toLowerCase().trim()].filter(Boolean);
-    const start = new Date(c.mulai + 'T00:00:00');
-    const end = new Date(c.selesai + 'T00:00:00');
-    for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
-      const ds = dt.toISOString().split('T')[0];
-      if (ds >= startDate && ds <= endDate) {
-        uids.forEach(uid => {
-            if (!cutiMap[uid]) cutiMap[uid] = {};
-            cutiMap[uid][ds] = c.jenis || 'Cuti';
-        });
-      }
+    if (mode === 'payroll') {
+      const prevMonth = month === 1 ? 12 : month - 1;
+      const prevYear = month === 1 ? year - 1 : year;
+      startDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-21`;
+      endDate = `${year}-${String(month).padStart(2, '0')}-20`;
+      labelRange = ` (${formatDate(startDate)} - ${formatDate(endDate)})`;
+    } else {
+      const days = getMonthDays(bulan);
+      startDate = bulan + '-01';
+      endDate = bulan + '-' + String(days).padStart(2, '0');
     }
-  });
 
-  const otMap = {};
-  overtimeSnap.forEach((d) => {
-    const o = d.data();
-    if (!o.tanggal || o.tanggal < startDate || o.tanggal > endDate || (o.status !== 'approved' && !o.approvedAt)) return;
-    const uids = [o.userId, (o.nama || '').toLowerCase().trim()].filter(Boolean);
-    const dur = parseFloat(o.durasi) || 0;
-    uids.forEach(uid => {
-        if (!otMap[uid]) otMap[uid] = {};
-        otMap[uid][o.tanggal] = dur;
+    const dateList = [];
+    let cur = new Date(startDate + 'T00:00:00');
+    const endD = new Date(endDate + 'T00:00:00');
+    while (cur <= endD) {
+        dateList.push(new Date(cur));
+        cur.setDate(cur.getDate() + 1);
+    }
+
+    const [
+      usersSnap,
+      absenSnap,
+      settDoc,
+      cutiSnap,
+      overtimeSnap,
+      hariLiburSnap,
+      dinasLuarSnap,
+      sppdSnap,
+    ] = await Promise.all([
+      db.collection('hrd_karyawan').where('status', '==', 'aktif').get(),
+      db.collection('hrd_absensi').get(),
+      db.collection('hrd_settings').doc('absensi').get(),
+      db.collection('hrd_cuti').get(),
+      db.collection('hrd_overtime').get(),
+      db.collection('hrd_hari_libur').get(),
+      db.collection('hrd_dinas_luar').get().catch(() => ({ forEach: () => {} })),
+      db.collection('hrd_perjalanan_dinas').get().catch(() => ({ forEach: () => {} })),
+    ]);
+
+    const sett = settDoc.exists ? settDoc.data() : {};
+    const flex = sett.flexTime || { enabled: true, durasiKerja: 8, durasiIstirahat: 1 };
+
+    const liburSet = new Set();
+    hariLiburSnap.forEach((d) => {
+      const h = d.data();
+      if (h.tanggal && h.tanggal >= startDate && h.tanggal <= endDate) liburSet.add(h.tanggal);
     });
-  });
 
-  const dinasLuarMap = {};
-  const processDinas = (dl) => {
-      if (dl.status !== 'approved' && !dl.approvedAt) return;
-      const startD = dl.tanggalMulai || dl.tanggal;
-      const endD = dl.tanggalSelesai || dl.tanggal;
-      if (!startD) return;
-      const uids = [dl.userId, (dl.nama || '').toLowerCase().trim()].filter(Boolean);
-      const endDt = new Date((endD || startD) + 'T00:00:00');
-      for (let dt = new Date(startD + 'T00:00:00'); dt <= endDt; dt.setDate(dt.getDate() + 1)) {
-        const ds = dt.toISOString().split('T')[0];
+    const cutiMap = {};
+    cutiSnap.forEach((d) => {
+      const c = d.data();
+      if (c.status !== 'approved' && !c.approvedAt) return;
+      if (!c.mulai || !c.selesai) return;
+      const uids = [c.userId, (c.nama || '').toLowerCase().trim()].filter(Boolean);
+      const start = new Date(c.mulai + 'T00:00:00');
+      const end = new Date(c.selesai + 'T00:00:00');
+      for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+        const ds = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
         if (ds >= startDate && ds <= endDate) {
           uids.forEach(uid => {
-              if (!dinasLuarMap[uid]) dinasLuarMap[uid] = {};
-              dinasLuarMap[uid][ds] = true;
+              if (!cutiMap[uid]) cutiMap[uid] = {};
+              cutiMap[uid][ds] = c.jenis || 'Cuti';
           });
         }
       }
-  };
-  dinasLuarSnap.forEach(processDinas);
-  sppdSnap.forEach(processDinas);
+    });
 
-  const users = [];
-  usersSnap.forEach((d) => users.push({ id: d.id, ...d.data() }));
-  const isPortalMode = !hasAccess(3);
-  const filteredUsers = isPortalMode ? users.filter(u => u.nama?.toLowerCase() === currentUser.nama?.toLowerCase() || u.id === currentUser.id) : users;
+    const otMap = {};
+    overtimeSnap.forEach((d) => {
+      const o = d.data();
+      if (!o.tanggal || o.tanggal < startDate || o.tanggal > endDate || (o.status !== 'approved' && !o.approvedAt)) return;
+      const uids = [o.userId, (o.nama || '').toLowerCase().trim()].filter(Boolean);
+      const dur = parseFloat(o.durasi) || 0;
+      uids.forEach(uid => {
+          if (!otMap[uid]) otMap[uid] = {};
+          otMap[uid][o.tanggal] = dur;
+      });
+    });
 
-  const absenMap = {};
-  const jamKerjaMap = {};
-  const lemburMap = {};
-  absenSnap.forEach((d) => {
-    const p = d.data();
-    if (!p.tanggal || p.tanggal < startDate || p.tanggal > endDate) return;
-    const uids = [p.userId, (p.nama || '').toLowerCase().trim()].filter(Boolean);
-    uids.forEach(uid => {
-        if (!absenMap[uid]) absenMap[uid] = {};
-        if (!jamKerjaMap[uid]) jamKerjaMap[uid] = {};
-        if (!lemburMap[uid]) lemburMap[uid] = {};
-
-        if (p.tipe === 'masuk') absenMap[uid][p.tanggal] = p.status || 'hadir';
-        else if (p.tipe === 'pulang') {
-            if (p.lembur) {
-                absenMap[uid][p.tanggal] = 'lembur';
-                lemburMap[uid][p.tanggal] = p.lemburJam || 0;
-            } else if (p.status === 'kurang_jam' || p.status === 'lengkap') {
-                absenMap[uid][p.tanggal] = p.status;
-            }
-            if (p.jamKerjaActual) jamKerjaMap[uid][p.tanggal] = p.jamKerjaActual;
+    const dinasLuarMap = {};
+    const processDinas = (dl) => {
+        if (dl.status !== 'approved' && !dl.approvedAt) return;
+        const startD = dl.tanggalMulai || dl.tanggal;
+        const endD = dl.tanggalSelesai || dl.tanggal;
+        if (!startD) return;
+        const uids = [dl.userId, (dl.nama || '').toLowerCase().trim()].filter(Boolean);
+        const endDt = new Date((endD || startD) + 'T00:00:00');
+        for (let dt = new Date(startD + 'T00:00:00'); dt <= endDt; dt.setDate(dt.getDate() + 1)) {
+          const ds = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+          if (ds >= startDate && ds <= endDate) {
+            uids.forEach(uid => {
+                if (!dinasLuarMap[uid]) dinasLuarMap[uid] = {};
+                dinasLuarMap[uid][ds] = true;
+            });
+          }
         }
+    };
+    dinasLuarSnap.forEach(processDinas);
+    sppdSnap.forEach(processDinas);
+
+    const users = [];
+    usersSnap.forEach((d) => users.push({ id: d.id, ...d.data() }));
+    const filteredUsers = (!hasAccess(3)) ? users.filter(u => u.nama?.toLowerCase() === currentUser.nama?.toLowerCase() || u.id === currentUser.id) : users;
+
+    const absenMap = {};
+    const jamKerjaMap = {};
+    const lemburMap = {};
+    absenSnap.forEach((d) => {
+      const p = d.data();
+      if (!p.tanggal || p.tanggal < startDate || p.tanggal > endDate) return;
+      const uids = [p.userId, (p.nama || '').toLowerCase().trim()].filter(Boolean);
+      uids.forEach(uid => {
+          if (!absenMap[uid]) absenMap[uid] = {};
+          if (!jamKerjaMap[uid]) jamKerjaMap[uid] = {};
+          if (!lemburMap[uid]) lemburMap[uid] = {};
+
+          if (p.tipe === 'masuk') absenMap[uid][p.tanggal] = p.status || 'hadir';
+          else if (p.tipe === 'pulang') {
+              if (p.lembur) {
+                  absenMap[uid][p.tanggal] = 'lembur';
+                  lemburMap[uid][p.tanggal] = p.lemburJam || 0;
+              } else if (p.status === 'kurang_jam' || p.status === 'lengkap') {
+                  absenMap[uid][p.tanggal] = p.status;
+              }
+              if (p.jamKerjaActual) jamKerjaMap[uid][p.tanggal] = p.jamKerjaActual;
+          }
+      });
     });
-  });
 
-  let h = `<div class="text-xs mb-8 fw-700 color-primary">Rentang: ${labelRange || (bulan + '-01 s/d ' + endDate)}</div>`;
-  h += '<div class="table-wrap"><table><thead><tr><th style="min-width:120px">Nama</th>';
-  dateList.forEach(dt => {
-      const ds = dt.toISOString().split('T')[0];
-      const day = dt.getDate();
-      const isWknd = dt.getDay() === 0 || dt.getDay() === 6;
-      const hdrStyle = isWknd || liburSet.has(ds) ? 'background:#9e9e9e;color:#fff;' : '';
-      h += `<th style="width:28px;text-align:center;font-size:.65rem;${hdrStyle}">${day}</th>`;
-  });
-  h += '<th>Total</th><th>Lembur</th><th>Aksi</th></tr></thead><tbody>';
-
-  let totalH = 0, totalT = 0, totalD = 0, totalK = 0, totalL = 0, totalLembur = 0, totalLemburJam = 0;
-
-  filteredUsers.forEach((u) => {
-    const namaLow = (u.nama || '').toLowerCase().trim();
-    const userAbsen = { ...(absenMap[u.id] || {}), ...(absenMap[namaLow] || {}) };
-    const userJamKerja = { ...(jamKerjaMap[u.id] || {}), ...(jamKerjaMap[namaLow] || {}) };
-    const userLemburMap2 = { ...(lemburMap[u.id] || {}), ...(lemburMap[namaLow] || {}) };
-    const userCuti = { ...(cutiMap[u.id] || {}), ...(cutiMap[namaLow] || {}) };
-    const userDinas = { ...(dinasLuarMap[u.id] || {}), ...(dinasLuarMap[namaLow] || {}) };
-    const userOT = { ...(otMap[u.id] || {}), ...(otMap[namaLow] || {}) };
-
-    h += `<tr><td class="text-sm fw-700">${escHtml(u.nama)}</td>`;
-    let ut = 0, userLemburJamTotal = 0;
-
+    let h = `<div class="text-xs mb-8 fw-700 color-primary">Rentang: ${labelRange || (startDate + ' s/d ' + endDate)}</div>`;
+    h += '<div class="table-wrap"><table><thead><tr><th style="min-width:120px">Nama</th>';
     dateList.forEach(dt => {
-      const ds = dt.toISOString().split('T')[0];
-      const st = userAbsen[ds];
-      const jamKerja = userJamKerja[ds];
-      const lemburJam = userLemburMap2[ds];
-      const cutiStatus = userCuti[ds];
-      const isDinas = userDinas[ds];
-      const otDurasi = userOT[ds] || 0;
-      const isLibur = liburSet.has(ds);
-      const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
-
-      let color = '#eee', text = '-', title = '';
-
-      if (cutiStatus) {
-          const cTypes = {'WFH':['#009688','W','WFH'], 'Cuti Sakit':['#e91e63','S','Cuti Sakit'], 'Izin Pribadi':['#ffc107','I','Izin Pribadi'], 'Cuti Melahirkan':['#9c27b0','M','Cuti Melahirkan']};
-          const ct = cTypes[cutiStatus] || ['#00bcd4','C',cutiStatus];
-          color = ct[0]; text = ct[1]; title = ` title="${ct[2]}"`;
-          if (!isWeekend && !isLibur) ut++;
-      } else if (isDinas) {
-          color = '#2196f3'; text = 'D'; title = ' title="Dinas Luar"';
-          if (!isWeekend && !isLibur) { ut++; totalD++; }
-      } else if (otDurasi > 0 || (st === 'lembur')) {
-          color = '#7b1fa2'; text = 'L'; ut++; totalLembur++;
-          const lJam = Math.max(otDurasi, lemburJam || 0);
-          userLemburJamTotal += lJam; totalLemburJam += lJam;
-      } else if (st === 'tepat_waktu' || st === 'hadir' || st === 'lengkap') {
-          color = '#4caf50'; text = '✓'; ut++; totalH++;
-      } else if (st === 'terlambat') {
-          color = '#ff9800'; text = 'T'; ut++; totalT++;
-      } else if (st === 'kurang_jam') {
-          color = '#ff5722'; text = 'K'; ut++; totalK++;
-      } else if (!isWeekend && !isLibur) {
-          color = '#ffebee'; text = '<span style="color:#f44336">⚠️</span>'; title = ' title="Mangkir (Tanpa Keterangan)"';
-      } else if (isLibur) {
-          color = '#9e9e9e'; text = 'H'; title = ' title="Hari Libur"';
-      } else if (isWeekend) {
-          color = '#9e9e9e'; text = '-'; title = ' title="Weekend"';
-      }
-
-      if (flex.enabled && jamKerja) title = (title || '') + ` title="${jamKerja.toFixed(1)} jam"`;
-
-      let cellContent = text;
-      if (isMissingPulang && !cutiStatus && !isDinas) {
-          cellContent = `<span style="position:relative">${text}<span style="position:absolute;top:-4px;right:-4px;color:#f44336;font-size:8px">⚠️</span></span>`;
-          if (!title) title = ' title="Belum absen pulang"';
-          else title = title.replace('"', ' (Belum absen pulang)"');
-      }
-
-      h += `<td style="text-align:center;background:${color};color:#fff;font-size:.6rem;font-weight:700;padding:3px"${title}>${cellContent}</td>`;
+        const ds = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+        const day = dt.getDate();
+        const isWknd = dt.getDay() === 0 || dt.getDay() === 6;
+        const hdrStyle = isWknd || liburSet.has(ds) ? 'background:#9e9e9e;color:#fff;' : '';
+        h += `<th style="width:28px;text-align:center;font-size:.65rem;${hdrStyle}">${day}</th>`;
     });
+    h += '<th>Total</th><th>Lembur</th><th>Aksi</th></tr></thead><tbody>';
 
-    h += `<td class="fw-700 text-center">${ut}</td>`;
-    h += `<td class="fw-700 text-center" style="color:#7b1fa2">${userLemburJamTotal > 0 ? userLemburJamTotal.toFixed(1) + 'j' : '-'}</td>`;
-    h += `<td>${hasAccess(6) ? `<button class="btn btn-xs btn-info" onclick="editAbsenKaryawan('${u.id}','${(u.nama || '').replace(/'/g, "\\'")}','${bulan}')">✏️</button>` : ''}</td></tr>`;
-  });
-  h += '</tbody></table></div>';
-  document.getElementById('rekapGrid').innerHTML = h;
+    let totalH = 0, totalT = 0, totalD = 0, totalK = 0, totalL = 0, totalLembur = 0, totalLemburJam = 0;
 
-  let summaryHtml = `<div class="stats-grid">
-      <div class="stat-card" style="border-left-color:var(--success)"><div class="stat-value color-success">${totalH + totalL}</div><div class="stat-label">${flex.enabled ? 'Jam Lengkap' : 'Tepat Waktu'}</div></div>
-      <div class="stat-card" style="border-left-color:var(--warning)"><div class="stat-value" style="color:var(--warning)">${totalT}</div><div class="stat-label">Terlambat</div></div>`;
-  if (flex.enabled)
-    summaryHtml += `<div class="stat-card" style="border-left-color:#ff5722"><div class="stat-value" style="color:#ff5722">${totalK}</div><div class="stat-label">Kurang Jam</div></div>`;
-  summaryHtml += `<div class="stat-card" style="border-left-color:var(--info)"><div class="stat-value" style="color:var(--info)">${totalD}</div><div class="stat-label">Dinas Luar</div></div>
-      <div class="stat-card" style="border-left-color:#7b1fa2"><div class="stat-value" style="color:#7b1fa2">${totalLembur}</div><div class="stat-label">Lembur (${totalLemburJam.toFixed(1)} jam)</div></div>
-    </div>
-    <div class="flex gap-8 mt-8 flex-wrap">
-      <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#4caf50;border-radius:2px"></span> ${flex.enabled ? 'Lengkap' : 'Hadir'}</span>
-      <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#ff9800;border-radius:2px"></span> Terlambat</span>`;
-  if (flex.enabled)
-    summaryHtml += `<span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#ff5722;border-radius:2px"></span> Kurang Jam</span>`;
-  summaryHtml += `<span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#7b1fa2;border-radius:2px"></span> Lembur</span>
-      <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#2196f3;border-radius:2px"></span> Dinas Luar</span>
-      <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#00bcd4;border-radius:2px"></span> Cuti Tahunan (C)</span>
-      <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#e91e63;border-radius:2px"></span> Cuti Sakit (S)</span>
-      <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#ffc107;border-radius:2px"></span> Izin Pribadi (I)</span>
-      <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#009688;border-radius:2px"></span> WFH (W)</span>
-      <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#9c27b0;border-radius:2px"></span> Cuti Melahirkan (M)</span>
-      <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#9e9e9e;border-radius:2px"></span> Weekend / Hari Libur</span>
-      <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#ffebee;border-radius:2px;border:1px solid #f44336;text-align:center;line-height:12px;font-size:8px;color:#f44336">⚠️</span> Mangkir (Tanpa Keterangan)</span>
-    </div>`;
-  document.getElementById('rekapSummary').innerHTML = summaryHtml;
+    filteredUsers.forEach((u) => {
+      const namaLow = (u.nama || '').toLowerCase().trim();
+      const userAbsen = { ...(absenMap[u.id] || {}), ...(absenMap[namaLow] || {}) };
+      const userJamKerja = { ...(jamKerjaMap[u.id] || {}), ...(jamKerjaMap[namaLow] || {}) };
+      const userLemburMap2 = { ...(lemburMap[u.id] || {}), ...(lemburMap[namaLow] || {}) };
+      const userCuti = { ...(cutiMap[u.id] || {}), ...(cutiMap[namaLow] || {}) };
+      const userDinas = { ...(dinasLuarMap[u.id] || {}), ...(dinasLuarMap[namaLow] || {}) };
+      const userOT = { ...(otMap[u.id] || {}), ...(otMap[namaLow] || {}) };
+
+      const userRawAbsen = absenSnap.docs.filter(d => {
+          const p = d.data();
+          return (p.userId === u.id || (p.nama && p.nama.toLowerCase() === namaLow)) &&
+                 p.tanggal >= startDate && p.tanggal <= endDate;
+      }).map(d => d.data());
+
+      h += `<tr><td class="text-sm fw-700">${escHtml(u.nama)}</td>`;
+      let ut = 0, userLemburJamTotal = 0;
+
+      dateList.forEach(dt => {
+        const ds = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+        const st = userAbsen[ds];
+        const jamKerja = userJamKerja[ds];
+        const lemburJam = userLemburMap2[ds];
+        const cutiStatus = userCuti[ds];
+        const isDinas = userDinas[ds];
+        const otDurasi = userOT[ds] || 0;
+        const isLibur = liburSet.has(ds);
+        const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
+
+        const hasMasuk = userRawAbsen.some(a => a.tanggal === ds && a.tipe === 'masuk');
+        const hasPulang = userRawAbsen.some(a => a.tanggal === ds && a.tipe === 'pulang');
+        const isMissingPulang = hasMasuk && !hasPulang && ds < todayStr();
+
+        let color = '#eee', text = '-', title = '';
+
+        if (cutiStatus) {
+            const cTypes = {'WFH':['#009688','W','WFH'], 'Cuti Sakit':['#e91e63','S','Cuti Sakit'], 'Izin Pribadi':['#ffc107','I','Izin Pribadi'], 'Cuti Melahirkan':['#9c27b0','M','Cuti Melahirkan']};
+            const ct = cTypes[cutiStatus] || ['#00bcd4','C',cutiStatus];
+            color = ct[0]; text = ct[1]; title = ` title="${ct[2]}"`;
+            if (!isWeekend && !isLibur) ut++;
+        } else if (isDinas) {
+            color = '#2196f3'; text = 'D'; title = ' title="Dinas Luar"';
+            if (!isWeekend && !isLibur) { ut++; totalD++; }
+        } else if (otDurasi > 0 || (st === 'lembur')) {
+            color = '#7b1fa2'; text = 'L'; ut++; totalLembur++;
+            const lJam = Math.max(otDurasi, lemburJam || 0);
+            userLemburJamTotal += lJam; totalLemburJam += lJam;
+        } else if (st === 'tepat_waktu' || st === 'hadir' || st === 'lengkap') {
+            color = '#4caf50'; text = '✓'; ut++; totalH++;
+        } else if (st === 'terlambat') {
+            color = '#ff9800'; text = 'T'; ut++; totalT++;
+        } else if (st === 'kurang_jam') {
+            color = '#ff5722'; text = 'K'; ut++; totalK++;
+        } else if (!isWeekend && !isLibur) {
+            color = '#ffebee'; text = '<span style="color:#f44336">⚠️</span>'; title = ' title="Mangkir (Tanpa Keterangan)"';
+        } else if (isLibur) {
+            color = '#9e9e9e'; text = 'H'; title = ' title="Hari Libur"';
+        } else if (isWeekend) {
+            color = '#9e9e9e'; text = '-'; title = ' title="Weekend"';
+        }
+
+        if (flex.enabled && jamKerja) title = (title || '') + ` title="${jamKerja.toFixed(1)} jam"`;
+
+        let cellContent = text;
+        if (isMissingPulang && !cutiStatus && !isDinas) {
+            cellContent = `<span style="position:relative">${text}<span style="position:absolute;top:-4px;right:-4px;color:#f44336;font-size:8px">⚠️</span></span>`;
+            if (!title) title = ' title="Belum absen pulang"';
+            else title = title.replace('"', ' (Belum absen pulang)"');
+        }
+
+        h += `<td style="text-align:center;background:${color};color:#fff;font-size:.6rem;font-weight:700;padding:3px"${title}>${cellContent}</td>`;
+      });
+
+      h += `<td class="fw-700 text-center">${ut}</td>`;
+      h += `<td class="fw-700 text-center" style="color:#7b1fa2">${userLemburJamTotal > 0 ? userLemburJamTotal.toFixed(1) + 'j' : '-'}</td>`;
+      h += `<td>${hasAccess(6) ? `<button class="btn btn-xs btn-info" onclick="editAbsenKaryawan('${u.id}','${(u.nama || '').replace(/'/g, "\\'")}','${bulan}')">✏️</button>` : ''}</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+    gridEl.innerHTML = h;
+
+    let summaryHtml = `<div class="stats-grid">
+        <div class="stat-card" style="border-left-color:var(--success)"><div class="stat-value color-success">${totalH}</div><div class="stat-label">${flex.enabled ? 'Hadir (Lengkap)' : 'Tepat Waktu'}</div></div>
+        <div class="stat-card" style="border-left-color:var(--warning)"><div class="stat-value" style="color:var(--warning)">${totalT}</div><div class="stat-label">Terlambat</div></div>`;
+    if (flex.enabled)
+      summaryHtml += `<div class="stat-card" style="border-left-color:#ff5722"><div class="stat-value" style="color:#ff5722">${totalK}</div><div class="stat-label">Kurang Jam</div></div>`;
+    summaryHtml += `<div class="stat-card" style="border-left-color:var(--info)"><div class="stat-value" style="color:var(--info)">${totalD}</div><div class="stat-label">Dinas Luar</div></div>
+        <div class="stat-card" style="border-left-color:#7b1fa2"><div class="stat-value" style="color:#7b1fa2">${totalLembur}</div><div class="stat-label">Lembur (${totalLemburJam.toFixed(1)} jam)</div></div>
+      </div>
+      <div class="flex gap-8 mt-8 flex-wrap">
+        <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#4caf50;border-radius:2px"></span> ${flex.enabled ? 'Lengkap' : 'Hadir'}</span>
+        <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#ff9800;border-radius:2px"></span> Terlambat</span>`;
+    if (flex.enabled)
+      summaryHtml += `<span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#ff5722;border-radius:2px"></span> Kurang Jam</span>`;
+    summaryHtml += `<span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#7b1fa2;border-radius:2px"></span> Lembur</span>
+        <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#2196f3;border-radius:2px"></span> Dinas Luar</span>
+        <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#00bcd4;border-radius:2px"></span> Cuti Tahunan (C)</span>
+        <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#e91e63;border-radius:2px"></span> Cuti Sakit (S)</span>
+        <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#ffc107;border-radius:2px"></span> Izin Pribadi (I)</span>
+        <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#009688;border-radius:2px"></span> WFH (W)</span>
+        <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#9c27b0;border-radius:2px"></span> Cuti Melahirkan (M)</span>
+        <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#9e9e9e;border-radius:2px"></span> Weekend / Hari Libur</span>
+        <span class="text-xs"><span style="display:inline-block;width:12px;height:12px;background:#ffebee;border-radius:2px;border:1px solid #f44336;text-align:center;line-height:12px;font-size:8px;color:#f44336">⚠️</span> Mangkir (Tanpa Keterangan)</span>
+      </div>`;
+    document.getElementById('rekapSummary').innerHTML = summaryHtml;
+  } catch (err) {
+    console.error('loadRekapGrid error:', err);
+    gridEl.innerHTML = `<div class="badge badge-danger">Gagal memuat data: ${err.message}</div>`;
+  }
 }
 
 // ── IMPORT CSV ────────────────────────────────────────────────
