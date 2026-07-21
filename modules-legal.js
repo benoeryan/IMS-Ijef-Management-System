@@ -331,39 +331,49 @@ window.loadLegalTickets = async function() {
 window.loadLegalPerizinan = async function() {
     const tbody = document.getElementById("tblLegalPerizinan");
     if(!tbody) return;
-    // Remove orderBy to ensure old data without 'createdAt' is still loaded
-    const snap = await db.collection("hrd_legal_perizinan").get();
-    let items = [];
-    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
 
-    // Sort client-side instead
-    items.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    try {
+        const snap = await db.collection("hrd_legal_perizinan").get();
+        let items = [];
+        snap.forEach(d => items.push({ id: d.id, ...d.data() }));
 
-    let h = "";
-    items.forEach(p => {
-        const stClass = p.status === "Aktif" ? "badge-success" : (p.status === "Non-aktif" ? "badge-danger" : "badge-warning");
+        // Safer sort: handle strings, timestamps, or missing dates
+        items.sort((a, b) => {
+            const dateA = a.createdAt ? (typeof a.createdAt === 'string' ? a.createdAt : (a.createdAt.toDate ? a.createdAt.toDate().toISOString() : String(a.createdAt))) : "";
+            const dateB = b.createdAt ? (typeof b.createdAt === 'string' ? b.createdAt : (b.createdAt.toDate ? b.createdAt.toDate().toISOString() : String(b.createdAt))) : "";
+            return dateB.localeCompare(dateA);
+        });
 
-        // Auto-check expiry
-        let tglMasa = p.masaBerlaku || "-";
-        let labelTgl = tglMasa === "-" ? "-" : formatDate(tglMasa);
-        if (tglMasa !== "-" && tglMasa < todayStr()) {
-            labelTgl = `<span class="color-danger" title="Sudah kadaluarsa">${labelTgl} ⚠️</span>`;
-        }
+        let h = "";
+        items.forEach(p => {
+            const status = p.status || "Aktif";
+            const stClass = status === "Aktif" ? "badge-success" : (status === "Non-aktif" ? "badge-danger" : "badge-warning");
 
-        h += `
-        <tr>
-            <td class="fw-700">${escHtml(p.nama)}</td>
-            <td>${escHtml(p.nomor || "-")}</td>
-            <td>${escHtml(p.instansi || "-")}</td>
-            <td>${labelTgl}</td>
-            <td><span class="badge ${stClass}">${p.status || "Aktif"}</span></td>
-            <td>
-                <button class="btn btn-xs btn-info" onclick="viewLegalPerizinan('${d.id}')">👁️</button>
-                <button class="btn btn-xs btn-danger" onclick="hapusLegalPerizinan('${p.id}')">🗑️</button>
-            </td>
-        </tr>`;
-    });
-    tbody.innerHTML = h || '<tr><td colspan="6" class="text-center">Belum ada data dokumen</td></tr>';
+            // Auto-check expiry
+            let tglMasa = p.masaBerlaku || "-";
+            let labelTgl = tglMasa === "-" ? "-" : formatDate(tglMasa);
+            if (tglMasa !== "-" && tglMasa < todayStr()) {
+                labelTgl = `<span class="color-danger" title="Sudah kadaluarsa">${labelTgl} ⚠️</span>`;
+            }
+
+            h += `
+            <tr>
+                <td class="fw-700">${escHtml(p.nama)}</td>
+                <td>${escHtml(p.nomor || "-")}</td>
+                <td>${escHtml(p.instansi || "-")}</td>
+                <td>${labelTgl}</td>
+                <td><span class="badge ${stClass}">${status}</span></td>
+                <td>
+                    <button class="btn btn-xs btn-info" onclick="viewLegalPerizinan('${p.id}')">👁️</button>
+                    <button class="btn btn-xs btn-danger" onclick="hapusLegalPerizinan('${p.id}')">🗑️</button>
+                </td>
+            </tr>`;
+        });
+        tbody.innerHTML = h || '<tr><td colspan="6" class="text-center">Belum ada data dokumen</td></tr>';
+    } catch (e) {
+        console.error("loadLegalPerizinan error:", e);
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center color-danger">Gagal memuat data: ${e.message}</td></tr>`;
+    }
 };
 
 window.hapusLegalPerizinan = async function(id) {
