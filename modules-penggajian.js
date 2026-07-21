@@ -146,14 +146,25 @@ async function generateAllGaji() {
     <p class="text-sm mb-16" style="color:#666">Perhitungan: Tgl 20 bulan lalu s/d Tgl 20 bulan ini. Terintegrasi dengan kehadiran & lembur.</p>
     <div class="fw-700 text-sm mb-8">Komponen yang disertakan:</div>
     <div style="background:#f8f9ff;padding:12px;border-radius:8px;margin-bottom:16px">
-      <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncTunjCuti"> Tunjangan Cuti (1/12 gaji pokok)</label>
-      <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncBPJSKes" checked> BPJS Kesehatan (1% karyawan)</label>
-      <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncBPJSTK" checked> BPJS TK/JHT (2% karyawan)</label>
-      <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncPPH" checked> PPH 21 (progresif UU HPP)</label>
+      <div class="grid-2">
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncTunj" checked> Tunjangan Tetap/Lain</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncInsentif" checked> Insentif Kinerja</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncReimb" checked> Reimbursement</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncKasbon" checked> Kasbon / Loan</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncBPJSKes" checked> BPJS Kesehatan (1%)</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncBPJSTK" checked> BPJS TK/JHT (2%)</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncPPH" checked> PPH 21 (Progresif)</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncTunjCuti"> Tunjangan Cuti (1/12)</label>
+      </div>
     </div>
     <button class="btn btn-success" onclick="doGenerateAllGaji()">⚡ Generate Sekarang</button>`);
 }
 async function doGenerateAllGaji(forcedBulan, isAuto = false) {
+  const incTunj = document.getElementById('genIncTunj') ? document.getElementById('genIncTunj').checked : true;
+  const incInsentif = document.getElementById('genIncInsentif') ? document.getElementById('genIncInsentif').checked : true;
+  const incReimb = document.getElementById('genIncReimb') ? document.getElementById('genIncReimb').checked : true;
+  const incKasbon = document.getElementById('genIncKasbon') ? document.getElementById('genIncKasbon').checked : true;
+
   const incTunjCuti = document.getElementById('genIncTunjCuti') ? document.getElementById('genIncTunjCuti').checked : false;
   const incBPJSKes = document.getElementById('genIncBPJSKes') ? document.getElementById('genIncBPJSKes').checked : true;
   const incBPJSTK = document.getElementById('genIncBPJSTK') ? document.getElementById('genIncBPJSTK').checked : true;
@@ -326,40 +337,48 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
 
       // 5. Tunjangan & Keuangan
       let tunjTetap = 0, tunjLain = 0;
-      tunjSnap.forEach(d => {
-          const t = d.data();
-          const p = (t.penerima || 'Semua').toLowerCase();
-          if (p === 'semua' || p.includes(namaLow)) {
-              if (t.jenis === 'tetap') tunjTetap += (t.nominal || 0);
-              else tunjLain += (t.nominal || 0);
-          }
-      });
+      if (incTunj) {
+          tunjSnap.forEach(d => {
+              const t = d.data();
+              const p = (t.penerima || 'Semua').toLowerCase();
+              if (p === 'semua' || p.includes(namaLow)) {
+                  if (t.jenis === 'tetap') tunjTetap += (t.nominal || 0);
+                  else tunjLain += (t.nominal || 0);
+              }
+          });
+      }
 
       let insentif = 0;
-      insentifSnap.forEach(d => {
-          const ins = d.data();
-          const insDate = ins.approvedAt || ins.createdAt;
-          if ((ins.nama || '').toLowerCase().trim() === namaLow && insDate >= periodeStart && insDate <= periodeEnd) {
-              insentif += (ins.nominal || 0);
-          }
-      });
+      if (incInsentif) {
+          insentifSnap.forEach(d => {
+              const ins = d.data();
+              const insDate = ins.approvedAt || ins.createdAt;
+              if ((ins.nama || '').toLowerCase().trim() === namaLow && insDate >= periodeStart && insDate <= periodeEnd) {
+                  insentif += (ins.nominal || 0);
+              }
+          });
+      }
 
       let reimb = 0;
-      reimbSnap.forEach(d => {
-          const r = d.data();
-          const rDate = r.approvedAt || r.createdAt;
-          if ((r.nama || '').toLowerCase().trim() === namaLow && rDate >= periodeStart && rDate <= periodeEnd) {
-              reimb += (r.jumlah || 0);
-          }
-      });
+      if (incReimb) {
+          reimbSnap.forEach(d => {
+              const r = d.data();
+              const rDate = r.approvedAt || r.createdAt;
+              if ((r.nama || '').toLowerCase().trim() === namaLow && rDate >= periodeStart && rDate <= periodeEnd) {
+                  reimb += (r.jumlah || 0);
+              }
+          });
+      }
 
       let loan = 0;
-      kasbonSnap.forEach(d => {
-          const r = d.data();
-          if ((r.nama || '').toLowerCase().trim() === namaLow) {
-              loan += (r.angsuran || r.jumlah || 0);
-          }
-      });
+      if (incKasbon) {
+          kasbonSnap.forEach(d => {
+              const r = d.data();
+              if ((r.nama || '').toLowerCase().trim() === namaLow) {
+                  loan += (r.angsuran || r.jumlah || 0);
+              }
+          });
+      }
 
       // 6. BPJS & PPh21 (Merujuk pada GAJI POKOK UTUH)
       const bpjsKes = incBPJSKes ? Math.round((k.gajiPokok || 0) * 0.01) : 0;
