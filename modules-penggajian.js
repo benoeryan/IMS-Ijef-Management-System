@@ -3,11 +3,12 @@
 async function renderPenggajian() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
+  const bulan = monthStr();
   main.innerHTML = `<div class="page-title">
     <span>${renderBackButton()}💰 Penggajian</span>
     ${!isBOD ? `
     <div class="flex gap-8">
-        <button class="btn btn-info btn-sm" onclick="syncAllPayrollData()">🔄 Sinkronisasi</button>
+        <button class="btn btn-info btn-sm" id="btnSyncPayroll" onclick="syncAllPayrollData()">🔄 Sinkronisasi</button>
         <button class="btn btn-primary btn-sm" onclick="modalGaji()">+ Generate Slip</button>
         <button class="btn btn-success btn-sm" onclick="generateAllGaji()">⚡ Generate Semua</button>
         <button class="btn btn-secondary btn-sm" onclick="modalImportPenggajian()">⬇️ Import</button>
@@ -15,7 +16,7 @@ async function renderPenggajian() {
   </div>
   <div class="card">
     <div class="flex gap-8 mb-16 flex-wrap">
-      <input class="form-control" type="month" id="filterBulanGaji" value="${monthStr()}" onchange="loadGaji()" style="max-width:160px">
+      <input class="form-control" type="month" id="filterBulanGaji" value="${bulan}" onchange="loadGaji()" style="max-width:160px">
       <input class="form-control" placeholder="🔍 Cari nama..." id="filterNamaGaji" oninput="filterGajiTable()" style="max-width:180px">
       <select class="form-control" id="filterDeptGaji" onchange="filterGajiTable()" style="max-width:160px"><option value="">Semua Dept</option></select>
       <select class="form-control" id="filterGajiRange" onchange="filterGajiTable()" style="max-width:160px"><option value="">Semua Gaji</option><option value="0-3000000">&lt; 3 Juta</option><option value="3000000-5000000">3-5 Juta</option><option value="5000000-10000000">5-10 Juta</option><option value="10000000-99999999">&gt; 10 Juta</option></select>
@@ -35,13 +36,39 @@ async function renderPenggajian() {
       </table>
     </div>
   </div>`;
-  loadGaji();
+
+  await loadGaji();
+
+  // Auto-sync if current month has no data yet
+  if (!isBOD && window._gajiData.length === 0) {
+      console.log("[PAYROLL] Auto-syncing current month...");
+      await syncAllPayrollData(true);
+  }
 }
 
-async function syncAllPayrollData() {
-    if (!confirm("Sinkronisasi ulang semua slip gaji bulan ini berdasarkan data kehadiran, lembur, insentif & reimbursement terbaru?")) return;
-    toast("⏳ Memulai sinkronisasi massal...", "info");
-    await doGenerateAllGaji();
+async function syncAllPayrollData(silent = false) {
+    if (!silent && !confirm("Sinkronisasi ulang semua slip gaji bulan ini berdasarkan data terbaru?")) return;
+
+    const btn = document.getElementById('btnSyncPayroll');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = "⏳ Syncing...";
+    }
+
+    try {
+        const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
+        await doGenerateAllGaji(bulan, true);
+        if (!silent) toast("✅ Sinkronisasi selesai", "success");
+        loadGaji();
+    } catch (e) {
+        console.error(e);
+        if (!silent) toast("Gagal sinkronisasi", "danger");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = "🔄 Sinkronisasi";
+        }
+    }
 }
 async function loadGaji() {
   const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
@@ -340,8 +367,8 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
       if (incTunj) {
           tunjSnap.forEach(d => {
               const t = d.data();
-              const p = (t.penerima || 'Semua').toLowerCase();
-              if (p === 'semua' || p.includes(namaLow)) {
+              const p = (t.penerima || 'Semua').trim().toLowerCase();
+              if (p === 'semua' || p.includes(namaLow) || namaLow.includes(p)) {
                   if (t.jenis === 'tetap') tunjTetap += (t.nominal || 0);
                   else tunjLain += (t.nominal || 0);
               }
@@ -352,8 +379,9 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
       if (incInsentif) {
           insentifSnap.forEach(d => {
               const ins = d.data();
-              const insDate = ins.approvedAt || ins.createdAt;
-              if ((ins.nama || '').toLowerCase().trim() === namaLow && insDate >= periodeStart && insDate <= periodeEnd) {
+              const insDateRaw = ins.approvedAt || ins.createdAt || "";
+              const insDate = typeof insDateRaw === 'string' ? insDateRaw.split('T')[0] : "";
+              if ((ins.nama || '').trim().toLowerCase() === namaLow && insDate >= periodeStart && insDate <= periodeEnd) {
                   insentif += (ins.nominal || 0);
               }
           });
@@ -363,8 +391,9 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
       if (incReimb) {
           reimbSnap.forEach(d => {
               const r = d.data();
-              const rDate = r.approvedAt || r.createdAt;
-              if ((r.nama || '').toLowerCase().trim() === namaLow && rDate >= periodeStart && rDate <= periodeEnd) {
+              const rDateRaw = r.approvedAt || r.createdAt || "";
+              const rDate = typeof rDateRaw === 'string' ? rDateRaw.split('T')[0] : "";
+              if ((r.nama || '').trim().toLowerCase() === namaLow && rDate >= periodeStart && rDate <= periodeEnd) {
                   reimb += (r.jumlah || 0);
               }
           });
@@ -374,7 +403,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
       if (incKasbon) {
           kasbonSnap.forEach(d => {
               const r = d.data();
-              if ((r.nama || '').toLowerCase().trim() === namaLow) {
+              if ((r.nama || '').trim().toLowerCase() === namaLow) {
                   loan += (r.angsuran || r.jumlah || 0);
               }
           });
@@ -404,7 +433,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
           periode: bulan,
           periodeStart,
           periodeEnd,
-          gajiPokok, // Ini yang sudah diprorata jika masuk tengah periode
+          gajiPokok, // Prorata
           gajiPokokUtuh: k.gajiPokok,
           tunjangan: tunjTetap + tunjLain,
           insentif,
@@ -415,6 +444,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
           bpjsTK,
           potonganMangkir,
           mangkirHari: mangkir,
+          potongan: potonganMangkir + bpjsKes + bpjsTK, // Consolidated for table
           kasbon: loan,
           pph21,
           totalBersih: thp,
@@ -1433,13 +1463,13 @@ async function generateInsentifFromKPI() {
   const kpiMap = {};
   kpiSnap.forEach((d) => {
     const r = d.data();
-    const n = (r.nama || '').toLowerCase();
+    const n = (r.nama || '').trim().toLowerCase();
     if (!kpiMap[n] || r.skor > kpiMap[n]) kpiMap[n] = r.skor || 0;
   });
   let count = 0;
   for (const doc of kSnap.docs) {
     const k = doc.data();
-    const kpi = kpiMap[(k.nama || '').toLowerCase()] || 0;
+    const kpi = kpiMap[(k.nama || '').trim().toLowerCase()] || 0;
     let pct = 0;
     if (kpi >= 90) pct = 15;
     else if (kpi >= 80) pct = 10;
@@ -1454,6 +1484,7 @@ async function generateInsentifFromKPI() {
       persen: pct,
       nominal,
       periode: monthStr(),
+      status: 'approved',
       createdAt: new Date().toISOString(),
     });
     count++;

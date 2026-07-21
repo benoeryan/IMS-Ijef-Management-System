@@ -3071,6 +3071,7 @@ async function doGenerateAbsensi() {
         toast('⏳ Menghitung slip gaji...', 'info');
         const targetBulan = endDate.slice(0, 7); // YYYY-MM
         await doGenerateAllGaji(targetBulan, true);
+        toast('✅ Slip gaji berhasil diperbarui', 'success');
     }
 
     closeModalDirect();
