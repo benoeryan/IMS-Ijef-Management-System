@@ -933,10 +933,24 @@ function monthStr() {
 }
 function getSafeDateString(val) {
     if (!val) return "";
-    if (typeof val === 'string') return val.split('T')[0];
-    if (val.toDate) return val.toDate().toISOString().split('T')[0];
-    if (val instanceof Date) return val.toISOString().split('T')[0];
-    return String(val).split('T')[0];
+    let d;
+    if (typeof val === 'string') {
+        if (val.includes('T')) d = new Date(val);
+        else d = new Date(val + 'T00:00:00');
+    } else if (val.toDate) {
+        d = val.toDate();
+    } else if (val instanceof Date) {
+        d = val;
+    } else {
+        d = new Date(val);
+    }
+
+    if (isNaN(d.getTime())) return "";
+
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
 }
 function getMonthDays(ym) {
   const [y, m] = ym.split('-').map(Number);

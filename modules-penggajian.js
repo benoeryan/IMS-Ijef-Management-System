@@ -65,9 +65,24 @@ async function syncAllPayrollData() {
 
 async function doSyncPayroll() {
     const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
+
+    // Read selections BEFORE closing modal
+    const selections = {
+        tunj: document.getElementById('genIncTunj')?.checked,
+        insentif: document.getElementById('genIncInsentif')?.checked,
+        reimb: document.getElementById('genIncReimb')?.checked,
+        kasbon: document.getElementById('genIncKasbon')?.checked,
+        bpjsKes: document.getElementById('genIncBPJSKes')?.checked,
+        bpjsTK: document.getElementById('genIncBPJSTK')?.checked,
+        pph: document.getElementById('genIncPPH')?.checked
+    };
+
     closeModalDirect();
     toast("⏳ Menyelaraskan data...", "info");
-    await doGenerateAllGaji(bulan, true);
+
+    // Pass selections to generator
+    await doGenerateAllGaji(bulan, true, selections);
+
     toast("✅ Sinkronisasi selesai", "success");
     loadGaji();
 }
@@ -117,23 +132,23 @@ function filterGajiTable() {
     return true;
   });
   let h = '',
-    totBruto = 0,
+    totPokok = 0,
     totNet = 0,
     totPPH = 0,
     count = 0;
   if (!filtered.length) h = '<tr><td colspan="12" class="text-center">Tidak ada data</td></tr>';
   else
     filtered.forEach((p) => {
-      totBruto += p.gajiPokok || 0;
-      totNet += p.totalBersih || 0;
-      totPPH += p.pph21 || 0;
+      totPokok += Number(p.gajiPokok) || 0;
+      totNet += Number(p.totalBersih) || 0;
+      totPPH += Number(p.pph21) || 0;
       count++;
       const isBOD = currentUser.role === 'bod';
       h += `<tr>${!isBOD ? `<td><input type="checkbox" class="gaji-cb" value="${p.id}"></td>` : ''}<td class="fw-700">${escHtml(p.nama)}</td><td>${formatCurrency(p.gajiPokok)}</td><td>${formatCurrency(p.tunjangan)}</td><td>${formatCurrency(p.insentif || 0)}</td><td>${formatCurrency(p.reimbursement || 0)}</td><td>${formatCurrency(p.lembur || 0)}</td><td>${formatCurrency(p.potongan)}</td><td>${formatCurrency(p.kasbon || 0)}</td><td>${formatCurrency(p.pph21)}</td><td class="fw-700">${formatCurrency(p.totalBersih)}</td><td><button class="btn btn-xs btn-info" onclick="lihatSlip('${p.id}')">📄</button>${!isBOD ? ` <button class="btn btn-xs btn-warning" onclick="editGaji('${p.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_penggajian','${p.id}','penggajian')">🗑️</button>` : ''}</td></tr>`;
     });
   document.getElementById('tblGaji').innerHTML = h;
   document.getElementById('gajiSummary').innerHTML =
-    `<div class="stat-card"><div class="stat-value">${count}</div><div class="stat-label">Karyawan</div></div><div class="stat-card"><div class="stat-value">${formatCurrency(totBruto)}</div><div class="stat-label">Total Gaji Pokok</div></div><div class="stat-card"><div class="stat-value">${formatCurrency(totNet)}</div><div class="stat-label">Total THP</div></div><div class="stat-card"><div class="stat-value">${formatCurrency(totPPH)}</div><div class="stat-label">Total PPH21</div></div>`;
+    `<div class="stat-card"><div class="stat-value">${count}</div><div class="stat-label">Karyawan</div></div><div class="stat-card"><div class="stat-value">${formatCurrency(totPokok)}</div><div class="stat-label">Total Gaji Pokok</div></div><div class="stat-card"><div class="stat-value">${formatCurrency(totNet)}</div><div class="stat-label">Total THP</div></div><div class="stat-card"><div class="stat-value">${formatCurrency(totPPH)}</div><div class="stat-label">Total PPH21</div></div>`;
 }
 
 function toggleSelectAllGaji() {
@@ -187,16 +202,17 @@ async function generateAllGaji() {
     </div>
     <button class="btn btn-success" onclick="doGenerateAllGaji()">⚡ Generate Sekarang</button>`);
 }
-async function doGenerateAllGaji(forcedBulan, isAuto = false) {
-  const incTunj = document.getElementById('genIncTunj') ? document.getElementById('genIncTunj').checked : true;
-  const incInsentif = document.getElementById('genIncInsentif') ? document.getElementById('genIncInsentif').checked : true;
-  const incReimb = document.getElementById('genIncReimb') ? document.getElementById('genIncReimb').checked : true;
-  const incKasbon = document.getElementById('genIncKasbon') ? document.getElementById('genIncKasbon').checked : true;
+async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections = null) {
+  // Use forcedSelections if provided (e.g. from Sync modal), otherwise read from DOM
+  const incTunj = forcedSelections ? forcedSelections.tunj : (document.getElementById('genIncTunj') ? document.getElementById('genIncTunj').checked : true);
+  const incInsentif = forcedSelections ? forcedSelections.insentif : (document.getElementById('genIncInsentif') ? document.getElementById('genIncInsentif').checked : true);
+  const incReimb = forcedSelections ? forcedSelections.reimb : (document.getElementById('genIncReimb') ? document.getElementById('genIncReimb').checked : true);
+  const incKasbon = forcedSelections ? forcedSelections.kasbon : (document.getElementById('genIncKasbon') ? document.getElementById('genIncKasbon').checked : true);
 
   const incTunjCuti = document.getElementById('genIncTunjCuti') ? document.getElementById('genIncTunjCuti').checked : false;
-  const incBPJSKes = document.getElementById('genIncBPJSKes') ? document.getElementById('genIncBPJSKes').checked : true;
-  const incBPJSTK = document.getElementById('genIncBPJSTK') ? document.getElementById('genIncBPJSTK').checked : true;
-  const incPPH = document.getElementById('genIncPPH') ? document.getElementById('genIncPPH').checked : true;
+  const incBPJSKes = forcedSelections ? forcedSelections.bpjsKes : (document.getElementById('genIncBPJSKes') ? document.getElementById('genIncBPJSKes').checked : true);
+  const incBPJSTK = forcedSelections ? forcedSelections.bpjsTK : (document.getElementById('genIncBPJSTK') ? document.getElementById('genIncBPJSTK').checked : true);
+  const incPPH = forcedSelections ? forcedSelections.pph : (document.getElementById('genIncPPH') ? document.getElementById('genIncPPH').checked : true);
 
   if (!isAuto) closeModalDirect();
   if (!isAuto && !confirm('Konfirmasi: Generate slip gaji untuk semua karyawan aktif?')) return;
@@ -309,7 +325,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
       const absenDates = new Set();
       absenSnap.forEach(d => {
           const a = d.data();
-          if ((a.userId === k.id || (a.nama || '').toLowerCase().trim() === namaLow) &&
+          if ((a.userId === k.id || (a.nama || '').trim().toLowerCase() === namaLow) &&
               a.tanggal >= rangeStart && a.tanggal <= rangeEnd && (a.tipe === 'masuk' || a.tipe === 'dinas_luar')) {
               absenDates.add(a.tanggal);
           }
@@ -324,8 +340,10 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
           const isMatch = (c.userId === k.id || cNama === namaLow || namaLow.includes(cNama) || cNama.includes(namaLow));
 
           if (isMatch) {
-              for (let dt = new Date(c.mulai + 'T00:00:00'); dt <= new Date(c.selesai + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
-                  const ds = dt.toISOString().split('T')[0];
+              const start = c.mulai;
+              const end = c.selesai || c.mulai;
+              for (let dt = new Date(start + 'T00:00:00'); dt <= new Date(end + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
+                  const ds = getSafeDateString(dt);
                   if (ds >= rangeStart && ds <= rangeEnd) cutiDates.add(ds);
               }
           }
@@ -334,19 +352,19 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
       const dinasDates = new Set();
       dinasLuarSnap.forEach(d => {
           const dl = d.data();
-          if ((dl.userId === k.id || (dl.nama || '').toLowerCase().trim() === namaLow)) {
+          if ((dl.userId === k.id || (dl.nama || '').trim().toLowerCase() === namaLow)) {
               const start = dl.tanggalMulai || dl.tanggal;
               const end = dl.tanggalSelesai || dl.tanggal;
               for (let dt = new Date(start + 'T00:00:00'); dt <= new Date(end + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
-                  const ds = dt.toISOString().split('T')[0];
+                  const ds = getSafeDateString(dt);
                   if (ds >= rangeStart && ds <= rangeEnd) dinasDates.add(ds);
               }
           }
       });
 
-      // Hitung per hari kerja (Mon-Fri)
+      // Hitung per hari kerja (Mon-Fri) menggunakan Timezone-Safe Date
       for (let dt = new Date(rangeStart + 'T00:00:00'); dt <= new Date(rangeEnd + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
-          const ds = dt.toISOString().split('T')[0];
+          const ds = getSafeDateString(dt);
           if (isWorkDay(ds)) {
               if (absenDates.has(ds)) kehadiran++;
               else if (cutiDates.has(ds)) cuti++;
@@ -356,16 +374,16 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
       }
 
       // 3. Potongan Mangkir: (Jumlah Mangkir / Total Hari Kalender Periode) x Gaji Pokok
-      const potonganMangkir = Math.round((mangkir / totalKalender) * (k.gajiPokok || 0));
+      const potonganMangkir = Math.round((mangkir / totalKalender) * (Number(k.gajiPokok) || 0));
 
       // 4. Lembur
       overtimeSnap.forEach(d => {
           const o = d.data();
-          if ((o.userId === k.id || (o.nama || '').toLowerCase().trim() === namaLow) && o.tanggal >= periodeStart && o.tanggal <= periodeEnd) {
+          if ((o.userId === k.id || (o.nama || '').trim().toLowerCase() === namaLow) && o.tanggal >= periodeStart && o.tanggal <= periodeEnd) {
               lemburJam += (parseFloat(o.durasi) || 0);
           }
       });
-      const gajiPerJam = Math.round((k.gajiPokok || 0) / 173);
+      const gajiPerJam = Math.round((Number(k.gajiPokok) || 0) / 173);
       const lemburNominal = Math.round(lemburJam * gajiPerJam);
 
       // 5. Tunjangan & Keuangan
@@ -374,7 +392,6 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
           tunjSnap.forEach(d => {
               const t = d.data();
               const p = (t.penerima || 'Semua').trim().toLowerCase();
-              // Enhanced matching: "Semua", or recipient list includes employee name, or name is exactly the recipient
               if (p === 'semua' || p === 'all' || p.split(',').map(x => x.trim()).includes(namaLow) || namaLow.includes(p)) {
                   if (t.jenis === 'tetap') tunjTetap += (Number(t.nominal) || 0);
                   else tunjLain += (Number(t.nominal) || 0);
@@ -386,15 +403,13 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
       if (incInsentif) {
           insentifSnap.forEach(d => {
               const ins = d.data();
-              if (ins.status && ins.status !== 'approved') return; // Skip if rejected/pending
+              if (ins.status && ins.status !== 'approved') return;
 
               const insDate = getSafeDateString(ins.approvedAt || ins.createdAt);
               const insPeriode = ins.periode || "";
               const insNama = (ins.nama || '').trim().toLowerCase();
 
-              // Robust matching
               const isMatch = insNama === namaLow || namaLow.includes(insNama) || insNama.includes(namaLow);
-
               if (isMatch && ( (insDate >= periodeStart && insDate <= periodeEnd) || insPeriode === bulan )) {
                   insentif += (Number(ins.nominal) || 0);
               }
