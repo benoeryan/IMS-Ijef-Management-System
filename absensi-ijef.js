@@ -3083,25 +3083,3 @@ async function doGenerateAbsensi() {
     btn.innerHTML = '⚡ Generate Sekarang';
   }
 }
-        createdAt: new Date().toISOString(),
-      });
-      // Add Clock Out
-      await db.collection('hrd_absensi').add({
-        userId: k.id,
-        nama: k.nama,
-        tanggal: tgl,
-        waktu: jamOut,
-        tipe: 'pulang',
-        status: 'lengkap',
-        departemen: k.departemen || '',
-        manual: true,
-        editedBy: currentUser.nama,
-        createdAt: new Date().toISOString(),
-      });
-      count++;
-    }
-  }
-  closeModalDirect();
-  toast(`✅ ${count} hari absensi di-generate untuk ${karyawan.length} karyawan`, 'success');
-  loadRekapGrid();
-}
