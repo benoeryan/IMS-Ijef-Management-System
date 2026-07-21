@@ -17,10 +17,10 @@ async function renderCuti() {
   ]);
   // Calculate quota per karyawan
   // Index by both userId AND nama (lowercased) so admin table can match by name
-  const cutiUsed = {}; // key -> total hari cuti tahunan approved
+  const cutiUsed = {}; // key -> total hari cuti approved (Tahunan & Bersama)
   cutiSnap.forEach((d) => {
     const p = d.data();
-    if (p.status === 'approved' && p.jenis === 'Cuti Tahunan') {
+    if (p.status === 'approved' && (p.jenis === 'Cuti Tahunan' || p.jenis === 'Cuti Bersama')) {
       const durasi = p.durasi || 1;
       if (p.userId) {
         cutiUsed[p.userId] = (cutiUsed[p.userId] || 0) + durasi;
@@ -156,7 +156,7 @@ async function fixExistingCutiDurasi() {
     const p = doc.data();
     if (p.mulai && p.selesai) {
       let newDurasi = 0;
-      if (p.jenis === 'Cuti Melahirkan') {
+      if (p.jenis === 'Cuti Melahirkan' || p.jenis === 'Cuti Keguguran') {
         newDurasi = Math.max(1, Math.ceil((new Date(p.selesai) - new Date(p.mulai)) / 86400000) + 1);
       } else {
         newDurasi = countWorkDays(p.mulai, p.selesai);
@@ -190,8 +190,118 @@ function hitungMasaKerja(tanggalMasuk) {
 }
 function modalCuti() {
   openModal(
-    `<div class="modal-title">Pengajuan Cuti/Izin/WFH</div><div class="grid-2"><div class="form-group"><label>Nama</label><input class="form-control" id="ctNama" value="${currentUser.nama}"></div><div class="form-group"><label>Jenis</label><select class="form-control" id="ctJenis"><option>Cuti Tahunan</option><option>Cuti Sakit</option><option>Izin Pribadi</option><option>WFH</option><option>Cuti Melahirkan</option></select></div></div><div class="grid-2"><div class="form-group"><label>Mulai</label><input class="form-control" type="date" id="ctMulai" value="${todayStr()}"></div><div class="form-group"><label>Selesai</label><input class="form-control" type="date" id="ctSelesai" value="${todayStr()}"></div></div><div class="form-group"><label>Keterangan</label><textarea class="form-control" id="ctKet"></textarea></div><div class="form-group"><label>📎 Lampiran (Surat Dokter/Dokumen)</label><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('ctFiles').click()">📁 Pilih File</button><button type="button" class="btn btn-sm btn-info" onclick="openCamera('ctFilePreview','ctCameraData')">📷 Kamera</button></div><input type="file" id="ctFiles" multiple accept="image/*,.pdf,.doc,.docx" onchange="previewTaskFiles(this,'ctFilePreview')" style="display:none"><input type="hidden" id="ctCameraData"><div id="ctFilePreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div><div class="text-xs" style="color:#999;margin-top:4px">Maks 5 file. Format: Gambar, PDF, DOC</div></div><button class="btn btn-primary" onclick="simpanCuti()">Ajukan</button>`
+    `<div class="modal-title">Pengajuan Cuti / Izin Berbayar</div>
+    <div class="grid-2">
+      <div class="form-group"><label>Nama</label><input class="form-control" id="ctNama" value="${currentUser.nama}"></div>
+      <div class="form-group"><label>Jenis Cuti</label>
+        <select class="form-control" id="ctJenis" onchange="onCutiTypeChange()">
+          <optgroup label="Cuti Quota (Potong 12 Hari)">
+            <option value="Cuti Tahunan">Cuti Tahunan</option>
+            <option value="Cuti Bersama">Cuti Bersama</option>
+          </optgroup>
+          <optgroup label="Cuti Khusus (Izin Berbayar)">
+            <option value="Pernikahan Sendiri">Pernikahan Sendiri (3 Hari)</option>
+            <option value="Pernikahan Anak">Pernikahan Anak (2 Hari)</option>
+            <option value="Khitanan/Baptis Anak">Khitanan/Baptis Anak (2 Hari)</option>
+            <option value="Istri Melahirkan/Keguguran">Istri Melahirkan/Keguguran (2 Hari)</option>
+            <option value="Kematian Keluarga Inti">Kematian (Suami/Istri/Anak/Ortu/Mertua) (2 Hari)</option>
+            <option value="Kematian Anggota Serumah">Kematian Anggota Serumah (1 Hari)</option>
+          </optgroup>
+          <optgroup label="Kesehatan & Lainnya">
+            <option value="Cuti Sakit">Cuti Sakit (Dgn Surat Dokter)</option>
+            <option value="Cuti Melahirkan">Cuti Melahirkan (3 Bulan)</option>
+            <option value="Cuti Keguguran">Cuti Keguguran (1.5 Bulan)</option>
+            <option value="WFH">WFH (Work From Home)</option>
+          </optgroup>
+        </select>
+      </div>
+    </div>
+    <div id="cutiInfoBox" class="mb-16 p-12 text-xs" style="background:#f0f4ff; border-radius:8px; border-left:4px solid var(--primary); display:none"></div>
+    <div class="grid-2">
+      <div class="form-group"><label>Mulai</label><input class="form-control" type="date" id="ctMulai" value="${todayStr()}" onchange="autoCalculateCutiEnd()"></div>
+      <div class="form-group"><label>Selesai</label><input class="form-control" type="date" id="ctSelesai" value="${todayStr()}"></div>
+    </div>
+    <div class="form-group"><label>Keterangan</label><textarea class="form-control" id="ctKet" placeholder="Contoh: Acara keluarga, sakit demam, dll"></textarea></div>
+    <div class="form-group"><label>📎 Lampiran (Wajib untuk Sakit/Dinas/Cuti Khusus)</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('ctFiles').click()">📁 Pilih File</button>
+        <button type="button" class="btn btn-sm btn-info" onclick="openCamera('ctFilePreview','ctCameraData')">📷 Kamera</button>
+      </div>
+      <input type="file" id="ctFiles" multiple accept="image/*,.pdf,.doc,.docx" onchange="previewTaskFiles(this,'ctFilePreview')" style="display:none">
+      <input type="hidden" id="ctCameraData">
+      <div id="ctFilePreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%; padding:12px" onclick="simpanCuti()">🚀 Ajukan Pengajuan</button>`
   );
+  onCutiTypeChange();
+}
+
+function onCutiTypeChange() {
+    const type = document.getElementById('ctJenis').value;
+    const info = document.getElementById('cutiInfoBox');
+    let text = "";
+
+    const configs = {
+        "Cuti Tahunan": "Memotong jatah cuti tahunan (Saldo 12 hari).",
+        "Cuti Bersama": "Memotong jatah cuti tahunan sesuai kalender pemerintah.",
+        "Pernikahan Sendiri": "<b>Jatah: 3 Hari Kerja.</b> Tidak memotong jatah cuti tahunan.",
+        "Pernikahan Anak": "<b>Jatah: 2 Hari Kerja.</b> Tidak memotong jatah cuti tahunan.",
+        "Khitanan/Baptis Anak": "<b>Jatah: 2 Hari Kerja.</b> Tidak memotong jatah cuti tahunan.",
+        "Istri Melahirkan/Keguguran": "<b>Jatah: 2 Hari Kerja.</b> Tidak memotong jatah cuti tahunan.",
+        "Kematian Keluarga Inti": "<b>Jatah: 2 Hari Kerja.</b> Untuk Suami/Istri/Anak/Orang Tua/Mertua.",
+        "Kematian Anggota Serumah": "<b>Jatah: 1 Hari Kerja.</b> Untuk anggota keluarga yang tinggal serumah.",
+        "Cuti Melahirkan": "<b>Jatah: 3 Bulan (Hari Kalender).</b> 1.5 bulan sebelum & 1.5 bulan sesudah.",
+        "Cuti Keguguran": "<b>Jatah: 1.5 Bulan (Hari Kalender).</b> Dengan surat keterangan dokter.",
+        "Cuti Sakit": "Wajib melampirkan Surat Keterangan Dokter jika lebih dari 2 hari.",
+        "WFH": "Bekerja dari rumah, tetap dianggap hadir penuh."
+    };
+
+    if (configs[type]) {
+        info.style.display = "block";
+        info.innerHTML = configs[type];
+    } else {
+        info.style.display = "none";
+    }
+    autoCalculateCutiEnd();
+}
+
+function autoCalculateCutiEnd() {
+    const type = document.getElementById('ctJenis').value;
+    const startVal = document.getElementById('ctMulai').value;
+    if (!startVal) return;
+
+    const start = new Date(startVal + "T00:00:00");
+    const endInput = document.getElementById('ctSelesai');
+
+    // Config: type -> [days, isCalendarDay]
+    const durations = {
+        "Pernikahan Sendiri": [3, false],
+        "Pernikahan Anak": [2, false],
+        "Khitanan/Baptis Anak": [2, false],
+        "Istri Melahirkan/Keguguran": [2, false],
+        "Kematian Keluarga Inti": [2, false],
+        "Kematian Anggota Serumah": [1, false],
+        "Cuti Melahirkan": [90, true],
+        "Cuti Keguguran": [45, true]
+    };
+
+    if (durations[type]) {
+        const [days, isCalendar] = durations[type];
+        let end = new Date(start);
+
+        if (isCalendar) {
+            end.setDate(start.getDate() + (days - 1));
+        } else {
+            // Count work days (excluding weekend)
+            let added = 1;
+            while (added < days) {
+                end.setDate(end.getDate() + 1);
+                const day = end.getDay();
+                if (day !== 0 && day !== 6) added++;
+            }
+        }
+        endInput.value = end.toISOString().split('T')[0];
+    }
 }
 async function simpanCuti() {
   const mulai = document.getElementById('ctMulai').value,
@@ -199,10 +309,10 @@ async function simpanCuti() {
   const jenis = document.getElementById('ctJenis').value;
 
   // Perhitungan durasi:
-  // Cuti Melahirkan dihitung hari kalender (termasuk Sabtu-Minggu)
-  // Jenis lainnya (Cuti Tahunan, Sakit, Izin, WFH) hanya menghitung hari kerja
+  // Cuti Melahirkan & Keguguran dihitung hari kalender (termasuk Sabtu-Minggu)
+  // Jenis lainnya (Cuti Tahunan, Sakit, Izin Khusus, WFH) hanya menghitung hari kerja
   let durasi = 0;
-  if (jenis === 'Cuti Melahirkan') {
+  if (jenis === 'Cuti Melahirkan' || jenis === 'Cuti Keguguran') {
     durasi = Math.max(1, Math.ceil((new Date(selesai) - new Date(mulai)) / 86400000) + 1);
   } else {
     durasi = countWorkDays(mulai, selesai);
