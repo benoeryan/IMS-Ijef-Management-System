@@ -46,7 +46,18 @@ async function renderPenggajian() {
   }
 }
 
-async function syncAllPayrollData() {
+async function syncAllPayrollData(silent = false) {
+    if (silent) {
+        const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
+        // Silent sync uses ALL components by default
+        await doGenerateAllGaji(bulan, true, {
+            tunj: true, insentif: true, reimb: true, kasbon: true,
+            bpjsKes: true, bpjsTK: true, pph: true
+        });
+        loadGaji();
+        return;
+    }
+
     openModal(`<div class="modal-title">🔄 Sinkronisasi Data Penggajian</div>
     <p class="text-sm mb-16" style="color:#666">Pilih komponen yang ingin diperbarui berdasarkan data terbaru dari modul lain:</p>
     <div style="background:#f8f9ff;padding:12px;border-radius:8px;margin-bottom:16px">

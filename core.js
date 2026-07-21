@@ -1,3 +1,4 @@
+'use strict';
 // CORE.JS — HRD & Legal IJEF Corp v5.1
 // Firebase Config, Auth, Router, Helpers
 // ============================================================
