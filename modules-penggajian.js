@@ -381,7 +381,9 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
           insentifSnap.forEach(d => {
               const ins = d.data();
               const insDate = getSafeDateString(ins.approvedAt || ins.createdAt);
-              if ((ins.nama || '').trim().toLowerCase() === namaLow && insDate >= periodeStart && insDate <= periodeEnd) {
+              const insPeriode = ins.periode || "";
+              // Match by date range OR periode string (YYYY-MM)
+              if ((ins.nama || '').trim().toLowerCase() === namaLow && ( (insDate >= periodeStart && insDate <= periodeEnd) || insPeriode === bulan )) {
                   insentif += (Number(ins.nominal) || 0);
               }
           });
