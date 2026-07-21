@@ -46,29 +46,30 @@ async function renderPenggajian() {
   }
 }
 
-async function syncAllPayrollData(silent = false) {
-    if (!silent && !confirm("Sinkronisasi ulang semua slip gaji bulan ini berdasarkan data terbaru?")) return;
+async function syncAllPayrollData() {
+    openModal(`<div class="modal-title">🔄 Sinkronisasi Data Penggajian</div>
+    <p class="text-sm mb-16" style="color:#666">Pilih komponen yang ingin diperbarui berdasarkan data terbaru dari modul lain:</p>
+    <div style="background:#f8f9ff;padding:12px;border-radius:8px;margin-bottom:16px">
+      <div class="grid-2">
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncTunj" checked> Tunjangan Tetap/Lain</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncInsentif" checked> Insentif Kinerja</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncReimb" checked> Reimbursement</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncKasbon" checked> Kasbon / Loan</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncBPJSKes" checked> BPJS Kesehatan (1%)</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncBPJSTK" checked> BPJS TK/JHT (2%)</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem"><input type="checkbox" id="genIncPPH" checked> PPH 21 (Progresif)</label>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="doSyncPayroll()">🔄 Mulai Sinkronisasi</button>`);
+}
 
-    const btn = document.getElementById('btnSyncPayroll');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = "⏳ Syncing...";
-    }
-
-    try {
-        const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
-        await doGenerateAllGaji(bulan, true);
-        if (!silent) toast("✅ Sinkronisasi selesai", "success");
-        loadGaji();
-    } catch (e) {
-        console.error(e);
-        if (!silent) toast("Gagal sinkronisasi", "danger");
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = "🔄 Sinkronisasi";
-        }
-    }
+async function doSyncPayroll() {
+    const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
+    closeModalDirect();
+    toast("⏳ Menyelaraskan data...", "info");
+    await doGenerateAllGaji(bulan, true);
+    toast("✅ Sinkronisasi selesai", "success");
+    loadGaji();
 }
 async function loadGaji() {
   const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
@@ -252,8 +253,8 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
       db.collection('hrd_reimbursement').where('status', '==', 'approved').get(),
       db.collection('hrd_kasbon').where('status', 'in', ['aktif', 'approved']).get(),
       db.collection('hrd_tunjangan').get(),
-      db.collection('hrd_insentif').where('status', '==', 'approved').get(),
-      db.collection('hrd_cuti').where('status', '==', 'approved').get(),
+      db.collection('hrd_insentif').get(), // Fetch all to handle records without status
+      db.collection('hrd_cuti').get(), // Fetch all approved via manual filter
       db.collection('hrd_overtime').where('status', '==', 'approved').get(),
       db.collection('hrd_dinas_luar').where('status', '==', 'approved').get(),
       db.collection('hrd_hari_libur').get(),
@@ -317,7 +318,12 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
       const cutiDates = new Set();
       cutiSnap.forEach(d => {
           const c = d.data();
-          if ((c.userId === k.id || (c.nama || '').toLowerCase().trim() === namaLow)) {
+          if (c.status !== 'approved') return;
+
+          const cNama = (c.nama || '').trim().toLowerCase();
+          const isMatch = (c.userId === k.id || cNama === namaLow || namaLow.includes(cNama) || cNama.includes(namaLow));
+
+          if (isMatch) {
               for (let dt = new Date(c.mulai + 'T00:00:00'); dt <= new Date(c.selesai + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
                   const ds = dt.toISOString().split('T')[0];
                   if (ds >= rangeStart && ds <= rangeEnd) cutiDates.add(ds);
@@ -380,10 +386,16 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false) {
       if (incInsentif) {
           insentifSnap.forEach(d => {
               const ins = d.data();
+              if (ins.status && ins.status !== 'approved') return; // Skip if rejected/pending
+
               const insDate = getSafeDateString(ins.approvedAt || ins.createdAt);
               const insPeriode = ins.periode || "";
-              // Match by date range OR periode string (YYYY-MM)
-              if ((ins.nama || '').trim().toLowerCase() === namaLow && ( (insDate >= periodeStart && insDate <= periodeEnd) || insPeriode === bulan )) {
+              const insNama = (ins.nama || '').trim().toLowerCase();
+
+              // Robust matching
+              const isMatch = insNama === namaLow || namaLow.includes(insNama) || insNama.includes(namaLow);
+
+              if (isMatch && ( (insDate >= periodeStart && insDate <= periodeEnd) || insPeriode === bulan )) {
                   insentif += (Number(ins.nominal) || 0);
               }
           });
@@ -1412,7 +1424,7 @@ async function simpanInsentifSiswa() {
     nominalPerSiswa: rate,
     nominal: jml * rate,
     periode: document.getElementById('insSiswaPeriode').value,
-    keterangan: document.getElementById('insSiswaKet').value,
+    status: 'approved',
     createdAt: new Date().toISOString(),
   });
   closeModalDirect();
@@ -1450,6 +1462,7 @@ async function simpanInsentif() {
     persen: window._insCalc?.pct || 0,
     nominal: window._insCalc?.nominal || 0,
     periode: document.getElementById('insPeriode').value,
+    status: 'approved',
     createdAt: new Date().toISOString(),
   });
   closeModalDirect();
