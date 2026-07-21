@@ -358,18 +358,43 @@ window.loadLegalPerizinan = async function() {
             <td>${labelTgl}</td>
             <td><span class="badge ${stClass}">${p.status || "Aktif"}</span></td>
             <td>
-                <button class="btn btn-xs btn-info" onclick="viewLegalPerizinan('${p.id}')">👁️</button>
-                <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_legal_perizinan','${p.id}','perizinan')">🗑️</button>
+                <button class="btn btn-xs btn-info" onclick="viewLegalPerizinan('${d.id}')">👁️</button>
+                <button class="btn btn-xs btn-danger" onclick="hapusLegalPerizinan('${p.id}')">🗑️</button>
             </td>
         </tr>`;
     });
     tbody.innerHTML = h || '<tr><td colspan="6" class="text-center">Belum ada data dokumen</td></tr>';
 };
 
+window.hapusLegalPerizinan = async function(id) {
+    if (!confirm("Hapus dokumen ini beserta seluruh lampirannya di Storage?")) return;
+
+    try {
+        const doc = await db.collection("hrd_legal_perizinan").doc(id).get();
+        if (doc.exists) {
+            const data = doc.data();
+            // Cleanup Firebase Storage
+            if (data.attachments && data.attachments.length) {
+                for (const a of data.attachments) {
+                    if (a.data && a.data.includes("firebasestorage")) {
+                        await deleteFileFromStorage(a.data);
+                    }
+                }
+            }
+        }
+        await db.collection("hrd_legal_perizinan").doc(id).delete();
+        toast("Dokumen & lampiran berhasil dihapus", "success");
+        renderLegalPerizinan();
+    } catch (e) {
+        toast("Gagal hapus: " + e.message, "error");
+    }
+};
+
 window.viewLegalPerizinan = async function(id) {
     const doc = await db.collection("hrd_legal_perizinan").doc(id).get();
     if (!doc.exists) return toast("Data tidak ditemukan", "warning");
     const p = doc.data();
+    const status = p.status || "Aktif";
 
     let attachHtml = '';
     if (p.attachments && p.attachments.length) {
@@ -404,7 +429,7 @@ window.viewLegalPerizinan = async function(id) {
             <tr><td>Nomor Dokumen</td><td>${escHtml(p.nomor)}</td></tr>
             <tr><td>Instansi Penerbit</td><td>${escHtml(p.instansi)}</td></tr>
             <tr><td>Masa Berlaku</td><td>${p.masaBerlaku !== "-" ? formatDate(p.masaBerlaku) : "-"}</td></tr>
-            <tr><td>Status</td><td><span class="badge ${p.status === 'Aktif' ? 'badge-success' : (p.status === 'Non-aktif' ? 'badge-danger' : 'badge-warning')}">${p.status}</span></td></tr>
+            <tr><td>Status</td><td><span class="badge ${status === 'Aktif' ? 'badge-success' : (status === 'Non-aktif' ? 'badge-danger' : 'badge-warning')}">${status}</span></td></tr>
             <tr><td>Keterangan</td><td>${escHtml(p.keterangan || "-")}</td></tr>
         </table>
         ${attachHtml}
@@ -464,7 +489,7 @@ window.modalPerizinan = function() {
         </div>
         <div class="form-group"><label>Keterangan</label><textarea class="form-control" id="pzKet"></textarea></div>
         <div class="form-group">
-            <label>📎 Lampiran Softcopy (Wajib)</label>
+            <label>📎 Lampiran Softcopy (High Capacity)</label>
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px">
                 <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('pzFiles').click()">📁 Pilih File</button>
                 <button type="button" class="btn btn-sm btn-info" onclick="openCamera('pzFilePreview','pzCameraData')">📷 Kamera</button>
@@ -472,7 +497,7 @@ window.modalPerizinan = function() {
             <input type="file" id="pzFiles" multiple accept="image/*,.pdf,.doc,.docx" onchange="previewTaskFiles(this,'pzFilePreview')" style="display:none">
             <input type="hidden" id="pzCameraData">
             <div id="pzFilePreview" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px"></div>
-            <div class="text-xs mt-4" style="color:#999">Max 5 file. Format: Gambar, PDF, DOC. Ukuran max per file: 1MB</div>
+            <div class="text-xs mt-4" style="color:#999">Mendukung file besar (Max 500MB). Format: Gambar, PDF, DOC.</div>
         </div>
         <button class="btn btn-primary" style="width:100%; padding:12px" onclick="simpanPerizinan()">💾 Simpan Dokumen</button>`, true);
 };
@@ -487,10 +512,43 @@ window.simpanPerizinan = async function() {
 
     if(!nama) return toast("Nama dokumen wajib", "warning");
 
-    toast("⏳ Sedang mengupload dokumen...", "info");
+    toast("⏳ Sedang memproses & mengupload dokumen...", "info");
 
     try {
-        const attachments = await getFilesAsBase64('pzFiles');
+        const attachments = [];
+        const fileInput = document.getElementById('pzFiles');
+        const cameraData = document.getElementById('pzCameraData')?.value;
+
+        // 1. Handle File Input (Upload to Firebase Storage)
+        if (fileInput && fileInput.files.length > 0) {
+            for (const file of fileInput.files) {
+                const path = `legal_perizinan/${currentUser.id}/${Date.now()}_${file.name}`;
+                const url = await uploadFileToStorage(file, path);
+                attachments.push({
+                    name: file.name,
+                    type: file.type,
+                    data: url, // Store URL instead of Base64
+                    storagePath: path
+                });
+            }
+        }
+
+        // 2. Handle Camera Data (Upload to Firebase Storage if exists)
+        if (cameraData) {
+            // Convert base64 to Blob for storage upload
+            const response = await fetch(cameraData);
+            const blob = await response.blob();
+            const fileName = `camera_${Date.now()}.jpg`;
+            const path = `legal_perizinan/${currentUser.id}/${fileName}`;
+            const url = await uploadFileToStorage(blob, path);
+            attachments.push({
+                name: fileName,
+                type: "image/jpeg",
+                data: url,
+                storagePath: path
+            });
+        }
+
         const data = {
             nama,
             nomor: nomor || "-",
@@ -498,15 +556,16 @@ window.simpanPerizinan = async function() {
             masaBerlaku: masaBerlaku || "-",
             status: status || "Aktif",
             keterangan: keterangan || "",
-            attachments: attachments || [],
+            attachments: attachments,
             createdAt: new Date().toISOString()
         };
 
         await db.collection("hrd_legal_perizinan").add(data);
-        toast("✅ Dokumen berhasil disimpan", "success");
+        toast("✅ Dokumen berhasil disimpan ke Storage", "success");
         closeModalDirect();
         renderLegalPerizinan();
     } catch (e) {
+        console.error(e);
         toast("Gagal simpan: " + e.message, "error");
     }
 };
