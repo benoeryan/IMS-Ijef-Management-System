@@ -6,7 +6,7 @@ async function renderCuti() {
   const fixBtn = hasAccess(3) ? '<button id="btnFixCuti" class="btn btn-warning btn-sm" onclick="fixExistingCutiDurasi()" style="box-shadow: 0 0 10px rgba(245,127,23,0.5)">🛠️ Perbaiki Data Durasi</button>' : '';
   main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🏖️ Cuti / Izin / WFH</span><div class="flex gap-8">${fixBtn}<button class="btn btn-primary btn-sm" onclick="modalCuti()">+ Pengajuan</button></div></div>
     ${hasAccess(3) ? '<div class="card mb-16"><div class="card-title mb-8">📊 Sisa Jatah Cuti Karyawan</div><div id="cutiQuotaList">Loading...</div></div>' : ''}
-    <div class="card"><div class="card-title mb-8">📋 Daftar Pengajuan</div><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Jenis</th><th>Tanggal</th><th>Durasi</th><th>Sisa Cuti</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblCuti"></tbody></table></div></div>`;
+    <div class="card"><div class="card-title mb-8">📋 Daftar Pengajuan</div><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Keterangan</th><th>Tanggal</th><th>Durasi</th><th>Sisa Cuti</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblCuti"></tbody></table></div></div>`;
   // Load data
   const [cutiSnap, karySnap, flows] = await Promise.all([
     !hasAccess(3)
@@ -114,7 +114,7 @@ async function renderCuti() {
 
       const canApprove = isPending && hasAccess(3) && isMyTurn;
       const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
-      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.jenis)}</td><td>${formatDate(p.mulai)}-${formatDate(p.selesai)}</td><td>${p.durasi || 1}h</td><td><span class="badge badge-${sisa <= 2 ? 'danger' : sisa <= 5 ? 'warning' : 'success'}">${sisa}/${quota}</span></td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewCutiDetail('${p.id}')" title="Lihat Detail">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_cuti','${p.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_cuti','${p.id}','rejected')">❌</button>` : ''} ${hasAccess(6) || (p.userId === currentUser.id && p.status === 'pending') ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_cuti','${p.id}','cuti')">🗑️</button>` : ''}</td></tr>`;
+      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td><b>${escHtml(p.jenis)}</b><br><small style="color:#666">${escHtml(p.keterangan || '-')}</small></td><td>${formatDate(p.mulai)}-${formatDate(p.selesai)}</td><td>${p.durasi || 1}h</td><td><span class="badge badge-${sisa <= 2 ? 'danger' : sisa <= 5 ? 'warning' : 'success'}">${sisa}/${quota}</span></td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewCutiDetail('${p.id}')" title="Lihat Detail">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_cuti','${p.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_cuti','${p.id}','rejected')">❌</button>` : ''} ${hasAccess(6) || (p.userId === currentUser.id && p.status === 'pending') ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_cuti','${p.id}','cuti')">🗑️</button>` : ''}</td></tr>`;
     });
   }
   document.getElementById('tblCuti').innerHTML = h;
