@@ -371,6 +371,32 @@ window.viewLegalPerizinan = async function(id) {
     if (!doc.exists) return toast("Data tidak ditemukan", "warning");
     const p = doc.data();
 
+    let attachHtml = '';
+    if (p.attachments && p.attachments.length) {
+        attachHtml = `
+        <div class="mt-16" style="border-top:1px solid #eee; padding-top:12px">
+            <div class="fw-700 text-sm mb-8">📎 Lampiran Dokumen:</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap">`;
+
+        p.attachments.forEach(a => {
+            const fileData = encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }));
+            if (a.data && (a.type || '').startsWith('image/')) {
+                attachHtml += `
+                    <div style="text-align:center">
+                        <img src="${a.data}" style="width:80px; height:80px; border-radius:6px; border:1px solid #ddd; cursor:pointer; object-fit:cover" onclick="viewEviden('${fileData}')">
+                        <div class="text-xs mt-4" style="max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${escHtml(a.name)}</div>
+                    </div>`;
+            } else {
+                attachHtml += `
+                    <div style="cursor:pointer; padding:8px 12px; background:#f0f4ff; border-radius:6px; font-size:.75rem; border:1px solid #d0d9ff; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:80px" onclick="viewEviden('${fileData}')">
+                        <span>📄 ${escHtml((a.name || 'Dokumen').substring(0, 10))}...</span>
+                        <b style="color:var(--primary)">LIHAT/PRINT</b>
+                    </div>`;
+            }
+        });
+        attachHtml += `</div></div>`;
+    }
+
     openModal(`
         <div class="modal-title">📑 Detail Dokumen Legalitas</div>
         <table class="table-detail">
@@ -378,9 +404,10 @@ window.viewLegalPerizinan = async function(id) {
             <tr><td>Nomor Dokumen</td><td>${escHtml(p.nomor)}</td></tr>
             <tr><td>Instansi Penerbit</td><td>${escHtml(p.instansi)}</td></tr>
             <tr><td>Masa Berlaku</td><td>${p.masaBerlaku !== "-" ? formatDate(p.masaBerlaku) : "-"}</td></tr>
-            <tr><td>Status</td><td><span class="badge ${p.status === 'Aktif' ? 'badge-success' : 'badge-danger'}">${p.status}</span></td></tr>
+            <tr><td>Status</td><td><span class="badge ${p.status === 'Aktif' ? 'badge-success' : (p.status === 'Non-aktif' ? 'badge-danger' : 'badge-warning')}">${p.status}</span></td></tr>
             <tr><td>Keterangan</td><td>${escHtml(p.keterangan || "-")}</td></tr>
         </table>
+        ${attachHtml}
         <div class="mt-16 text-right">
             <button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>
         </div>
@@ -436,7 +463,18 @@ window.modalPerizinan = function() {
             </div>
         </div>
         <div class="form-group"><label>Keterangan</label><textarea class="form-control" id="pzKet"></textarea></div>
-        <button class="btn btn-primary" onclick="simpanPerizinan()">💾 Simpan Dokumen</button>`, true);
+        <div class="form-group">
+            <label>📎 Lampiran Softcopy (Wajib)</label>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px">
+                <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('pzFiles').click()">📁 Pilih File</button>
+                <button type="button" class="btn btn-sm btn-info" onclick="openCamera('pzFilePreview','pzCameraData')">📷 Kamera</button>
+            </div>
+            <input type="file" id="pzFiles" multiple accept="image/*,.pdf,.doc,.docx" onchange="previewTaskFiles(this,'pzFilePreview')" style="display:none">
+            <input type="hidden" id="pzCameraData">
+            <div id="pzFilePreview" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px"></div>
+            <div class="text-xs mt-4" style="color:#999">Max 5 file. Format: Gambar, PDF, DOC. Ukuran max per file: 1MB</div>
+        </div>
+        <button class="btn btn-primary" style="width:100%; padding:12px" onclick="simpanPerizinan()">💾 Simpan Dokumen</button>`, true);
 };
 
 window.simpanPerizinan = async function() {
@@ -449,17 +487,21 @@ window.simpanPerizinan = async function() {
 
     if(!nama) return toast("Nama dokumen wajib", "warning");
 
-    const data = {
-        nama,
-        nomor: nomor || "-",
-        instansi: instansi || "-",
-        masaBerlaku: masaBerlaku || "-",
-        status: status || "Aktif",
-        keterangan: keterangan || "",
-        createdAt: new Date().toISOString()
-    };
+    toast("⏳ Sedang mengupload dokumen...", "info");
 
     try {
+        const attachments = await getFilesAsBase64('pzFiles');
+        const data = {
+            nama,
+            nomor: nomor || "-",
+            instansi: instansi || "-",
+            masaBerlaku: masaBerlaku || "-",
+            status: status || "Aktif",
+            keterangan: keterangan || "",
+            attachments: attachments || [],
+            createdAt: new Date().toISOString()
+        };
+
         await db.collection("hrd_legal_perizinan").add(data);
         toast("✅ Dokumen berhasil disimpan", "success");
         closeModalDirect();
