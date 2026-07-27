@@ -15,6 +15,15 @@ let dinasStream = null,
 // Checks if current user is whitelisted for flexible (no geofence) attendance
 async function isFlexibleUser() {
   try {
+    // 1. Auto-whitelist based on Department/Position (Marketing & Sales)
+    const dept = (currentUser.departemen || '').toUpperCase();
+    const pos = (currentUser.posisi || '').toUpperCase();
+    if (dept.includes('MARKETING') || dept.includes('SALES') ||
+        pos.includes('MARKETING') || pos.includes('SALES')) {
+      return true;
+    }
+
+    // 2. Check explicit settings whitelist
     const doc = await db.collection('hrd_settings').doc('absensi').get();
     const s = doc.exists ? doc.data() : {};
     const flexibleUsers = s.flexibleUsers || [];
@@ -659,7 +668,7 @@ async function autoDetectLocation() {
           }
         } else if (flexUser) {
           // Flexible user: outside radius but allowed to clock in/out from anywhere
-          locEl.textContent = `🚗 Mode Flexible`;
+          locEl.textContent = `🚗 Mode Flexible (Marketing/Sales)`;
           distEl.textContent = locStatus.nearest
             ? `Jarak ke ${locStatus.nearest.nama}: ${locStatus.dist.toFixed(0)}m — Lokasi Anda akan tercatat`
             : 'Lokasi GPS tercatat otomatis';
@@ -732,10 +741,18 @@ async function autoDetectLocation() {
       }
     },
     (err) => {
-      statusEl.textContent = '❌ Gagal deteksi: ' + err.message;
+      let msg = err.message;
+      if (err.code === 1) { // PERMISSION_DENIED
+        msg = "Izin Lokasi Ditolak. Harap aktifkan GPS & Izin Lokasi di browser/pengaturan HP Anda agar bisa absen.";
+      }
+      statusEl.textContent = '❌ ' + msg;
       btn.textContent = '📍 Coba Lagi';
       btn.disabled = false;
       btn.onclick = () => autoDetectLocation();
+
+      if (err.code === 1) {
+        toast("Harap aktifkan Izin Lokasi di pengaturan Browser/HP Anda", "error");
+      }
     },
     { enableHighAccuracy: true, timeout: 10000 }
   );
@@ -965,7 +982,7 @@ async function getNearestOfficeLocation(lat, lng) {
     dist: nearestDist,
     distance: nearestDist,
     radius,
-    allowed: nearestDist <= radius,
+    allowed: nearestDist <= (radius + 25), // Added 25m buffer tolerance for GPS jitter
   };
 }
 
