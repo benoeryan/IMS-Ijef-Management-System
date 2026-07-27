@@ -97,6 +97,25 @@ async function doSyncPayroll() {
     toast("✅ Sinkronisasi selesai", "success");
     loadGaji();
 }
+
+/**
+ * Sync payroll data for a single user for a specific period.
+ * Typically called after manual attendance edit.
+ */
+async function syncSinglePayrollData(nama, periode) {
+    console.log(`[PAYROLL] Syncing single data for ${nama} in ${periode}`);
+    // Reuse doGenerateAllGaji but we pass a specific filter if it were supported.
+    // For now, the simplest way is to trigger a silent mass-sync or implement single-user logic.
+    // Given the complexity of doGenerateAllGaji, a silent mass-sync is safer to maintain consistency,
+    // but it might be overkill. Let's implement a lighter version or just call doGenerateAllGaji silently.
+
+    // We'll call doGenerateAllGaji silently with default selections.
+    // It's fast enough for current data volume.
+    await doGenerateAllGaji(periode, true, {
+        tunj: true, insentif: true, reimb: true, kasbon: true,
+        bpjsKes: true, bpjsTK: true, pph: true
+    });
+}
 async function loadGaji() {
   const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
   const allSnap = await db.collection('hrd_penggajian').get();

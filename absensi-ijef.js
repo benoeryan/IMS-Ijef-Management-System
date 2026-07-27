@@ -2657,6 +2657,37 @@ async function processAbsenImportText(text) {
 }
 
 // ── EDIT ABSEN PER KARYAWAN ───────────────────────────────────
+async function autoCalculateManualStatus() {
+  const tipe = document.getElementById('editAbsTipe').value;
+  const waktu = document.getElementById('editAbsWaktu').value;
+  const statusEl = document.getElementById('editAbsStatus');
+  if (!statusEl || !waktu || tipe !== 'masuk') return;
+
+  try {
+    const settDoc = await db.collection('hrd_settings').doc('absensi').get();
+    const sett = settDoc.exists ? settDoc.data() : {};
+    const flex = sett.flexTime || { enabled: true, jamMasukMax: '12:00' };
+
+    const [hIn, mIn] = waktu.split(':').map(Number);
+    const waktuMasuk = hIn * 60 + mIn;
+
+    if (flex.enabled) {
+      if (flex.jamMasukMax) {
+        const [hMax, mMax] = flex.jamMasukMax.split(':').map(Number);
+        statusEl.value = waktuMasuk > hMax * 60 + mMax ? 'terlambat' : 'tepat_waktu';
+      }
+    } else {
+      const shifts = sett.shifts || [{ jamMasuk: '08:00', toleransi: 10 }];
+      const shift = shifts[0];
+      const [h, m] = shift.jamMasuk.split(':').map(Number);
+      const limit = h * 60 + m + (shift.toleransi || 10);
+      statusEl.value = waktuMasuk > limit ? 'terlambat' : 'tepat_waktu';
+    }
+  } catch (e) {
+    console.error('Error autoCalculateManualStatus:', e);
+  }
+}
+
 async function editAbsenKaryawan(userId, nama, bulan) {
   if (!userId || !bulan) {
     toast('Data tidak valid', 'error');
@@ -2717,10 +2748,10 @@ async function editAbsenKaryawan(userId, nama, bulan) {
     <div class="fw-700 text-sm mb-8 mt-16 color-primary">➕ Tambah Absensi Manual</div>
     <div class="grid-2">
       <div class="form-group"><label>Tanggal</label><input class="form-control" type="date" id="editAbsTgl" value="${todayStr()}"></div>
-      <div class="form-group"><label>Tipe</label><select class="form-control" id="editAbsTipe"><option value="masuk">Clock In</option><option value="pulang">Clock Out</option><option value="dinas_luar">Dinas Luar</option></select></div>
+      <div class="form-group"><label>Tipe</label><select class="form-control" id="editAbsTipe" onchange="autoCalculateManualStatus()"><option value="masuk">Clock In</option><option value="pulang">Clock Out</option><option value="dinas_luar">Dinas Luar</option></select></div>
     </div>
     <div class="grid-2">
-      <div class="form-group"><label>Waktu</label><input class="form-control" type="time" id="editAbsWaktu" value="08:00"></div>
+      <div class="form-group"><label>Waktu</label><input class="form-control" type="time" id="editAbsWaktu" value="08:00" onchange="autoCalculateManualStatus()"></div>
       <div class="form-group"><label>Status</label><select class="form-control" id="editAbsStatus"><option value="hadir">Hadir</option><option value="tepat_waktu">Tepat Waktu</option><option value="terlambat">Terlambat</option><option value="lengkap">Lengkap</option><option value="kurang_jam">Kurang Jam</option></select></div>
     </div>
     <button class="btn btn-primary mt-8" onclick="simpanEditAbsen()">💾 Simpan</button>`,
@@ -2760,7 +2791,14 @@ async function simpanEditAbsen() {
       editedBy: currentUser.nama,
       createdAt: new Date().toISOString(),
     });
-    toast('✅ Absensi berhasil ditambahkan! Jangan lupa klik "Sinkronisasi" di menu Penggajian.', 'success');
+    const periode = tgl.slice(0, 7); // yyyy-mm
+    toast('✅ Absensi berhasil ditambahkan!', 'success');
+
+    // Trigger Payroll Sync
+    if (typeof syncSinglePayrollData === 'function') {
+        syncSinglePayrollData(nama, periode);
+    }
+
     closeModalDirect();
     setTimeout(() => loadRekapGrid(), 500);
   } catch (e) {
