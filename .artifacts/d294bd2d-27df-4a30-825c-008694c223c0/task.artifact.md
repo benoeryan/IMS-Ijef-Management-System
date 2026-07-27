@@ -1,0 +1,7 @@
+- [x] Siapkan rencana implementasi poster upload
+- [ ] Modifikasi `modules-karyawan.js`
+    - [ ] Update `viewLowongan` untuk menampilkan poster
+    - [ ] Update `showLowForm` untuk input file poster
+    - [ ] Update `simpanLowongan` untuk handle upload ke Storage
+- [ ] Push ke GitHub
+- [ ] Verifikasi Vercel Deployment

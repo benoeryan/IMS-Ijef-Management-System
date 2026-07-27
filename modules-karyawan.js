@@ -1636,6 +1636,7 @@ function viewLowongan(id) {
       '<tr><td class="fw-700" style="padding:8px;vertical-align:top">Departemen</td><td style="padding:8px">' + escHtml(p.departemen || '-') + '</td></tr>' +
       '<tr><td class="fw-700" style="padding:8px;vertical-align:top">Status</td><td style="padding:8px"><span class="badge badge-' + (p.status === 'open' ? 'success' : 'danger') + '">' + escHtml(p.status || '-') + '</span></td></tr>' +
       '<tr><td class="fw-700" style="padding:8px;vertical-align:top">Deadline</td><td style="padding:8px">' + formatDate(p.deadline) + '</td></tr>' +
+      (p.posterUrl ? '<tr><td class="fw-700" style="padding:8px;vertical-align:top">Poster</td><td style="padding:8px"><a href="' + p.posterUrl + '" target="_blank" class="btn btn-xs btn-outline">📄 Lihat Poster</a></td></tr>' : '') +
       (p.deskripsi ? '<tr><td class="fw-700" style="padding:8px;vertical-align:top">Deskripsi</td><td style="padding:8px;white-space:pre-wrap">' + escHtml(p.deskripsi) + '</td></tr>' : '') +
       (p.createdAt ? '<tr><td class="fw-700" style="padding:8px;vertical-align:top">Dibuat</td><td style="padding:8px">' + formatDateTime(p.createdAt) + '</td></tr>' : '') +
       (p.updatedAt ? '<tr><td class="fw-700" style="padding:8px;vertical-align:top">Diupdate</td><td style="padding:8px">' + formatDateTime(p.updatedAt) + '</td></tr>' : '') +
@@ -1655,39 +1656,120 @@ async function modalLowongan(id) {
   } else await showLowForm(null, {});
 }
 async function showLowForm(id, p) {
+  window._lwPosterFile = null;
   const [posSnap, deptSnap] = await Promise.all([
     db.collection('hrd_posisi').get(),
     db.collection('hrd_departemen').get(),
   ]);
+
+  let isManual = false;
+  if (p.posisi) {
+    let found = false;
+    posSnap.forEach((d) => {
+      if (d.data().nama === p.posisi) found = true;
+    });
+    if (!found) isManual = true;
+  }
+
   let posOpts = '<option value="">-- Pilih Posisi --</option>';
   posSnap.forEach((d) => {
     const r = d.data();
     posOpts += `<option value="${escHtml(r.nama)}" ${(p.posisi || '') === r.nama ? 'selected' : ''}>${escHtml(r.nama)}</option>`;
   });
+  posOpts += `<option value="LAINNYA" ${isManual ? 'selected' : ''}>-- LAINNYA (Input Manual) --</option>`;
+
   let deptOpts = '<option value="">-- Pilih Departemen --</option>';
   deptSnap.forEach((d) => {
     const r = d.data();
     deptOpts += `<option value="${escHtml(r.nama)}" ${(p.departemen || '') === r.nama ? 'selected' : ''}>${escHtml(r.nama)}</option>`;
   });
+
   openModal(
-    `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Lowongan</div><div class="grid-2"><div class="form-group"><label>Posisi</label><select class="form-control" id="lwPos">${posOpts}</select></div><div class="form-group"><label>Dept</label><select class="form-control" id="lwDept">${deptOpts}</select></div></div><div class="grid-2"><div class="form-group"><label>Status</label><select class="form-control" id="lwStatus"><option value="open" ${p.status === 'open' ? 'selected' : ''}>Open</option><option value="closed" ${p.status === 'closed' ? 'selected' : ''}>Closed</option></select></div><div class="form-group"><label>Deadline</label><input class="form-control" type="date" id="lwDead" value="${p.deadline || ''}"></div></div><div class="form-group"><label>Deskripsi</label><textarea class="form-control" id="lwDesc">${escHtml(p.deskripsi || '')}</textarea></div><button class="btn btn-primary" onclick="simpanLowongan('${id || ''}')">Simpan</button>`
+    `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Lowongan</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Posisi</label>
+        <select class="form-control" id="lwPos" onchange="toggleLwPosManual()">${posOpts}</select>
+        <div id="wrapLwPosManual" style="margin-top:8px; display:${isManual ? 'block' : 'none'}">
+          <input class="form-control" id="lwPosManual" placeholder="Ketik posisi manual..." value="${isManual ? escHtml(p.posisi) : ''}">
+        </div>
+      </div>
+      <div class="form-group"><label>Dept</label><select class="form-control" id="lwDept">${deptOpts}</select></div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Status</label>
+        <select class="form-control" id="lwStatus">
+          <option value="open" ${p.status === 'open' ? 'selected' : ''}>Open</option>
+          <option value="closed" ${p.status === 'closed' ? 'selected' : ''}>Closed</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Deadline</label><input class="form-control" type="date" id="lwDead" value="${p.deadline || ''}"></div>
+    </div>
+    <div class="form-group">
+      <label>Poster Lowongan (PDF/JPG/PNG)</label>
+      <input type="file" id="lwPoster" class="form-control" accept="image/png,image/jpeg,application/pdf" onchange="window._lwPosterFile = this.files[0]">
+      ${p.posterUrl ? `<div style="margin-top:4px"><a href="${p.posterUrl}" target="_blank" class="text-xs">📄 Lihat Poster Saat Ini</a></div>` : ''}
+    </div>
+    <div class="form-group"><label>Deskripsi</label><textarea class="form-control" id="lwDesc">${escHtml(p.deskripsi || '')}</textarea></div>
+    <button class="btn btn-primary" id="btnSimpanLow" onclick="simpanLowongan('${id || ''}')">Simpan</button>`
   );
 }
+function toggleLwPosManual() {
+  const sel = document.getElementById('lwPos');
+  const wrap = document.getElementById('wrapLwPosManual');
+  if (sel && wrap) {
+    wrap.style.display = sel.value === 'LAINNYA' ? 'block' : 'none';
+  }
+}
 async function simpanLowongan(id) {
-  const data = {
-    posisi: document.getElementById('lwPos').value,
-    departemen: document.getElementById('lwDept').value,
-    status: document.getElementById('lwStatus').value,
-    deadline: document.getElementById('lwDead').value,
-    deskripsi: document.getElementById('lwDesc').value,
-    updatedAt: new Date().toISOString(),
-  };
-  if (!data.posisi) return toast('Posisi wajib', 'warning');
-  if (id) await db.collection('hrd_lowongan').doc(id).update(data);
-  else await db.collection('hrd_lowongan').add({ ...data, createdAt: new Date().toISOString() });
-  closeModalDirect();
-  toast('Disimpan', 'success');
-  renderLowongan();
+  const btn = document.getElementById('btnSimpanLow');
+  const oldText = btn ? btn.innerText : 'Simpan';
+
+  try {
+    let posisi = document.getElementById('lwPos').value;
+    if (posisi === 'LAINNYA') {
+      posisi = document.getElementById('lwPosManual').value.trim();
+    }
+    const data = {
+      posisi: posisi,
+      departemen: document.getElementById('lwDept').value,
+      status: document.getElementById('lwStatus').value,
+      deadline: document.getElementById('lwDead').value,
+      deskripsi: document.getElementById('lwDesc').value,
+      updatedAt: new Date().toISOString(),
+    };
+    if (!data.posisi) return toast('Posisi wajib', 'warning');
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = '⏳ Menyimpan...';
+    }
+
+    // Handle Poster Upload
+    if (window._lwPosterFile) {
+      if (btn) btn.innerText = '⏳ Mengupload Poster...';
+      const file = window._lwPosterFile;
+      const ext = file.name.split('.').pop();
+      const path = `lowongan/poster_${Date.now()}.${ext}`;
+      data.posterUrl = await uploadFileToStorage(file, path);
+    }
+
+    if (id) await db.collection('hrd_lowongan').doc(id).update(data);
+    else await db.collection('hrd_lowongan').add({ ...data, createdAt: new Date().toISOString() });
+
+    closeModalDirect();
+    toast('Disimpan', 'success');
+    renderLowongan();
+  } catch (e) {
+    console.error(e);
+    toast('Gagal menyimpan: ' + e.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = oldText;
+    }
+  }
 }
 
 async function renderPipeline() {
