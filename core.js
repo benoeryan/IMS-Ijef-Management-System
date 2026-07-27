@@ -1474,4 +1474,18 @@ function setupRealtimeSync() {
       () => {}
     );
   unsubscribers.push(unsubBenefit);
+
+  // ── REAL-TIME ACCESS CONTROL: Logout if account disabled ───
+  if (currentUser) {
+    const unsubStatus = db.collection('hrd_users').doc(currentUser.id).onSnapshot(doc => {
+      if (doc.exists) {
+        const d = doc.data();
+        if (d.status === 'nonaktif') {
+          toast('Akun Anda dinonaktifkan oleh Admin. Keluar...', 'error');
+          setTimeout(doLogout, 3000);
+        }
+      }
+    });
+    unsubscribers.push(unsubStatus);
+  }
 }
