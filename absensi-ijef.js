@@ -41,7 +41,12 @@ function renderAbsensiIJEF() {
   const main = document.getElementById('mainContent');
   const isPortal = window._portalAbsensiMode || currentUser.role === 'karyawan';
   const showImport = hasAccess(3);
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📍 Absensi IJEF</span></div>
+  main.innerHTML = `<div class="page-title">
+    <span>${renderBackButton()}📍 Absensi IJEF</span>
+    <div class="flex gap-8">
+        <button class="btn btn-info btn-sm" onclick="navigateTo('penggajian')">💰 Sinkronkan ke Gaji</button>
+    </div>
+  </div>
     <div class="tabs" id="absenTabs">
       <div class="tab active" onclick="showAbsenTab('clock')">⏰ Clock In/Out</div>
       <div class="tab" onclick="showAbsenTab('dinas')">🚗 Dinas Luar</div>
