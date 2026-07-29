@@ -74,8 +74,29 @@ const PERATURAN_PERUSAHAAN={
       {nomor:47,judul:'PHK karena Pengunduran Diri, Meninggal, dan Berakhirnya Kontrak',isi:['Mengundurkan diri: karyawan wajib mengajukan surat pengunduran diri minimal 30 hari sebelum tanggal efektif dan melakukan serah terima pekerjaan.','Karyawan yang mengundurkan diri berhak atas uang penggantian hak dan uang pisah (bila memenuhi syarat).','Meninggal dunia: hubungan kerja berakhir otomatis. Ahli waris berhak atas uang pesangon 2x ketentuan, uang penghargaan masa kerja 1x, dan uang penggantian hak.','Berakhirnya PKWT: hubungan kerja putus demi hukum saat jangka waktu kontrak berakhir. Karyawan berhak atas uang kompensasi sesuai ketentuan.']},
       {nomor:48,judul:'Uang Pisah',isi:['Uang pisah diberikan kepada karyawan tetap yang di-PHK karena pelanggaran berat, mangkir 5 hari, atau mengundurkan diri sendiri.','Karyawan yang telah bekerja kurang dari 3 tahun tidak mendapat uang pisah.','Karyawan yang mengundurkan diri (masa kerja 3 tahun atau lebih) mendapat uang pisah sebesar 1x upah terakhir.','Karyawan yang di-PHK karena mangkir (masa kerja 3 tahun atau lebih) mendapat uang pisah Rp 1.000.000.','Karyawan yang di-PHK karena pelanggaran berat tidak mendapat uang pisah.'],tabel:{headers:['Masa Kerja','Resign','Mangkir','Pelanggaran Berat'],rows:[['< 3 tahun','0','0','0'],['3-5 tahun','1x upah','Rp 1.000.000','0'],['5-10 tahun','1,5x upah','Rp 1.500.000','0'],['> 10 tahun','2x upah','Rp 2.000.000','0']]}}
     ]},
-    {nomor:'XI',judul:'PENUTUP',pasal:[
-      {nomor:49,judul:'Ketentuan Penutup',isi:['Hal-hal yang belum diatur dalam Peraturan Perusahaan ini akan diatur kemudian melalui Surat Keputusan Direksi atau Perjanjian Kerja Bersama.','Peraturan Perusahaan ini berlaku selama 2 (dua) tahun sejak tanggal disahkan, yaitu mulai 01 Januari 2026 sampai dengan 31 Desember 2027.','Selama belum ada Peraturan Perusahaan yang baru, maka Peraturan Perusahaan ini tetap berlaku.','Peraturan Perusahaan ini diumumkan dan disosialisasikan kepada seluruh karyawan.','Perubahan atas Peraturan Perusahaan ini dilakukan melalui Surat Keputusan tersendiri dengan memperhatikan masukan dari karyawan.','Peraturan Perusahaan ini dibuat dengan itikad baik dan mengikat kedua belah pihak.','Ditetapkan di Bandung Barat pada tanggal 01 Januari 2026. Direktur LPK IJEF CORP.']}
+    {nomor:'XI',judul:'KEBIJAKAN PINJAMAN KARYAWAN',pasal:[
+      {nomor:49,judul:'Ketentuan Umum & Kategori Pinjaman',isi:['Fasilitas pinjaman ini bersifat bantuan kesejahteraan (employee benefit) non-komersial tanpa bunga (0%) yang bertujuan membantu keuangan karyawan.','Pinjaman Reguler: Pinjaman dana tunai skala menengah untuk kebutuhan terencana karyawan.','Kasbon Darurat: Pinjaman dana tunai kilat skala kecil khusus untuk situasi kedaruratan yang tidak terencana.']},
+      {nomor:50,judul:'Persyaratan Pengajuan',sub:[
+        {label:'Kriteria Pinjaman Reguler:',items:['Berstatus sebagai Karyawan Tetap.','Memiliki masa kerja minimal 12 bulan (1 tahun).','Tidak sedang dalam proses sanksi Surat Peringatan (SP).','Tidak memiliki sisa pinjaman aktif sebelumnya (one active loan at a time).']},
+        {label:'Kriteria Kasbon Darurat:',items:['Berstatus sebagai Karyawan Tetap ATAU Karyawan Kontrak (Masa kerja >= 6 bulan).','Hanya diperuntukkan bagi kondisi mendesak: Musibah keluarga inti, biaya medis darurat, atau kebutuhan krusial yang bersifat mendadak.']}
+      ]},
+      {nomor:51,judul:'Rumus Hitungan Plafon Pinjaman',isi:['Besaran maksimal plafon pinjaman ditentukan berdasarkan kategori dan masa kerja:'],tabel:{headers:['Kategori Pinjaman','Masa Kerja','Maksimal Plafon Pinjaman'],rows:[['Kasbon Darurat','>= 6 Bulan','Rp 1.000.000 (Atau maksimal 20% dari Gaji Pokok)'],['Pinjaman Reguler','1 s.d 3 Tahun','1,5 x Gaji Pokok'],['Pinjaman Reguler','3 s.d 5 Tahun','2,5 x Gaji Pokok'],['Pinjaman Reguler','> 5 Tahun','3,5 x Gaji Pokok']]}},
+      {nomor:52,judul:'Rasio Cicilan Bulanan & Durasi (Tenor)',sub:[
+        {label:'Ketentuan Pinjaman Reguler:',items:['Rasio Cicilan: Maksimal 30% dari Gaji Bersih (Take Home Pay / THP).','Durasi Pinjaman <= Rp 5.000.000: Maksimal 6 bulan.','Durasi Pinjaman > Rp 5.000.000: Maksimal 12 bulan.']},
+        {label:'Ketentuan Kasbon Darurat:',items:['Rasio Cicilan: Potong penuh 100% dari total pinjaman pada bulan berjalan.','Durasi: Maksimal 1 bulan (langsung lunas pada tanggal gajian terdekat).']}
+      ]},
+      {nomor:53,judul:'Alur Birokrasi & Otorisasi Persetujuan',isi:[
+        'Alur Kasbon Darurat (Proses Kilat 1 Hari Kerja): [Karyawan] -> [Manajer HRD] -> [Manajer Keuangan] -> [Pencairan Kas Kecil / Petty Cash]. Kasbon Darurat tidak memerlukan persetujuan Direktur Keuangan.',
+        'Alur Pinjaman Reguler (Proses Standar 5-7 Hari Kerja): [Karyawan] -> [Atasan Langsung] -> [HR Operation] -> [Direktur Keuangan / CFO] -> [Transfer Payroll].'
+      ]},
+      {nomor:54,judul:'Ketentuan Pelunasan Khusus (Resign / PHK)',isi:[
+        'Apabila karyawan berhenti bekerja sebelum komitmen pinjaman selesai, sisa pinjaman akan dihitung sebagai Hutang Jatuh Tempo Seketika.',
+        'Perusahaan berhak melakukan pemotongan langsung secara penuh dari hak akhir kerja (Final Settlement) karyawan (gaji terakhir, pesangon, atau sisa cuti).',
+        'Jika hak akhir tidak mencukupi, karyawan wajib melunasi sisa kekurangan tunai maksimal 7 hari kerja setelah hari terakhir kerja.'
+      ]}
+    ]},
+    {nomor:'XII',judul:'PENUTUP',pasal:[
+      {nomor:55,judul:'Ketentuan Penutup',isi:['Hal-hal yang belum diatur dalam Peraturan Perusahaan ini akan diatur kemudian melalui Surat Keputusan Direksi atau Perjanjian Kerja Bersama.','Peraturan Perusahaan ini berlaku selama 2 (dua) tahun sejak tanggal disahkan, yaitu mulai 01 Januari 2026 sampai dengan 31 Desember 2027.','Selama belum ada Peraturan Perusahaan yang baru, maka Peraturan Perusahaan ini tetap berlaku.','Peraturan Perusahaan ini diumumkan dan disosialisasikan kepada seluruh karyawan.','Perubahan atas Peraturan Perusahaan ini dilakukan melalui Surat Keputusan tersendiri dengan memperhatikan masukan dari karyawan.','Peraturan Perusahaan ini dibuat dengan itikad baik dan mengikat kedua belah pihak.','Ditetapkan di Bandung Barat pada tanggal 01 Januari 2026. Direktur LPK IJEF CORP.']}
     ]}
   ]
 };
