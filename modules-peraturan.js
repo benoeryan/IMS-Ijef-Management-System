@@ -108,7 +108,13 @@ async function loadPeraturanData() {
     try {
         const doc = await db.collection('hrd_settings').doc('peraturan').get();
         if (doc.exists) {
-            _peraturanCache = doc.data();
+            const fsData = doc.data();
+            // Handle new stringified format or old raw format
+            if (fsData.dataJson) {
+                _peraturanCache = JSON.parse(fsData.dataJson);
+            } else {
+                _peraturanCache = fsData;
+            }
             return _peraturanCache;
         }
     } catch (e) {
@@ -123,7 +129,7 @@ async function seedPeraturanIfEmpty() {
         if (!doc.exists) {
             console.log("[SEED] Uploading default regulations to Firestore...");
             await db.collection('hrd_settings').doc('peraturan').set({
-                ...PERATURAN_PERUSAHAAN,
+                dataJson: JSON.stringify(PERATURAN_PERUSAHAAN),
                 updatedAt: new Date().toISOString(),
                 updatedBy: 'System Seed'
             });
@@ -300,7 +306,7 @@ async function updatePeraturanFirestore(data) {
     toast("⏳ Menyimpan perubahan...", "info");
     try {
         await db.collection('hrd_settings').doc('peraturan').set({
-            ...data,
+            dataJson: JSON.stringify(data),
             updatedAt: new Date().toISOString(),
             updatedBy: currentUser.nama
         });
