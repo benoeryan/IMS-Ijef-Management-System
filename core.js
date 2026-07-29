@@ -1457,6 +1457,15 @@ function setupRealtimeSync() {
       () => {
         // Update notification badge always
         if (currentUser) updateNotifBadge();
+
+        // ── LIVE PORTAL REFRESH ──
+        // If employee is viewing their own portal-absensi, refresh it automatically on data change
+        if (col === 'hrd_absensi' && typeof currentPage !== 'undefined' && currentPage === 'portal-absensi') {
+            if (typeof renderPortalAbsensi === 'function') {
+                console.log('[SYNC] Live refreshing portal-absensi...');
+                renderPortalAbsensi();
+            }
+        }
       },
       () => {}
     );

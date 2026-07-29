@@ -2799,9 +2799,19 @@ async function simpanEditAbsen() {
     const periode = tgl.slice(0, 7); // yyyy-mm
     toast('✅ Absensi berhasil ditambahkan!', 'success');
 
-    // Trigger Payroll Sync
+    // 1. Trigger Payroll Sync
     if (typeof syncSinglePayrollData === 'function') {
         syncSinglePayrollData(nama, periode);
+    }
+
+    // 2. Send Notification to User
+    if (userId) {
+        sendNotification(
+            userId,
+            'Absensi Diperbarui',
+            `Admin (${currentUser.nama}) telah menambahkan data absensi manual (${tipe.toUpperCase()}) untuk Anda pada tanggal ${formatDate(tgl)}.`,
+            'portal-absensi'
+        );
     }
 
     closeModalDirect();
@@ -2813,10 +2823,37 @@ async function simpanEditAbsen() {
 
 async function hapusSatuAbsen(docId) {
   if (!confirm('Hapus record absensi ini?')) return;
-  await db.collection('hrd_absensi').doc(docId).delete();
-  toast('Record dihapus. Jangan lupa klik "Sinkronisasi" di menu Penggajian.', 'success');
-  closeModalDirect();
-  setTimeout(() => loadRekapGrid(), 300);
+
+  try {
+      const doc = await db.collection('hrd_absensi').doc(docId).get();
+      if (!doc.exists) return;
+      const data = doc.data();
+      const { userId, nama, tanggal } = data;
+
+      await db.collection('hrd_absensi').doc(docId).delete();
+      toast('Record dihapus', 'success');
+
+      // 1. Trigger Payroll Sync
+      const periode = (tanggal || '').slice(0, 7);
+      if (typeof syncSinglePayrollData === 'function' && nama && periode) {
+          syncSinglePayrollData(nama, periode);
+      }
+
+      // 2. Send Notification
+      if (userId) {
+          sendNotification(
+              userId,
+              'Absensi Dihapus',
+              `Admin telah menghapus record absensi Anda pada tanggal ${formatDate(tanggal)}.`,
+              'portal-absensi'
+          );
+      }
+
+      closeModalDirect();
+      setTimeout(() => loadRekapGrid(), 300);
+  } catch (e) {
+      toast('Gagal hapus: ' + e.message, 'error');
+  }
 }
 
 // ── KOREKSI HISTORY LEMBUR — One-time fix ─────────────────────
