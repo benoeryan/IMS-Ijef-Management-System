@@ -37,7 +37,7 @@ const PERATURAN_PERUSAHAAN={
       {nomor:20,judul:'Waktu Pembayaran Upah',isi:['Upah dibayarkan setiap tanggal 28 (dua puluh delapan) setiap bulan.','Apabila tanggal pembayaran jatuh pada hari libur, upah dibayarkan pada hari kerja sebelumnya.','Pembayaran upah dilakukan melalui transfer bank ke rekening karyawan.','Slip gaji diberikan secara digital melalui sistem HRD.']},
       {nomor:21,judul:'Komponen Upah',isi:['Komponen upah terdiri dari: Gaji Pokok, Tunjangan Tetap (jabatan, keluarga), Tunjangan Tidak Tetap (kehadiran, transport, makan).','Gaji pokok minimal 75% dari total upah yang diterima.','Tunjangan tidak tetap dibayarkan berdasarkan kehadiran aktual karyawan.','Potongan upah meliputi: pajak penghasilan (PPh 21), iuran BPJS, pinjaman/kasbon, dan potongan lain yang disepakati.']},
       {nomor:22,judul:'Upah Lembur',isi:['Upah lembur dibayarkan kepada karyawan yang bekerja melebihi waktu kerja normal atas perintah atasan.','Perhitungan upah lembur: Hari biasa jam pertama 1,5x upah sejam, jam berikutnya 2x upah sejam.','Hari istirahat/libur resmi: 7 jam pertama 2x upah sejam, jam ke-8 3x upah sejam, jam ke-9 dst 4x upah sejam.','Upah sejam = 1/173 x upah sebulan.']},
-      {nomor:23,judul:'Tunjangan Hari Raya (THR)',isi:['THR Keagamaan dibayarkan 1 (satu) kali dalam setahun selambat-lambatnya 7 hari sebelum hari raya.','Karyawan yang telah bekerja 12 bulan atau lebih mendapat THR sebesar 1 bulan upah.','Karyawan yang telah bekerja 1 bulan tetapi kurang dari 12 bulan mendapat THR secara proporsional.','THR dihitung berdasarkan upah pokok ditambah tunjangan tetap.']},
+      {nomor:23,judul:'Tunjangan Hari Raya (THR)',isi:['THR Keagamaan dibayarkan 1 (satu) kali dalam setahun selambat-lambatnya 7 hari sebelum hari raya.','Karyawan yang telah bekerja 12 bulan atau lebih mendapat THR sebesar 1 bulan upah.','Karyawan yang telah bekerja 1 bukti tetapi kurang dari 12 bulan mendapat THR secara proporsional.','THR dihitung berdasarkan upah pokok ditambah tunjangan tetap.']},
       {nomor:24,judul:'Bonus dan Insentif',isi:['Perusahaan dapat memberikan bonus tahunan berdasarkan kinerja perusahaan dan karyawan.','Besaran bonus ditetapkan melalui Surat Keputusan Direksi.','Insentif khusus dapat diberikan untuk pencapaian target tertentu.','Karyawan yang sedang menjalani sanksi SP dapat dikurangi bonusnya sesuai kebijakan perusahaan.']},
       {nomor:25,judul:'Upah Selama Sakit dan Tidak Bekerja',isi:['Karyawan yang sakit berkepanjangan tetap mendapat upah sesuai ketentuan Pasal 13 ayat 4.','Karyawan yang ditahan pihak berwajib: tidak berhak atas upah, namun perusahaan wajib memberi bantuan kepada keluarga yang menjadi tanggungannya.','Bantuan keluarga: 1 tanggungan 25%, 2 tanggungan 35%, 3 tanggungan 45%, 4+ tanggungan 50% dari upah.','Pemberian bantuan diberikan paling lama 6 bulan.']}
     ]},
@@ -68,10 +68,10 @@ const PERATURAN_PERUSAHAAN={
       {nomor:41,judul:'PHK karena Efisiensi dan Restrukturisasi',isi:['Perusahaan dapat melakukan PHK karena efisiensi akibat kerugian/force majeure sesuai ketentuan undang-undang.','PHK karena merger, konsolidasi, atau perubahan status perusahaan dilakukan dengan memperhatikan hak karyawan.','Karyawan yang di-PHK karena efisiensi berhak atas pesangon, uang penghargaan masa kerja, dan uang penggantian hak sesuai ketentuan.','Perusahaan mengupayakan solusi alternatif sebelum PHK: pengurangan upah dan fasilitas, pembatasan lembur, pengurangan jam/hari kerja, merumahkan sementara.']},
       {nomor:42,judul:'PHK karena Pelanggaran Berat',isi:['Karyawan dapat di-PHK tanpa pesangon apabila melakukan pelanggaran berat:','Melakukan pelanggaran dalam masa berlaku SP III.','Melakukan penipuan, pencurian, atau penggelapan barang/uang milik perusahaan.','Menyebarkan fitnah, hoax, atau konten negatif tentang perusahaan melalui media sosial atau media lainnya.','Mabuk, menggunakan/mengedarkan narkotika dan obat terlarang di lingkungan perusahaan.','Memalsukan dokumen perusahaan atau dokumen pribadi untuk kepentingan tertentu.','Melakukan pelecehan seksual, intimidasi, atau kekerasan fisik di lingkungan kerja.','Dengan sengaja merusak barang/aset milik perusahaan.','Membocorkan rahasia perusahaan yang seharusnya dirahasiakan kepada pihak luar.','Menyalahgunakan jabatan untuk kepentingan pribadi atau melakukan pungutan liar (pungli).','Melakukan tindak pidana yang diancam hukuman penjara 5 tahun atau lebih.']},
       {nomor:43,judul:'PHK karena Mangkir',isi:['Karyawan yang mangkir selama 5 (lima) hari kerja berturut-turut tanpa keterangan tertulis yang sah dipanggil 2 kali secara patut.','Apabila setelah 2 kali pemanggilan karyawan tidak dapat memberikan keterangan yang sah, dianggap mengundurkan diri.','Karyawan yang di-PHK karena mangkir berhak atas uang penggantian hak dan uang pisah sesuai ketentuan.']},
-      {nomor:44,judul:'PHK karena Sakit Berkepanjangan',isi:['Karyawan yang sakit berkepanjangan selama 12 (dua belas) bulan berturut-turut dan setelah itu dinyatakan tidak mampu bekerja oleh dokter dapat di-PHK.','Karyawan berhak atas uang pesangon 2x ketentuan, uang penghargaan masa kerja 1x, dan uang penggantian hak sesuai peraturan.','Perusahaan membantu proses klaim asuransi dan BPJS Ketenagakerjaan bagi karyawan tersebut.']},
+      {nomor:44,judul:'PHK karena Sakit Berkepanjangan',isi:['Karyawan yang sakit berkepanjangan selama 12 (dua belas) bulan berturut-turut dan setelah itu dinyatakan tidak mampu bekerja oleh dokter dapat di-PHK.','Karyawan berhak atas uang pesangon 2x ketentuan, uang penghargaan masa kerja 1x, and uang penggantian hak sesuai peraturan.','Perusahaan membantu proses klaim asuransi dan BPJS Ketenagakerjaan bagi karyawan tersebut.']},
       {nomor:45,judul:'PHK karena Alasan Mendesak',isi:['PHK karena alasan mendesak meliputi: perusahaan tutup karena force majeure, perusahaan pailit, atau keadaan darurat lainnya.','Karyawan berhak atas hak-haknya sesuai ketentuan perundang-undangan yang berlaku.','Perusahaan wajib memberitahukan rencana PHK kepada karyawan dan/atau serikat pekerja minimal 14 hari sebelumnya.']},
-      {nomor:46,judul:'PHK karena Pensiun',isi:['Usia pensiun normal ditetapkan 55 (lima puluh lima) tahun.','Pensiun dipercepat dapat dilakukan pada usia 45 tahun berdasarkan Surat Keputusan Direksi atas permohonan karyawan.','Karyawan yang pensiun berhak atas uang pesangon 2x ketentuan, uang penghargaan masa kerja 1x, dan uang penggantian hak.','Karyawan yang telah pensiun dapat dipekerjakan kembali berdasarkan kontrak khusus (PKWT) apabila diperlukan perusahaan.']},
-      {nomor:47,judul:'PHK karena Pengunduran Diri, Meninggal, dan Berakhirnya Kontrak',isi:['Mengundurkan diri: karyawan wajib mengajukan surat pengunduran diri minimal 30 hari sebelum tanggal efektif dan melakukan serah terima pekerjaan.','Karyawan yang mengundurkan diri berhak atas uang penggantian hak dan uang pisah (bila memenuhi syarat).','Meninggal dunia: hubungan kerja berakhir otomatis. Ahli waris berhak atas uang pesangon 2x ketentuan, uang penghargaan masa kerja 1x, dan uang penggantian hak.','Berakhirnya PKWT: hubungan kerja putus demi hukum saat jangka waktu kontrak berakhir. Karyawan berhak atas uang kompensasi sesuai ketentuan.']},
+      {nomor:46,judul:'PHK karena Pensiun',isi:['Usia pensiun normal ditetapkan 55 (lima puluh lima) tahun.','Pensiun dipercepat dapat dilakukan pada usia 45 tahun berdasarkan Surat Keputusan Direksi atas permohonan karyawan.','Karyawan yang pensiun berhak atas uang pesangon 2x ketentuan, uang penghargaan masa kerja 1x, and uang penggantian hak.','Karyawan yang telah pensiun dapat dipekerjakan kembali berdasarkan kontrak khusus (PKWT) apabila diperlukan perusahaan.']},
+      {nomor:47,judul:'PHK karena Pengunduran Diri, Meninggal, and Berakhirnya Kontrak',isi:['Mengundurkan diri: karyawan wajib mengajukan surat pengunduran diri minimal 30 hari sebelum tanggal efektif and melakukan serah terima pekerjaan.','Karyawan yang mengundurkan diri berhak atas uang penggantian hak and uang pisah (bila memenuhi syarat).','Meninggal dunia: hubungan kerja berakhir otomatis. Ahli waris berhak atas uang pesangon 2x ketentuan, uang penghargaan masa kerja 1x, and uang penggantian hak.','Berakhirnya PKWT: hubungan kerja putus demi hukum saat jangka waktu kontrak berakhir. Karyawan berhak atas uang kompensasi sesuai ketentuan.']},
       {nomor:48,judul:'Uang Pisah',isi:['Uang pisah diberikan kepada karyawan tetap yang di-PHK karena pelanggaran berat, mangkir 5 hari, atau mengundurkan diri sendiri.','Karyawan yang telah bekerja kurang dari 3 tahun tidak mendapat uang pisah.','Karyawan yang mengundurkan diri (masa kerja 3 tahun atau lebih) mendapat uang pisah sebesar 1x upah terakhir.','Karyawan yang di-PHK karena mangkir (masa kerja 3 tahun atau lebih) mendapat uang pisah Rp 1.000.000.','Karyawan yang di-PHK karena pelanggaran berat tidak mendapat uang pisah.'],tabel:{headers:['Masa Kerja','Resign','Mangkir','Pelanggaran Berat'],rows:[['< 3 tahun','0','0','0'],['3-5 tahun','1x upah','Rp 1.000.000','0'],['5-10 tahun','1,5x upah','Rp 1.500.000','0'],['> 10 tahun','2x upah','Rp 2.000.000','0']]}}
     ]},
     {nomor:'XI',judul:'KEBIJAKAN PINJAMAN KARYAWAN',pasal:[
@@ -80,7 +80,7 @@ const PERATURAN_PERUSAHAAN={
         {label:'Kriteria Pinjaman Reguler:',items:['Berstatus sebagai Karyawan Tetap.','Memiliki masa kerja minimal 12 bulan (1 tahun).','Tidak sedang dalam proses sanksi Surat Peringatan (SP).','Tidak memiliki sisa pinjaman aktif sebelumnya (one active loan at a time).']},
         {label:'Kriteria Kasbon Darurat:',items:['Berstatus sebagai Karyawan Tetap ATAU Karyawan Kontrak (Masa kerja >= 6 bulan).','Hanya diperuntukkan bagi kondisi mendesak: Musibah keluarga inti, biaya medis darurat, atau kebutuhan krusial yang bersifat mendadak.']}
       ]},
-      {nomor:51,judul:'Rumus Hitungan Plafon Pinjaman',isi:['Besaran maksimal plafon pinjaman ditentukan berdasarkan kategori dan masa kerja:'],tabel:{headers:['Kategori Pinjaman','Masa Kerja','Maksimal Plafon Pinjaman'],rows:[['Kasbon Darurat','>= 6 Bulan','Rp 1.000.000 (Atau maksimal 20% dari Gaji Pokok)'],['Pinjaman Reguler','1 s.d 3 Tahun','1,5 x Gaji Pokok'],['Pinjaman Reguler','3 s.d 5 Tahun','2,5 x Gaji Pokok'],['Pinjaman Reguler','> 5 Tahun','3,5 x Gaji Pokok']]}},
+      {nomor:51,judul:'Rumus Hitungan Plafon Pinjaman',isi:['Besaran maksimal plafon pinjaman ditentukan berdasarkan kategori and masa kerja:'],tabel:{headers:['Kategori Pinjaman','Masa Kerja','Maksimal Plafon Pinjaman'],rows:[['Kasbon Darurat','>= 6 Bulan','Rp 1.000.000 (Atau maksimal 20% dari Gaji Pokok)'],['Pinjaman Reguler','1 s.d 3 Tahun','1,5 x Gaji Pokok'],['Pinjaman Reguler','3 s.d 5 Tahun','2,5 x Gaji Pokok'],['Pinjaman Reguler','> 5 Tahun','3,5 x Gaji Pokok']]}},
       {nomor:52,judul:'Rasio Cicilan Bulanan & Durasi (Tenor)',sub:[
         {label:'Ketentuan Pinjaman Reguler:',items:['Rasio Cicilan: Maksimal 30% dari Gaji Bersih (Take Home Pay / THP).','Durasi Pinjaman <= Rp 5.000.000: Maksimal 6 bulan.','Durasi Pinjaman > Rp 5.000.000: Maksimal 12 bulan.']},
         {label:'Ketentuan Kasbon Darurat:',items:['Rasio Cicilan: Potong penuh 100% dari total pinjaman pada bulan berjalan.','Durasi: Maksimal 1 bulan (langsung lunas pada tanggal gajian terdekat).']}
@@ -96,17 +96,223 @@ const PERATURAN_PERUSAHAAN={
       ]}
     ]},
     {nomor:'XII',judul:'PENUTUP',pasal:[
-      {nomor:55,judul:'Ketentuan Penutup',isi:['Hal-hal yang belum diatur dalam Peraturan Perusahaan ini akan diatur kemudian melalui Surat Keputusan Direksi atau Perjanjian Kerja Bersama.','Peraturan Perusahaan ini berlaku selama 2 (dua) tahun sejak tanggal disahkan, yaitu mulai 01 Januari 2026 sampai dengan 31 Desember 2027.','Selama belum ada Peraturan Perusahaan yang baru, maka Peraturan Perusahaan ini tetap berlaku.','Peraturan Perusahaan ini diumumkan dan disosialisasikan kepada seluruh karyawan.','Perubahan atas Peraturan Perusahaan ini dilakukan melalui Surat Keputusan tersendiri dengan memperhatikan masukan dari karyawan.','Peraturan Perusahaan ini dibuat dengan itikad baik dan mengikat kedua belah pihak.','Ditetapkan di Bandung Barat pada tanggal 01 Januari 2026. Direktur LPK IJEF CORP.']}
+      {nomor:55,judul:'Ketentuan Penutup',isi:['Hal-hal yang belum diatur dalam Peraturan Perusahaan ini akan diatur kemudian melalui Surat Keputusan Direksi atau Perjanjian Kerja Bersama.','Peraturan Perusahaan ini berlaku selama 2 (dua) tahun sejak tanggal disahkan, yaitu mulai 01 Januari 2026 sampai dengan 31 Desember 2027.','Selama belum ada Peraturan Perusahaan yang baru, maka Peraturan Perusahaan ini tetap berlaku.','Peraturan Perusahaan ini diumumkan and disosialisasikan kepada seluruh karyawan.','Perubahan atas Peraturan Perusahaan ini dilakukan melalui Surat Keputusan tersendiri dengan memperhatikan masukan dari karyawan.','Peraturan Perusahaan ini dibuat dengan itikad baik and mengikat kedua belah pihak.','Ditetapkan di Bandung Barat pada tanggal 01 Januari 2026. Direktur LPK IJEF CORP.']}
     ]}
   ]
 };
 
-function renderPeraturanHTML(compact){let h='';if(!PERATURAN_PERUSAHAAN||!PERATURAN_PERUSAHAAN.bab)return'<p>Data peraturan tidak tersedia.</p>';PERATURAN_PERUSAHAAN.bab.forEach(bab=>{h+=`<details id="bab-detail-${bab.nomor}" style="margin-bottom:${compact?'12px':'18px'};border:1px solid #e0e0e0;border-radius:10px;overflow:hidden"><summary style="background:#1a237e;color:white;padding:${compact?'10px 14px':'12px 18px'};font-weight:700;font-size:${compact?'0.88rem':'0.95rem'};cursor:pointer;user-select:none"><span id="bab-${bab.nomor}"></span>BAB ${bab.nomor}: ${bab.judul}</summary><div style="padding:${compact?'12px':'16px 20px'}">`;if(bab.pasal){bab.pasal.forEach(pasal=>{h+=`<div style="margin-bottom:14px;padding:12px 16px;background:#f8f9ff;border-radius:8px;border-left:3px solid #1a237e"><div style="font-weight:700;color:#1a237e;margin-bottom:8px;font-size:.9rem">Pasal ${pasal.nomor}: ${pasal.judul}</div>`;if(pasal.isi&&Array.isArray(pasal.isi)){h+=`<ol style="padding-left:20px;font-size:0.83rem;line-height:1.9">`;pasal.isi.forEach(i=>{h+=`<li style="margin-bottom:4px">${escHtml(i)}</li>`;});h+=`</ol>`;}if(pasal.sub&&Array.isArray(pasal.sub)){pasal.sub.forEach(sub=>{h+=`<div style="margin-top:10px"><div style="font-weight:600;font-size:.84rem;margin-bottom:6px;color:#283593">${escHtml(sub.label)}</div><ul style="padding-left:20px;font-size:.82rem;line-height:1.9">`;if(sub.items&&Array.isArray(sub.items)){sub.items.forEach(i=>{h+=`<li style="margin-bottom:2px">${escHtml(i)}</li>`;});}h+=`</ul></div>`;});}if(pasal.catatan){h+=`<div style="margin-top:10px;padding:8px 12px;background:#fff8e1;border-radius:6px;font-size:.8rem;color:#e65100;border:1px solid #ffe0b2"><b>Catatan:</b> ${escHtml(pasal.catatan)}</div>`;}if(pasal.tabel&&pasal.tabel.headers){h+=`<div class="table-wrap" style="margin-top:12px;overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>`;pasal.tabel.headers.forEach(x=>{h+=`<th style="font-size:.78rem;padding:8px 10px;background:#e8eaf6;border:1px solid #c5cae9;text-align:left">${escHtml(x)}</th>`;});h+=`</tr></thead><tbody>`;if(pasal.tabel.rows){pasal.tabel.rows.forEach(r=>{h+=`<tr>`;r.forEach(c=>{h+=`<td style="font-size:.8rem;padding:6px 10px;border:1px solid #e0e0e0">${escHtml(c)}</td>`;});h+=`</tr>`;});}h+=`</tbody></table></div>`;}h+=`</div>`;});}h+=`</div></details>`;});return h;}
+let _peraturanCache = null;
 
-window.renderPeraturan = function(){document.getElementById('mainContent').innerHTML=`<div class="page-title"><span>📜 Peraturan Perusahaan</span><button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Cetak</button></div><div class="card"><div style="text-align:center;padding:20px 16px;border-bottom:2px solid #e8eaf6;margin-bottom:24px"><div style="font-size:1.4rem;font-weight:700;color:#1a237e">${PERATURAN_PERUSAHAAN.nama}</div><div style="color:#555;font-size:.9rem;margin-top:4px">Peraturan Perusahaan &mdash; Versi ${PERATURAN_PERUSAHAAN.versi}</div><div style="color:#888;font-size:.8rem;margin-top:4px">Ditetapkan di ${PERATURAN_PERUSAHAAN.tempatTerbit}, ${PERATURAN_PERUSAHAAN.tanggalBerlaku}</div></div>${renderPeraturanHTML(false)}</div>`;}
+async function loadPeraturanData() {
+    if (_peraturanCache) return _peraturanCache;
+    try {
+        const doc = await db.collection('hrd_settings').doc('peraturan').get();
+        if (doc.exists) {
+            _peraturanCache = doc.data();
+            return _peraturanCache;
+        }
+    } catch (e) {
+        console.warn("Failed to load peraturan from Firestore, using fallback:", e);
+    }
+    return PERATURAN_PERUSAHAAN;
+}
+
+async function seedPeraturanIfEmpty() {
+    try {
+        const doc = await db.collection('hrd_settings').doc('peraturan').get();
+        if (!doc.exists) {
+            console.log("[SEED] Uploading default regulations to Firestore...");
+            await db.collection('hrd_settings').doc('peraturan').set({
+                ...PERATURAN_PERUSAHAAN,
+                updatedAt: new Date().toISOString(),
+                updatedBy: 'System Seed'
+            });
+        }
+    } catch (e) {
+        console.error("[SEED] Failed to seed peraturan:", e);
+    }
+}
+
+function renderPeraturanHTML(data, compact){
+  let h='';
+  const isAdm = hasAccess(3) && !window._portalMode;
+
+  if(!data||!data.bab)return'<p>Data peraturan tidak tersedia.</p>';
+
+  data.bab.forEach((bab, bIdx)=>{
+    const editBtn = isAdm ? `<button class="btn btn-xs btn-info ml-8" onclick="modalEditBab(${bIdx})">✏️ Edit</button>` : '';
+
+    h+=`<details id="bab-detail-${bab.nomor}" style="margin-bottom:${compact?'12px':'18px'};border:1px solid #e0e0e0;border-radius:10px;overflow:hidden">
+        <summary style="background:#1a237e;color:white;padding:${compact?'10px 14px':'12px 18px'};font-weight:700;font-size:${compact?'0.88rem':'0.95rem'};cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between">
+            <span>BAB ${bab.nomor}: ${bab.judul}</span>
+            <div>${editBtn}</div>
+        </summary>
+        <div style="padding:${compact?'12px':'16px 20px'}">`;
+
+    if(bab.pasal){
+      bab.pasal.forEach(pasal=>{
+        h+=`<div style="margin-bottom:14px;padding:12px 16px;background:#f8f9ff;border-radius:8px;border-left:3px solid #1a237e"><div style="font-weight:700;color:#1a237e;margin-bottom:8px;font-size:.9rem">Pasal ${pasal.nomor}: ${pasal.judul}</div>`;
+        if(pasal.isi&&Array.isArray(pasal.isi)){
+          h+=`<ol style="padding-left:20px;font-size:0.83rem;line-height:1.9">`;
+          pasal.isi.forEach(i=>{h+=`<li style="margin-bottom:4px">${escHtml(i)}</li>`;});
+          h+=`</ol>`;
+        }
+        if(pasal.sub&&Array.isArray(pasal.sub)){
+          pasal.sub.forEach(sub=>{
+            h+=`<div style="margin-top:10px"><div style="font-weight:600;font-size:.84rem;margin-bottom:6px;color:#283593">${escHtml(sub.label)}</div><ul style="padding-left:20px;font-size:.82rem;line-height:1.9">`;
+            if(sub.items&&Array.isArray(sub.items)){
+              sub.items.forEach(i=>{h+=`<li style="margin-bottom:2px">${escHtml(i)}</li>`;});
+            }
+            h+=`</ul></div>`;
+          });
+        }
+        if(pasal.catatan){
+          h+=`<div style="margin-top:10px;padding:8px 12px;background:#fff8e1;border-radius:6px;font-size:.8rem;color:#e65100;border:1px solid #ffe0b2"><b>Catatan:</b> ${escHtml(pasal.catatan)}</div>`;
+        }
+        if(pasal.tabel&&pasal.tabel.headers){
+          h+=`<div class="table-wrap" style="margin-top:12px;overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>`;
+          pasal.tabel.headers.forEach(x=>{h+=`<th style="font-size:.78rem;padding:8px 10px;background:#e8eaf6;border:1px solid #c5cae9;text-align:left">${escHtml(x)}</th>`;});
+          h+=`</tr></thead><tbody>`;
+          if(pasal.tabel.rows){
+            pasal.tabel.rows.forEach(r=>{
+              h+=`<tr>`;
+              r.forEach(c=>{h+=`<td style="font-size:.8rem;padding:6px 10px;border:1px solid #e0e0e0">${escHtml(c)}</td>`;});
+              h+=`</tr>`;
+            });
+          }
+          h+=`</tbody></table></div>`;
+        }
+        h+=`</div>`;
+      });
+    }
+    h+=`</div></details>`;
+  });
+  return h;
+}
+
+window.renderPeraturan = async function(){
+  window._portalMode = false;
+  const data = await loadPeraturanData();
+  const isAdm = hasAccess(3);
+  const addBtn = isAdm ? `<button class="btn btn-primary btn-sm" onclick="modalTambahBab()">+ Tambah Bab</button>` : '';
+
+  document.getElementById('mainContent').innerHTML=
+    `<div class="page-title">
+        <span>📜 Peraturan Perusahaan</span>
+        <div class="flex gap-8">
+            ${addBtn}
+            <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Cetak</button>
+        </div>
+    </div>
+    <div class="card">
+        <div style="text-align:center;padding:20px 16px;border-bottom:2px solid #e8eaf6;margin-bottom:24px">
+            <div style="font-size:1.4rem;font-weight:700;color:#1a237e">${data.nama}</div>
+            <div style="color:#555;font-size:.9rem;margin-top:4px">Peraturan Perusahaan &mdash; Versi ${data.versi}</div>
+            <div style="color:#888;font-size:.8rem;margin-top:4px">Ditetapkan di ${data.tempatTerbit}, ${data.tanggalBerlaku}</div>
+        </div>
+        ${renderPeraturanHTML(data, false)}
+    </div>`;
+
+    // Background seed check
+    seedPeraturanIfEmpty();
+}
+
+// ── ADMIN EDITOR LOGIC ────────────────────────────────────────
+
+window.modalTambahBab = function() {
+    openModal(`
+        <div class="modal-title">Tambah Bab Peraturan Baru</div>
+        <div class="form-group"><label>Nomor Bab (Romawi)</label><input class="form-control" id="ebNo" placeholder="Contoh: XIII"></div>
+        <div class="form-group"><label>Judul Bab</label><input class="form-control" id="ebJudul" placeholder="Contoh: KESEHATAN KARYAWAN"></div>
+        <div class="form-group"><label>Isi Pasal Pertama (Opsional)</label><textarea class="form-control" id="ebPasal1" placeholder="Masukkan konten pasal 1..."></textarea></div>
+        <button class="btn btn-primary w-100" onclick="simpanBabBaru()">💾 Simpan Bab</button>
+    `);
+}
+
+async function simpanBabBaru() {
+    const no = document.getElementById('ebNo').value;
+    const jdl = document.getElementById('ebJudul').value;
+    const isi = document.getElementById('ebPasal1').value;
+    if(!no || !jdl) return toast("Nomor dan Judul wajib diisi", "warning");
+
+    const data = await loadPeraturanData();
+    const newBab = {
+        nomor: no,
+        judul: jdl.toUpperCase(),
+        pasal: isi ? [{ nomor: (data.bab[data.bab.length-1]?.pasal?.[data.bab[data.bab.length-1].pasal.length-1]?.nomor || 0) + 1, judul: 'Ketentuan Umum', isi: [isi] }] : []
+    };
+
+    data.bab.push(newBab);
+    await updatePeraturanFirestore(data);
+    closeModalDirect();
+    renderPeraturan();
+}
+
+window.modalEditBab = async function(idx) {
+    const data = await loadPeraturanData();
+    const b = data.bab[idx];
+    if(!b) return;
+
+    openModal(`
+        <div class="modal-title">Edit BAB ${b.nomor}</div>
+        <div class="form-group"><label>Judul Bab</label><input class="form-control" id="ebJudul" value="${escHtml(b.judul)}"></div>
+        <div class="form-group">
+            <label>Struktur Data (JSON Pasal)</label>
+            <p class="text-xs color-danger mb-8">⚠️ Berhati-hatilah saat mengubah bagian ini. Pastikan format JSON tetap valid.</p>
+            <textarea class="form-control" id="ebPasalData" style="min-height:300px; font-family:monospace; font-size:.75rem">${JSON.stringify(b.pasal, null, 2)}</textarea>
+        </div>
+        <div class="flex gap-8">
+            <button class="btn btn-primary" style="flex:1" onclick="simpanEditBab(${idx})">💾 Simpan Perubahan</button>
+            <button class="btn btn-danger" onclick="hapusBab(${idx})">🗑️ Hapus Bab</button>
+        </div>
+    `, true);
+}
+
+async function simpanEditBab(idx) {
+    const jdl = document.getElementById('ebJudul').value;
+    const pDataRaw = document.getElementById('ebPasalData').value;
+    if(!jdl) return toast("Judul wajib diisi", "warning");
+
+    try {
+        const pData = JSON.parse(pDataRaw);
+        const data = await loadPeraturanData();
+        data.bab[idx].judul = jdl.toUpperCase();
+        data.bab[idx].pasal = pData;
+
+        await updatePeraturanFirestore(data);
+        closeModalDirect();
+        renderPeraturan();
+    } catch (e) {
+        alert("JSON Tidak Valid: " + e.message);
+    }
+}
+
+async function hapusBab(idx) {
+    if(!confirm("Yakin ingin menghapus Bab ini secara permanen?")) return;
+    const data = await loadPeraturanData();
+    data.bab.splice(idx, 1);
+    await updatePeraturanFirestore(data);
+    closeModalDirect();
+    renderPeraturan();
+}
+
+async function updatePeraturanFirestore(data) {
+    toast("⏳ Menyimpan perubahan...", "info");
+    try {
+        await db.collection('hrd_settings').doc('peraturan').set({
+            ...data,
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUser.nama
+        });
+        _peraturanCache = data;
+        toast("✅ Peraturan berhasil diperbarui", "success");
+    } catch (e) {
+        toast("Gagal simpan: " + e.message, "error");
+        throw e;
+    }
+}
 
 // ── GENERATOR SURAT ───────────────────────────────────────────
 window.renderSurat = async function(){const main=document.getElementById('mainContent');main.innerHTML=`<div class="page-title"><span>✉️ Generator Surat</span><button class="btn btn-primary btn-sm" onclick="window.modalSurat()">+ Generate</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nomor</th><th>Jenis</th><th>Perihal</th><th>Tanggal</th></tr></thead><tbody id="tblSurat"></tbody></table></div></div>`;const snap=await db.collection('hrd_surat').get();let h='';if(snap.empty)h='<tr><td colspan="4" class="text-center">Belum ada</td></tr>';else snap.forEach(d=>{const p=d.data();h+=`<tr><td class="fw-700">${escHtml(p.nomor)}</td><td>${escHtml(p.jenis)}</td><td>${escHtml(p.perihal)}</td><td>${formatDate(p.tanggal)}</td></tr>`;});document.getElementById('tblSurat').innerHTML=h;}
 window.modalSurat = async function(){const snap=await db.collection('hrd_surat').get();const seq=String(snap.size+1).padStart(3,'0');const now=new Date();const mo=String(now.getMonth()+1).padStart(2,'0');openModal(`<div class="modal-title">Generate Nomor Surat</div><div class="form-group"><label>Jenis</label><select class="form-control" id="srJenis"><option value="SK">SK</option><option value="SP">SP</option><option value="SPK">SPK</option><option value="SR">Referensi</option><option value="SKet">Keterangan</option></select></div><div class="form-group"><label>Perihal</label><input class="form-control" id="srPerihal"></div><div class="form-group"><label>Preview</label><input class="form-control" readonly value="${seq}/[JENIS]/IJEF/${mo}/${now.getFullYear()}" id="srPreview"></div><button class="btn btn-primary" onclick="window.simpanSurat('${seq}','${mo}','${now.getFullYear()}')">Generate</button>`);}
 window.simpanSurat = async function(seq,mo,yr){const jenis=document.getElementById('srJenis').value;const nomor=`${seq}/${jenis}/IJEF/${mo}/${yr}`;await db.collection('hrd_surat').add({nomor,jenis,perihal:document.getElementById('srPerihal').value,tanggal:todayStr(),dibuatOleh:currentUser.nama,createdAt:new Date().toISOString()});closeModalDirect();toast('Nomor surat digenerate','success');window.renderSurat();}
-

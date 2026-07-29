@@ -1034,7 +1034,11 @@ async function renderPortalPeraturan() {
   }
 
   document.getElementById('mainContent').innerHTML =
-    `<div class="page-title"><span>📜 Peraturan Perusahaan</span></div>${gradeSection}<div class="card">${renderPeraturanHTML(true)}</div>`;
+    `<div class="page-title"><span>📜 Peraturan Perusahaan</span></div>${gradeSection}<div class="card">Memuat isi peraturan...</div>`;
+
+  window._portalMode = true;
+  const data = await loadPeraturanData();
+  document.querySelector('#mainContent .card').innerHTML = renderPeraturanHTML(data, true);
 }
 
 // ── PORTAL SHARE — Admin share link/QR ke karyawan ────────────
