@@ -104,14 +104,13 @@ async function doSyncPayroll() {
  */
 window.syncSinglePayrollData = async function(nama, periode) {
     if (!nama || !periode) return;
-    console.log(`[PAYROLL] Syncing single data for ${nama} in ${periode}`);
+    console.log(`[PAYROLL] Precision sync for ${nama} in ${periode}`);
 
-    // We'll call doGenerateAllGaji silently for this month.
-    // It filters by periode internally.
+    // Call with targetNama to avoid destructive global deletion
     await doGenerateAllGaji(periode, true, {
         tunj: true, insentif: true, reimb: true, kasbon: true,
         bpjsKes: true, bpjsTK: true, pph: true
-    });
+    }, nama);
 }
 async function loadGaji() {
   const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
@@ -229,7 +228,7 @@ async function generateAllGaji() {
     </div>
     <button class="btn btn-success" onclick="doGenerateAllGaji()">⚡ Generate Sekarang</button>`);
 }
-async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections = null) {
+async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections = null, targetNama = null) {
   // Use forcedSelections if provided (e.g. from Sync modal), otherwise read from DOM
   const incTunj = forcedSelections ? forcedSelections.tunj : (document.getElementById('genIncTunj') ? document.getElementById('genIncTunj').checked : true);
   const incInsentif = forcedSelections ? forcedSelections.insentif : (document.getElementById('genIncInsentif') ? document.getElementById('genIncInsentif').checked : true);
@@ -242,7 +241,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
   const incPPH = forcedSelections ? forcedSelections.pph : (document.getElementById('genIncPPH') ? document.getElementById('genIncPPH').checked : true);
 
   if (!isAuto) closeModalDirect();
-  if (!isAuto && !confirm('Konfirmasi: Generate slip gaji untuk semua karyawan aktif?')) return;
+  if (!isAuto && !targetNama && !confirm('Konfirmasi: Generate slip gaji untuk semua karyawan aktif?')) return;
 
   try {
     const bulan = forcedBulan || document.getElementById('filterBulanGaji')?.value || monthStr();
@@ -263,20 +262,33 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
     const kDocs = [];
     kSnapAll.forEach((d) => {
       const data = d.data();
-      if (data.status === 'aktif' || data.status === 'probation' || data.status === 'kontrak') {
-          kDocs.push({ id: d.id, ...data });
+      // Filter by targetNama if provided (Precision Sync)
+      if (targetNama) {
+          if (isSameName(data.nama, targetNama)) kDocs.push({ id: d.id, ...data });
+      } else {
+          if (data.status === 'aktif' || data.status === 'probation' || data.status === 'kontrak') {
+              kDocs.push({ id: d.id, ...data });
+          }
       }
     });
 
     if (kDocs.length === 0) {
-      if (!isAuto) toast('Tidak ada karyawan aktif', 'warning');
+      if (!isAuto && !targetNama) toast('Tidak ada karyawan aktif', 'warning');
       return;
     }
 
-    // Delete existing slips for this period
-    const existSnapAll = await db.collection('hrd_penggajian').where('periode', '==', bulan).get();
-    for (const doc of existSnapAll.docs) {
-        await doc.ref.delete();
+    // Delete existing slips for this period (ONLY for targeted users or ALL if no targetNama)
+    if (targetNama) {
+        const existSnap = await db.collection('hrd_penggajian')
+            .where('periode', '==', bulan)
+            .where('nama', '==', targetNama)
+            .get();
+        for (const doc of existSnap.docs) await doc.ref.delete();
+    } else {
+        const existSnapAll = await db.collection('hrd_penggajian').where('periode', '==', bulan).get();
+        for (const doc of existSnapAll.docs) {
+            await doc.ref.delete();
+        }
     }
 
     // Load data masal

@@ -125,15 +125,17 @@ async function loadPeraturanData() {
 
 async function seedPeraturanIfEmpty() {
     try {
-        const doc = await db.collection('hrd_settings').doc('peraturan').get();
-        if (!doc.exists) {
-            console.log("[SEED] Uploading default regulations to Firestore...");
-            await db.collection('hrd_settings').doc('peraturan').set({
-                dataJson: JSON.stringify(PERATURAN_PERUSAHAAN),
-                updatedAt: new Date().toISOString(),
-                updatedBy: 'System Seed'
-            });
-        }
+        const docRef = db.collection('hrd_settings').doc('peraturan');
+        const doc = await docRef.get();
+
+        // Always update to ensure Bab XI latest criteria is present
+        console.log("[SEED] Syncing regulations to Firestore for Bab XI update...");
+        await docRef.set({
+            dataJson: JSON.stringify(PERATURAN_PERUSAHAAN),
+            updatedAt: new Date().toISOString(),
+            updatedBy: 'System Sync (v10.3)'
+        }, { merge: true });
+
     } catch (e) {
         console.error("[SEED] Failed to seed peraturan:", e);
     }
