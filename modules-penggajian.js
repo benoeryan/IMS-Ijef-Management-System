@@ -100,17 +100,14 @@ async function doSyncPayroll() {
 
 /**
  * Sync payroll data for a single user for a specific period.
- * Typically called after manual attendance edit.
+ * Typically called after manual attendance edit or approval.
  */
-async function syncSinglePayrollData(nama, periode) {
+window.syncSinglePayrollData = async function(nama, periode) {
+    if (!nama || !periode) return;
     console.log(`[PAYROLL] Syncing single data for ${nama} in ${periode}`);
-    // Reuse doGenerateAllGaji but we pass a specific filter if it were supported.
-    // For now, the simplest way is to trigger a silent mass-sync or implement single-user logic.
-    // Given the complexity of doGenerateAllGaji, a silent mass-sync is safer to maintain consistency,
-    // but it might be overkill. Let's implement a lighter version or just call doGenerateAllGaji silently.
 
-    // We'll call doGenerateAllGaji silently with default selections.
-    // It's fast enough for current data volume.
+    // We'll call doGenerateAllGaji silently for this month.
+    // It filters by periode internally.
     await doGenerateAllGaji(periode, true, {
         tunj: true, insentif: true, reimb: true, kasbon: true,
         bpjsKes: true, bpjsTK: true, pph: true

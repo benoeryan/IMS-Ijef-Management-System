@@ -41,10 +41,16 @@ function renderAbsensiIJEF() {
   const main = document.getElementById('mainContent');
   const isPortal = window._portalAbsensiMode || currentUser.role === 'karyawan';
   const showImport = hasAccess(3);
+
+  // Only show Sync button for Admin and GM (BOD level or specific position)
+  const isGM = (currentUser.posisi || "").toUpperCase().includes('GENERAL MANAGER') || (currentUser.posisi || "").toUpperCase() === 'GM';
+  const isGMorAdmin = hasAccess(5) || isGM;
+
+  const syncBtn = isGMorAdmin ? `<button class="btn btn-info btn-sm" onclick="navigateTo('penggajian')">💰 Sinkronkan ke Gaji</button>` : '';
   main.innerHTML = `<div class="page-title">
     <span>${renderBackButton()}📍 Absensi IJEF</span>
     <div class="flex gap-8">
-        <button class="btn btn-info btn-sm" onclick="navigateTo('penggajian')">💰 Sinkronkan ke Gaji</button>
+        ${syncBtn}
     </div>
   </div>
     <div class="tabs" id="absenTabs">
@@ -1298,6 +1304,12 @@ async function doClockOut() {
     coreHoursViolation: coreHoursViolation,
     createdAt: now.toISOString(),
   });
+
+  // Background Payroll Sync for every user upon Clock Out
+  if (typeof syncSinglePayrollData === 'function') {
+      syncSinglePayrollData(currentUser.nama, todayStr().slice(0, 7));
+  }
+
   let msg = '';
   if (flex.enabled) {
     if (lembur) msg = `(🟣 Lembur Disetujui: ${lemburJam} jam)`;

@@ -2266,6 +2266,18 @@ async function approveItem(col, id, status, catatan) {
           '✅ Disetujui (Final)',
           `Pengajuan ${data.jenis || col.replace('hrd_', '')} DISETUJUI oleh ${currentUser.nama}`
         );
+
+      // Automatic Payroll Sync Trigger (Final Approval)
+      const relevantCollections = ['hrd_cuti', 'hrd_overtime', 'hrd_reimbursement', 'hrd_insentif', 'hrd_kasbon'];
+      if (relevantCollections.includes(col)) {
+          const nama = data.nama;
+          const tanggal = data.mulai || data.tanggal || data.createdAt;
+          const periode = (tanggal || "").slice(0, 7); // yyyy-mm
+          if (nama && periode && typeof syncSinglePayrollData === 'function') {
+              console.log(`[SYNC] Triggering background payroll sync for ${nama} in ${periode}`);
+              syncSinglePayrollData(nama, periode);
+          }
+      }
     }
   }
   closeModalDirect();
