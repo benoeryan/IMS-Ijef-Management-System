@@ -519,9 +519,9 @@ async function renderKaryawan() {
   depts.forEach((d) => {
     if (d) sel.innerHTML += `<option>${escHtml(d)}</option>`;
   });
-  filterKaryawan();
+  await filterKaryawan();
 }
-function filterKaryawan() {
+async function filterKaryawan() {
   const q = (document.getElementById('srcKary')?.value || '').toLowerCase(),
     dept = document.getElementById('filterDept')?.value || '';
   const isBOD = currentUser.role === 'bod';
