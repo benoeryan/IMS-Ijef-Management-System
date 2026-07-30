@@ -1281,6 +1281,7 @@ async function calculateLoanEligibility(k) {
 
   const gaji = Number(k.gajiPokok) || 0;
   const status = (k.status || '').toLowerCase();
+  const tipe = (k.tipeKaryawan || '').toUpperCase(); // PKWTT, PKWT, PROBATION, FREELANCE
 
   // Tenure in years
   const masuk = k.tanggalMasuk ? new Date(k.tanggalMasuk) : new Date();
@@ -1290,44 +1291,57 @@ async function calculateLoanEligibility(k) {
   const diffYears = diffDays / 365.25;
   const diffMonths = diffDays / 30.44;
 
-  // Emergency Loan: Max Rp 1,000,000 or 20% salary (whichever is lower? Article says "Rp 1.000.000 (Atau maksimal 20% dari Gaji Pokok)")
-  // Article 51: Kasbon Darurat >= 6 Bulan = Rp 1.000.000 (Atau maksimal 20% dari Gaji Pokok)
+  // Emergency Loan (Bab XI Pasal 51)
   let maxEmergency = 0;
   if (diffMonths >= 6) {
       maxEmergency = Math.min(1000000, Math.round(gaji * 0.2));
   }
 
-  // Regular Loan: only for Karyawan Tetap with >= 1 year tenure
+  // Regular Loan
   let maxRegular = 0;
   let eligibleRegular = false;
   let regularMsg = "";
 
-  if (status === 'aktif' || status === 'tetap') { // Assuming 'aktif' is the display status for Tetap in some contexts
-      if (diffYears >= 5) {
-          maxRegular = Math.round(gaji * 3.4);
-          eligibleRegular = true;
-      } else if (diffYears >= 3) {
-          maxRegular = Math.round(gaji * 2.5);
-          eligibleRegular = true;
-      } else if (diffYears >= 1) {
-          maxRegular = Math.round(gaji * 1.5);
-          eligibleRegular = true;
+  if (status === 'aktif' || status === 'tetap' || status === 'probation' || status === 'kontrak') {
+      if (tipe === 'PKWTT') {
+          // Permanent Staff Rules
+          if (diffYears >= 5) {
+              maxRegular = Math.round(gaji * 3.4);
+              eligibleRegular = true;
+          } else if (diffYears >= 3) {
+              maxRegular = Math.round(gaji * 2.5);
+              eligibleRegular = true;
+          } else if (diffYears >= 1) {
+              maxRegular = Math.round(gaji * 1.5);
+              eligibleRegular = true;
+          } else {
+              regularMsg = "PKWTT: Masa kerja minimal 12 bulan untuk Pinjaman Reguler.";
+          }
+      } else if (['PKWT', 'PROBATION', 'FREELANCE'].includes(tipe)) {
+          // Contract Staff Rules
+          if (diffYears >= 1) {
+              maxRegular = Math.round(gaji * 0.5);
+              eligibleRegular = true;
+          } else {
+              regularMsg = "Karyawan Kontrak/Probation: Masa kerja minimal 12 bulan untuk Pinjaman Reguler (0,5x Gaji).";
+          }
       } else {
-          regularMsg = "Masa kerja minimal 12 bulan untuk Pinjaman Reguler.";
-      }
-  } else if (status === 'kontrak') {
-      if (diffYears >= 1) {
-          maxRegular = Math.round(gaji * 0.5);
-          eligibleRegular = true;
-      } else {
-          regularMsg = "Karyawan Kontrak wajib memiliki masa kerja minimal 12 bulan untuk Pinjaman Reguler.";
+          regularMsg = "Tipe kontrak tidak valid untuk pengajuan pinjaman.";
       }
   } else {
-      regularMsg = "Hanya Karyawan Tetap atau Kontrak (>1th) yang berhak mengajukan Pinjaman Reguler.";
+      regularMsg = "Hanya karyawan aktif yang berhak mengajukan Pinjaman Reguler.";
   }
 
   return {
       maxRegular,
+      maxEmergency,
+      eligible: true,
+      diffYears,
+      diffMonths,
+      regularMsg,
+      isPermanent: tipe === 'PKWTT'
+  };
+}
       maxEmergency,
       eligible: true,
       diffYears,
