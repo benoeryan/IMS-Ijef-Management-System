@@ -506,7 +506,7 @@ async function renderKaryawan() {
   const isAdmin = currentUser.role === 'admin';
   const isAdminOrGM = isAdmin || isGM;
 
-  main.innerHTML = `<div class="page-title"><span>👥 Data Karyawan</span>${!isBOD ? '<div><button class="btn btn-primary btn-sm" onclick="modalKaryawan()">+ Tambah</button> <button class="btn btn-secondary btn-sm" onclick="modalImportKaryawan()">⬇️ Import</button></div>' : ''}</div><div class="card"><div class="flex gap-8 mb-16"><input class="form-control" placeholder="🔍 Cari nama/NIP..." id="srcKary" oninput="filterKaryawan()"><select class="form-control" style="max-width:180px" id="filterDept" onchange="filterKaryawan()"><option value="">Semua Dept</option></select></div><div class="table-wrap"><table><thead><tr><th>NIP</th><th>Nama</th><th>Departemen</th><th>Posisi</th>${isAdminOrGM ? '<th>Masa Kerja</th><th>Kontrak</th><th>Plafon Loan</th>' : ''}<th>Status</th><th>Aksi</th></tr></thead><tbody id="tblKary"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title"><span>👥 Data Karyawan</span>${!isBOD ? '<div><button class="btn btn-primary btn-sm" onclick="modalKaryawan()">+ Tambah</button> <button class="btn btn-secondary btn-sm" onclick="modalImportKaryawan()">⬇️ Import</button></div>' : ''}</div><div class="card"><div class="flex gap-8 mb-16"><input class="form-control" placeholder="🔍 Cari nama/NIP..." id="srcKary" oninput="filterKaryawan()"><select class="form-control" style="max-width:180px" id="filterDept" onchange="filterKaryawan()"><option value="">Semua Dept</option></select></div><div class="table-wrap"><table><thead><tr><th>NIP</th><th>Nama</th><th>Departemen</th><th>Posisi</th>${isAdminOrGM ? '<th>Masa Kerja</th><th>Kontrak</th>' : ''}<th>Status</th><th>Aksi</th></tr></thead><tbody id="tblKary"></tbody></table></div></div>`;
   const snap = await db.collection('hrd_karyawan').get();
   window._karyawanData = [];
   const depts = new Set();
@@ -535,7 +535,7 @@ async function filterKaryawan() {
     return true;
   });
   let h = '';
-  if (!filtered.length) h = `<tr><td colspan="${isAdminOrGM ? 9 : 6}" class="text-center">Tidak ada data</td></tr>`;
+  if (!filtered.length) h = `<tr><td colspan="${isAdminOrGM ? 8 : 6}" class="text-center">Tidak ada data</td></tr>`;
   else
     for (const k of filtered) {
       const statusLabel = k.status === 'nonaktif' ? `Nonaktif (${k.statusSub || 'Resign'})` : (k.status || 'aktif');
@@ -544,15 +544,7 @@ async function filterKaryawan() {
       if (isAdminOrGM) {
           const tenure = hitungMasaKerja(k.tanggalMasuk);
           const contractType = k.tipeKaryawan || '-';
-
-          // Calculate loan limit for this specific user
-          let loanLimitText = '-';
-          if (window.calculateLoanEligibility) {
-              const elig = await window.calculateLoanEligibility(k);
-              loanLimitText = elig.maxRegular > 0 ? formatCurrency(elig.maxRegular) : '0';
-          }
-
-          extraCols = `<td>${tenure}</td><td>${contractType}</td><td class="fw-700 color-primary">${loanLimitText}</td>`;
+          extraCols = `<td>${tenure}</td><td>${contractType}</td>`;
       }
 
       h += `<tr><td>${escHtml(k.nip || '-')}</td><td class="fw-700">${escHtml(k.nama)}</td><td>${escHtml(k.departemen || '-')}</td><td>${escHtml(k.posisi || '-')}</td>${extraCols}<td><span class="badge badge-${k.status === 'aktif' ? 'success' : 'danger'}">${statusLabel}</span></td><td><button class="btn btn-xs btn-primary" onclick="detailKaryawan('${k.id}')">👁️</button>${!isBOD ? ` <button class="btn btn-xs btn-info" onclick="modalKaryawan('${k.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_karyawan','${k.id}','karyawan')">🗑️</button>` : ''}</td></tr>`;

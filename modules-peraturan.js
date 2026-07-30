@@ -136,34 +136,72 @@ async function seedPeraturanIfEmpty() {
             updatedBy: 'System Sync (v10.3)'
         }, { merge: true });
 
-        // Normalization Migration: Standardize contract nomenclature
-        const kSnap = await db.collection('hrd_karyawan').get();
+        // Normalization Migration: Standardize contract nomenclature and sync employee status
+        const [kSnap, ctSnap] = await Promise.all([
+            db.collection('hrd_karyawan').get(),
+            db.collection('hrd_kontrak').get()
+        ]);
+
+        const allContracts = [];
+        ctSnap.forEach(d => allContracts.push({ id: d.id, ...d.data() }));
+
         const batch = db.batch();
         let migrationCount = 0;
+        let statusSyncCount = 0;
+
         kSnap.forEach(d => {
             const k = d.data();
-            const currentTipe = (k.tipeKaryawan || "").toLowerCase().trim();
-            let newTipe = "";
+            const currentTipe = (k.tipeKaryawan || "").toUpperCase().trim();
 
-            if (currentTipe === "kontrak" || currentTipe === "pkwt") newTipe = "PKWT";
-            else if (currentTipe === "tetap" || currentTipe === "pkwtt") newTipe = "PKWTT";
-            else if (currentTipe === "magang") newTipe = "PROBATION";
+            // 1. Find latest contract for this employee
+            const userContracts = allContracts.filter(c =>
+                c.karyawanId === d.id || isSameName(c.namaKaryawan || c.pihak, k.nama)
+            );
+
+            let latestTipe = "";
+            if (userContracts.length > 0) {
+                // Sort by sequence or date (assuming higher sequence is newer)
+                userContracts.sort((a, b) => {
+                    const seqA = parseInt(a.kontrakKe) || 0;
+                    const seqB = parseInt(b.kontrakKe) || 0;
+                    if (seqA !== seqB) return seqB - seqA;
+                    return (b.mulai || "").localeCompare(a.mulai || "");
+                });
+
+                const lc = userContracts[0];
+                const cJenis = (lc.jenis || "").toLowerCase();
+
+                if (cJenis === "tetap" || cJenis.includes("pkwtt")) latestTipe = "PKWTT";
+                else if (cJenis === "kerja" || cJenis.includes("pkwt")) latestTipe = "PKWT";
+                else if (cJenis === "magang") latestTipe = "PROBATION";
+                else if (cJenis === "freelance") latestTipe = "FREELANCE";
+            }
+
+            // 2. Determine final type (latest contract takes priority over manual status if found)
+            let newTipe = latestTipe;
+            if (!newTipe) {
+                if (currentTipe === "KONTRAK" || currentTipe === "PKWT") newTipe = "PKWT";
+                else if (currentTipe === "TETAP" || currentTipe === "PKWTT") newTipe = "PKWTT";
+                else if (currentTipe === "MAGANG") newTipe = "PROBATION";
+            }
 
             if (newTipe && k.tipeKaryawan !== newTipe) {
                 batch.update(d.ref, { tipeKaryawan: newTipe });
-                migrationCount++;
+                if (latestTipe) statusSyncCount++;
+                else migrationCount++;
             }
         });
-        if (migrationCount > 0) {
+
+        if (migrationCount > 0 || statusSyncCount > 0) {
             await batch.commit();
-            console.log(`[MIGRATION] Standardized ${migrationCount} records to new nomenclature (PKWT/PKWTT)`);
+            console.log(`[MIGRATION] Standardized ${migrationCount} labels and Synced ${statusSyncCount} statuses from latest contracts.`);
         }
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '11.2',
+            version: '11.3',
             updatedAt: new Date().toISOString(),
-            note: 'Standardize contract labels to PKWT/PKWTT'
+            note: 'Contract Sync & Dashboard Refresh'
         }, { merge: true });
 
     } catch (e) {
