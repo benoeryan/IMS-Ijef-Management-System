@@ -35,7 +35,7 @@ window.calculateLoanEligibility = async function(k) {
       const isContract = ['PKWT', 'PROBATION', 'FREELANCE', 'KONTRAK', 'MAGANG'].includes(tipe);
 
       if (isPermanent) {
-          // Permanent Staff Rules
+          // Permanent Staff Rules (Bab XI Pasal 51)
           if (diffYears >= 5) {
               maxRegular = Math.round(gaji * 3.4);
               eligibleRegular = true;
@@ -48,16 +48,15 @@ window.calculateLoanEligibility = async function(k) {
           } else {
               regularMsg = "PKWTT: Masa kerja minimal 12 bulan untuk Pinjaman Reguler.";
           }
-      } else if (isContract) {
-          // Contract Staff Rules
+      } else {
+          // Default to Contract Rules if not permanent or if tipe is unknown but tenure is valid
+          // This ensures staff like Hilmi (PKWT/Contract) get their 0.5x limit correctly
           if (diffYears >= 1) {
               maxRegular = Math.round(gaji * 0.5);
               eligibleRegular = true;
           } else {
-              regularMsg = "Karyawan Kontrak/Probation/Freelance: Masa kerja minimal 12 bulan untuk Pinjaman Reguler (0,5x Gaji).";
+              regularMsg = "Karyawan Kontrak/Probation: Masa kerja minimal 12 bulan untuk Pinjaman Reguler (0,5x Gaji).";
           }
-      } else {
-          regularMsg = "Tipe kontrak tidak valid atau tidak dikenali untuk pengajuan pinjaman.";
       }
   } else {
       regularMsg = "Hanya karyawan aktif yang berhak mengajukan Pinjaman Reguler.";
