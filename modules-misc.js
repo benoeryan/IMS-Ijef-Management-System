@@ -1,6 +1,32 @@
 'use strict';
 
 /**
+ * Recursively find all names of subordinates for a given boss.
+ */
+function getAllSubordinates(bossName, allKaryawan) {
+  if (!bossName) return [];
+  const bossNameLow = bossName.toLowerCase().trim();
+  const subordinates = [];
+
+  // Find direct subordinates
+  const direct = allKaryawan.filter(k => (k.atasan || "").toLowerCase().trim() === bossNameLow);
+
+  direct.forEach(sub => {
+      const subName = sub.nama.toLowerCase().trim();
+      if (!subordinates.includes(subName)) {
+          subordinates.push(subName);
+          // Recursively find children of this subordinate
+          const subChildren = getAllSubordinates(sub.nama, allKaryawan);
+          subChildren.forEach(child => {
+              if (!subordinates.includes(child)) subordinates.push(child);
+          });
+      }
+  });
+
+  return subordinates;
+}
+
+/**
  * Calculate loan eligibility limits based on BAB XI rules.
  * Attached to window for cross-module reliability.
  */
@@ -1610,23 +1636,30 @@ async function renderApprovalCenter(tab = 'pending') {
 
   const myName = (currentUser.nama || '').toLowerCase().trim();
   const myDept = (currentUser.departemen || '').toLowerCase().trim();
-  const isGM = (currentUser.posisi || '').toLowerCase().includes('general manager');
+  const isGM = (currentUser.posisi || '').toLowerCase().includes('general manager') || (currentUser.posisi || '').toLowerCase() === 'gm';
+  const isAdmin = hasAccess(6);
 
   // Load approval flows
   const flowSnap = await db.collection('hrd_approval_flow').get();
   const flows = [];
   flowSnap.forEach((d) => flows.push({ id: d.id, ...d.data() }));
 
-  // Load karyawan for dept mapping
+  // Load all karyawan to build hierarchy and dept mapping
   const karySnap = await db.collection('hrd_karyawan').get();
+  const allKaryawan = [];
   const deptMap = {};
   const gradeMap = {};
+
   karySnap.forEach((d) => {
     const k = d.data();
     const namaLower = (k.nama || '').toLowerCase().trim();
+    allKaryawan.push({ id: d.id, ...k });
     deptMap[namaLower] = (k.departemen || '').trim();
     gradeMap[namaLower] = (k.gradeJabatan || k.posisi || '').toLowerCase();
   });
+
+  // Calculate my subordinates for history view filtering
+  const mySubordinates = getAllSubordinates(currentUser.nama, allKaryawan);
 
   const collections = [
     'hrd_cuti',
@@ -1696,13 +1729,24 @@ async function renderApprovalCenter(tab = 'pending') {
     const isExplicitlyMyTurn = isSameName(currentApprover, myName);
     const isMyTurnForActions = isAdmin || isExplicitlyMyTurn;
 
-    let canSee = isAdmin || isGM || hasAccess(4) || item._dept === myDept;
+    // --- ENHANCED FILTERING (v11.4) ---
+    // Rules:
+    // 1. Admin & GM see everything.
+    // 2. Pending Tab: Only show if it's explicitly my turn.
+    // 3. History Tab: Only show if it's my own request OR request from a subordinate.
 
-    if (isBOD) {
-      const pengajuGrade = gradeMap[(item.nama || '').toLowerCase().trim()] || '';
-      const isHead = pengajuGrade.includes('head');
-      // BOD sees it if: 1. It's explicitly his turn, OR 2. It's from a Head level pengaju, OR 3. History mode
-      canSee = isExplicitlyMyTurn || isHead || tab === 'history';
+    let canSee = false;
+    const isOwn = isSameName(item.nama, currentUser.nama);
+    const isSubordinate = mySubordinates.includes((item.nama || "").toLowerCase().trim());
+
+    if (isAdmin || isGM) {
+        canSee = true;
+    } else {
+        if (tab === 'pending') {
+            canSee = isExplicitlyMyTurn;
+        } else if (tab === 'history') {
+            canSee = isOwn || isSubordinate;
+        }
     }
 
     if (!canSee) return;

@@ -273,7 +273,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = '11.3';
+const APP_VERSION = '11.4';
 
 const DEFAULT_ACCOUNTS = [
   {
@@ -440,7 +440,7 @@ function renderApp() {
   <div class="sidebar" id="sidebar">
     <div class="logo">🏛️ <span>IMS</span></div>
     <nav>${buildNavItems(isPortalUser)}</nav>
-    <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,.1)"><div style="font-size:.75rem;color:rgba(255,255,255,.5)">v11.3 (LATEST) — ${currentUser.nama}</div></div>
+    <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,.1)"><div style="font-size:.75rem;color:rgba(255,255,255,.5)">v11.4 (LATEST) — ${currentUser.nama}</div></div>
   </div>
   <div class="header">
     <button class="menu-btn" onclick="toggleSidebar()">☰</button>
