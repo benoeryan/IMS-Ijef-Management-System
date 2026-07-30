@@ -136,27 +136,34 @@ async function seedPeraturanIfEmpty() {
             updatedBy: 'System Sync (v10.3)'
         }, { merge: true });
 
-        // Normalization Migration: KONTRAK -> PKWT
+        // Normalization Migration: Standardize contract nomenclature
         const kSnap = await db.collection('hrd_karyawan').get();
         const batch = db.batch();
         let migrationCount = 0;
         kSnap.forEach(d => {
             const k = d.data();
-            if ((k.tipeKaryawan || "").toUpperCase() === "KONTRAK") {
-                batch.update(d.ref, { tipeKaryawan: "PKWT" });
+            const currentTipe = (k.tipeKaryawan || "").toLowerCase().trim();
+            let newTipe = "";
+
+            if (currentTipe === "kontrak" || currentTipe === "pkwt") newTipe = "PKWT";
+            else if (currentTipe === "tetap" || currentTipe === "pkwtt") newTipe = "PKWTT";
+            else if (currentTipe === "magang") newTipe = "PROBATION";
+
+            if (newTipe && k.tipeKaryawan !== newTipe) {
+                batch.update(d.ref, { tipeKaryawan: newTipe });
                 migrationCount++;
             }
         });
         if (migrationCount > 0) {
             await batch.commit();
-            console.log(`[MIGRATION] Normalized ${migrationCount} records from KONTRAK to PKWT`);
+            console.log(`[MIGRATION] Standardized ${migrationCount} records to new nomenclature (PKWT/PKWTT)`);
         }
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '11.1',
+            version: '11.2',
             updatedAt: new Date().toISOString(),
-            note: 'Fix modules-penggajian syntax crash (loan page)'
+            note: 'Standardize contract labels to PKWT/PKWTT'
         }, { merge: true });
 
     } catch (e) {
