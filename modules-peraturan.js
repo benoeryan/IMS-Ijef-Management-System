@@ -136,11 +136,27 @@ async function seedPeraturanIfEmpty() {
             updatedBy: 'System Sync (v10.3)'
         }, { merge: true });
 
+        // Normalization Migration: KONTRAK -> PKWT
+        const kSnap = await db.collection('hrd_karyawan').get();
+        const batch = db.batch();
+        let migrationCount = 0;
+        kSnap.forEach(d => {
+            const k = d.data();
+            if ((k.tipeKaryawan || "").toUpperCase() === "KONTRAK") {
+                batch.update(d.ref, { tipeKaryawan: "PKWT" });
+                migrationCount++;
+            }
+        });
+        if (migrationCount > 0) {
+            await batch.commit();
+            console.log(`[MIGRATION] Normalized ${migrationCount} records from KONTRAK to PKWT`);
+        }
+
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '10.8',
+            version: '10.9',
             updatedAt: new Date().toISOString(),
-            note: 'Loan logic fallback & Admin Table Plafon column'
+            note: 'Normalize KONTRAK to PKWT'
         }, { merge: true });
 
     } catch (e) {
