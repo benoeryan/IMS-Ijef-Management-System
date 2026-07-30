@@ -502,7 +502,11 @@ async function simpanCabang(id) {
 async function renderKaryawan() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
-  main.innerHTML = `<div class="page-title"><span>👥 Data Karyawan</span>${!isBOD ? '<div><button class="btn btn-primary btn-sm" onclick="modalKaryawan()">+ Tambah</button> <button class="btn btn-secondary btn-sm" onclick="modalImportKaryawan()">⬇️ Import</button></div>' : ''}</div><div class="card"><div class="flex gap-8 mb-16"><input class="form-control" placeholder="🔍 Cari nama/NIP..." id="srcKary" oninput="filterKaryawan()"><select class="form-control" style="max-width:180px" id="filterDept" onchange="filterKaryawan()"><option value="">Semua Dept</option></select></div><div class="table-wrap"><table><thead><tr><th>NIP</th><th>Nama</th><th>Departemen</th><th>Posisi</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblKary"></tbody></table></div></div>`;
+  const isGM = (currentUser.posisi || "").toUpperCase().includes('GENERAL MANAGER') || (currentUser.posisi || "").toUpperCase() === 'GM';
+  const isAdmin = currentUser.role === 'admin';
+  const isAdminOrGM = isAdmin || isGM;
+
+  main.innerHTML = `<div class="page-title"><span>👥 Data Karyawan</span>${!isBOD ? '<div><button class="btn btn-primary btn-sm" onclick="modalKaryawan()">+ Tambah</button> <button class="btn btn-secondary btn-sm" onclick="modalImportKaryawan()">⬇️ Import</button></div>' : ''}</div><div class="card"><div class="flex gap-8 mb-16"><input class="form-control" placeholder="🔍 Cari nama/NIP..." id="srcKary" oninput="filterKaryawan()"><select class="form-control" style="max-width:180px" id="filterDept" onchange="filterKaryawan()"><option value="">Semua Dept</option></select></div><div class="table-wrap"><table><thead><tr><th>NIP</th><th>Nama</th><th>Departemen</th><th>Posisi</th>${isAdminOrGM ? '<th>Masa Kerja</th><th>Status Kontrak</th>' : ''}<th>Status</th><th>Aksi</th></tr></thead><tbody id="tblKary"></tbody></table></div></div>`;
   const snap = await db.collection('hrd_karyawan').get();
   window._karyawanData = [];
   const depts = new Set();
@@ -521,17 +525,24 @@ function filterKaryawan() {
   const q = (document.getElementById('srcKary')?.value || '').toLowerCase(),
     dept = document.getElementById('filterDept')?.value || '';
   const isBOD = currentUser.role === 'bod';
+  const isGM = (currentUser.posisi || "").toUpperCase().includes('GENERAL MANAGER') || (currentUser.posisi || "").toUpperCase() === 'GM';
+  const isAdmin = currentUser.role === 'admin';
+  const isAdminOrGM = isAdmin || isGM;
+
   const filtered = (window._karyawanData || []).filter((k) => {
     if (q && !k.nama?.toLowerCase().includes(q) && !k.nip?.toLowerCase().includes(q)) return false;
     if (dept && k.departemen !== dept) return false;
     return true;
   });
   let h = '';
-  if (!filtered.length) h = '<tr><td colspan="6" class="text-center">Tidak ada data</td></tr>';
+  if (!filtered.length) h = `<tr><td colspan="${isAdminOrGM ? 8 : 6}" class="text-center">Tidak ada data</td></tr>`;
   else
     filtered.forEach((k) => {
       const statusLabel = k.status === 'nonaktif' ? `Nonaktif (${k.statusSub || 'Resign'})` : (k.status || 'aktif');
-      h += `<tr><td>${escHtml(k.nip || '-')}</td><td class="fw-700">${escHtml(k.nama)}</td><td>${escHtml(k.departemen || '-')}</td><td>${escHtml(k.posisi || '-')}</td><td><span class="badge badge-${k.status === 'aktif' ? 'success' : 'danger'}">${statusLabel}</span></td><td><button class="btn btn-xs btn-primary" onclick="detailKaryawan('${k.id}')">👁️</button>${!isBOD ? ` <button class="btn btn-xs btn-info" onclick="modalKaryawan('${k.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_karyawan','${k.id}','karyawan')">🗑️</button>` : ''}</td></tr>`;
+      const tenure = isAdminOrGM ? hitungMasaKerja(k.tanggalMasuk) : '';
+      const contractType = isAdminOrGM ? (k.tipeKaryawan || '-') : '';
+
+      h += `<tr><td>${escHtml(k.nip || '-')}</td><td class="fw-700">${escHtml(k.nama)}</td><td>${escHtml(k.departemen || '-')}</td><td>${escHtml(k.posisi || '-')}</td>${isAdminOrGM ? `<td>${tenure}</td><td>${contractType}</td>` : ''}<td><span class="badge badge-${k.status === 'aktif' ? 'success' : 'danger'}">${statusLabel}</span></td><td><button class="btn btn-xs btn-primary" onclick="detailKaryawan('${k.id}')">👁️</button>${!isBOD ? ` <button class="btn btn-xs btn-info" onclick="modalKaryawan('${k.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_karyawan','${k.id}','karyawan')">🗑️</button>` : ''}</td></tr>`;
     });
   document.getElementById('tblKary').innerHTML = h;
 }

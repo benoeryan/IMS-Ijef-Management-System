@@ -31,7 +31,10 @@ window.calculateLoanEligibility = async function(k) {
   let regularMsg = "";
 
   if (status === 'aktif' || status === 'tetap' || status === 'probation' || status === 'kontrak') {
-      if (tipe === 'PKWTT') {
+      const isPermanent = tipe === 'PKWTT' || tipe === 'TETAP';
+      const isContract = ['PKWT', 'PROBATION', 'FREELANCE', 'KONTRAK', 'MAGANG'].includes(tipe);
+
+      if (isPermanent) {
           // Permanent Staff Rules
           if (diffYears >= 5) {
               maxRegular = Math.round(gaji * 3.4);
@@ -45,16 +48,16 @@ window.calculateLoanEligibility = async function(k) {
           } else {
               regularMsg = "PKWTT: Masa kerja minimal 12 bulan untuk Pinjaman Reguler.";
           }
-      } else if (['PKWT', 'PROBATION', 'FREELANCE'].includes(tipe)) {
+      } else if (isContract) {
           // Contract Staff Rules
           if (diffYears >= 1) {
               maxRegular = Math.round(gaji * 0.5);
               eligibleRegular = true;
           } else {
-              regularMsg = "Karyawan Kontrak/Probation: Masa kerja minimal 12 bulan untuk Pinjaman Reguler (0,5x Gaji).";
+              regularMsg = "Karyawan Kontrak/Probation/Freelance: Masa kerja minimal 12 bulan untuk Pinjaman Reguler (0,5x Gaji).";
           }
       } else {
-          regularMsg = "Tipe kontrak tidak valid untuk pengajuan pinjaman.";
+          regularMsg = "Tipe kontrak tidak valid atau tidak dikenali untuk pengajuan pinjaman.";
       }
   } else {
       regularMsg = "Hanya karyawan aktif yang berhak mengajukan Pinjaman Reguler.";
@@ -67,7 +70,7 @@ window.calculateLoanEligibility = async function(k) {
       diffYears,
       diffMonths,
       regularMsg,
-      isPermanent: tipe === 'PKWTT'
+      isPermanent: tipe === 'PKWTT' || tipe === 'TETAP'
   };
 }
 
