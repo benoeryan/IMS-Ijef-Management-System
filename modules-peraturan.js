@@ -136,6 +136,13 @@ async function seedPeraturanIfEmpty() {
             updatedBy: 'System Sync (v10.3)'
         }, { merge: true });
 
+        // Update Global App Version to trigger client updates
+        await db.collection('hrd_settings').doc('app').set({
+            version: '10.3',
+            updatedAt: new Date().toISOString(),
+            note: 'Loan Policy & Precision Sync Update'
+        }, { merge: true });
+
     } catch (e) {
         console.error("[SEED] Failed to seed peraturan:", e);
     }

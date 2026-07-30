@@ -273,6 +273,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
+const APP_VERSION = '10.3';
 
 const DEFAULT_ACCOUNTS = [
   {
@@ -289,7 +290,34 @@ let currentPage = 'dashboard';
 let lastPage = null;
 let unsubscribers = [];
 
+/**
+ * Monitor app version from Firestore to force updates on client devices.
+ */
+function checkAppVersion() {
+  db.collection('hrd_settings').doc('app').onSnapshot(doc => {
+      if (doc.exists) {
+          const data = doc.data();
+          const remoteVersion = data.version || '1.0';
+
+          if (remoteVersion !== APP_VERSION && parseFloat(remoteVersion) > parseFloat(APP_VERSION)) {
+              console.log(`[UPDATE] New version detected: ${remoteVersion}. Current: ${APP_VERSION}. Reloading...`);
+
+              // Notify user if possible, then reload
+              if (typeof toast === 'function') {
+                  toast(`IMS sedang diperbarui ke v${remoteVersion}...`, 'info');
+              }
+
+              setTimeout(() => {
+                  window.location.reload(true);
+              }, 2000);
+          }
+      }
+  });
+}
+
 async function initApp() {
+  checkAppVersion();
+
   // Check if public portal (calon karyawan) via hash
   if (window.location.hash === '#calon' || window.location.hash.startsWith('#calon-')) {
     renderPublicPortalCalon();
