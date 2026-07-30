@@ -154,9 +154,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '11.0',
+            version: '11.1',
             updatedAt: new Date().toISOString(),
-            note: 'Fix modules-karyawan syntax crash'
+            note: 'Fix modules-penggajian syntax crash (loan page)'
         }, { merge: true });
 
     } catch (e) {

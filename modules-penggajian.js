@@ -1273,16 +1273,6 @@ async function renderKasbon() {
     });
   document.getElementById('tblKasbon').innerHTML = h;
 }
-/**
- * Calculate loan eligibility limits based on BAB XI rules.
- */
-      maxEmergency,
-      eligible: true,
-      diffYears,
-      diffMonths,
-      regularMsg
-  };
-}
 
 function onKasbonJenisChange() {
   const jenisEl = document.getElementById('kbJenis');
@@ -1317,7 +1307,7 @@ function onKasbonJenisChange() {
 async function modalKasbon() {
   const kSnap = await db.collection('hrd_karyawan').where('nama', '==', currentUser.nama).limit(1).get();
   const kData = kSnap.empty ? null : kSnap.docs[0].data();
-  const elig = await calculateLoanEligibility(kData);
+  const elig = await window.calculateLoanEligibility(kData);
 
   openModal(
     `<div class="modal-title">Pengajuan Kasbon / Pinjaman Karyawan</div>
@@ -1377,7 +1367,7 @@ async function simpanKasbon() {
     const kSnap = await db.collection('hrd_karyawan').where('nama', '==', nama).limit(1).get();
     if (kSnap.empty) throw new Error("Data karyawan tidak ditemukan. Hubungi HRD.");
     const k = kSnap.docs[0].data();
-    const elig = await calculateLoanEligibility(k);
+    const elig = await window.calculateLoanEligibility(k);
 
     // 2. Validate against Plafond (BAB XI)
     if (jenis === 'Kasbon') {
