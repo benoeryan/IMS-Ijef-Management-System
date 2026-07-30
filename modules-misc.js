@@ -2,21 +2,30 @@
 
 /**
  * Recursively find all names of subordinates for a given boss.
+ * Includes loop protection and safety checks.
  */
-function getAllSubordinates(bossName, allKaryawan) {
+function getAllSubordinates(bossName, allKaryawan, seen = new Set()) {
   if (!bossName) return [];
   const bossNameLow = bossName.toLowerCase().trim();
+
+  // Protection against infinite recursion loops (e.g. A reports to A)
+  if (seen.has(bossNameLow)) return [];
+  seen.add(bossNameLow);
+
   const subordinates = [];
 
   // Find direct subordinates
-  const direct = allKaryawan.filter(k => (k.atasan || "").toLowerCase().trim() === bossNameLow);
+  const direct = allKaryawan.filter(k =>
+      k.nama &&
+      (k.atasan || "").toLowerCase().trim() === bossNameLow
+  );
 
   direct.forEach(sub => {
-      const subName = sub.nama.toLowerCase().trim();
-      if (!subordinates.includes(subName)) {
+      const subName = (sub.nama || "").toLowerCase().trim();
+      if (subName && !subordinates.includes(subName)) {
           subordinates.push(subName);
           // Recursively find children of this subordinate
-          const subChildren = getAllSubordinates(sub.nama, allKaryawan);
+          const subChildren = getAllSubordinates(sub.nama, allKaryawan, seen);
           subChildren.forEach(child => {
               if (!subordinates.includes(child)) subordinates.push(child);
           });
@@ -1637,7 +1646,7 @@ async function renderApprovalCenter(tab = 'pending') {
   const myName = (currentUser.nama || '').toLowerCase().trim();
   const myDept = (currentUser.departemen || '').toLowerCase().trim();
   const isGM = (currentUser.posisi || '').toLowerCase().includes('general manager') || (currentUser.posisi || '').toLowerCase() === 'gm';
-  const isAdmin = hasAccess(6);
+  // isAdmin already declared above
 
   // Load approval flows
   const flowSnap = await db.collection('hrd_approval_flow').get();
