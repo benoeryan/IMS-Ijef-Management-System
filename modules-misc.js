@@ -2184,23 +2184,26 @@ async function approveItem(col, id, status, catatan) {
       );
   } else {
     // Robust flow lookup: pick the flow for this specific pengaju and CATEGORY
-    const flowSnap = await db.collection('hrd_approval_flow').get();
-    let steps = [];
-    const cat = getApprovalCategory(col, data);
+    let steps = data.approvalFlow || [];
 
-    const matchingFlows = [];
-    flowSnap.forEach((d) => {
-      const f = d.data();
-      if (isSameName(f.pengaju, data.nama)) {
-          matchingFlows.push(f);
-      }
-    });
+    if (steps.length === 0) {
+        const flowSnap = await db.collection('hrd_approval_flow').get();
+        const cat = getApprovalCategory(col, data);
 
-    // Try to find match for Category, fallback to longest flow
-    const validFlow = matchingFlows.find(f => f.jenis === cat) ||
-                      matchingFlows.sort((a, b) => (b.steps?.length || 0) - (a.steps?.length || 0))[0];
+        const matchingFlows = [];
+        flowSnap.forEach((d) => {
+          const f = d.data();
+          if (isSameName(f.pengaju, data.nama)) {
+              matchingFlows.push(f);
+          }
+        });
 
-    if (validFlow) steps = validFlow.steps || [];
+        // Try to find match for Category, fallback to longest flow
+        const validFlow = matchingFlows.find(f => f.jenis === cat) ||
+                          matchingFlows.sort((a, b) => (b.steps?.length || 0) - (a.steps?.length || 0))[0];
+
+        if (validFlow) steps = validFlow.steps || [];
+    }
 
     const nextStep = currentStep + 1;
     if (nextStep < steps.length) {
