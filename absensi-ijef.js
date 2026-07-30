@@ -42,9 +42,10 @@ function renderAbsensiIJEF() {
   const isPortal = window._portalAbsensiMode || currentUser.role === 'karyawan';
   const showImport = hasAccess(3);
 
-  // Only show Sync button for Admin and GM (BOD level or specific position)
+  // Only show Sync button for Admin role and GM position (exclude other levels like BOD/Head/Manager)
   const isGM = (currentUser.posisi || "").toUpperCase().includes('GENERAL MANAGER') || (currentUser.posisi || "").toUpperCase() === 'GM';
-  const isGMorAdmin = hasAccess(5) || isGM;
+  const isAdmin = currentUser.role === 'admin';
+  const isGMorAdmin = isAdmin || isGM;
 
   const syncBtn = isGMorAdmin ? `<button class="btn btn-info btn-sm" onclick="navigateTo('penggajian')">💰 Sinkronkan ke Gaji</button>` : '';
   main.innerHTML = `<div class="page-title">
