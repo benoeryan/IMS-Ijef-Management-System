@@ -1303,8 +1303,15 @@ async function calculateLoanEligibility(k) {
       } else {
           regularMsg = "Masa kerja minimal 12 bulan untuk Pinjaman Reguler.";
       }
+  } else if (status === 'kontrak') {
+      if (diffYears >= 1) {
+          maxRegular = Math.round(gaji * 0.5);
+          eligibleRegular = true;
+      } else {
+          regularMsg = "Karyawan Kontrak wajib memiliki masa kerja minimal 12 bulan untuk Pinjaman Reguler.";
+      }
   } else {
-      regularMsg = "Hanya Karyawan Tetap yang berhak mengajukan Pinjaman Reguler.";
+      regularMsg = "Hanya Karyawan Tetap atau Kontrak (>1th) yang berhak mengajukan Pinjaman Reguler.";
   }
 
   return {
@@ -1591,6 +1598,16 @@ async function approveKasbon(id, status) {
   }
   await db.collection('hrd_kasbon').doc(id).update(updateData);
   toast(status === 'approved' ? '✅ Kasbon disetujui' : '❌ Kasbon ditolak', 'success');
+
+  if (status === 'approved' || status === 'aktif') {
+      const kasbonData = (await db.collection('hrd_kasbon').doc(id).get()).data();
+      if (kasbonData && window.syncSinglePayrollData) {
+          console.log("[LOAN] Triggering payroll sync for approved loan...");
+          const periode = kasbonData.periode || monthStr();
+          await window.syncSinglePayrollData(kasbonData.nama, periode);
+      }
+  }
+
   renderKasbon();
 }
 async function bayarAngsuran(id) {

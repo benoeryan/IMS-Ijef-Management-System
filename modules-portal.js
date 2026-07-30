@@ -1442,7 +1442,7 @@ async function renderPortalKasbon() {
                 <div><b>Maks. Kasbon Darurat:</b></div>
                 <div class="fw-700 color-danger">${formatCurrency(eligibility.maxEmergency)}</div>
               </div>
-              <p class="text-xs mt-8" style="color:#666">* Pinjaman Reguler dikhususkan untuk Karyawan Tetap (>1th).<br>* Kasbon Darurat dipotong penuh pada gajian terdekat.</p>
+              <p class="text-xs mt-8" style="color:#666">* Pinjaman Reguler dikhususkan untuk Karyawan Tetap (>1th) atau Kontrak (>1th).<br>* Kasbon Darurat dipotong penuh pada gajian terdekat.</p>
             </div>`;
       }
   } catch(e) { console.warn(e); }
