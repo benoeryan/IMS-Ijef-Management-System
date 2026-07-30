@@ -1,4 +1,76 @@
 'use strict';
+
+/**
+ * Calculate loan eligibility limits based on BAB XI rules.
+ * Attached to window for cross-module reliability.
+ */
+window.calculateLoanEligibility = async function(k) {
+  if (!k) return { maxRegular: 0, maxEmergency: 0, eligible: false, message: 'Data karyawan tidak ditemukan.' };
+
+  const gaji = Number(k.gajiPokok) || 0;
+  const status = (k.status || '').toLowerCase();
+  const tipe = (k.tipeKaryawan || '').toUpperCase(); // PKWTT, PKWT, PROBATION, FREELANCE
+
+  // Tenure in years
+  const masuk = k.tanggalMasuk ? new Date(k.tanggalMasuk) : new Date();
+  const now = new Date();
+  const diffTime = Math.abs(now - masuk);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const diffYears = diffDays / 365.25;
+  const diffMonths = diffDays / 30.44;
+
+  // Emergency Loan (Bab XI Pasal 51)
+  let maxEmergency = 0;
+  if (diffMonths >= 6) {
+      maxEmergency = Math.min(1000000, Math.round(gaji * 0.2));
+  }
+
+  // Regular Loan
+  let maxRegular = 0;
+  let eligibleRegular = false;
+  let regularMsg = "";
+
+  if (status === 'aktif' || status === 'tetap' || status === 'probation' || status === 'kontrak') {
+      if (tipe === 'PKWTT') {
+          // Permanent Staff Rules
+          if (diffYears >= 5) {
+              maxRegular = Math.round(gaji * 3.4);
+              eligibleRegular = true;
+          } else if (diffYears >= 3) {
+              maxRegular = Math.round(gaji * 2.5);
+              eligibleRegular = true;
+          } else if (diffYears >= 1) {
+              maxRegular = Math.round(gaji * 1.5);
+              eligibleRegular = true;
+          } else {
+              regularMsg = "PKWTT: Masa kerja minimal 12 bulan untuk Pinjaman Reguler.";
+          }
+      } else if (['PKWT', 'PROBATION', 'FREELANCE'].includes(tipe)) {
+          // Contract Staff Rules
+          if (diffYears >= 1) {
+              maxRegular = Math.round(gaji * 0.5);
+              eligibleRegular = true;
+          } else {
+              regularMsg = "Karyawan Kontrak/Probation: Masa kerja minimal 12 bulan untuk Pinjaman Reguler (0,5x Gaji).";
+          }
+      } else {
+          regularMsg = "Tipe kontrak tidak valid untuk pengajuan pinjaman.";
+      }
+  } else {
+      regularMsg = "Hanya karyawan aktif yang berhak mengajukan Pinjaman Reguler.";
+  }
+
+  return {
+      maxRegular,
+      maxEmergency,
+      eligible: true,
+      diffYears,
+      diffMonths,
+      regularMsg,
+      isPermanent: tipe === 'PKWTT'
+  };
+}
+
 // ── LAPORAN KEUANGAN ──────────────────────────────────────────
 function renderLaporanKeuangan() {
   const main = document.getElementById('mainContent');

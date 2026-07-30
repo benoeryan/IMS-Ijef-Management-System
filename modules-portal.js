@@ -1447,10 +1447,15 @@ async function renderPortalKasbon() {
       }
 
       if (kData) {
-          if (typeof calculateLoanEligibility !== 'function') {
-              throw new Error("Sistem perhitungan pinjaman belum siap. Silakan refresh halaman.");
+          // Explicit check on window object for maximum cross-module reliability
+          if (typeof window.calculateLoanEligibility !== 'function') {
+              limitInfo = `<div class="card mb-16" style="border-left:4px solid var(--danger); background:#fff9f9">
+                <p class="text-sm color-danger">⚠️ Sistem belum siap (Error: 0xE1). Selesaikan dengan memuat ulang halaman.</p>
+                <button class="btn btn-xs btn-danger mt-8" onclick="window.location.reload(true)">🔄 Muat Ulang Sekarang</button>
+              </div>`;
+              return;
           }
-          const eligibility = await calculateLoanEligibility(kData);
+          const eligibility = await window.calculateLoanEligibility(kData);
 
           limitInfo = `
             <div class="card mb-16" style="border-left:4px solid var(--warning); background:#fffef0">
