@@ -1276,7 +1276,11 @@ async function renderKasbon() {
 /**
  * Calculate loan eligibility limits based on BAB XI rules.
  */
-async function calculateLoanEligibility(k) {
+/**
+ * Calculate loan eligibility limits based on BAB XI rules.
+ * Attached to window for cross-module reliability.
+ */
+window.calculateLoanEligibility = async function(k) {
   if (!k) return { maxRegular: 0, maxEmergency: 0, eligible: false, message: 'Data karyawan tidak ditemukan.' };
 
   const gaji = Number(k.gajiPokok) || 0;

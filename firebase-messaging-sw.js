@@ -36,7 +36,7 @@ messaging.onBackgroundMessage((payload) => {
 });
 
 // PWA CACHING (From sw.js)
-const CACHE_NAME = 'ims-v8.1';
+const CACHE_NAME = 'ims-v10.4';
 self.addEventListener('install', (e) => self.skipWaiting());
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))));
