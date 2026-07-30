@@ -1426,17 +1426,38 @@ async function renderPortalKasbon() {
   // Rules-based limit display (BAB XI)
   let limitInfo = '<div class="card mb-16"><p class="text-sm">Memuat informasi batas pinjaman...</p></div>';
   try {
-      const kSnap = await db.collection('hrd_karyawan').where('nama', '==', currentUser.nama).limit(1).get();
-      if (!kSnap.empty) {
-          const k = kSnap.docs[0].data();
-          const eligibility = await calculateLoanEligibility(k);
+      // Use linkedKaryawan if available, fallback to name matching
+      let kData = null;
+      if (currentUser.linkedKaryawan) {
+          const kDoc = await db.collection('hrd_karyawan').doc(currentUser.linkedKaryawan).get();
+          if (kDoc.exists) kData = kDoc.data();
+      }
+
+      if (!kData) {
+          const kSnap = await db.collection('hrd_karyawan').where('nama', '==', currentUser.nama).limit(1).get();
+          if (!kSnap.empty) kData = kSnap.docs[0].data();
+          else {
+              // Final fallback: check case-insensitive or trimmed name if exact match fails
+              const allKSnap = await db.collection('hrd_karyawan').get();
+              allKSnap.forEach(doc => {
+                  const kd = doc.data();
+                  if (isSameName(kd.nama, currentUser.nama)) kData = kd;
+              });
+          }
+      }
+
+      if (kData) {
+          if (typeof calculateLoanEligibility !== 'function') {
+              throw new Error("Sistem perhitungan pinjaman belum siap. Silakan refresh halaman.");
+          }
+          const eligibility = await calculateLoanEligibility(kData);
 
           limitInfo = `
             <div class="card mb-16" style="border-left:4px solid var(--warning); background:#fffef0">
               <div class="card-title mb-8">ℹ️ Informasi Batas Pinjaman (Bab XI)</div>
               <div class="grid-2" style="font-size:.85rem; line-height:1.6">
-                <div><b>Masa Kerja:</b> ${escHtml(hitungMasaKerja(k.tanggalMasuk))}</div>
-                <div><b>Gaji Pokok:</b> ${formatCurrency(k.gajiPokok || 0)}</div>
+                <div><b>Masa Kerja:</b> ${escHtml(hitungMasaKerja(kData.tanggalMasuk))}</div>
+                <div><b>Gaji Pokok:</b> ${formatCurrency(kData.gajiPokok || 0)}</div>
                 <div style="border-top:1px solid #ddd; padding-top:4px"><b>Maks. Pinjaman Reguler:</b></div>
                 <div style="border-top:1px solid #ddd; padding-top:4px" class="fw-700 color-primary">${formatCurrency(eligibility.maxRegular)}</div>
                 <div><b>Maks. Kasbon Darurat:</b></div>
@@ -1444,8 +1465,17 @@ async function renderPortalKasbon() {
               </div>
               <p class="text-xs mt-8" style="color:#666">* Pinjaman Reguler dikhususkan untuk PKWTT (>1th) atau PKWT/Probation/Freelance (>1th).<br>* Kasbon Darurat dipotong penuh pada gajian terdekat.</p>
             </div>`;
+      } else {
+          limitInfo = `<div class="card mb-16" style="border-left:4px solid var(--danger); background:#fff9f9">
+            <p class="text-sm color-danger">⚠️ Data profil karyawan Anda tidak ditemukan di sistem HRD. Silakan hubungi Admin untuk memastikan nama profil Anda sesuai.</p>
+          </div>`;
       }
-  } catch(e) { console.warn(e); }
+  } catch(e) {
+      console.warn("Loan info load error:", e);
+      limitInfo = `<div class="card mb-16" style="border-left:4px solid var(--danger); background:#fff9f9">
+        <p class="text-sm color-danger">⚠️ Gagal memuat info pinjaman: ${e.message}</p>
+      </div>`;
+  }
 
   main.innerHTML = `<div class="page-title"><span>💳 Kasbon & Loan Saya</span><button class="btn btn-primary btn-sm" onclick="modalKasbon()">+ Ajukan</button></div>
     ${limitInfo}

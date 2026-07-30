@@ -138,9 +138,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '10.3',
+            version: '10.4',
             updatedAt: new Date().toISOString(),
-            note: 'Loan Policy & Precision Sync Update'
+            note: 'Fix stuck loading on Loan Info card'
         }, { merge: true });
 
     } catch (e) {
