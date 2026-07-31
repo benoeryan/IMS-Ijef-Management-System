@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '11.7',
+            version: '12.0',
             updatedAt: new Date().toISOString(),
-            note: 'Revert finance integration'
+            note: 'Stabilizing all modules and force-clearing cache'
         }, { merge: true });
 
     } catch (e) {

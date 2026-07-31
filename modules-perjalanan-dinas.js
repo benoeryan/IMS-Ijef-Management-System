@@ -309,7 +309,7 @@ function getGradePeraturanSync(grade) {
 // ── PROSEDUR PERJALANAN DINAS — Terintegrasi ──────────────────
 // ══════════════════════════════════════════════════════════════
 
-window.renderPerjalananDinas = function() {
+window.renderPerjalananDinas = async function() {
   window._portalDinasMode = false;
   const main = document.getElementById('mainContent');
   main.innerHTML = `<div class="page-title"><span>${renderBackButton()}✈️ Prosedur Perjalanan Dinas</span><button class="btn btn-primary btn-sm" onclick="modalAjukanSPPD()">+ Ajukan SPPD</button></div>
@@ -321,12 +321,12 @@ window.renderPerjalananDinas = function() {
       <div class="tab" onclick="showSPPDTab('reimbursement')">🧾 Reimburse Dinas</div>
     </div>
     <div id="sppdContent"></div>`;
-  showSPPDTab('daftar');
+  await showSPPDTab('daftar');
 }
 
-window.renderPortalPerjalananDinas = function() {
+window.renderPortalPerjalananDinas = async function() {
   window._portalDinasMode = true;
-  renderPerjalananDinasWithBenefit();
+  await renderPerjalananDinasWithBenefit();
 }
 
 async function renderPerjalananDinasWithBenefit() {
