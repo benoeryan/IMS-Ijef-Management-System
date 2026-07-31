@@ -273,7 +273,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = '11.5';
+const APP_VERSION = '11.6';
 
 const DEFAULT_ACCOUNTS = [
   {
@@ -440,7 +440,7 @@ function renderApp() {
   <div class="sidebar" id="sidebar">
     <div class="logo">🏛️ <span>IMS</span></div>
     <nav>${buildNavItems(isPortalUser)}</nav>
-    <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,.1)"><div style="font-size:.75rem;color:rgba(255,255,255,.5)">v11.5 (LATEST) — ${currentUser.nama}</div></div>
+    <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,.1)"><div style="font-size:.75rem;color:rgba(255,255,255,.5)">v11.6 (LATEST) — ${currentUser.nama}</div></div>
   </div>
   <div class="header">
     <button class="menu-btn" onclick="toggleSidebar()">☰</button>
@@ -588,32 +588,59 @@ function buildNavItems(isPortalUser) {
     'misriana',
   ];
   const _showLaporanKeuangan = _lkSidebarUsers.includes((currentUser.nama || '').toLowerCase());
-  nav += navGroup(
-    '💰 Keuangan',
-    currentUser.role === 'bod'
-      ? [
-          ['penggajian', '💰', 'Penggajian'],
-          ['laporan-keuangan', '📊', 'Laporan Keuangan'],
-        ]
-      : _showLaporanKeuangan
-        ? [
-            ['penggajian', '💰', 'Penggajian'],
-            ['tax-calc', '🧮', 'Tax & BPJS'],
-            ['insentif', '🏆', 'Insentif'],
-            ['reimbursement', '🧾', 'Reimbursement'],
-            ['kasbon', '💳', 'Kasbon & Loan'],
-            ['tunjangan', '🎁', 'Tunjangan'],
-            ['laporan-keuangan', '📊', 'Laporan Keuangan'],
-          ]
-        : [
-            ['penggajian', '💰', 'Penggajian'],
-            ['tax-calc', '🧮', 'Tax & BPJS'],
-            ['insentif', '🏆', 'Insentif'],
-            ['reimbursement', '🧾', 'Reimbursement'],
-            ['kasbon', '💳', 'Kasbon & Loan'],
-            ['tunjangan', '🎁', 'Tunjangan'],
-          ]
-  );
+
+  let financeItems = [];
+  if (currentUser.role === 'bod') {
+    financeItems = [
+      ['penggajian', '💰', 'Penggajian'],
+      ['laporan-keuangan', '📊', 'Laporan Keuangan'],
+    ];
+  } else if (_showLaporanKeuangan) {
+    financeItems = [
+      ['penggajian', '💰', 'Penggajian'],
+      ['tax-calc', '🧮', 'Tax & BPJS'],
+      ['insentif', '🏆', 'Insentif'],
+      ['reimbursement', '🧾', 'Reimbursement'],
+      ['kasbon', '💳', 'Kasbon & Loan'],
+      ['tunjangan', '🎁', 'Tunjangan'],
+    ];
+  } else {
+    financeItems = [
+      ['penggajian', '💰', 'Penggajian'],
+      ['tax-calc', '🧮', 'Tax & BPJS'],
+      ['insentif', '🏆', 'Insentif'],
+      ['reimbursement', '🧾', 'Reimbursement'],
+      ['kasbon', '💳', 'Kasbon & Loan'],
+      ['tunjangan', '🎁', 'Tunjangan'],
+    ];
+  }
+
+  // Inject IMS Keuangan structure for authorized users
+  if (_showLaporanKeuangan || isAdmin) {
+      financeItems.push('IMS KEUANGAN');
+      financeItems.push('── TRANSAKSI');
+      financeItems.push(['finance-permohonan', '📝', 'Permohonan Dana', 'indent-1']);
+      financeItems.push(['finance-dana-masuk', '💵', 'Dana Masuk', 'indent-1']);
+      financeItems.push(['finance-approval', '✅', 'Approval Center', 'indent-1']);
+      financeItems.push(['finance-aset', '📦', 'Portal Aset', 'indent-1']);
+
+      financeItems.push('── JURNAL');
+      financeItems.push(['finance-jurnal', '📖', 'Buku Jurnal', 'indent-1']);
+
+      financeItems.push('── LAPORAN');
+      financeItems.push(['finance-dashboard', '📊', 'Finance Dash', 'indent-1']);
+      financeItems.push(['finance-laba-rugi', '📈', 'Laba Rugi', 'indent-1']);
+      financeItems.push(['finance-neraca', '⚖️', 'Neraca', 'indent-1']);
+      financeItems.push(['finance-arus-kas', '🌊', 'Arus Kas', 'indent-1']);
+      financeItems.push(['finance-neraca-lajur', '📏', 'Neraca Lajur', 'indent-1']);
+      financeItems.push(['finance-ekuitas', '💹', 'Ekuita', 'indent-1']);
+      financeItems.push(['finance-tax', '🏛️', 'Pajak / Tax', 'indent-1']);
+      financeItems.push(['finance-saldo', '💰', 'Saldo Hari Ini', 'indent-1']);
+      financeItems.push(['finance-analisis', '📝', 'Analisis Naratif', 'indent-1']);
+      financeItems.push(['finance-print', '🖨️', 'Print Laporan', 'indent-1']);
+  }
+
+  nav += navGroup('💰 Keuangan', financeItems);
   nav += navGroup('📈 Kinerja', [
     ['kpi', '📈', 'KPI & Penilaian'],
     ['pelatihan', '🎓', 'Pelatihan'],
@@ -661,10 +688,15 @@ function buildNavItems(isPortalUser) {
 }
 
 function navGroup(title, items) {
-  const hasActive = items.some(([page]) => currentPage === page);
+  const hasActive = items.some((it) => Array.isArray(it) && currentPage === it[0]);
   let html = `<div class="nav-group"><div class="nav-group-title" onclick="toggleNavGroup(this)"><span>${title}</span><span class="nav-arrow${hasActive ? ' open' : ''}">⌵</span></div><div class="nav-group-items"${hasActive ? '' : ' style="display:none"'}>`;
-  items.forEach(([page, icon, label]) => {
-    html += `<div class="nav-item${currentPage === page ? ' active' : ''}" onclick="navigateTo('${page}')"><span class="icon">${icon}</span><span>${label}</span></div>`;
+  items.forEach((item) => {
+    if (typeof item === 'string') {
+      html += `<div class="nav-subheader">${item}</div>`;
+    } else {
+      const [page, icon, label, extraClass] = item;
+      html += `<div class="nav-item${currentPage === page ? ' active' : ''} ${extraClass || ''}" onclick="navigateTo('${page}')"><span class="icon">${icon}</span><span>${label}</span></div>`;
+    }
   });
   return html + '</div></div>';
 }
@@ -775,6 +807,23 @@ function navigateTo(page) {
     'report-summary': 'renderReportSummary',
     kaizen: 'renderFormKaizen',
     panduan: 'renderPanduan',
+
+    // IMS Keuangan Integration
+    'finance-permohonan': 'renderFinancePage',
+    'finance-dana-masuk': 'renderFinancePage',
+    'finance-approval': 'renderFinancePage',
+    'finance-aset': 'renderFinancePage',
+    'finance-jurnal': 'renderFinancePage',
+    'finance-dashboard': 'renderFinancePage',
+    'finance-laba-rugi': 'renderFinancePage',
+    'finance-neraca': 'renderFinancePage',
+    'finance-arus-kas': 'renderFinancePage',
+    'finance-neraca-lajur': 'renderFinancePage',
+    'finance-ekuitas': 'renderFinancePage',
+    'finance-tax': 'renderFinancePage',
+    'finance-saldo': 'renderFinancePage',
+    'finance-analisis': 'renderFinancePage',
+    'finance-print': 'renderFinancePage',
   };
 
   const funcName = routes[page];
