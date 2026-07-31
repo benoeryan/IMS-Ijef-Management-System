@@ -996,35 +996,6 @@ async function simpanSPPD(noSPPD) {
     btn.innerText = originalText;
   }
 }
-    gradeJabatan: grade,
-    totalEstimasi: data.totalEstimasi,
-    jamBerangkat: '',
-    jamKembali: '',
-    status: 'pending',
-    userId: currentUser.id,
-    noSPPD,
-    sppdId: sppdRef.id,
-    createdAt: new Date().toISOString(),
-  });
-  // Update SPPD with linked dinas luar ID
-  try {
-    await db
-      .collection('hrd_perjalanan_dinas')
-      .doc(sppdRef.id)
-      .update({ dinasLuarId: dinasLuarRef.id });
-  } catch (e) {
-    console.warn('Failed to update SPPD with dinasLuarId, cross-reference may be incomplete:', e);
-  }
-  await sendNotification(
-    'admin',
-    'SPPD Baru',
-    `${data.nama} mengajukan perjalanan dinas ke ${data.tujuan}`
-  );
-  closeModalDirect();
-  toast('✅ SPPD berhasil diajukan!', 'success');
-  showSPPDTab('daftar');
-}
-
 async function approveSPPD(id) {
   var komentar = prompt('Komentar approval (opsional):') || '';
   if (!confirm('Setujui SPPD ini?')) return;
