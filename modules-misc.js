@@ -108,54 +108,25 @@ window.calculateLoanEligibility = async function(k) {
   };
 }
 
-// ── LAPORAN KEUANGAN & FINANCE INTEGRATION ────────────────────
-const FINANCE_APP_URL = 'https://https-laporankeuanganijef-app.vercel.app/';
-
+// ── LAPORAN KEUANGAN ──────────────────────────────────────────
 function renderLaporanKeuangan() {
-    renderFinancePage('dashboard');
-}
-
-/**
- * Renders the external financial application inside an Iframe.
- * Maps IMS routes to financial app hashes.
- */
-function renderFinancePage(overridePage) {
-    const page = overridePage || currentPage;
-    const main = document.getElementById('mainContent');
-
-    const hashMap = {
-        'finance-permohonan': 'permohonan-dana',
-        'finance-dana-masuk': 'dana-masuk',
-        'finance-approval': 'approval-center',
-        'finance-aset': 'portal-perlengkapan-aset',
-        'finance-jurnal': 'jurnal-umum',
-        'finance-dashboard': 'dashboard',
-        'finance-laba-rugi': 'laba-rugi',
-        'finance-neraca': 'neraca',
-        'finance-arus-kas': 'arus-kas',
-        'finance-neraca-lajur': 'neraca-lajur',
-        'finance-ekuitas': 'ekuitas',
-        'finance-tax': 'pajak-tax',
-        'finance-saldo': 'posisi-saldo-hari-ini',
-        'finance-analisis': 'analisis-naratif',
-        'finance-print': 'print-laporan',
-        'laporan-keuangan': 'dashboard',
-        'dashboard': 'dashboard'
-    };
-
-    const targetHash = hashMap[page] || page;
-    const fullUrl = `${FINANCE_APP_URL}#/${targetHash}`;
-
-    main.innerHTML = `<div class="page-title">
-        <span>📊 IMS Keuangan &mdash; ${targetHash.replace(/-/g, ' ').toUpperCase()}</span>
-        <button class="btn btn-xs btn-outline" onclick="window.open('${fullUrl}', '_blank')">🔗 Buka di Tab Baru</button>
-    </div>
-    <div class="finance-iframe-container">
-        <iframe src="${fullUrl}" id="financeIframe" title="Laporan Keuangan"></iframe>
+  const main = document.getElementById('mainContent');
+  main.innerHTML = `<div class="page-title"><span>📊 Laporan Keuangan</span></div>
+    <div class="card" style="border-left:4px solid #2e7d32">
+      <div class="card-title mb-12">💰 Portal Laporan Keuangan IJEF</div>
+      <p class="text-sm mb-16" style="color:#666;line-height:1.6">Akses portal laporan keuangan perusahaan. Data keuangan terintegrasi langsung dengan akun Anda.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <a href="https://laporankeuanganijef.netlify.app/" target="_blank" class="btn btn-sm" style="background:#2e7d32;color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:10px 20px;font-size:.9rem">📊 Buka Laporan Keuangan</a>
+      </div>
+      <div style="margin-top:20px;padding:14px;background:#f0f7f0;border-radius:8px">
+        <div class="fw-700 mb-8" style="font-size:.85rem">ℹ️ Informasi</div>
+        <div class="text-xs" style="line-height:1.8;color:#555">
+          • Portal ini menampilkan data laporan keuangan perusahaan secara real-time<br>
+          • Akses menggunakan kredensial yang sama dengan akun IMS Anda<br>
+          • Data bersifat rahasia — hanya bisa diakses oleh user yang berwenang
+        </div>
+      </div>
     </div>`;
-
-    // Ensure sidebar is closed on mobile
-    if (typeof closeSidebar === 'function') closeSidebar();
 }
 
 // ── KPI ───────────────────────────────────────────────────────

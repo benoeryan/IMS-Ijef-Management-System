@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '11.6',
+            version: '11.5',
             updatedAt: new Date().toISOString(),
-            note: 'IMS Keuangan Iframe Integration & Sub-menu support'
+            note: 'Fix Approval Center syntax crash & robust hierarchy'
         }, { merge: true });
 
     } catch (e) {
