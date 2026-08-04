@@ -714,7 +714,7 @@ function navigateTo(page) {
     lowongan: 'renderLowongan',
     pipeline: 'renderPipeline',
     kandidat: 'renderKandidat',
-    absensi: 'renderAbsensiAdmin',
+    absensi: 'renderAbsensiIJEF',
     cuti: 'renderCuti',
     overtime: 'renderOvertime',
     'hari-libur': 'renderHariLibur',
@@ -788,12 +788,24 @@ function navigateTo(page) {
       main.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Gagal memuat halaman "${page}". Silakan refresh browser.</p></div>`;
     }
   } else if (funcName) {
-    // Retry once after short delay (in case script is still loading)
-    setTimeout(() => {
-        const retryFn = window[funcName];
-        if (typeof retryFn === 'function') retryFn();
-        else main.innerHTML = `<div class="empty-state"><div class="icon">⌛</div><p>Halaman "${page}" sedang menyiapkan modul... Silakan tunggu sejenak.</p></div>`;
-    }, 500);
+    // Retry with increasing delays (in case scripts are still loading on slow connections)
+    main.innerHTML = `<div class="empty-state"><div class="icon">⌛</div><p>Memuat modul "${page}"...</p></div>`;
+    let attempt = 0;
+    const delays = [300, 700, 1500, 3000];
+    const tryRender = () => {
+      const retryFn = window[funcName];
+      if (typeof retryFn === 'function') {
+        try { retryFn(); } catch (e) {
+          console.error(`Error rendering "${page}":`, e);
+          main.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Gagal memuat halaman "${page}". Silakan refresh browser.</p></div>`;
+        }
+      } else if (attempt < delays.length) {
+        setTimeout(tryRender, delays[attempt++]);
+      } else {
+        main.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Halaman "${page}" gagal dimuat. Periksa koneksi lalu refresh browser.</p></div>`;
+      }
+    };
+    setTimeout(tryRender, delays[attempt++]);
   } else {
     main.innerHTML = `<div class="empty-state"><div class="icon">🚧</div><p>Halaman "${page}" dalam pengembangan</p></div>`;
   }
