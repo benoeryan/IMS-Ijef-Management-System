@@ -334,11 +334,11 @@ async function renderPerjalananDinasWithBenefit() {
   const grade = await getUserGrade();
   const cfg = await getGradeConfig(grade);
   const peraturan = await getGradePeraturan(grade);
-  let infoBanner = `<div id="sppdGradeBanner" class="mb-16" style="position:relative;padding:14px 40px 14px 16px;background:linear-gradient(135deg,#e3f2fd,#f3e5f5);border-radius:10px;border:1px solid #bbdefb">
+  let infoBanner = `<div id="sppdGradeBanner" class="mb-16" style="position:relative;padding:14px 40px 14px 16px;background:#f9f9f9;border-radius:10px;border:1px solid var(--primary)">
     <button onclick="document.getElementById('sppdGradeBanner').style.display='none'" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:1.2rem;cursor:pointer;color:#666;line-height:1" title="Tutup">&times;</button>
     <div class="text-sm" style="color:#333"><span class="fw-700">Sebagai grade ${escHtml(grade || 'STAFF')}</span>, Anda berhak atas: uang harian <b>${formatCurrency(cfg.uangHarian)}</b>, <b>${escHtml(peraturan.kelasHotelDiizinkan)}</b>, <b>${escHtml(peraturan.transportasiDiizinkan[0])}</b>. Ajukan SPPD minimal 3 hari sebelum keberangkatan.</div>
   </div>`;
-  let benefitCard = `<div class="card mb-16" style="border-left:4px solid var(--accent)">
+  let benefitCard = `<div class="card mb-16" style="border-left:4px solid var(--primary)">
     <div class="card-header"><div class="card-title">🎯 Benefit Perjalanan Dinas Saya</div></div>
     <div style="padding:12px">
       <div class="mb-8"><span class="fw-700">Grade:</span> <span class="badge badge-info">${escHtml(grade || 'STAFF')}</span> <span class="text-sm" style="color:#666">(${escHtml(cfg.label)})</span></div>
@@ -349,7 +349,7 @@ async function renderPerjalananDinasWithBenefit() {
         <tr><td>Kelas Hotel</td><td>${escHtml(cfg.kelasHotel)}</td></tr>
         <tr><td>Max Makan (per hari)</td><td>${formatCurrency(cfg.maxMakan)}</td></tr>
         <tr><td>Uang Saku (per hari)</td><td>${formatCurrency(cfg.uangSaku)}</td></tr>
-        <tr style="font-weight:700;background:#f0f4ff"><td>Total Max / Hari</td><td>${formatCurrency(cfg.totalMaxPerDay)}</td></tr>
+        <tr style="font-weight:700;background:#f9f9f9"><td>Total Max / Hari</td><td>${formatCurrency(cfg.totalMaxPerDay)}</td></tr>
       </tbody></table></div>
     </div>
   </div>`;
@@ -592,35 +592,35 @@ async function loadSPPDProsedur(el) {
 
   let html = `<div class="card">
     <div class="card-title mb-16">📖 Prosedur Perjalanan Dinas</div>
-    <div style="background:#e3f2fd;padding:12px 16px;border-radius:8px;margin-bottom:16px;border-left:4px solid #1976d2">
-      <div class="fw-700" style="color:#1976d2">👤 Prosedur untuk Grade: <span class="badge badge-info">${escHtml(grade || 'STAFF')}</span></div>
+    <div style="background:#f9f9f9;padding:12px 16px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
+      <div class="fw-700" style="color:var(--primary)">👤 Prosedur untuk Grade: <span class="badge badge-info">${escHtml(grade || 'STAFF')}</span></div>
       <div class="text-sm" style="color:#555;margin-top:4px">Alur approval Anda: ${escHtml(peraturan.alurApproval)}</div>
     </div>
-    <div style="background:#f8f9ff;border-radius:12px;padding:20px;border-left:4px solid var(--accent)">
+    <div style="background:#f9f9f9;border-radius:12px;padding:20px;border-left:4px solid var(--primary)">
       <h3 style="margin-bottom:12px;color:var(--primary)">Alur Prosedur Perjalanan Dinas</h3>
       <div style="display:grid;gap:12px">
         <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.05)">
-          <div style="min-width:32px;height:32px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700">1</div>
+          <div style="min-width:32px;height:32px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700">1</div>
           <div><div class="fw-700">Pengajuan SPPD</div><div class="text-sm" style="color:#666">Karyawan mengisi form pengajuan perjalanan dinas (tujuan, tanggal, keperluan, estimasi biaya). Sistem generate nomor SPPD otomatis.</div></div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.05)">
-          <div style="min-width:32px;height:32px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700">2</div>
+          <div style="min-width:32px;height:32px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700">2</div>
           <div><div class="fw-700">Approval Atasan & HRD</div><div class="text-sm" style="color:#666">SPPD diproses oleh atasan langsung dan HRD. Notifikasi otomatis dikirim ke approver.</div></div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.05)">
-          <div style="min-width:32px;height:32px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700">3</div>
+          <div style="min-width:32px;height:32px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700">3</div>
           <div><div class="fw-700">Pencairan Uang Muka</div><div class="text-sm" style="color:#666">Setelah SPPD disetujui, karyawan bisa mengajukan uang muka perjalanan (transport, akomodasi, dll).</div></div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.05)">
-          <div style="min-width:32px;height:32px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700">4</div>
+          <div style="min-width:32px;height:32px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700">4</div>
           <div><div class="fw-700">Pelaksanaan Dinas</div><div class="text-sm" style="color:#666">Karyawan melaksanakan perjalanan dinas. Absen dinas luar via selfie+GPS (terintegrasi modul Absensi).</div></div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.05)">
-          <div style="min-width:32px;height:32px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700">5</div>
+          <div style="min-width:32px;height:32px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700">5</div>
           <div><div class="fw-700">Laporan Perjalanan Dinas</div><div class="text-sm" style="color:#666">Setelah kembali, karyawan membuat laporan perjalanan dinas (hasil, pencapaian, catatan).</div></div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.05)">
-          <div style="min-width:32px;height:32px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700">6</div>
+          <div style="min-width:32px;height:32px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700">6</div>
           <div><div class="fw-700">Reimbursement & Pertanggungjawaban</div><div class="text-sm" style="color:#666">Karyawan submit bukti pengeluaran. Selisih uang muka vs aktual akan dikembalikan/dibayarkan.</div></div>
         </div>
       </div>
@@ -807,7 +807,7 @@ async function modalAjukanSPPD() {
   const noSPPD = 'SPPD/' + new Date().getFullYear() + '/' + String(Date.now()).slice(-6);
   openModal(
     `<div class="modal-title">✈️ Ajukan Surat Perintah Perjalanan Dinas</div>
-    <div style="background:#f0f4ff;padding:10px;border-radius:8px;margin-bottom:16px"><span class="fw-700">No. SPPD:</span> ${noSPPD}</div>
+    <div style="background:#f9f9f9;padding:10px;border-radius:8px;margin-bottom:16px"><span class="fw-700">No. SPPD:</span> ${noSPPD}</div>
     <div style="background:#e8f5e9;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--success)">
       <div class="fw-700 text-sm mb-4">🎯 Grade Anda: <span class="badge badge-info">${escHtml(grade || 'STAFF')}</span> (${escHtml(cfg.label)})</div>
       <div class="text-sm" style="color:#555">Uang Harian: ${formatCurrency(cfg.uangHarian)} | Hotel: ${formatCurrency(cfg.maxHotel)}/mlm (${escHtml(cfg.kelasHotel)}) | Makan: ${formatCurrency(cfg.maxMakan)}/hr | Saku: ${formatCurrency(cfg.uangSaku)}/hr</div>
@@ -1173,8 +1173,8 @@ async function viewSPPD(id) {
         : malam === 0
           ? 'color:var(--success)'
           : 'color:var(--danger)';
-    const makanStatus = p.biayaMakan <= maxMakan ? 'color:var(--success)' : 'color:var(--danger)';
-    gradeBenefitHtml = `<div class="mb-16" style="background:#f0f4ff;padding:12px;border-radius:8px;border-left:4px solid var(--accent)">
+    const makanStatus = (p.biayaMakan || 0) <= maxMakan ? 'color:var(--success)' : 'color:var(--danger)';
+    gradeBenefitHtml = `<div class="mb-16" style="background:#f9f9f9;padding:12px;border-radius:8px;border-left:4px solid var(--primary)">
       <div class="fw-700 text-sm mb-8">🎯 Benefit Grade: <span class="badge badge-info">${escHtml(sppdGrade)}</span> (${escHtml(cfg.label)})</div>
       <div class="text-sm" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">
         <div>Transport</div><div>Diajukan: ${formatCurrency(p.biayaTransport)}</div><div style="${transportStatus}">Max: ${formatCurrency(maxTransport)}</div>
@@ -1196,10 +1196,10 @@ async function viewSPPD(id) {
       <div><b>Transportasi:</b> ${escHtml(p.transportasi || '-')}</div>
       <div><b>Akomodasi:</b> ${escHtml(p.akomodasi || '-')}</div>
     </div>
-    <div class="mb-16"><b>Keperluan:</b><div class="text-sm mt-4" style="background:#f8f9ff;padding:10px;border-radius:6px">${escHtml(p.keperluan || '-')}</div></div>
+    <div class="mb-16"><b>Keperluan:</b><div class="text-sm mt-4" style="background:#f9f9f9;padding:10px;border-radius:6px">${escHtml(p.keperluan || '-')}</div></div>
     ${gradeBenefitHtml}
     <div class="fw-700 mb-8">💰 Estimasi Biaya:</div>
-    <div class="grid-2 mb-16" style="background:#f8f9ff;padding:12px;border-radius:8px">
+    <div class="grid-2 mb-16" style="background:#f9f9f9;padding:12px;border-radius:8px">
       <div>Transport: ${formatCurrency(p.biayaTransport)}</div>
       <div>Akomodasi: ${formatCurrency(p.biayaAkomodasi)}</div>
       <div>Makan & Saku: ${formatCurrency(p.biayaMakan)}</div>
@@ -1287,7 +1287,7 @@ async function modalUangMukaDinas(sppdId) {
   const p = doc.data();
   const maxUM = Math.floor((p.totalEstimasi || 0) * 0.8);
   openModal(`<div class="modal-title">💰 Ajukan Uang Muka Perjalanan Dinas</div>
-    <div style="background:#f0f4ff;padding:10px;border-radius:8px;margin-bottom:16px"><b>SPPD:</b> ${escHtml(p.noSPPD)} — ${escHtml(p.tujuan)}<br><b>Estimasi Total:</b> ${formatCurrency(p.totalEstimasi)} | <b>Maks Uang Muka (80%):</b> ${formatCurrency(maxUM)}</div>
+    <div style="background:#f9f9f9;padding:10px;border-radius:8px;margin-bottom:16px"><b>SPPD:</b> ${escHtml(p.noSPPD)} — ${escHtml(p.tujuan)}<br><b>Estimasi Total:</b> ${formatCurrency(p.totalEstimasi)} | <b>Maks Uang Muka (80%):</b> ${formatCurrency(maxUM)}</div>
     <div class="form-group"><label>Jumlah Uang Muka (Rp)</label><input class="form-control" type="number" id="umJumlah" value="${maxUM}" max="${maxUM}"></div>
     <div class="form-group"><label>Rincian Penggunaan</label><textarea class="form-control" id="umRincian" placeholder="Transport: Rp..., Hotel: Rp..., dll"></textarea></div>
     <div class="form-group"><label>Metode Transfer</label><select class="form-control" id="umMetode"><option value="Transfer Bank">Transfer Bank</option><option value="Cash">Cash</option><option value="E-Wallet">E-Wallet</option></select></div>
@@ -1383,7 +1383,7 @@ function viewUangMukaDinas(id) {
       const p = doc.data();
       openModal(`<div class="modal-title">💰 Detail Uang Muka Dinas</div>
       <div class="grid-2 mb-16"><div><b>No. SPPD:</b> ${escHtml(p.noSPPD)}</div><div><b>Nama:</b> ${escHtml(p.nama)}</div><div><b>Jumlah:</b> ${formatCurrency(p.jumlah)}</div><div><b>Metode:</b> ${escHtml(p.metode || '-')}</div><div><b>Status:</b> <span class="badge badge-${p.status === 'dicairkan' ? 'success' : 'warning'}">${p.status}</span></div><div><b>Tanggal:</b> ${formatDate(p.createdAt)}</div></div>
-      ${p.rincian ? `<div><b>Rincian:</b><div class="text-sm mt-4" style="background:#f8f9ff;padding:10px;border-radius:6px">${escHtml(p.rincian)}</div></div>` : ''}
+      ${p.rincian ? `<div><b>Rincian:</b><div class="text-sm mt-4" style="background:#f9f9f9;padding:10px;border-radius:6px">${escHtml(p.rincian)}</div></div>` : ''}
       ${p.dicairkanOleh ? `<div class="mt-8 text-sm color-success">💸 Dicairkan oleh: ${escHtml(p.dicairkanOleh)} (${formatDate(p.dicairkanAt)})</div>` : ''}`);
     });
 }
@@ -1420,7 +1420,7 @@ async function modalLaporanDinas(sppdId) {
   const p = doc.data();
   openModal(
     `<div class="modal-title">📝 Laporan Perjalanan Dinas</div>
-    <div style="background:#f0f4ff;padding:10px;border-radius:8px;margin-bottom:16px"><b>SPPD:</b> ${escHtml(p.noSPPD)} — ${escHtml(p.tujuan)}<br><b>Tanggal:</b> ${formatDate(p.tanggalMulai)} - ${formatDate(p.tanggalSelesai)}</div>
+    <div style="background:#f9f9f9;padding:10px;border-radius:8px;margin-bottom:16px"><b>SPPD:</b> ${escHtml(p.noSPPD)} — ${escHtml(p.tujuan)}<br><b>Tanggal:</b> ${formatDate(p.tanggalMulai)} - ${formatDate(p.tanggalSelesai)}</div>
     <div class="form-group"><label>Hasil / Pencapaian</label><textarea class="form-control" id="lpdHasil" style="min-height:100px" placeholder="Jelaskan hasil dan pencapaian perjalanan dinas"></textarea></div>
     <div class="form-group"><label>Aktivitas yang Dilakukan</label><textarea class="form-control" id="lpdAktivitas" placeholder="Rincian aktivitas selama dinas"></textarea></div>
     <div class="form-group"><label>Kendala / Catatan</label><textarea class="form-control" id="lpdKendala" placeholder="Kendala yang dihadapi (jika ada)"></textarea></div>
@@ -1502,7 +1502,7 @@ function viewLaporanDinas(id) {
         `<div class="modal-title">📝 Laporan Perjalanan Dinas</div>
       <div class="grid-2 mb-16"><div><b>No. SPPD:</b> ${escHtml(p.noSPPD)}</div><div><b>Nama:</b> ${escHtml(p.nama)}</div><div><b>Tujuan:</b> ${escHtml(p.tujuan || '-')}</div><div><b>Tanggal:</b> ${formatDate(p.createdAt)}</div></div>
       <div class="mb-12"><b>Hasil / Pencapaian:</b><div class="text-sm mt-4" style="background:#e8f5e9;padding:12px;border-radius:6px;white-space:pre-wrap">${escHtml(p.hasil || '-')}</div></div>
-      ${p.aktivitas ? `<div class="mb-12"><b>Aktivitas:</b><div class="text-sm mt-4" style="background:#f8f9ff;padding:12px;border-radius:6px;white-space:pre-wrap">${escHtml(p.aktivitas)}</div></div>` : ''}
+      ${p.aktivitas ? `<div class="mb-12"><b>Aktivitas:</b><div class="text-sm mt-4" style="background:#f9f9f9;padding:12px;border-radius:6px;white-space:pre-wrap">${escHtml(p.aktivitas)}</div></div>` : ''}
       ${p.kendala ? `<div class="mb-12"><b>Kendala:</b><div class="text-sm mt-4" style="background:#fff3e0;padding:12px;border-radius:6px;white-space:pre-wrap">${escHtml(p.kendala)}</div></div>` : ''}
       ${p.tindakLanjut ? `<div class="mb-12"><b>Tindak Lanjut:</b><div class="text-sm mt-4" style="background:#e3f2fd;padding:12px;border-radius:6px;white-space:pre-wrap">${escHtml(p.tindakLanjut)}</div></div>` : ''}`,
         true
@@ -1666,7 +1666,7 @@ function viewReimburseDinas(id) {
           : `Kelebihan: ${formatCurrency(Math.abs(selisih))} (karyawan kembalikan ke perusahaan)`;
       openModal(`<div class="modal-title">🧾 Detail Reimbursement Dinas</div>
       <div class="grid-2 mb-16"><div><b>No. SPPD:</b> ${escHtml(p.noSPPD)}</div><div><b>Nama:</b> ${escHtml(p.nama)}</div><div><b>Status:</b> <span class="badge badge-${p.status === 'approved' ? 'success' : 'warning'}">${p.status}</span></div><div><b>Tanggal:</b> ${formatDate(p.createdAt)}</div></div>
-      <div class="mb-16" style="background:#f8f9ff;padding:14px;border-radius:8px">
+      <div class="mb-16" style="background:#f9f9f9;padding:14px;border-radius:8px">
         <div class="fw-700 mb-8">💰 Rincian Biaya:</div>
         <div class="grid-2"><div>Transport: ${formatCurrency(p.biayaTransport)}</div><div>Akomodasi: ${formatCurrency(p.biayaAkomodasi)}</div><div>Makan & Saku: ${formatCurrency(p.biayaMakan)}</div><div>Lain-lain: ${formatCurrency(p.biayaLain)}</div></div>
         <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px"><b>Total Aktual:</b> ${formatCurrency(p.totalAktual)}</div>
