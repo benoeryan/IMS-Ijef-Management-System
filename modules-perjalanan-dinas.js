@@ -686,14 +686,14 @@ async function loadSPPDProsedur(el) {
     };
 
     html += `<div class="mt-16"><div class="fw-700 mb-12" style="font-size:1.05rem">📊 Perbandingan Hak per Grade</div>
-      <div class="table-wrap"><table><thead><tr><th>Komponen</th>${allGrades.map((g) => '<th style="' + (g === userGradeKey ? 'background:#e3f2fd;color:#1565c0;font-weight:700' : '') + '">' + getCmpBen(g, 'label') + '</th>').join('')}</tr></thead><tbody>
-        <tr><td class="fw-700">Uang Harian</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#e3f2fd' : '') + '">' + formatCurrency(getCmpBen(g, 'uangHarian')) + '</td>').join('')}</tr>
-        <tr><td class="fw-700">Max Hotel/Malam</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#e3f2fd' : '') + '">' + formatCurrency(getCmpBen(g, 'maxHotel')) + '</td>').join('')}</tr>
-        <tr><td class="fw-700">Kelas Hotel</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#e3f2fd' : '') + '">' + escHtml(getCmpPer(g, 'kelasHotelDiizinkan')) + '</td>').join('')}</tr>
+      <div class="table-wrap"><table><thead><tr><th>Komponen</th>${allGrades.map((g) => '<th style="' + (g === userGradeKey ? 'background:#f1f1f1;color:var(--primary);font-weight:700' : '') + '">' + getCmpBen(g, 'label') + '</th>').join('')}</tr></thead><tbody>
+        <tr><td class="fw-700">Uang Harian</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f1f1f1' : '') + '">' + formatCurrency(getCmpBen(g, 'uangHarian')) + '</td>').join('')}</tr>
+        <tr><td class="fw-700">Max Hotel/Malam</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f1f1f1' : '') + '">' + formatCurrency(getCmpBen(g, 'maxHotel')) + '</td>').join('')}</tr>
+        <tr><td class="fw-700">Kelas Hotel</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f1f1f1' : '') + '">' + escHtml(getCmpPer(g, 'kelasHotelDiizinkan')) + '</td>').join('')}</tr>
         <tr><td class="fw-700">Transport</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#e3f2fd' : '') + ';font-size:.8rem">' + escHtml((getCmpPer(g, 'transportasiDiizinkan') || []).slice(0, 2).join(', ')) + '</td>').join('')}</tr>
-        <tr><td class="fw-700">Uang Muka</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#e3f2fd' : '') + '">' + getCmpPer(g, 'persenUangMuka') + '%</td>').join('')}</tr>
-        <tr><td class="fw-700">Max Durasi (tanpa approval khusus)</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#e3f2fd' : '') + '">' + getCmpPer(g, 'maxDurasiTanpaApprovalKhusus') + ' hari</td>').join('')}</tr>
-        <tr><td class="fw-700">Batas Laporan</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#e3f2fd' : '') + '">' + getCmpPer(g, 'batasWaktuLaporan') + ' hari</td>').join('')}</tr>
+        <tr><td class="fw-700">Uang Muka</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f1f1f1' : '') + '">' + getCmpPer(g, 'persenUangMuka') + '%</td>').join('')}</tr>
+        <tr><td class="fw-700">Max Durasi (tanpa approval khusus)</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f1f1f1' : '') + '">' + getCmpPer(g, 'maxDurasiTanpaApprovalKhusus') + ' hari</td>').join('')}</tr>
+        <tr><td class="fw-700">Batas Laporan</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f1f1f1' : '') + '">' + getCmpPer(g, 'batasWaktuLaporan') + ' hari</td>').join('')}</tr>
         <tr><td class="fw-700">Alur Approval</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#e3f2fd' : '') + ';font-size:.8rem">' + escHtml(getCmpPer(g, 'alurApproval')) + '</td>').join('')}</tr>
       </tbody></table></div></div>`;
   }
@@ -1504,7 +1504,7 @@ function viewLaporanDinas(id) {
       <div class="mb-12"><b>Hasil / Pencapaian:</b><div class="text-sm mt-4" style="background:#e8f5e9;padding:12px;border-radius:6px;white-space:pre-wrap">${escHtml(p.hasil || '-')}</div></div>
       ${p.aktivitas ? `<div class="mb-12"><b>Aktivitas:</b><div class="text-sm mt-4" style="background:#f9f9f9;padding:12px;border-radius:6px;white-space:pre-wrap">${escHtml(p.aktivitas)}</div></div>` : ''}
       ${p.kendala ? `<div class="mb-12"><b>Kendala:</b><div class="text-sm mt-4" style="background:#fff3e0;padding:12px;border-radius:6px;white-space:pre-wrap">${escHtml(p.kendala)}</div></div>` : ''}
-      ${p.tindakLanjut ? `<div class="mb-12"><b>Tindak Lanjut:</b><div class="text-sm mt-4" style="background:#e3f2fd;padding:12px;border-radius:6px;white-space:pre-wrap">${escHtml(p.tindakLanjut)}</div></div>` : ''}`,
+      ${p.tindakLanjut ? `<div class="mb-12"><b>Tindak Lanjut:</b><div class="text-sm mt-4" style="background:#f9f9f9;padding:12px;border-radius:6px;white-space:pre-wrap">${escHtml(p.tindakLanjut)}</div></div>` : ''}`,
         true
       );
     });

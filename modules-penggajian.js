@@ -1529,7 +1529,7 @@ async function modalInsentifSiswa() {
     opts += `<option value="${escHtml(k.nama)}" data-dept="${escHtml(k.departemen || '')}">${escHtml(k.nama)} — ${escHtml(k.departemen || '')}</option>`;
   });
   openModal(`<div class="modal-title">🎓 Insentif Target Siswa</div>
-    <div style="background:#e3f2fd;border-radius:8px;padding:10px;margin-bottom:14px;font-size:.82rem;border-left:4px solid var(--info)">Hitung insentif berdasarkan jumlah siswa yang diterima/masuk. Nominal dihitung: Jumlah Siswa × Nominal per Siswa.</div>
+    <div style="background:#f9f9f9;border-radius:8px;padding:10px;margin-bottom:14px;font-size:.82rem;border-left:4px solid var(--info)">Hitung insentif berdasarkan jumlah siswa yang diterima/masuk. Nominal dihitung: Jumlah Siswa × Nominal per Siswa.</div>
     <div class="form-group"><label>Karyawan (PIC Rekrutmen)</label><select class="form-control" id="insSiswaKary" onchange="window._insSiswaDept=this.options[this.selectedIndex]?.dataset?.dept||''">${opts}</select></div>
     <div class="grid-2"><div class="form-group"><label>Jumlah Siswa Diterima</label><input class="form-control" type="number" id="insSiswaJml" value="0" oninput="calcInsentifSiswa()"></div><div class="form-group"><label>Nominal per Siswa (Rp)</label><input class="form-control" type="number" id="insSiswaRate" value="200000" oninput="calcInsentifSiswa()"></div></div>
     <div class="grid-2"><div class="form-group"><label>Periode</label><input class="form-control" id="insSiswaPeriode" value="${monthStr()}"></div><div class="form-group"><label>Total Insentif (auto)</label><input class="form-control" id="insSiswaTotal" readonly style="font-weight:700;font-size:1rem;color:var(--success)"></div></div>
