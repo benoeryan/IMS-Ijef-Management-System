@@ -1052,11 +1052,11 @@ async function renderPortalShare() {
   const main = document.getElementById('mainContent');
   const downloadLink = getAppDownloadLink();
   main.innerHTML = `<div class="page-title"><span>📲 Download Aplikasi</span></div>
-    <div class="card mb-16"><div class="card-title">📥 Link Aplikasi</div><p class="text-sm mb-16" style="color:#666">Bagikan link ini ke semua karyawan agar mereka bisa mengakses portal lewat browser atau menginstal sebagai aplikasi PWA di Android, iOS, Windows, and Mac.</p>
+    <div class="card mb-16"><div class="card-title">📥 Link Aplikasi</div><p class="text-sm mb-16" style="color:#666">Bagikan link ini ke semua karyawan agar mereka bisa mengakses portal lewat browser atau menginstal sebagai aplikasi PWA di Android, iOS, Windows, dan Mac.</p>
       <div class="form-group"><label>Link Download</label><input class="form-control" readonly value="${downloadLink}" id="portalAppLink"></div>
       <div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="copyDownloadLink()">📋 Salin Link</button><button class="btn btn-success btn-sm" onclick="shareDownloadWhatsApp()">💬 Share WA</button><button class="btn btn-info btn-sm" onclick="shareDownloadEmail()">✉️ Email</button></div>
     </div>
-    <div class="grid-2"><div class="card"><div class="card-title mb-16">📱 Android</div><p class="text-sm" style="color:#666">Buka link di browser Chrome, lalu pilih menu and "Add to Home screen". Aplikasi akan terpasang seperti biasa.</p></div><div class="card"><div class="card-title mb-16">🍎 iOS</div><p class="text-sm" style="color:#666">Buka link di Safari, tap tombol Share lalu pilih "Add to Home Screen". Jika diminta, pilih "Add".</p></div></div>
+    <div class="grid-2"><div class="card"><div class="card-title mb-16">📱 Android</div><p class="text-sm" style="color:#666">Buka link di browser Chrome, lalu pilih menu dan "Add to Home screen". Aplikasi akan terpasang seperti biasa.</p></div><div class="card"><div class="card-title mb-16">🍎 iOS</div><p class="text-sm" style="color:#666">Buka link di Safari, tap tombol Share lalu pilih "Add to Home Screen". Jika diminta, pilih "Add".</p></div></div>
     <div class="grid-2"><div class="card"><div class="card-title mb-16">💻 Windows</div><p class="text-sm" style="color:#666">Buka link di browser Edge/Chrome, lalu pilih install PWA dari menu browser atau toolbar.</p></div><div class="card"><div class="card-title mb-16"> Mac</div><p class="text-sm" style="color:#666">Buka link di browser Safari/Chrome, lalu gunakan opsi "Add to Home Screen" / "Install App".</p></div></div>`;
 }
 
@@ -1087,7 +1087,7 @@ async function shareDownloadWhatsApp() {
 Berikut link download aplikasi HRD IJEF Corp:
 ${link}
 
-Buka link menggunakan browser and pilih "Add to Home Screen" atau install PWA untuk akses cepat di Android, iOS, Windows, atau Mac.
+Buka link menggunakan browser dan pilih "Add to Home Screen" atau install PWA untuk akses cepat di Android, iOS, Windows, atau Mac.
 
 — HRD IJEF Corp`;
   const waNumber = await getRegisteredWhatsAppNumber();
@@ -1104,7 +1104,7 @@ function shareDownloadEmail() {
 Silakan buka link berikut untuk mengakses aplikasi HRD IJEF Corp:
 ${link}
 
-Aplikasi mendukung browser, PWA, and dapat dipasang di Android, iOS, Windows, and Mac.`);
+Aplikasi mendukung browser, PWA, dan dapat dipasang di Android, iOS, Windows, dan Mac.`);
   window.location.href = `mailto:?subject=${subject}&body=${body}`;
 }
 
@@ -1243,7 +1243,7 @@ async function loadCalonTab(tab) {
         <div class="form-group"><label>Pendidikan Terakhir</label><select class="form-control" id="lamPendidikan"><option>SMA/SMK</option><option>D3</option><option>S1</option><option>S2</option><option>S3</option></select></div>
         <div class="form-group"><label>Pengalaman Kerja</label><select class="form-control" id="lamPengalaman"><option>Fresh Graduate</option><option>1-2 Tahun</option><option>3-5 Tahun</option><option>5+ Tahun</option></select></div>
       </div>
-      <div class="form-group"><label>Tentang Diri / Motivasi</label><textarea class="form-control" id="lamTentang" placeholder="Ceritakan tentang diri Anda, keahlian, and motivasi melamar..." style="min-height:120px"></textarea></div>
+      <div class="form-group"><label>Tentang Diri / Motivasi</label><textarea class="form-control" id="lamTentang" placeholder="Ceritakan tentang diri Anda, keahlian, dan motivasi melamar..." style="min-height:120px"></textarea></div>
       <div class="form-group"><label>Alamat</label><textarea class="form-control" id="lamAlamat" placeholder="Alamat lengkap"></textarea></div>
       <button class="btn btn-primary" style="width:100%;padding:12px" onclick="kirimLamaran()">📤 Kirim Lamaran</button>
     </div>`;
@@ -1255,20 +1255,20 @@ async function loadCalonTab(tab) {
         <div class="fw-700" style="font-size:1.2rem;color:var(--primary);margin-top:8px">LPK IJEF CORP</div>
       </div>
       <div class="text-sm" style="line-height:1.8">
-        <p>LPK IJEF Corp adalah lembaga pelatihan kerja yang berkomitmen untuk mengembangkan sumber daya manusia berkualitas. Kami menyediakan lingkungan kerja yang profesional, mendukung pertumbuhan karir, and menghargai kontribusi setiap karyawan.</p>
-        <div class="mt-16"><b>Mengapa Bergabung with Kami?</b></div>
+        <p>LPK IJEF Corp adalah lembaga pelatihan kerja yang berkomitmen untuk mengembangkan sumber daya manusia berkualitas. Kami menyediakan lingkungan kerja yang profesional, mendukung pertumbuhan karir, dan menghargai kontribusi setiap karyawan.</p>
+        <div class="mt-16"><b>Mengapa Bergabung dengan Kami?</b></div>
         <ul style="padding-left:20px;margin-top:8px">
-          <li>Lingkungan kerja profesional and kondusif</li>
+          <li>Lingkungan kerja profesional dan kondusif</li>
           <li>Kesempatan pengembangan karir</li>
           <li>Program pelatihan berkelanjutan</li>
-          <li>Tunjangan and benefit kompetitif</li>
+          <li>Tunjangan dan benefit kompetitif</li>
           <li>Work-life balance</li>
         </ul>
         <div class="mt-16"><b>Nilai-Nilai Perusahaan:</b></div>
         <div class="grid-2 mt-8">
-          <div class="stat-card"><div class="stat-icon">🎯</div><div class="fw-700">Integritas</div><div class="text-xs">Jujur and bertanggung jawab</div></div>
+          <div class="stat-card"><div class="stat-icon">🎯</div><div class="fw-700">Integritas</div><div class="text-xs">Jujur dan bertanggung jawab</div></div>
           <div class="stat-card"><div class="stat-icon">🤝</div><div class="fw-700">Kerjasama</div><div class="text-xs">Kolaborasi tim yang solid</div></div>
-          <div class="stat-card"><div class="stat-icon">🚀</div><div class="fw-700">Inovasi</div><div class="text-xs">Terus belajar and berkembang</div></div>
+          <div class="stat-card"><div class="stat-icon">🚀</div><div class="fw-700">Inovasi</div><div class="text-xs">Terus belajar dan berkembang</div></div>
           <div class="stat-card"><div class="stat-icon">💪</div><div class="fw-700">Profesional</div><div class="text-xs">Standar kerja tinggi</div></div>
         </div>
       </div>
@@ -1284,7 +1284,7 @@ async function kirimLamaran() {
   const telp = document.getElementById('lamTelp').value.trim();
   const posisi = document.getElementById('lamPosisi').value;
 
-  if (!nama || !email || !telp) return toast('Nama, email, and telepon wajib diisi', 'warning');
+  if (!nama || !email || !telp) return toast('Nama, email, dan telepon wajib diisi', 'warning');
   if (!posisi) return toast('Pilih posisi yang dilamar', 'warning');
 
   const data = {
@@ -1331,7 +1331,7 @@ function renderPortalDisc() {
   <div class="page-title"><span>🧠 DISC Test Saya</span></div>
   <div class="card">
     <div style="background:#e3f2fd;border-radius:8px;padding:14px;margin-bottom:16px;border-left:4px solid var(--info)">
-      <p class="text-sm" style="line-height:1.6">Tes DISC membantu Anda memahami gaya komunikasi and kepribadian Anda. Hasil tes akan tersimpan and dapat dilihat oleh HR untuk evaluasi.</p>
+      <p class="text-sm" style="line-height:1.6">Tes DISC membantu Anda memahami gaya komunikasi dan kepribadian Anda. Hasil tes akan tersimpan dan dapat dilihat oleh HR untuk evaluasi.</p>
     </div>
     <div style="text-align:center;margin-bottom:16px">
       <button class="btn btn-primary btn-lg" onclick="startPortalDiscTest()">🧠 Mulai Tes DISC</button>
@@ -1422,72 +1422,8 @@ async function renderPortalReimburse() {
 // ── PORTAL: KASBON ────────────────────────────────────────────
 async function renderPortalKasbon() {
   const main = document.getElementById('mainContent');
-
-  // Rules-based limit display (BAB XI)
-  let limitInfo = '<div class="card mb-16"><p class="text-sm">Memuat informasi batas pinjaman...</p></div>';
-  try {
-      // Use linkedKaryawan if available, fallback to name matching
-      let kData = null;
-      if (currentUser.linkedKaryawan) {
-          const kDoc = await db.collection('hrd_karyawan').doc(currentUser.linkedKaryawan).get();
-          if (kDoc.exists) kData = kDoc.data();
-      }
-
-      if (!kData) {
-          const kSnap = await db.collection('hrd_karyawan').where('nama', '==', currentUser.nama).limit(1).get();
-          if (!kSnap.empty) kData = kSnap.docs[0].data();
-          else {
-              // Final fallback: check case-insensitive or trimmed name if exact match fails
-              const allKSnap = await db.collection('hrd_karyawan').get();
-              allKSnap.forEach(doc => {
-                  const kd = doc.data();
-                  if (isSameName(kd.nama, currentUser.nama)) kData = kd;
-              });
-          }
-      }
-
-      if (kData) {
-          // Explicit check on window object for maximum cross-module reliability
-          if (typeof window.calculateLoanEligibility !== 'function') {
-              limitInfo = `<div class="card mb-16" style="border-left:4px solid var(--danger); background:#fff9f9">
-                <p class="text-sm color-danger">⚠️ Sistem belum siap (Error: 0xE1). Selesaikan dengan memuat ulang halaman.</p>
-                <button class="btn btn-xs btn-danger mt-8" onclick="window.location.reload(true)">🔄 Muat Ulang Sekarang</button>
-              </div>`;
-              return;
-          }
-          const eligibility = await window.calculateLoanEligibility(kData);
-
-          limitInfo = `
-            <div class="card mb-16" style="border-left:4px solid var(--warning); background:#fffef0">
-              <div class="card-title mb-8">ℹ️ Informasi Batas Pinjaman (Bab XI)</div>
-              <div class="grid-2" style="font-size:.85rem; line-height:1.6">
-                <div><b>Masa Kerja:</b> ${escHtml(hitungMasaKerja(kData.tanggalMasuk))}</div>
-                <div><b>Gaji Pokok:</b> ${formatCurrency(kData.gajiPokok || 0)}</div>
-                <div style="border-top:1px solid #ddd; padding-top:4px"><b>Maks. Pinjaman Reguler:</b></div>
-                <div style="border-top:1px solid #ddd; padding-top:4px" class="fw-700 color-primary">${formatCurrency(eligibility.maxRegular)}</div>
-                <div><b>Maks. Kasbon Darurat:</b></div>
-                <div class="fw-700 color-danger">${formatCurrency(eligibility.maxEmergency)}</div>
-              </div>
-              <p class="text-xs mt-8" style="color:#666">* Pinjaman Reguler dikhususkan untuk PKWTT (>1th) atau PKWT/Probation/Freelance (>1th).<br>* Kasbon Darurat dipotong penuh pada gajian terdekat.</p>
-            </div>`;
-      } else {
-          limitInfo = `<div class="card mb-16" style="border-left:4px solid var(--danger); background:#fff9f9">
-            <p class="text-sm color-danger">⚠️ Data profil karyawan Anda tidak ditemukan di sistem HRD. Silakan hubungi Admin untuk memastikan nama profil Anda sesuai.</p>
-          </div>`;
-      }
-  } catch(e) {
-      console.warn("Loan info load error:", e);
-      limitInfo = `<div class="card mb-16" style="border-left:4px solid var(--danger); background:#fff9f9">
-        <p class="text-sm color-danger">⚠️ Gagal memuat info pinjaman: ${e.message}</p>
-      </div>`;
-  }
-
-  main.innerHTML = `<div class="page-title"><span>💳 Kasbon & Loan Saya</span><button class="btn btn-primary btn-sm" onclick="modalKasbon()">+ Ajukan</button></div>
-    ${limitInfo}
-    <div class="card"><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Total</th><th>Angsuran/Bln</th><th>Sudah Bayar</th><th>Sisa</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblMyKasbon"></tbody></table></div></div>`;
-
+  main.innerHTML = `<div class="page-title"><span>💳 Kasbon & Loan Saya</span><button class="btn btn-primary btn-sm" onclick="modalKasbon()">+ Ajukan</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Total</th><th>Angsuran/Bln</th><th>Sudah Bayar</th><th>Sisa</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblMyKasbon"></tbody></table></div></div>`;
   const snap = await db.collection('hrd_kasbon').where('nama', '==', currentUser.nama).get();
-  const flows = await loadApprovalFlows();
   const items = [];
   snap.forEach((d) => {
     items.push({ id: d.id, ...d.data() });
@@ -1498,8 +1434,7 @@ async function renderPortalKasbon() {
     items.forEach((p) => {
       const angsuran = Math.ceil((p.jumlah || 0) / (p.cicilan || 1));
       const sisa = Math.max(0, (p.jumlah || 0) - (p.sudahBayar || 0));
-      const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
-      h += `<tr><td>${escHtml(p.jenis || '-')}</td><td>${formatCurrency(p.jumlah)}</td><td>${formatCurrency(angsuran)}</td><td>${formatCurrency(p.sudahBayar || 0)}</td><td class="fw-700" style="color:${sisa > 0 ? 'var(--danger)' : 'var(--success)'}">${formatCurrency(sisa)}</td><td><span class="badge badge-${p.status === 'aktif' || p.status === 'approved' ? 'success' : p.status === 'lunas' ? 'primary' : 'warning'}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewKasbon('${p.id}')">👁️ Lihat</button> <button class="btn btn-xs btn-secondary" onclick="cetakKasbonById('${p.id}')" title="Cetak Surat Perjanjian">🖨️ Surat</button></td></tr>`;
+      h += `<tr><td>${escHtml(p.jenis || '-')}</td><td>${formatCurrency(p.jumlah)}</td><td>${formatCurrency(angsuran)}</td><td>${formatCurrency(p.sudahBayar || 0)}</td><td class="fw-700" style="color:${sisa > 0 ? 'var(--danger)' : 'var(--success)'}">${formatCurrency(sisa)}</td><td><span class="badge badge-${p.status === 'aktif' ? 'success' : p.status === 'lunas' ? 'primary' : 'warning'}">${p.status}</span></td><td><button class="btn btn-xs btn-info" onclick="viewKasbon('${p.id}')">👁️ Lihat</button></td></tr>`;
     });
   document.getElementById('tblMyKasbon').innerHTML = h;
 }
@@ -1507,7 +1442,7 @@ async function renderPortalKasbon() {
 // ── PORTAL: KPI ───────────────────────────────────────────────
 async function renderPortalKPI() {
   const main = document.getElementById('mainContent');
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📈 KPI Saya</span></div><div class="card mb-16" style="background:#f0f4ff;border:1px solid #d0d8f0"><div style="font-weight:700;margin-bottom:8px">ℹ️ Cara Perhitungan KPI</div><div style="font-size:.82rem;line-height:1.6">• Penilaian menggunakan data terintegrasi: Jobdesk, Absensi, <b>Daily Task & Report</b>, Penalty, and penilaian user (DISC)<br>• Skor Murni = rata-rata Produktivitas, Kualitas, Kedisiplinan, Kerjasama<br>• Setiap 1 penalty point mengurangi skor akhir sebesar 2 poin<br>• <strong>Skor Akhir = Skor Murni - (Total Penalty x 2)</strong><br>• Grade: A (≥90) | B (≥80) | C (≥70) | D (≥60) | E (&lt;60)</div></div><div id="penaltyInfoKPI"></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Periode</th><th>Skor</th><th>Penalty</th><th>Grade</th><th>Penilai</th><th>Catatan</th></tr></thead><tbody id="tblMyKPI"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📈 KPI Saya</span></div><div class="card mb-16" style="background:#f0f4ff;border:1px solid #d0d8f0"><div style="font-weight:700;margin-bottom:8px">ℹ️ Cara Perhitungan KPI</div><div style="font-size:.82rem;line-height:1.6">• Penilaian menggunakan data terintegrasi: Jobdesk, Absensi, <b>Daily Task & Report</b>, Penalty, dan penilaian user (DISC)<br>• Skor Murni = rata-rata Produktivitas, Kualitas, Kedisiplinan, Kerjasama<br>• Setiap 1 penalty point mengurangi skor akhir sebesar 2 poin<br>• <strong>Skor Akhir = Skor Murni - (Total Penalty x 2)</strong><br>• Grade: A (≥90) | B (≥80) | C (≥70) | D (≥60) | E (&lt;60)</div></div><div id="penaltyInfoKPI"></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Periode</th><th>Skor</th><th>Penalty</th><th>Grade</th><th>Penilai</th><th>Catatan</th></tr></thead><tbody id="tblMyKPI"></tbody></table></div></div>`;
   const [snap, penSnap] = await Promise.all([
     db.collection('hrd_kpi').get(),
     db.collection('hrd_penalty').get(),

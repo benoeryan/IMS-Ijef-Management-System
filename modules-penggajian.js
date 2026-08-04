@@ -104,13 +104,14 @@ async function doSyncPayroll() {
  */
 window.syncSinglePayrollData = async function(nama, periode) {
     if (!nama || !periode) return;
-    console.log(`[PAYROLL] Precision sync for ${nama} in ${periode}`);
+    console.log(`[PAYROLL] Syncing single data for ${nama} in ${periode}`);
 
-    // Call with targetNama to avoid destructive global deletion
+    // We'll call doGenerateAllGaji silently for this month.
+    // It filters by periode internally.
     await doGenerateAllGaji(periode, true, {
         tunj: true, insentif: true, reimb: true, kasbon: true,
         bpjsKes: true, bpjsTK: true, pph: true
-    }, nama);
+    });
 }
 async function loadGaji() {
   const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
@@ -228,7 +229,7 @@ async function generateAllGaji() {
     </div>
     <button class="btn btn-success" onclick="doGenerateAllGaji()">⚡ Generate Sekarang</button>`);
 }
-async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections = null, targetNama = null) {
+async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections = null) {
   // Use forcedSelections if provided (e.g. from Sync modal), otherwise read from DOM
   const incTunj = forcedSelections ? forcedSelections.tunj : (document.getElementById('genIncTunj') ? document.getElementById('genIncTunj').checked : true);
   const incInsentif = forcedSelections ? forcedSelections.insentif : (document.getElementById('genIncInsentif') ? document.getElementById('genIncInsentif').checked : true);
@@ -241,7 +242,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
   const incPPH = forcedSelections ? forcedSelections.pph : (document.getElementById('genIncPPH') ? document.getElementById('genIncPPH').checked : true);
 
   if (!isAuto) closeModalDirect();
-  if (!isAuto && !targetNama && !confirm('Konfirmasi: Generate slip gaji untuk semua karyawan aktif?')) return;
+  if (!isAuto && !confirm('Konfirmasi: Generate slip gaji untuk semua karyawan aktif?')) return;
 
   try {
     const bulan = forcedBulan || document.getElementById('filterBulanGaji')?.value || monthStr();
@@ -262,33 +263,20 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
     const kDocs = [];
     kSnapAll.forEach((d) => {
       const data = d.data();
-      // Filter by targetNama if provided (Precision Sync)
-      if (targetNama) {
-          if (isSameName(data.nama, targetNama)) kDocs.push({ id: d.id, ...data });
-      } else {
-          if (data.status === 'aktif' || data.status === 'probation' || data.status === 'kontrak') {
-              kDocs.push({ id: d.id, ...data });
-          }
+      if (data.status === 'aktif' || data.status === 'probation' || data.status === 'kontrak') {
+          kDocs.push({ id: d.id, ...data });
       }
     });
 
     if (kDocs.length === 0) {
-      if (!isAuto && !targetNama) toast('Tidak ada karyawan aktif', 'warning');
+      if (!isAuto) toast('Tidak ada karyawan aktif', 'warning');
       return;
     }
 
-    // Delete existing slips for this period (ONLY for targeted users or ALL if no targetNama)
-    if (targetNama) {
-        const existSnap = await db.collection('hrd_penggajian')
-            .where('periode', '==', bulan)
-            .where('nama', '==', targetNama)
-            .get();
-        for (const doc of existSnap.docs) await doc.ref.delete();
-    } else {
-        const existSnapAll = await db.collection('hrd_penggajian').where('periode', '==', bulan).get();
-        for (const doc of existSnapAll.docs) {
-            await doc.ref.delete();
-        }
+    // Delete existing slips for this period
+    const existSnapAll = await db.collection('hrd_penggajian').where('periode', '==', bulan).get();
+    for (const doc of existSnapAll.docs) {
+        await doc.ref.delete();
     }
 
     // Load data masal
@@ -1273,70 +1261,27 @@ async function renderKasbon() {
     });
   document.getElementById('tblKasbon').innerHTML = h;
 }
-
-function onKasbonJenisChange() {
-  const jenisEl = document.getElementById('kbJenis');
-  if (!jenisEl) return;
-  const jenis = jenisEl.value;
-  const cicilanInput = document.getElementById('kbCicilan');
-  const infoEl = document.getElementById('kbRulesInfo');
-  const potongEl = document.getElementById('kbPotongPreview');
-
-  if (jenis === 'Kasbon') {
-    if (cicilanInput) {
-      cicilanInput.value = 1;
-      cicilanInput.disabled = true;
-    }
-    if (infoEl) {
-      infoEl.innerHTML = 'ℹ️ <b>Ketentuan Kasbon Darurat:</b> Maksimal Rp 1.000.000 (atau maks 20% Gaji Pokok). Potong penuh 100% pada tanggal gajian terdekat di bulan berjalan.';
-    }
-    if (potongEl) potongEl.textContent = 'Ya (Potong Penuh 100%)';
-  } else {
-    if (cicilanInput) {
-      cicilanInput.disabled = false;
-      if (Number(cicilanInput.value) <= 1) cicilanInput.value = 3;
-    }
-    if (infoEl) {
-      infoEl.innerHTML = 'ℹ️ <b>Ketentuan Pinjaman Reguler:</b> Maksimal 1.5x - 3.4x Gaji Pokok (sesuai masa kerja). Maksimal angsuran 30% dari Gaji Bersih/THP.';
-    }
-    if (potongEl) potongEl.textContent = 'Ya (Potongan Bulanan Payroll)';
-  }
-  calcKasbonPreview();
-}
-
-async function modalKasbon() {
-  const kSnap = await db.collection('hrd_karyawan').where('nama', '==', currentUser.nama).limit(1).get();
-  const kData = kSnap.empty ? null : kSnap.docs[0].data();
-  const elig = await window.calculateLoanEligibility(kData);
-
+function modalKasbon() {
   openModal(
-    `<div class="modal-title">Pengajuan Kasbon / Pinjaman Karyawan</div>
+    `<div class="modal-title">Pengajuan Kasbon/Loan</div>
     <div class="grid-2">
-      <div class="form-group"><label>Nama</label><input class="form-control" id="kbNama" value="${escHtml(currentUser.nama)}" readonly></div>
-      <div class="form-group"><label>Jenis Pengajuan</label><select class="form-control" id="kbJenis" onchange="onKasbonJenisChange()"><option value="Kasbon">Kasbon Darurat</option><option value="Pinjaman Karyawan">Pinjaman Reguler Karyawan</option></select></div>
+      <div class="form-group"><label>Nama</label><input class="form-control" id="kbNama" value="${currentUser.nama}"></div>
+      <div class="form-group"><label>Jenis</label><select class="form-control" id="kbJenis"><option>Kasbon</option><option>Pinjaman Karyawan</option></select></div>
     </div>
     <div class="grid-2">
-      <div class="form-group"><label>Total Pinjaman (Rp)</label><input class="form-control" type="number" id="kbJumlah" placeholder="Masukkan nominal" oninput="calcKasbonPreview()"></div>
-      <div class="form-group"><label>Durasi Cicilan (bulan)</label><input class="form-control" type="number" id="kbCicilan" value="1" min="1" disabled oninput="calcKasbonPreview()"></div>
+      <div class="form-group"><label>Total Pinjaman (Rp)</label><input class="form-control" type="number" id="kbJumlah" oninput="calcKasbonPreview()"></div>
+      <div class="form-group"><label>Durasi Cicilan (bulan)</label><input class="form-control" type="number" id="kbCicilan" value="3" min="1" oninput="calcKasbonPreview()"></div>
     </div>
-    <div id="kbRulesNotice" style="background:#f8f9ff;border-radius:8px;padding:12px;margin-bottom:14px;border:1px solid #d0d8f0;">
-      <div class="grid-2" style="font-size:.84rem;margin-bottom:6px">
-        <div><b>Angsuran / Bulan:</b> <span id="kbAngsuranPreview" class="fw-700 color-primary">Rp 0</span></div>
-        <div><b>Mekanisme Pemotongan:</b> <span id="kbPotongPreview" class="fw-700">Ya (Potong Penuh 100%)</span></div>
-      </div>
-      <div id="kbRulesInfo" style="font-size:.76rem;color:#555;line-height:1.4">
-        ℹ️ <b>Ketentuan Kasbon Darurat:</b> Maksimal ${formatCurrency(elig.maxEmergency)}. Potong penuh 100% pada tanggal gajian terdekat.
-      </div>
-      ${elig.maxRegular > 0 ? `<div class="mt-4 text-xs color-primary">✅ Anda berhak pinjaman reguler hingga <b>${formatCurrency(elig.maxRegular)}</b></div>` : `<div class="mt-4 text-xs color-danger">⚠️ ${elig.regularMsg}</div>`}
+    <div style="background:#f8f9ff;border-radius:8px;padding:10px;margin-bottom:14px">
+      <div class="grid-2" style="font-size:.82rem"><div><b>Angsuran/bulan:</b> <span id="kbAngsuranPreview">Rp 0</span></div><div><b>Potongan gaji otomatis:</b> Ya</div></div>
     </div>
     <div class="form-group">
       <label>Lampiran / Eviden (JPG, PNG, PDF, Word, Excel)</label>
       <input type="file" id="kbFile" class="form-control" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx">
     </div>
-    <div class="form-group"><label>Keterangan / Keperluan Pinjaman</label><input class="form-control" id="kbKet" placeholder="Contoh: Kebutuhan medis mendesak"></div>
-    <button class="btn btn-primary" style="width:100%" onclick="simpanKasbon()">📝 Ajukan & Cetak Surat Perjanjian</button>`
+    <div class="form-group"><label>Keterangan</label><input class="form-control" id="kbKet" placeholder="Keperluan pinjaman"></div>
+    <button class="btn btn-primary" onclick="simpanKasbon()">Ajukan</button>`
   );
-  setTimeout(() => onKasbonJenisChange(), 50);
 }
 function calcKasbonPreview() {
   const jml = Number(document.getElementById('kbJumlah').value) || 0;
@@ -1347,143 +1292,40 @@ async function simpanKasbon() {
   const btn = event.target;
   const originalText = btn.innerText;
 
-  const nama = document.getElementById('kbNama')?.value || currentUser.nama;
-  const jenis = document.getElementById('kbJenis')?.value || 'Kasbon';
-  const jumlah = Number(document.getElementById('kbJumlah')?.value) || 0;
-  const cicilanInput = document.getElementById('kbCicilan');
-  const cicilan = Math.max(1, Number(cicilanInput?.value) || 1);
-  const keterangan = document.getElementById('kbKet')?.value || '';
-
-  if (!jumlah) return toast('Total pinjaman wajib diisi', 'warning');
+  const jumlah = Number(document.getElementById('kbJumlah').value) || 0;
+  const cicilan = Number(document.getElementById('kbCicilan').value) || 1;
+  if (!jumlah) return toast('Jumlah wajib', 'warning');
 
   const fileInput = document.getElementById('kbFile');
   let evidenceURL = '';
 
   try {
     btn.disabled = true;
-    btn.innerText = 'Validasi Aturan...';
+    btn.innerText = 'Uploading...';
 
-    // 1. Fetch Employee Profile for Rules Check
-    const kSnap = await db.collection('hrd_karyawan').where('nama', '==', nama).limit(1).get();
-    if (kSnap.empty) throw new Error("Data karyawan tidak ditemukan. Hubungi HRD.");
-    const k = kSnap.docs[0].data();
-    const elig = await window.calculateLoanEligibility(k);
-
-    // 2. Validate against Plafond (BAB XI)
-    if (jenis === 'Kasbon') {
-        if (jumlah > elig.maxEmergency) return toast(`Batas Kasbon Darurat Anda adalah ${formatCurrency(elig.maxEmergency)}`, 'danger');
-    } else {
-        if (elig.maxRegular === 0) return toast(elig.regularMsg, 'danger');
-        if (jumlah > elig.maxRegular) return toast(`Batas Pinjaman Reguler Anda adalah ${formatCurrency(elig.maxRegular)}`, 'danger');
-
-        // Installment Cap (30% THP)
-        // Since THP varies, we use a conservative 30% of Basic Salary as a proxy if THP not cached
-        const maxInstallment = Math.round((k.gajiPokok || 0) * 0.3);
-        const currentInstallment = Math.ceil(jumlah / cicilan);
-        if (currentInstallment > maxInstallment) {
-            return toast(`Angsuran ${formatCurrency(currentInstallment)} melebihi batas 30% Gaji (${formatCurrency(maxInstallment)})`, 'danger');
-        }
-    }
-
-    btn.innerText = 'Mengunggah Berkas...';
-    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+    if (fileInput.files.length > 0) {
       const file = fileInput.files[0];
       const path = `kasbon/${Date.now()}_${file.name}`;
       evidenceURL = await uploadFileToStorage(file, path);
     }
 
-    btn.innerText = 'Menyimpan...';
-
-    // 3. Build Structural Approval Flow
-    // Flow: Staff -> Leader -> Manager -> HRD (Maharani) -> GM
-    // Flow: Leader -> Manager -> HRD (Maharani) -> GM
-    const steps = [];
-    const allUsersSnap = await db.collection('hrd_users').get();
-    const allUsers = [];
-    allUsersSnap.forEach(doc => allUsers.push({id: doc.id, ...doc.data()}));
-
-    // a. Direct Atasan (Leader or Manager)
-    if (k.atasan) {
-        steps.push({ nama: k.atasan, role: 'Atasan Langsung' });
-    }
-
-    // b. Manager (If the direct atasan is NOT a manager, find the manager of this department)
-    const myDept = k.departemen || "";
-    if (myDept) {
-        const deptManager = allUsers.find(u =>
-            u.departemen === myDept &&
-            (u.role === 'manager' || u.role === 'head') &&
-            u.nama.toLowerCase() !== currentUser.nama.toLowerCase() &&
-            u.nama.toLowerCase() !== (k.atasan || "").toLowerCase()
-        );
-        if (deptManager) {
-            steps.push({ nama: deptManager.nama, role: 'Manager Departemen' });
-        }
-    }
-
-    // c. HRD (Maharani Ali Putri)
-    steps.push({ nama: 'Maharani Ali Putri', role: 'HRD' });
-
-    // d. GM
-    const gmUser = allUsers.find(u =>
-        (u.posisi || "").toUpperCase().includes('GENERAL MANAGER') ||
-        (u.posisi || "").toUpperCase() === 'GM'
-    );
-    if (gmUser) {
-        steps.push({ nama: gmUser.nama, role: 'General Manager' });
-    }
-
-    // Filter duplicate names and requester's own name from steps
-    const finalSteps = steps.filter((s, idx, self) =>
-        s.nama &&
-        s.nama.toLowerCase() !== currentUser.nama.toLowerCase() &&
-        self.findIndex(t => t.nama.toLowerCase() === s.nama.toLowerCase()) === idx
-    );
-
-    const dateNow = new Date();
-    const monthRoman = getRomanMonth(dateNow.getMonth());
-    const seq = String(Math.floor(Math.random() * 900) + 100).padStart(3, '0');
-    const code = (jenis === 'Kasbon') ? 'KD' : 'PR';
-    const noSurat = `${seq}/PER/${code}-IJEF/${monthRoman}/${dateNow.getFullYear()}`;
-
     const data = {
-      nama,
-      jenis,
+      nama: document.getElementById('kbNama').value,
+      jenis: document.getElementById('kbJenis').value,
       jumlah,
       cicilan,
       angsuran: Math.ceil(jumlah / cicilan),
       sudahBayar: 0,
-      keterangan,
-      evidenceURL,
-      noSurat,
-      noIndex: seq,
-      status: finalSteps.length > 0 ? 'step0' : 'approved',
-      approvalStep: 0,
-      approvalFlow: finalSteps,
+      keterangan: document.getElementById('kbKet').value,
+      evidenceURL: evidenceURL,
+      status: 'pending',
       userId: currentUser.id,
-      createdAt: dateNow.toISOString(),
+      createdAt: new Date().toISOString(),
     };
-
-    const docRef = await db.collection('hrd_kasbon').add(data);
-    data.id = docRef.id;
-
-    // 4. Notify first approver
-    if (finalSteps.length > 0) {
-        const firstApp = finalSteps[0];
-        const appUser = uSnap.docs.find(d => d.data().nama?.toLowerCase() === firstApp.nama.toLowerCase());
-        if (appUser) {
-            await sendNotification(appUser.id, '💳 Pengajuan Kasbon Baru', `${nama} mengajukan ${jenis} sebesar ${formatCurrency(jumlah)}`);
-        }
-    }
-
+    await db.collection('hrd_kasbon').add(data);
     closeModalDirect();
-    toast('✅ Pengajuan berhasil diajukan sesuai kebijakan Bab XI.', 'success');
-
-    // Automatically trigger print popup window
-    await cetakSuratPerjanjianKasbon(data);
-
-    if (typeof renderKasbon === 'function') renderKasbon();
-    if (typeof renderPortalKasbon === 'function') renderPortalKasbon();
+    toast('Diajukan', 'success');
+    renderKasbon();
   } catch (e) {
     console.error(e);
     toast('Gagal: ' + e.message, 'danger');
@@ -1548,16 +1390,6 @@ async function approveKasbon(id, status) {
   }
   await db.collection('hrd_kasbon').doc(id).update(updateData);
   toast(status === 'approved' ? '✅ Kasbon disetujui' : '❌ Kasbon ditolak', 'success');
-
-  if (status === 'approved' || status === 'aktif') {
-      const kasbonData = (await db.collection('hrd_kasbon').doc(id).get()).data();
-      if (kasbonData && window.syncSinglePayrollData) {
-          console.log("[LOAN] Triggering payroll sync for approved loan...");
-          const periode = kasbonData.periode || monthStr();
-          await window.syncSinglePayrollData(kasbonData.nama, periode);
-      }
-  }
-
   renderKasbon();
 }
 async function bayarAngsuran(id) {
