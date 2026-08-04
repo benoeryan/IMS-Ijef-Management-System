@@ -1526,3 +1526,27 @@ function setupRealtimeSync() {
     unsubscribers.push(unsubStatus);
   }
 }
+
+function downloadBlob(data, fileName) {
+  if (!data) return;
+  const link = document.createElement('a');
+  link.href = data;
+  link.download = fileName || 'download';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function hitungMasaKerja(tanggalMasuk) {
+  if (!tanggalMasuk) return '-';
+  const masuk = new Date(tanggalMasuk);
+  const sekarang = new Date();
+  let years = sekarang.getFullYear() - masuk.getFullYear();
+  let months = sekarang.getMonth() - masuk.getMonth();
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+  if (years > 0) return years + ' thn ' + months + ' bln';
+  return months + ' bulan';
+}

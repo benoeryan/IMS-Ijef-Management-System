@@ -1631,173 +1631,187 @@ async function simpanAkun(id) {
 // ── APPROVAL CENTER — Multi-step flow with department filtering ──
 async function renderApprovalCenter(tab = 'pending') {
   const main = document.getElementById('mainContent');
+  if (!main) return;
+
   const role = (currentUser.role || '').toLowerCase();
   const isBOD = role === 'bod' || role === 'founder';
   const isAdmin = hasAccess(6);
-  const isPowerUser = isAdmin || isBOD || hasAccess(4); // HEAD/Level 4 can also manage flows in center
+  const isPowerUser = isAdmin || isBOD || hasAccess(4);
 
   main.innerHTML = `<div class="page-title"><span>✅ Approval Center</span></div>
     <div class="tabs mb-16" id="approvalTabs">
       <div class="tab ${tab === 'pending' ? 'active' : ''}" onclick="renderApprovalCenter('pending')">⏳ Menunggu</div>
       <div class="tab ${tab === 'history' ? 'active' : ''}" onclick="renderApprovalCenter('history')">📜 Riwayat</div>
     </div>
-    <div class="card" id="approvalList">Loading...</div>`;
+    <div class="card" id="approvalList">
+      <div class="p-20 text-center"><div class="spinner mb-12"></div><p>Memuat data approval...</p></div>
+    </div>`;
 
-  const myName = (currentUser.nama || '').toLowerCase().trim();
-  const myDept = (currentUser.departemen || '').toLowerCase().trim();
-  const isGM = (currentUser.posisi || '').toLowerCase().includes('general manager') || (currentUser.posisi || '').toLowerCase() === 'gm';
-  // isAdmin already declared above
+  try {
+      const myName = (currentUser.nama || '').toLowerCase().trim();
+      const myDept = (currentUser.departemen || '').toLowerCase().trim();
+      const isGM = (currentUser.posisi || '').toLowerCase().includes('general manager') || (currentUser.posisi || '').toLowerCase() === 'gm';
 
-  // Load approval flows
-  const flowSnap = await db.collection('hrd_approval_flow').get();
-  const flows = [];
-  flowSnap.forEach((d) => flows.push({ id: d.id, ...d.data() }));
+      // Parallel Data Fetching for performance and robustness
+      const collections = [
+        'hrd_cuti',
+        'hrd_overtime',
+        'hrd_reimbursement',
+        'hrd_kasbon',
+        'hrd_dinas_luar',
+        'hrd_perjalanan_dinas',
+        'hrd_reimburse_dinas',
+      ];
 
-  // Load all karyawan to build hierarchy and dept mapping
-  const karySnap = await db.collection('hrd_karyawan').get();
-  const allKaryawan = [];
-  const deptMap = {};
-  const gradeMap = {};
+      const [flowSnap, karySnap, ...colSnaps] = await Promise.all([
+          db.collection('hrd_approval_flow').get(),
+          db.collection('hrd_karyawan').get(),
+          ...collections.map(col => {
+              if (tab === 'pending') {
+                  return db.collection(col).where('status', 'in', ['pending', 'step1', 'step2', 'step3']).get().catch(err => {
+                      console.warn(`Query failed for ${col}, falling back to full fetch:`, err);
+                      return db.collection(col).get();
+                  });
+              } else {
+                  return db.collection(col).orderBy('createdAt', 'desc').limit(100).get().catch(err => {
+                      console.warn(`OrderBy failed for ${col}, falling back to full fetch:`, err);
+                      return db.collection(col).get();
+                  });
+              }
+          })
+      ]);
 
-  karySnap.forEach((d) => {
-    const k = d.data();
-    const namaLower = (k.nama || '').toLowerCase().trim();
-    allKaryawan.push({ id: d.id, ...k });
-    deptMap[namaLower] = (k.departemen || '').trim();
-    gradeMap[namaLower] = (k.gradeJabatan || k.posisi || '').toLowerCase();
-  });
+      const flows = [];
+      flowSnap.forEach(d => flows.push({ id: d.id, ...d.data() }));
 
-  // Calculate my subordinates for history view filtering
-  const mySubordinates = getAllSubordinates(currentUser.nama, allKaryawan);
+      const allKaryawan = [];
+      const deptMap = {};
+      const gradeMap = {};
+      karySnap.forEach(d => {
+          const k = d.data();
+          const n = (k.nama || '').toLowerCase().trim();
+          allKaryawan.push({ id: d.id, ...k });
+          deptMap[n] = (k.departemen || '').trim();
+          gradeMap[n] = (k.gradeJabatan || k.posisi || '').toLowerCase();
+      });
 
-  const collections = [
-    'hrd_cuti',
-    'hrd_overtime',
-    'hrd_reimbursement',
-    'hrd_kasbon',
-    'hrd_dinas_luar',
-    'hrd_perjalanan_dinas',
-    'hrd_reimburse_dinas',
-  ];
+      const mySubordinates = getAllSubordinates(currentUser.nama, allKaryawan);
 
-  let items = [];
-  for (const col of collections) {
-    try {
-      let q = db.collection(col);
-      if (tab === 'pending') {
-        q = q.where('status', 'in', ['pending', 'step1', 'step2', 'step3']);
-      } else {
-        // Fetch last 100 for history to keep it snappy
-        q = q.orderBy('createdAt', 'desc').limit(100);
+      let items = [];
+      colSnaps.forEach((snap, idx) => {
+          const colName = collections[idx];
+          snap.forEach(d => {
+              const data = { id: d.id, collection: colName, ...d.data() };
+              const n = (data.nama || '').toLowerCase().trim();
+              data._dept = (data.departemen || deptMap[n] || '').toLowerCase().trim();
+              items.push(data);
+          });
+      });
+
+      if (tab === 'history') {
+          items = items.filter(x => !['pending', 'step1', 'step2', 'step3'].includes(x.status));
       }
 
-      const snap = await q.get();
-      snap.forEach((d) => {
-        const data = { id: d.id, collection: col, ...d.data() };
-        data._dept = (
-          data.departemen ||
-          deptMap[(data.nama || '').toLowerCase().trim()] ||
-          ''
-        ).toLowerCase().trim();
-        items.push(data);
+      items.sort((a, b) => (String(b.createdAt || '')).localeCompare(String(a.createdAt || '')));
+
+      let h = '';
+      let visibleCount = 0;
+
+      items.forEach(item => {
+          try {
+              const cat = getApprovalCategory(item.collection, item);
+              const flow = flows.find(f => isSameName(f.pengaju, item.nama) && f.jenis === cat && f.steps?.length > 0) ||
+                           flows.find(f => isSameName(f.pengaju, item.nama) && f.steps?.length > 0);
+
+              const steps = flow?.steps || [];
+              const currentStep = item.approvalStep || 0;
+              const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
+              const isExplicitlyMyTurn = isSameName(currentApprover, myName);
+
+              let canSee = false;
+              const isOwn = isSameName(item.nama, currentUser.nama);
+              const isSubordinate = mySubordinates.includes((item.nama || "").toLowerCase().trim());
+
+              if (isAdmin || isGM) {
+                  canSee = true;
+              } else {
+                  if (tab === 'pending') {
+                      canSee = isExplicitlyMyTurn;
+                  } else if (tab === 'history') {
+                      canSee = isOwn || isSubordinate;
+                  }
+              }
+
+              if (!canSee) return;
+              visibleCount++;
+
+              const typeLabel = item.collection.replace('hrd_', '').replace('_', ' ').toUpperCase();
+              const detail = item.jenis || item.kategori || item.tujuan || '';
+              const jumlahStr = item.jumlah ? ` — ${formatCurrency(item.jumlah)}` : '';
+              const durasiStr = item.durasi ? ` (${item.durasi} hari)` : '';
+
+              let progressHtml = '';
+              if (steps.length) {
+                  progressHtml = '<div class="flex gap-4 mt-8" style="flex-wrap:wrap">';
+                  steps.forEach((s, i) => {
+                      const done = i < currentStep;
+                      const active = i === currentStep;
+                      const color = done ? '#2e7d32' : active ? 'var(--accent)' : '#ccc';
+                      progressHtml += `<span style="font-size:.6rem;padding:2px 6px;border-radius:4px;background:${done ? '#e8f5e9' : active ? '#fce4ec' : '#f5f5f5'};color:${color};border:1px solid ${color}">${done ? '✓ ' : ''}${escHtml(s.nama || '')}</span>`;
+                      if (i < steps.length - 1) progressHtml += `<span style="color:#ccc;font-size:.6rem">→</span>`;
+                  });
+                  progressHtml += '</div>';
+              }
+
+              const statusColor = { approved: 'success', rejected: 'danger', pending: 'warning', selesai: 'info' }[item.status] || 'info';
+              const statusHtml = tab === 'history' ? `<span class="badge badge-${statusColor}">${(item.status || '').toUpperCase()}</span> ` : '';
+
+              let actionButtons = `<button class="btn btn-xs btn-primary" onclick="viewApprovalDetail('${item.collection}','${item.id}')" title="Lihat Detail">👁️</button>`;
+              if (tab === 'pending' && (isAdmin || isExplicitlyMyTurn)) {
+                  actionButtons += `
+                    <button class="btn btn-xs btn-success" onclick="approveItem('${item.collection}','${item.id}','approved')" title="Setujui">✅</button>
+                    <button class="btn btn-xs btn-danger" onclick="approveItem('${item.collection}','${item.id}','rejected')" title="Tolak">❌</button>`;
+              }
+
+              if (isPowerUser) {
+                  const editFuncs = { hrd_cuti: 'editCutiDoc', hrd_overtime: 'editOTDoc', hrd_reimbursement: 'editReimb', hrd_kasbon: 'editKasbonDoc', hrd_dinas_luar: 'editDinasLuar', hrd_perjalanan_dinas: 'editSPPD' };
+                  const editFn = editFuncs[item.collection];
+                  if (editFn) actionButtons += ` <button class="btn btn-xs btn-warning" onclick="${editFn}('${item.id}')" title="Edit">✏️</button>`;
+                  actionButtons += ` <button class="btn btn-xs btn-danger" onclick="hapusDoc('${item.collection}','${item.id}','approval-center')" title="Hapus">🗑️</button>`;
+              }
+
+              h += `<div style="padding:14px;border-bottom:1px solid var(--border)">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                  <div style="flex:1">
+                    <div>
+                      ${statusHtml}
+                      <span class="badge badge-info" style="font-size:.65rem">${typeLabel}</span>
+                      <span class="fw-700">${escHtml(item.nama)}</span>
+                      <span class="badge" style="background:#eee;color:#555;font-size:.6rem">${escHtml(item._dept?.toUpperCase() || '-')}</span>
+                    </div>
+                    <div class="text-sm" style="color:#555;margin-top:4px">${escHtml(detail)}${durasiStr}${jumlahStr}</div>
+                    <div class="text-xs" style="color:#999;margin-top:2px">${formatDateTime(item.createdAt)}</div>
+                  </div>
+                  <div class="flex gap-4">
+                    ${actionButtons}
+                  </div>
+                </div>
+                ${progressHtml}
+              </div>`;
+          } catch (loopErr) {
+              console.error('Error in approval item loop:', loopErr, item);
+          }
       });
-    } catch (e) {
-      console.warn(`Error fetching ${col}:`, e);
-      // Fallback for collections without composite index
-      const snap = await db.collection(col).get();
-      snap.forEach((d) => {
-        const data = { id: d.id, collection: col, ...d.data() };
-        data._dept = (
-          data.departemen ||
-          deptMap[(data.nama || '').toLowerCase().trim()] ||
-          ''
-        ).toLowerCase().trim();
-        items.push(data);
-      });
-    }
+
+      if (!visibleCount)
+          h = `<div class="empty-state"><div class="icon">✅</div><p>Tidak ada data ${tab === 'pending' ? 'menunggu approval' : 'riwayat'}</p></div>`;
+
+      document.getElementById('approvalList').innerHTML = h;
+  } catch (err) {
+      console.error('renderApprovalCenter critical error:', err);
+      document.getElementById('approvalList').innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Terjadi kesalahan saat memuat data. Silakan refresh browser.</p><div class="text-xs color-gray mt-8">${err.message}</div></div>`;
   }
-
-  // Filter history tab for non-pending items (or show all if you prefer)
-  if (tab === 'history') {
-      items = items.filter(x => !['pending', 'step1', 'step2', 'step3'].includes(x.status));
-  }
-
-  items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-  let h = '';
-  let visibleCount = 0;
-
-  items.forEach((item) => {
-    const cat = getApprovalCategory(item.collection, item);
-    const flow = flows.find((f) => isSameName(f.pengaju, item.nama) && f.jenis === cat && f.steps && f.steps.length > 0) ||
-                 flows.find((f) => isSameName(f.pengaju, item.nama) && f.steps && f.steps.length > 0);
-
-    const steps = flow?.steps || [];
-    const currentStep = item.approvalStep || 0;
-    const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
-
-    const isExplicitlyMyTurn = isSameName(currentApprover, myName);
-    const isMyTurnForActions = isAdmin || isExplicitlyMyTurn;
-
-    // --- ENHANCED FILTERING (v11.4) ---
-    // Rules:
-    // 1. Admin & GM see everything.
-    // 2. Pending Tab: Only show if it's explicitly my turn.
-    // 3. History Tab: Only show if it's my own request OR request from a subordinate.
-
-    let canSee = false;
-    const isOwn = isSameName(item.nama, currentUser.nama);
-    const isSubordinate = mySubordinates.includes((item.nama || "").toLowerCase().trim());
-
-    if (isAdmin || isGM) {
-        canSee = true;
-    } else {
-        if (tab === 'pending') {
-            canSee = isExplicitlyMyTurn;
-        } else if (tab === 'history') {
-            canSee = isOwn || isSubordinate;
-        }
-    }
-
-    if (!canSee) return;
-    visibleCount++;
-
-    const typeLabel = item.collection.replace('hrd_', '').toUpperCase();
-    const detail = item.jenis || item.kategori || '';
-    const jumlah = item.jumlah ? ` — ${formatCurrency(item.jumlah)}` : '';
-    const durasi = item.durasi ? ` (${item.durasi} hari)` : '';
-
-    let progressHtml = '';
-    if (steps.length) {
-      progressHtml = '<div class="flex gap-4 mt-8" style="flex-wrap:wrap">';
-      steps.forEach((s, i) => {
-        const done = i < currentStep;
-        const active = i === currentStep;
-        const color = done ? '#2e7d32' : active ? 'var(--accent)' : '#ccc';
-        progressHtml += `<span style="font-size:.6rem;padding:2px 6px;border-radius:4px;background:${done ? '#e8f5e9' : active ? '#fce4ec' : '#f5f5f5'};color:${color};border:1px solid ${color}">${done ? '✓ ' : ''}${escHtml(s.nama || '')}</span>`;
-        if (i < steps.length - 1)
-          progressHtml += `<span style="color:#ccc;font-size:.6rem">→</span>`;
-      });
-      progressHtml += '</div>';
-    }
-
-    // Status Badge for History
-    const statusColor = {
-        'approved': 'success',
-        'rejected': 'danger',
-        'pending': 'warning'
-    }[item.status] || 'info';
-    const statusHtml = tab === 'history' ? `<span class="badge badge-${statusColor}">${(item.status || '').toUpperCase()}</span> ` : '';
-
-    // Action Buttons
-    let actionButtons = `<button class="btn btn-xs btn-primary" onclick="viewApprovalDetail('${item.collection}','${item.id}')">👁️</button>`;
-
-    if (tab === 'pending' && isMyTurnForActions) {
-        actionButtons += `
-          <button class="btn btn-xs btn-success" onclick="approveItem('${item.collection}','${item.id}','approved')">✅</button>
-          <button class="btn btn-xs btn-danger" onclick="approveItem('${item.collection}','${item.id}','rejected')">❌</button>`;
-    }
-
-    if (isPowerUser) {
+}
         const editFuncs = {
             'hrd_cuti': 'editCutiDoc',
             'hrd_overtime': 'editOTDoc',

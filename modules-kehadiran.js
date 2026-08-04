@@ -185,16 +185,6 @@ async function fixExistingCutiDurasi() {
   renderCuti();
 }
 
-function hitungMasaKerja(tanggalMasuk) {
-  if (!tanggalMasuk) return '-';
-  const masuk = new Date(tanggalMasuk);
-  const now = new Date();
-  const bulan = Math.floor((now - masuk) / (30 * 24 * 60 * 60 * 1000));
-  const tahun = Math.floor(bulan / 12);
-  const sisaBulan = bulan % 12;
-  if (tahun > 0) return `${tahun} thn ${sisaBulan} bln`;
-  return `${bulan} bulan`;
-}
 function modalCuti() {
   openModal(
     `<div class="modal-title">Pengajuan Cuti / Izin Berbayar</div>

@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '12.1',
+            version: '12.2',
             updatedAt: new Date().toISOString(),
-            note: 'Approval Center data synchronization & evidence support'
+            note: 'Optimization: Approval Center Parallel Fetching & Global Helpers'
         }, { merge: true });
 
     } catch (e) {
