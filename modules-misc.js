@@ -1873,6 +1873,21 @@ async function _buildCutiDetail(p, karyawan) {
   if (p.keterangan)
     h += `<div style="grid-column:1/-1"><b>Keterangan:</b> ${escHtml(p.keterangan)}</div>`;
   h += '</div>';
+
+  // Attachments display
+  if (p.attachments && p.attachments.length > 0) {
+      h += '<div class="mt-12"><div class="fw-700 text-xs mb-4">📎 Lampiran / Bukti:</div><div class="flex gap-8" style="flex-wrap:wrap">';
+      p.attachments.forEach((file, idx) => {
+          const isImg = file.type?.startsWith('image/') || file.data?.startsWith('data:image/');
+          if (isImg) {
+              h += `<img src="${file.data}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #ddd" onclick="window.open('${file.data}')" title="Klik untuk perbesar">`;
+          } else {
+              h += `<button class="btn btn-xs btn-outline-primary" onclick="downloadBlob('${file.data}', '${file.name || 'lampiran_' + idx}')">📄 ${escHtml(file.name || 'File ' + (idx + 1))}</button>`;
+          }
+      });
+      h += '</div></div>';
+  }
+
   // Leave quota calculation
   if (karyawan && (p.jenis || '').toLowerCase().includes('cuti tahunan')) {
     try {
@@ -1938,6 +1953,21 @@ async function _buildOvertimeDetail(p, karyawan) {
   h += `<div><b>Jam Selesai:</b> ${p.jamSelesai || '-'}</div>`;
   if (p.alasan) h += `<div style="grid-column:1/-1"><b>Alasan:</b> ${escHtml(p.alasan)}</div>`;
   h += '</div>';
+
+  // Attachments display
+  if (p.attachments && p.attachments.length > 0) {
+      h += '<div class="mt-12"><div class="fw-700 text-xs mb-4">📎 Lampiran / Bukti:</div><div class="flex gap-8" style="flex-wrap:wrap">';
+      p.attachments.forEach((file, idx) => {
+          const isImg = file.type?.startsWith('image/') || file.data?.startsWith('data:image/');
+          if (isImg) {
+              h += `<img src="${file.data}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #ddd" onclick="window.open('${file.data}')" title="Klik untuk perbesar">`;
+          } else {
+              h += `<button class="btn btn-xs btn-outline-primary" onclick="downloadBlob('${file.data}', '${file.name || 'lampiran_' + idx}')">📄 ${escHtml(file.name || 'File ' + (idx + 1))}</button>`;
+          }
+      });
+      h += '</div></div>';
+  }
+
   // Monthly overtime total
   try {
     const tgl = p.tanggal || '';
@@ -1984,81 +2014,170 @@ async function _buildOvertimeDetail(p, karyawan) {
 async function _buildDinasDetail(p, karyawan) {
   let h =
     '<div style="background:#fff;padding:14px;border-radius:8px;border:1px solid var(--border);margin-bottom:16px">';
-  h += '<div class="fw-700 mb-8" style="font-size:.88rem">✈️ Detail Perjalanan Dinas</div>';
+  h += '<div class="fw-700 mb-8" style="font-size:.88rem">✈️ Detail Dinas Luar</div>';
   h += '<div class="grid-2" style="gap:8px;font-size:.85rem">';
   const tglMulai = p.tanggalMulai || p.tanggal || '';
   const tglSelesai = p.tanggalSelesai || p.tanggal || '';
   h += `<div><b>Tanggal:</b> ${formatDate(tglMulai)}${tglSelesai && tglSelesai !== tglMulai ? ' s/d ' + formatDate(tglSelesai) : ''}</div>`;
   h += `<div><b>Tujuan:</b> ${escHtml(p.tujuan || '-')}</div>`;
-  if (p.keperluan)
-    h += `<div style="grid-column:1/-1"><b>Keperluan:</b> ${escHtml(p.keperluan)}</div>`;
+  if (p.noSPPD) h += `<div><b>No. SPPD:</b> ${escHtml(p.noSPPD)}</div>`;
   const grade = p.gradeJabatan || (karyawan && (karyawan.gradeJabatan || karyawan.grade)) || '';
   h += `<div><b>Grade:</b> ${escHtml(grade || '-')}</div>`;
+  if (p.keperluan)
+    h += `<div style="grid-column:1/-1"><b>Keperluan:</b> ${escHtml(p.keperluan)}</div>`;
   // Duration
   if (tglMulai && tglSelesai) {
     const dur = Math.max(1, Math.ceil((new Date(tglSelesai) - new Date(tglMulai)) / 86400000) + 1);
     h += `<div><b>Durasi:</b> ${dur} hari</div>`;
   }
+  if (p.transportasi) h += `<div><b>Transport:</b> ${escHtml(p.transportasi)}</div>`;
+  if (p.akomodasi) h += `<div><b>Akomodasi:</b> ${escHtml(p.akomodasi)}</div>`;
   h += '</div>';
-  // Grade-based benefit entitlement
+
+  // Evidence display
+  if (p.evidenceURL) {
+      const isImg = p.evidenceURL.match(/\.(jpg|jpeg|png|gif|webp)/i);
+      h += `<div class="mt-12"><div class="fw-700 text-xs mb-4">📎 Lampiran / Eviden:</div>
+        <div class="mt-4">
+          ${isImg ? `<img src="${p.evidenceURL}" style="max-width:150px;max-height:150px;object-fit:contain;border-radius:8px;cursor:pointer;border:1px solid #ddd" onclick="window.open('${p.evidenceURL}')">` : `<a href="${p.evidenceURL}" target="_blank" class="btn btn-xs btn-outline-primary">📎 Lihat Dokumen</a>`}
+        </div>
+      </div>`;
+  }
+
+  // Grade-based benefit entitlement (static limits only for Dinas Luar info)
   try {
-    const gradeConfig = await getGradeConfig(grade);
-    if (gradeConfig) {
-      h +=
-        '<div style="margin-top:12px;padding:10px;background:#f0f7ff;border-radius:6px;font-size:.83rem">';
-      h += `<div class="fw-700 mb-4">📋 Hak Benefit (${escHtml(gradeConfig.label || resolveGradeKey(grade))})</div>`;
-      h += '<div class="grid-2" style="gap:6px">';
-      h += `<div>Uang Harian: ${formatCurrency(gradeConfig.uangHarian || 0)}</div>`;
-      h += `<div>Max Transport: ${formatCurrency(gradeConfig.maxTransport || 0)}</div>`;
-      h += `<div>Max Hotel: ${formatCurrency(gradeConfig.maxHotel || 0)}</div>`;
-      h += `<div>Max Makan: ${formatCurrency(gradeConfig.maxMakan || 0)}</div>`;
-      h += '</div></div>';
-      // Cost comparison
-      const costs = [
-        {
-          label: 'Biaya Harian',
-          submitted: parseFloat(p.biayaHarian) || 0,
-          max: gradeConfig.uangHarian || 0,
-        },
-        {
-          label: 'Transport PP',
-          submitted: parseFloat(p.biayaTransportPP) || 0,
-          max: gradeConfig.maxTransport || 0,
-        },
-        {
-          label: 'Penginapan',
-          submitted: parseFloat(p.biayaPenginapan) || 0,
-          max: gradeConfig.maxHotel || 0,
-        },
-        {
-          label: 'Makan',
-          submitted: parseFloat(p.biayaMakan) || 0,
-          max: gradeConfig.maxMakan || 0,
-        },
-      ];
-      const hasAnyCost = costs.some((c) => c.submitted > 0);
-      if (hasAnyCost) {
-        h +=
-          '<div style="margin-top:8px;padding:10px;background:#fff;border-radius:6px;border:1px solid var(--border);font-size:.83rem">';
-        h += '<div class="fw-700 mb-4">💰 Perbandingan Biaya vs Limit</div>';
-        costs.forEach((c) => {
-          if (c.submitted > 0 || c.max > 0) {
-            const exceed = c.submitted > c.max;
-            h += `<div style="margin-bottom:4px;${exceed ? 'color:#d32f2f;font-weight:700' : ''}">`;
-            h += `${exceed ? '⚠️ ' : ''}${c.label}: ${formatCurrency(c.submitted)} / ${formatCurrency(c.max)}`;
-            if (exceed) h += ' (MELEBIHI LIMIT)';
-            h += '</div>';
-          }
-        });
-        if (p.totalEstimasi)
-          h += `<div style="margin-top:6px;font-weight:700">Total Estimasi: ${formatCurrency(parseFloat(p.totalEstimasi) || 0)}</div>`;
-        h += '</div>';
-      }
+    if (typeof getGradeConfig === 'function') {
+        const gradeConfig = await getGradeConfig(grade);
+        if (gradeConfig) {
+          h +=
+            '<div style="margin-top:12px;padding:12px;background:#f0f4ff;border-radius:8px;font-size:.83rem;border-left:4px solid var(--accent)">';
+          h += `<div class="fw-700 mb-6">📋 Hak Benefit (${escHtml(gradeConfig.label || resolveGradeKey(grade))})</div>`;
+          h += '<div class="grid-2" style="gap:6px">';
+          h += `<div>Uang Harian: <b>${formatCurrency(gradeConfig.uangHarian || 0)}</b></div>`;
+          h += `<div>Max Transport: <b>${formatCurrency(gradeConfig.maxTransport || 0)}</b></div>`;
+          h += `<div>Max Hotel: <b>${formatCurrency(gradeConfig.maxHotel || 0)}</b></div>`;
+          h += `<div>Max Makan: <b>${formatCurrency(gradeConfig.maxMakan || 0)}</b></div>`;
+          h += '</div></div>';
+        }
     }
   } catch (e) {
-    console.warn('Error loading grade config:', e);
+    console.warn('Error loading benefit config in approval:', e);
   }
   h += '</div>';
+  return h;
+}
+
+/**
+ * Build detailed SPPD view for approval, matching the portal view.
+ */
+async function _buildSppdDetail(p, karyawan) {
+  const durasi = p.tanggalMulai && p.tanggalSelesai
+      ? Math.ceil((new Date(p.tanggalSelesai) - new Date(p.tanggalMulai)) / 86400000 + 1) + ' hari'
+      : '-';
+  const durasiFull = p.tanggalMulai && p.tanggalSelesai
+      ? Math.ceil((new Date(p.tanggalSelesai) - new Date(p.tanggalMulai)) / 86400000 + 1)
+      : 0;
+
+  const sppdGrade = p.gradeJabatan || (karyawan && (karyawan.gradeJabatan || karyawan.grade)) || 'STAFF';
+  let gradeBenefitHtml = '';
+
+  if (durasiFull > 0 && typeof getGradeConfig === 'function') {
+    const cfg = await getGradeConfig(sppdGrade);
+    const malam = Math.max(durasiFull - 1, 0);
+    const maxTransport = cfg.maxTransport;
+    const maxAkomodasi = cfg.maxHotel * malam;
+    const maxMakan = (cfg.maxMakan + cfg.uangSaku) * durasiFull;
+
+    const transportStatus = (p.biayaTransport || 0) <= maxTransport ? 'color:var(--success)' : 'color:var(--danger)';
+    const akomodasiStatus = malam > 0 && (p.biayaAkomodasi || 0) <= maxAkomodasi ? 'color:var(--success)' : (malam === 0 ? 'color:var(--success)' : 'color:var(--danger)');
+    const makanStatus = (p.biayaMakan || 0) <= maxMakan ? 'color:var(--success)' : 'color:var(--danger)';
+
+    gradeBenefitHtml = `<div class="mb-16" style="background:#f0f4ff;padding:12px;border-radius:8px;border-left:4px solid var(--accent)">
+      <div class="fw-700 text-sm mb-8">🎯 Benefit Grade: <span class="badge badge-info">${escHtml(sppdGrade)}</span> (${escHtml(cfg.label)})</div>
+      <div class="text-sm" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">
+        <div>Transport</div><div>Diajukan: ${formatCurrency(p.biayaTransport || 0)}</div><div style="${transportStatus}">Max: ${formatCurrency(maxTransport)}</div>
+        <div>Akomodasi</div><div>Diajukan: ${formatCurrency(p.biayaAkomodasi || 0)}</div><div style="${akomodasiStatus}">Max: ${formatCurrency(maxAkomodasi)} (${malam} mlm)</div>
+        <div>Makan+Saku</div><div>Diajukan: ${formatCurrency(p.biayaMakan || 0)}</div><div style="${makanStatus}">Max: ${formatCurrency(maxMakan)} (${durasiFull} hr)</div>
+      </div>
+    </div>`;
+  }
+
+  let h = `<div style="background:#fff;padding:16px;border-radius:8px;border:1px solid var(--border);margin-bottom:16px">`;
+  h += `<div class="fw-700 mb-12" style="font-size:1rem;color:var(--primary)">✈️ Detail Perjalanan Dinas (SPPD)</div>`;
+
+  h += `<div class="grid-2 mb-16" style="font-size:.85rem;gap:10px">
+    <div><b>No. SPPD:</b> ${escHtml(p.noSPPD || '-')}</div>
+    <div><b>Tujuan:</b> ${escHtml(p.tujuan || '-')}</div>
+    <div><b>Klien/Instansi:</b> ${escHtml(p.klien || '-')}</div>
+    <div><b>Tanggal:</b> ${formatDate(p.tanggalMulai)} - ${formatDate(p.tanggalSelesai)}</div>
+    <div><b>Durasi:</b> ${durasi}</div>
+    <div><b>Transport:</b> ${escHtml(p.transportasi || '-')}</div>
+    <div><b>Akomodasi:</b> ${escHtml(p.akomodasi || '-')}</div>
+  </div>`;
+
+  if (p.keperluan) h += `<div class="mb-16"><b>Keperluan:</b><div class="text-sm mt-4" style="background:#f8f9ff;padding:10px;border-radius:6px">${escHtml(p.keperluan)}</div></div>`;
+
+  h += gradeBenefitHtml;
+
+  h += `<div class="fw-700 mb-8" style="font-size:.85rem">💰 Estimasi Biaya:</div>
+    <div class="grid-2 mb-16" style="background:#f8f9ff;padding:12px;border-radius:8px;font-size:.85rem">
+      <div>Transport: ${formatCurrency(p.biayaTransport || 0)}</div>
+      <div>Akomodasi: ${formatCurrency(p.biayaAkomodasi || 0)}</div>
+      <div>Makan & Saku: ${formatCurrency(p.biayaMakan || 0)}</div>
+      <div>Lain-lain: ${formatCurrency(p.biayaLain || 0)}</div>
+      <div class="fw-700" style="grid-column:span 2;border-top:1px solid var(--border);padding-top:8px;margin-top:4px;font-size:.9rem;color:var(--primary)">Total: ${formatCurrency(p.totalEstimasi || 0)}</div>
+    </div>`;
+
+  if (p.catatan) h += `<div class="mb-16"><b>Catatan:</b><div class="text-sm mt-4 italic">${escHtml(p.catatan)}</div></div>`;
+
+  if (p.evidenceURL) {
+      const isImg = p.evidenceURL.match(/\.(jpg|jpeg|png|gif|webp)/i);
+      h += `<div class="mb-16"><b>Lampiran / Eviden:</b><div class="mt-4">${isImg ? `<img src="${p.evidenceURL}" style="max-width:100%;border-radius:8px;cursor:pointer;border:1px solid #ddd" onclick="window.open('${p.evidenceURL}')">` : `<a href="${p.evidenceURL}" target="_blank" class="btn btn-xs btn-outline-primary">📎 Lihat Dokumen</a>`}</div></div>`;
+  }
+
+  h += `</div>`;
+  return h;
+}
+
+/**
+ * Build detailed Reimbursement Dinas view for approval.
+ */
+async function _buildReimbDinasDetail(p) {
+  const selisih = (p.totalAktual || 0) - (p.uangMuka || 0);
+  const selisihLabel = selisih > 0 ? `Kurang Bayar: ${formatCurrency(selisih)} (perusahaan bayar ke karyawan)` : `Kelebihan: ${formatCurrency(Math.abs(selisih))} (karyawan kembalikan ke perusahaan)`;
+  const selisihColor = selisih > 0 ? 'var(--danger)' : 'var(--success)';
+
+  let h = `<div style="background:#fff;padding:16px;border-radius:8px;border:1px solid var(--border);margin-bottom:16px">`;
+  h += `<div class="fw-700 mb-12" style="font-size:1rem;color:var(--primary)">🧾 Detail Reimbursement Dinas</div>`;
+
+  h += `<div class="grid-2 mb-16" style="font-size:.85rem">
+    <div><b>No. SPPD:</b> ${escHtml(p.noSPPD)}</div>
+    <div><b>Tanggal:</b> ${formatDate(p.createdAt)}</div>
+  </div>`;
+
+  h += `<div class="mb-16" style="background:#f8f9ff;padding:14px;border-radius:8px;font-size:.85rem">
+    <div class="fw-700 mb-8">💰 Rincian Biaya Aktual:</div>
+    <div class="grid-2" style="gap:6px">
+      <div>Transport: ${formatCurrency(p.biayaTransport || 0)}</div>
+      <div>Akomodasi: ${formatCurrency(p.biayaAkomodasi || 0)}</div>
+      <div>Makan & Saku: ${formatCurrency(p.biayaMakan || 0)}</div>
+      <div>Lain-lain: ${formatCurrency(p.biayaLain || 0)}</div>
+    </div>
+    <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:grid;gap:4px">
+      <div class="fw-700">Total Aktual: ${formatCurrency(p.totalAktual || 0)}</div>
+      <div>Uang Muka: ${formatCurrency(p.uangMuka || 0)}</div>
+      <div class="fw-700 mt-4" style="color:${selisihColor}">${selisihLabel}</div>
+    </div>
+  </div>`;
+
+  if (p.keterangan) h += `<div class="mb-16"><b>Keterangan Bukti:</b><div class="text-sm mt-4">${escHtml(p.keterangan)}</div></div>`;
+
+  if (p.evidenceURL) {
+      const isImg = p.evidenceURL.match(/\.(jpg|jpeg|png|gif|webp)/i);
+      h += `<div class="mb-16"><b>Lampiran / Bukti:</b><div class="mt-4">${isImg ? `<img src="${p.evidenceURL}" style="max-width:100%;border-radius:8px;cursor:pointer;border:1px solid #ddd" onclick="window.open('${p.evidenceURL}')">` : `<a href="${p.evidenceURL}" target="_blank" class="btn btn-xs btn-outline-primary">📎 Lihat Dokumen</a>`}</div></div>`;
+  }
+
+  h += `</div>`;
   return h;
 }
 
@@ -2068,10 +2187,21 @@ async function _buildReimbDetail(p) {
   h += '<div class="fw-700 mb-8" style="font-size:.88rem">🧾 Detail Reimbursement</div>';
   h += '<div class="grid-2" style="gap:8px;font-size:.85rem">';
   h += `<div><b>Kategori:</b> ${escHtml(p.kategori || '-')}</div>`;
-  h += `<div><b>Jumlah:</b> ${formatCurrency(parseFloat(p.jumlah) || 0)}</div>`;
+  h += `<div><b>Jumlah:</b> <b class="color-primary">${formatCurrency(parseFloat(p.jumlah) || 0)}</b></div>`;
   if (p.keterangan)
     h += `<div style="grid-column:1/-1"><b>Keterangan:</b> ${escHtml(p.keterangan)}</div>`;
   h += '</div>';
+
+  // Evidence display
+  if (p.evidenceURL) {
+      const isImg = p.evidenceURL.match(/\.(jpg|jpeg|png|gif|webp)/i);
+      h += `<div class="mt-12"><div class="fw-700 text-xs mb-4">📎 Lampiran / Bukti:</div>
+        <div class="mt-4">
+          ${isImg ? `<img src="${p.evidenceURL}" style="max-width:150px;max-height:150px;object-fit:contain;border-radius:8px;cursor:pointer;border:1px solid #ddd" onclick="window.open('${p.evidenceURL}')">` : `<a href="${p.evidenceURL}" target="_blank" class="btn btn-xs btn-outline-primary">📎 Lihat Dokumen</a>`}
+        </div>
+      </div>`;
+  }
+
   // Claim history
   try {
     if (p.nama) {
@@ -2113,16 +2243,34 @@ async function _buildReimbDetail(p) {
 }
 
 async function _buildKasbonDetail(p, karyawan) {
+  const angsuran = p.angsuran || Math.ceil((parseFloat(p.jumlah) || 0) / (parseInt(p.cicilan) || 1));
+  const sisa = Math.max(0, (parseFloat(p.jumlah) || 0) - (parseFloat(p.sudahBayar) || 0));
+
   let h =
     '<div style="background:#fff;padding:14px;border-radius:8px;border:1px solid var(--border);margin-bottom:16px">';
   h += '<div class="fw-700 mb-8" style="font-size:.88rem">💳 Detail Kasbon/Pinjaman</div>';
   h += '<div class="grid-2" style="gap:8px;font-size:.85rem">';
   h += `<div><b>Jenis:</b> ${escHtml(p.jenis || '-')}</div>`;
-  h += `<div><b>Jumlah:</b> ${formatCurrency(parseFloat(p.jumlah) || 0)}</div>`;
+  h += `<div><b>Jumlah:</b> <b class="color-primary">${formatCurrency(parseFloat(p.jumlah) || 0)}</b></div>`;
   h += `<div><b>Cicilan:</b> ${p.cicilan || '-'}x</div>`;
-  if (p.angsuran)
-    h += `<div><b>Angsuran/bulan:</b> ${formatCurrency(parseFloat(p.angsuran) || 0)}</div>`;
+  h += `<div><b>Angsuran/bulan:</b> <b class="color-danger">${formatCurrency(parseFloat(angsuran) || 0)}</b></div>`;
+  if (p.sudahBayar) h += `<div><b>Sudah Bayar:</b> ${formatCurrency(p.sudahBayar)}</div>`;
+  if (sisa > 0) h += `<div><b>Sisa:</b> <b class="color-primary">${formatCurrency(sisa)}</b></div>`;
+
+  if (p.keterangan)
+    h += `<div style="grid-column:1/-1"><b>Keterangan:</b> ${escHtml(p.keterangan)}</div>`;
   h += '</div>';
+
+  // Evidence display
+  if (p.evidenceURL) {
+      const isImg = p.evidenceURL.match(/\.(jpg|jpeg|png|gif|webp)/i);
+      h += `<div class="mt-12"><div class="fw-700 text-xs mb-4">📎 Lampiran / Bukti:</div>
+        <div class="mt-4">
+          ${isImg ? `<img src="${p.evidenceURL}" style="max-width:150px;max-height:150px;object-fit:contain;border-radius:8px;cursor:pointer;border:1px solid #ddd" onclick="window.open('${p.evidenceURL}')">` : `<a href="${p.evidenceURL}" target="_blank" class="btn btn-xs btn-outline-primary">📎 Lihat Dokumen</a>`}
+        </div>
+      </div>`;
+  }
+
   // Existing active loans
   try {
     if (p.nama) {
@@ -2250,7 +2398,9 @@ async function viewApprovalDetail(col, id) {
     if (col === 'hrd_cuti') html += await _buildCutiDetail(p, karyawan);
     else if (col === 'hrd_overtime') html += await _buildOvertimeDetail(p, karyawan);
     else if (col === 'hrd_dinas_luar') html += await _buildDinasDetail(p, karyawan);
+    else if (col === 'hrd_perjalanan_dinas') html += await _buildSppdDetail(p, karyawan);
     else if (col === 'hrd_reimbursement') html += await _buildReimbDetail(p);
+    else if (col === 'hrd_reimburse_dinas') html += await _buildReimbDinasDetail(p);
     else if (col === 'hrd_kasbon') html += await _buildKasbonDetail(p, karyawan);
     else html += _buildGenericDetail(p);
     // Approval timeline
