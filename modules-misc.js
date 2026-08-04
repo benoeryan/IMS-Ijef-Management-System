@@ -620,7 +620,7 @@ async function _buildOvertimeDetail(p, karyawan) {
 async function _buildDinasDetail(p, karyawan) {
   let h =
     '<div style="background:#fff;padding:14px;border-radius:8px;border:1px solid var(--border);border-left:4px solid var(--primary);margin-bottom:16px">';
-  h += '<div class="fw-700 mb-8" style="font-size:.88rem">✈️ Detail Dinas Luar</div>';
+  h += '<div class="fw-700 mb-8" style="font-size:.88rem;color:var(--primary)">✈️ Detail Dinas Luar</div>';
   h += '<div class="grid-2" style="gap:8px;font-size:.85rem">';
   const tglMulai = p.tanggalMulai || p.tanggal || '';
   const tglSelesai = p.tanggalSelesai || p.tanggal || '';
@@ -632,13 +632,34 @@ async function _buildDinasDetail(p, karyawan) {
   if (p.keperluan)
     h += `<div style="grid-column:1/-1"><b>Keperluan:</b> ${escHtml(p.keperluan)}</div>`;
   // Duration
+  let dur = 0;
   if (tglMulai && tglSelesai) {
-    const dur = Math.max(1, Math.ceil((new Date(tglSelesai) - new Date(tglMulai)) / 86400000) + 1);
+    dur = Math.max(1, Math.ceil((new Date(tglSelesai) - new Date(tglMulai)) / 86400000) + 1);
     h += `<div><b>Durasi:</b> ${dur} hari</div>`;
   }
   if (p.transportasi) h += `<div><b>Transport:</b> ${escHtml(p.transportasi)}</div>`;
   if (p.akomodasi) h += `<div><b>Akomodasi:</b> ${escHtml(p.akomodasi)}</div>`;
   h += '</div>';
+
+  // --- SYNC WITH LINKED SPPD (Financial Data) ---
+  if (p.noSPPD) {
+      try {
+          const sppdSnap = await db.collection('hrd_perjalanan_dinas').where('noSPPD', '==', p.noSPPD).limit(1).get();
+          if (!sppdSnap.empty) {
+              const sppd = sppdSnap.docs[0].data();
+              h += `<div class="fw-700 mb-8 mt-16" style="font-size:.85rem;color:var(--primary)">💰 Rincian Estimasi Biaya (dari SPPD):</div>
+                <div class="grid-2 mb-16" style="background:#f9f9f9;padding:12px;border-radius:8px;font-size:.85rem">
+                  <div>Transport: ${formatCurrency(sppd.biayaTransport || 0)}</div>
+                  <div>Akomodasi: ${formatCurrency(sppd.biayaAkomodasi || 0)}</div>
+                  <div>Makan & Saku: ${formatCurrency(sppd.biayaMakan || 0)}</div>
+                  <div>Lain-lain: ${formatCurrency(sppd.biayaLain || 0)}</div>
+                  <div class="fw-700" style="grid-column:span 2;border-top:1px solid var(--border);padding-top:8px;margin-top:4px;font-size:.9rem;color:var(--primary)">Total: ${formatCurrency(sppd.totalEstimasi || 0)}</div>
+                </div>`;
+          }
+      } catch (e) {
+          console.warn('Sync SPPD failed:', e);
+      }
+  }
 
   // Evidence display
   if (p.evidenceURL) {
@@ -650,18 +671,19 @@ async function _buildDinasDetail(p, karyawan) {
       </div>`;
   }
 
-  // Grade-based benefit entitlement (static limits only for Dinas Luar info)
+  // Grade-based benefit entitlement
   try {
     if (typeof getGradeConfig === 'function') {
         const gradeConfig = await getGradeConfig(grade);
         if (gradeConfig) {
+          const malam = dur > 0 ? Math.max(dur - 1, 0) : 0;
           h +=
             '<div style="margin-top:12px;padding:12px;background:#f9f9f9;border-radius:8px;font-size:.83rem;border-left:4px solid var(--primary)">';
           h += `<div class="fw-700 mb-6">📋 Hak Benefit (${escHtml(gradeConfig.label || resolveGradeKey(grade))})</div>`;
           h += '<div class="grid-2" style="gap:6px">';
           h += `<div>Uang Harian: <b>${formatCurrency(gradeConfig.uangHarian || 0)}</b></div>`;
           h += `<div>Max Transport: <b>${formatCurrency(gradeConfig.maxTransport || 0)}</b></div>`;
-          h += `<div>Max Hotel: <b>${formatCurrency(gradeConfig.maxHotel || 0)}</b></div>`;
+          h += `<div>Max Hotel: <b>${formatCurrency(gradeConfig.maxHotel || 0)}</b> (${malam} mlm)</div>`;
           h += `<div>Max Makan: <b>${formatCurrency(gradeConfig.maxMakan || 0)}</b></div>`;
           h += '</div></div>';
         }

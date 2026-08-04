@@ -1158,7 +1158,7 @@ async function viewSPPD(id) {
           ? 'badge-info'
           : 'badge-warning';
   const sppdGrade = p.gradeJabatan || 'STAFF';
-  const cfg = getGradeConfig(sppdGrade);
+  const cfg = await getGradeConfig(sppdGrade);
   const malam = Math.max(durasiFull - 1, 0);
   let gradeBenefitHtml = '';
   if (durasiFull > 0) {
