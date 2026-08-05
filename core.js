@@ -684,6 +684,11 @@ function toggleNavGroup(el) {
   if (arrow) arrow.classList.toggle('open', isHidden);
 }
 
+function _setPageError(main, icon, message, page) {
+  const safePage = page.replace(/['"\\]/g, '');
+  main.innerHTML = `<div class="empty-state"><div class="icon">${icon}</div><p>${message}</p><button class="btn btn-sm btn-primary" style="margin-top:12px" onclick="navigateTo('${safePage}')">🔄 Coba Lagi</button></div>`;
+}
+
 function navigateTo(page) {
   if (currentPage !== page) {
     lastPage = currentPage;
@@ -791,7 +796,7 @@ function navigateTo(page) {
       fn();
     } catch (e) {
       console.error(`Error rendering page "${page}":`, e);
-      main.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Gagal memuat halaman "${page}". Silakan refresh browser.</p></div>`;
+      _setPageError(main, '❌', `Gagal memuat halaman "${page}". Silakan refresh browser.`, page);
     }
   } else if (funcName) {
     // Retry with increasing delays (in case scripts are still loading on slow connections)
@@ -803,12 +808,12 @@ function navigateTo(page) {
       if (typeof retryFn === 'function') {
         try { retryFn(); } catch (e) {
           console.error(`Error rendering "${page}":`, e);
-          main.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Gagal memuat halaman "${page}". Silakan refresh browser.</p></div>`;
+          _setPageError(main, '❌', `Gagal memuat halaman "${page}". Silakan refresh browser.`, page);
         }
       } else if (attempt < delays.length) {
         setTimeout(tryRender, delays[attempt++]);
       } else {
-        main.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Halaman "${page}" gagal dimuat. Periksa koneksi lalu refresh browser.</p></div>`;
+        _setPageError(main, '⚠️', `Halaman "${page}" gagal dimuat. Periksa koneksi lalu refresh browser.`, page);
       }
     };
     setTimeout(tryRender, delays[attempt++]);
