@@ -1367,12 +1367,26 @@ async function doMigrateWorkflow(oldId, oldNama, targetIdParam, targetNamaParam)
         const dUser = d[item.userField] || "";
 
         if (dNama === oldNama.toUpperCase() || dUser === oldId) {
-          batchHist.update(doc.ref, {
+          const updateObj = {
             [item.nameField]: newNama,
             [item.userField]: newId,
             updatedAt: new Date().toISOString(),
             migratedFrom: oldNama
-          });
+          };
+
+          // Deep text replacement for specific fields in daily tasks
+          if (item.col === 'hrd_daily_tasks') {
+              const fieldsToFix = ['title', 'description', 'aktivitas', 'hasil'];
+              fieldsToFix.forEach(f => {
+                  if (d[f] && typeof d[f] === 'string') {
+                      // Case-insensitive regex for old name
+                      const regex = new RegExp(oldNama, 'gi');
+                      updateObj[f] = d[f].replace(regex, newNama);
+                  }
+              });
+          }
+
+          batchHist.update(doc.ref, updateObj);
           countHistory++;
           hasHistChange = true;
         }
