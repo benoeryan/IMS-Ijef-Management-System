@@ -49,6 +49,35 @@ service firebase.storage {
       allow write: if isSignedIn() && request.auth.uid == uid;
     }
 
+    match /legal_perizinan/{uid}/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+        && request.auth.uid == uid
+        && isAllowedDocumentType()
+        && isWithinSizeLimit();
+    }
+
+    match /reimbursements/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+        && isAllowedDocumentType()
+        && isWithinSizeLimit();
+    }
+
+    match /kasbon/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+        && isAllowedDocumentType()
+        && isWithinSizeLimit();
+    }
+
+    match /sppd/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+        && isAllowedDocumentType()
+        && isWithinSizeLimit();
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }
