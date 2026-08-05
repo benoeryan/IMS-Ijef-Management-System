@@ -364,9 +364,15 @@ async function seedDefaultAccounts() {
 }
 
 async function doLogin(username, password) {
-  const doc = await db.collection('hrd_users').doc(username).get();
-  if (!doc.exists) throw new Error('Akun tidak ditemukan');
-  const data = doc.data();
+  let doc = await db.collection('hrd_users').doc(username).get();
+  let data;
+  if (!doc.exists) {
+    // Fallback: search by username field (in case doc ID is NIP or something else)
+    const snap = await db.collection('hrd_users').where('username', '==', username).limit(1).get();
+    if (snap.empty) throw new Error('Akun tidak ditemukan');
+    doc = snap.docs[0];
+  }
+  data = doc.data();
   if (data.password !== password) throw new Error('Password salah');
   if (data.status === 'nonaktif') throw new Error('Akun dinonaktifkan');
   currentUser = { id: doc.id, ...data };
