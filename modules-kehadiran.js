@@ -1588,42 +1588,50 @@ async function loadDailyTasks(filter) {
     const myDept = (currentUser.departemen || '').toLowerCase().trim();
     const myId = currentUser.id;
     const myLevel = ROLES[currentUser.role] || 0;
+    const myName = (currentUser.nama || '').toLowerCase().trim();
+
+    // Prep for Level 2 (Direct Subordinates)
+    let directSubNames = [];
+    if (myLevel === 2) {
+      const kSnap = await db.collection('hrd_karyawan').where('atasan', '==', currentUser.nama).get();
+      kSnap.forEach((sk) => {
+        const n = sk.data().nama;
+        if (n) directSubNames.push(n.toLowerCase().trim());
+      });
+    }
+    window._directSubNamesCache = directSubNames;
+
     snap.forEach((d) => {
       const t = d.data();
       const taskDept = (t.departemen || '').toLowerCase().trim();
-      const ownerLevel = t.ownerLevel || 0;
-      // Hierarchy-based visibility:
-      if (hasAccess(6)) {
-        // Admin: all access
-        _dailyTaskData.push({ id: d.id, ...t });
-      } else if (hasAccess(5)) {
-        // BOD: sees all reports + tasks assigned by BOD
-        if (t.type === 'report' || t.assignedBy === myId) _dailyTaskData.push({ id: d.id, ...t });
-      } else if (hasHeadLevelAccess()) {
-        // Head: own data + all divisions reports + own dept tasks + all assigned tasks in dept
-        if (t.userId === myId || t.assignedBy === myId) {
-          _dailyTaskData.push({ id: d.id, ...t });
-        } else if (t.type === 'report') {
-          _dailyTaskData.push({ id: d.id, ...t }); // All divisions reports
-        } else if (taskDept === myDept) {
-          _dailyTaskData.push({ id: d.id, ...t }); // Own dept tasks
-        } else if (t.assignedBy && t.assignedBy !== t.userId) {
-          // Include all assigned tasks (from managers below) regardless of dept field
-          _dailyTaskData.push({ id: d.id, ...t });
-        }
-      } else if (hasAccess(2)) {
-        // Leader/Manager: own data + own dept (but NOT reports from manager+ level — those are private)
-        if (t.userId === myId || t.assignedBy === myId) {
-          _dailyTaskData.push({ id: d.id, ...t });
-        } else if (taskDept === myDept) {
-          // Only show data from same or lower level (manager+ reports are private to staff/leader)
-          if (ownerLevel <= myLevel || ownerLevel === 0) _dailyTaskData.push({ id: d.id, ...t });
-        }
-      } else {
-        // Staff: own data only + tasks assigned to them
-        // Cannot see leader/manager/head reports (those are private)
-        if (t.userId === myId) _dailyTaskData.push({ id: d.id, ...t });
+      const ownerName = (t.targetUserName || t.nama || '').toLowerCase().trim();
+      const ownerId = t.userId;
+      const isReport = t.type === 'report' || (t.title && t.title.includes('Daily Report'));
+
+      let isVisible = false;
+
+      // Hierarchical Visibility Enforced (Daily Report & Tasks):
+      if (hasAccess(4) || currentUser.id === 'admin') {
+        // Level 4+ (GM, BOD, Admin): See all
+        isVisible = true;
       }
+      else if (hasAccess(3)) {
+        // Level 3 (Manager): Own + All in Department
+        if (ownerId === myId || t.assignedBy === myId) isVisible = true;
+        else if (taskDept === myDept || !taskDept) isVisible = true;
+      }
+      else if (hasAccess(2)) {
+        // Level 2 (Leader): Own + Direct Subordinates
+        if (ownerId === myId || t.assignedBy === myId) isVisible = true;
+        else if (isReport && directSubNames.includes(ownerName)) isVisible = true;
+        else if (!isReport && taskDept === myDept) isVisible = true;
+      }
+      else {
+        // Level 1 (Staff): Own only
+        if (ownerId === myId || t.assignedBy === myId) isVisible = true;
+      }
+
+      if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
     });
   } catch (e) {
     _dailyTaskData = [];
@@ -4446,13 +4454,15 @@ async function loadWeeklyReports(divFilter) {
         '<div style="text-align:center;padding:32px;color:#999"><div style="font-size:2rem;margin-bottom:8px">📈</div><p>Belum ada laporan mingguan.</p></div>';
       return;
     }
-    // Manager/Leader: only see own division. HEAD/Admin see all.
-    if (!hasHeadLevelAccess()) {
+        // Hierarchical visibility for Weekly Reports: Manager+ see all, Staff/Leader see own division
+    if (!hasAccess(3)) {
       var myDept = (currentUser.departemen || '').toUpperCase().trim();
       if (myDept) {
         items = items.filter(function (r) {
           var d = (r.departemen || r.divisi || '').toUpperCase().trim();
-          return d === myDept || d.includes(myDept) || myDept.includes(d) || !d;
+          // For staff/leader, also allow reports they themselves created
+          const isOwn = r.userId === currentUser.id || (r.targetUserName || '').toUpperCase().trim() === (currentUser.nama || '').toUpperCase().trim();
+          return isOwn || d === myDept || d.includes(myDept) || myDept.includes(d) || !d;
         });
       }
     }
@@ -4489,6 +4499,28 @@ async function loadWeeklyReports(divFilter) {
       });
     }
     var html = '';
+
+    // --- RANGKUMAN DATA LAPORAN MINGGUAN (DASHBOARD BOX) ---
+    const totalReportsSummary = filtered.length;
+    const avgProgressSummary = totalReportsSummary > 0 ? Math.round(filtered.reduce((acc, cur) => acc + (parseInt(cur.progress) || 0), 0) / totalReportsSummary) : 0;
+    const totalObstaclesSummary = filtered.filter(it => (it.kendala || it.case_desc || '').trim().length > 0).length;
+
+    html += `
+    <div id="weeklySummaryBox" style="background:#f0f4ff; border:1px solid #d0d9ff; border-radius:12px; padding:16px; margin-bottom:20px; display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:16px">
+        <div style="text-align:center">
+            <div style="font-size:0.75rem; color:#666; margin-bottom:4px">📊 Total Laporan</div>
+            <div style="font-size:1.5rem; font-weight:800; color:var(--primary)">${totalReportsSummary}</div>
+        </div>
+        <div style="text-align:center">
+            <div style="font-size:0.75rem; color:#666; margin-bottom:4px">📈 Rata-rata Progres</div>
+            <div style="font-size:1.5rem; font-weight:800; color:#2e7d32">${avgProgressSummary}%</div>
+        </div>
+        <div style="text-align:center">
+            <div style="font-size:0.75rem; color:#666; margin-bottom:4px">⚠️ Total Kendala</div>
+            <div style="font-size:1.5rem; font-weight:800; color:#c62828">${totalObstaclesSummary}</div>
+        </div>
+    </div>`;
+
     html +=
       '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">';
     html +=
@@ -4503,6 +4535,10 @@ async function loadWeeklyReports(divFilter) {
       '<button class="btn btn-xs ' +
       (_weeklyReportFilter === 'manajemen' ? 'btn-primary' : 'btn-outline') +
       '" onclick="loadWeeklyReports(\'manajemen\')">🏢 OFFICE</button>';
+
+    // ADDED: Rangkuman Button
+    html += '<button class="btn btn-xs btn-info" style="margin-left:8px" onclick="showWeeklyReportSummaryModal()">📊 Lihat Rangkuman</button>';
+
     // Category filter for weekly reports
     let wrCatOpts = '<option value="">Semua Kategori</option>';
     const wrDiv = _weeklyReportFilter;
@@ -4713,6 +4749,29 @@ async function loadWeeklyReports(divFilter) {
     listEl.innerHTML =
       '<p class="text-sm" style="color:#c62828">Gagal memuat: ' + escHtml(e.message) + '</p>';
   }
+}
+
+/**
+ * Modal Rangkuman Laporan Mingguan
+ * Menampilkan statistik berdasarkan data yang sedang difilter
+ */
+function showWeeklyReportSummaryModal() {
+    const summaryBox = document.getElementById('weeklySummaryBox');
+    if (!summaryBox) return toast('Data rangkuman belum siap', 'warning');
+
+    const summaryHtml = summaryBox.innerHTML;
+    openModal(`
+        <div class="modal-title">📋 Rangkuman Laporan Mingguan</div>
+        <p class="text-sm mb-16" style="color:#666">Statistik berdasarkan filter periode dan divisi yang sedang aktif.</p>
+        <div style="background:#f8f9ff; border:2px solid var(--primary); border-radius:12px; padding:20px; margin-bottom:16px">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
+                ${summaryHtml}
+            </div>
+        </div>
+        <div class="text-center">
+            <button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>
+        </div>
+    `);
 }
 
 function viewWeeklyReportItem(key) {
@@ -5252,6 +5311,10 @@ async function renderFormKaizen() {
 
   const userName = (currentUser.nama || '').toLowerCase().trim();
   const isGA = userName.includes('rizky') || userName.includes('rizkynur');
+  const isAdmin = hasAccess(3); // Level 3+ (Manager, Head, BOD, Admin) can see Sync Naming
+  const isIrsan = (currentUser.nama || '').toLowerCase().includes('irsan janwar');
+  const isGM = (currentUser.posisi || '').toLowerCase().includes('general manager') || (currentUser.posisi || '').toLowerCase() === 'gm';
+
   const addBtn = !isGA ? '<button class="btn btn-primary btn-sm" onclick="modalAddKaizen()">+ Buat Form Kaizen</button>' : '';
 
   // Priority Filter
@@ -5273,7 +5336,7 @@ async function renderFormKaizen() {
     <div class="page-title">
       <span>⚡ FORM KAIZEN (General Affair)</span>
       <div class="flex gap-8">
-          ${hasAccess(6) ? '<button class="btn btn-warning btn-sm" onclick="fixKaizenNamingData()">🔄 Sync Naming</button>' : ''}
+          ${isAdmin ? '<button class="btn btn-warning btn-sm" onclick="fixKaizenNamingData()">🔄 Sync Naming</button>' : ''}
           ${addBtn}
       </div>
     </div>
@@ -5295,12 +5358,12 @@ async function renderFormKaizen() {
             </tr>
           </thead>
           <tbody id="tblKaizen">
-            <tr><td colspan="6" class="text-center">Memuat data...</td></tr>
+            <tr><td colspan="7" class="text-center">Memuat data...</td></tr>
           </tbody>
         </table>
       </div>
     </div>`;
-  loadKaizenRecords();
+  loadKaizenRecords({ isGA, isIrsan, isGM, isAdmin });
 }
 
 async function loadKaizenRecords(roles) {
@@ -5313,7 +5376,7 @@ async function loadKaizenRecords(roles) {
         isGA: (currentUser.nama || '').toLowerCase().includes('rizky'),
         isIrsan: (currentUser.nama || '').toLowerCase().includes('irsan janwar'),
         isGM: (currentUser.posisi || '').toLowerCase().includes('general manager') || (currentUser.posisi || '').toLowerCase() === 'gm',
-        isAdmin: hasAccess(6)
+        isAdmin: hasAccess(3)
     };
 
     const snap = await db.collection('hrd_daily_tasks').where('source', '==', 'FORM KAIZEN').get();
@@ -5407,6 +5470,18 @@ async function loadKaizenRecords(roles) {
     const total = items.length;
     const done = items.filter(it => it.done).length;
     const pending = total - done;
+    if (statsEl) {
+      statsEl.innerHTML = `
+        <div class="stat-card" style="border-left-color:var(--primary)"><div class="stat-value">${total}</div><div class="stat-label">Total Permintaan</div></div>
+        <div class="stat-card" style="border-left-color:var(--warning)"><div class="stat-value">${pending}</div><div class="stat-label">Sedang Diproses</div></div>
+        <div class="stat-card" style="border-left-color:var(--success)"><div class="stat-value">${done}</div><div class="stat-label">Berhasil Diperbaiki</div></div>
+      `;
+    }
+  } catch (e) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="color:red">Error: ${e.message}</td></tr>`;
+  }
+}
+ total - done;
     if (statsEl) {
       statsEl.innerHTML = `
         <div class="stat-card" style="border-left-color:var(--primary)"><div class="stat-value">${total}</div><div class="stat-label">Total Permintaan</div></div>

@@ -2,6 +2,7 @@
 // ── PORTAL KARYAWAN ───────────────────────────────────────────
 async function renderPortal() {
   const main = document.getElementById('mainContent');
+  if (!main) return;
   const u = currentUser;
   // Refresh user data from Firestore to get latest profilePic/foto
   let avatarUrl = '';
@@ -106,11 +107,18 @@ async function renderPortal() {
   // hitungJatahCuti is defined in modules-kehadiran.js
   let jatahCuti = 12;
   if (typeof hitungJatahCuti === 'function') {
+    try {
       jatahCuti = hitungJatahCuti(kDataPortal);
+    } catch (e) {
+      console.warn('hitungJatahCuti failed:', e);
+    }
   }
 
-  if (document.getElementById('pCuti')) document.getElementById('pCuti').textContent = Math.max(0, jatahCuti - cutiUsed) + ' hari';
-  if (document.getElementById('pInbox')) document.getElementById('pInbox').textContent = inboxCount;
+  const pCutiEl = document.getElementById('pCuti');
+  if (pCutiEl) pCutiEl.textContent = Math.max(0, jatahCuti - cutiUsed) + ' hari';
+
+  const pInboxEl = document.getElementById('pInbox');
+  if (pInboxEl) pInboxEl.textContent = inboxCount;
   // Daily task today
   const today = todayStr();
   const myTasks = [];
@@ -895,7 +903,14 @@ async function renderPortalCuti() {
     .limit(1)
     .get();
   const kData = kSnap.empty ? { tanggalMasuk: '', status: 'aktif' } : kSnap.docs[0].data();
-  const jatah = hitungJatahCuti(kData);
+  let jatah = 12;
+  if (typeof hitungJatahCuti === 'function') {
+    try {
+      jatah = hitungJatahCuti(kData);
+    } catch (e) {
+      console.warn('hitungJatahCuti failed:', e);
+    }
+  }
   const snap = await db.collection('hrd_cuti').where('userId', '==', currentUser.id).get();
   let used = 0;
   snap.forEach((d) => {
@@ -905,7 +920,8 @@ async function renderPortalCuti() {
   const sisa = Math.max(0, jatah - used);
   const masaKerja = hitungMasaKerja(kData.tanggalMasuk);
 
-  main.innerHTML = `<div class="page-title"><span>🏖️ Cuti Saya</span><button class="btn btn-primary btn-sm" onclick="modalCuti()">+ Ajukan</button></div>
+  if (main) {
+    main.innerHTML = `<div class="page-title"><span>🏖️ Cuti Saya</span><button class="btn btn-primary btn-sm" onclick="modalCuti()">+ Ajukan</button></div>
     <div class="stats-grid mb-16">
       <div class="stat-card" style="border-left-color:var(--primary)"><div class="stat-value" style="color:var(--primary)">${jatah}</div><div class="stat-label">Jatah Cuti/Tahun</div></div>
       <div class="stat-card" style="border-left-color:var(--warning)"><div class="stat-value" style="color:var(--warning)">${used}</div><div class="stat-label">Terpakai</div></div>
@@ -916,6 +932,8 @@ async function renderPortalCuti() {
       <div class="text-xs" style="line-height:1.6"><b>Ketentuan Cuti:</b><br>• Cuti tahunan: ${jatah} hari (berdasarkan masa kerja ${masaKerja})<br>• Minimal 1 tahun kerja untuk jatah penuh 12 hari<br>• Bonus +1 hari per 2 tahun kerja (max 18 hari)<br>• Cuti sakit & melahirkan tidak mengurangi jatah cuti tahunan</div>
     </div>
     <div class="card"><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Tanggal</th><th>Durasi</th><th>Status</th></tr></thead><tbody id="tblPortalCuti"></tbody></table></div></div>`;
+  }
+
   const flows = await loadApprovalFlows();
   let h = '';
   if (snap.empty) h = '<tr><td colspan="4" class="text-center">Belum ada</td></tr>';
@@ -928,7 +946,8 @@ async function renderPortalCuti() {
       h += `<tr><td>${escHtml(p.jenis)}</td><td>${formatDate(p.mulai)}-${formatDate(p.selesai)}</td><td>${p.durasi || 1} hari</td><td><span class="badge badge-${p.status === 'approved' ? 'success' : p.status === 'rejected' ? 'danger' : 'warning'}">${p.status}</span>${pendingInfo}</td></tr>`;
     });
   }
-  document.getElementById('tblPortalCuti').innerHTML = h;
+  const tblEl = document.getElementById('tblPortalCuti');
+  if (tblEl) tblEl.innerHTML = h;
 }
 async function renderPortalGaji() {
   const main = document.getElementById('mainContent');
