@@ -5233,19 +5233,19 @@ function viewProfilePhoto(src) {
   document.body.appendChild(overlay);
 }
 
-// ── FORM KAIZEN — General Affair Work Request for Nanda Yoga Maulana ──
+// ── FORM KAIZEN — General Affair Work Request for Muhammad Rizky Nur Fadilah ──
 
 async function renderFormKaizen() {
   const main = document.getElementById('mainContent');
   if (!main) return;
 
   const userName = (currentUser.nama || '').toLowerCase().trim();
-  const isNanda = userName.includes('nanda yoga');
-  const addBtn = !isNanda ? '<button class="btn btn-primary btn-sm" onclick="modalAddKaizen()">+ Buat Form Kaizen</button>' : '';
+  const isGA = userName.includes('rizky') || userName.includes('rizkynur');
+  const addBtn = !isGA ? '<button class="btn btn-primary btn-sm" onclick="modalAddKaizen()">+ Buat Form Kaizen</button>' : '';
 
-  // Priority Filter for Nanda, Manager (3+), and Head (4+)
+  // Priority Filter for GA, Manager (3+), and Head (4+)
   let filterHtml = '';
-  if (isNanda || hasAccess(3) || hasHeadLevelAccess()) {
+  if (isGA || hasAccess(3) || hasHeadLevelAccess()) {
     filterHtml = `
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; background:#f8f9ff; padding:8px 12px; border-radius:8px">
         <span class="text-sm fw-700">🚩 Skala Prioritas:</span>
@@ -5264,7 +5264,7 @@ async function renderFormKaizen() {
       ${addBtn}
     </div>
     <div class="card">
-      <p class="text-sm mb-16" style="color:#666">Pemberian tugas/permintaan perbaikan terkait fasilitas & General Affair ditujukan kepada <b>Nanda Yoga Maulana</b>.</p>
+      <p class="text-sm mb-16" style="color:#666">Pemberian tugas/permintaan perbaikan terkait fasilitas & General Affair ditujukan kepada <b>Muhammad Rizky Nur Fadilah</b>.</p>
       ${filterHtml}
       <div id="kaizenStats" class="stats-grid mb-16"></div>
       <div class="table-wrap">
@@ -5410,18 +5410,19 @@ async function loadKaizenRecords() {
 
 async function modalAddKaizen() {
   // Find Nanda's user record for reference
-  let nanda = null;
+  let nandasync function modalAddKaizen() {
+  let gaUser = null;
   try {
     const uSnap = await db.collection('hrd_users').get();
     uSnap.forEach(d => {
       const u = d.data();
-      if ((u.nama || '').toLowerCase().includes('nanda yoga')) nanda = { id: d.id, ...u };
+      if ((u.nama || '').toLowerCase().includes('rizky')) gaUser = { id: d.id, ...u };
     });
   } catch (e) {}
 
   openModal(`
     <div class="modal-title">⚡ Buat FORM KAIZEN (General Affair)</div>
-    <p class="text-sm mb-16" style="color:#666">Gunakan form ini untuk memberikan tugas perbaikan fasilitas atau GA kepada <b>Nanda Yoga Maulana</b>.</p>
+    <p class="text-sm mb-16" style="color:#666">Gunakan form ini untuk memberikan tugas perbaikan fasilitas atau GA kepada <b>Muhammad Rizky Nur Fadilah</b>.</p>
     
     <div class="form-group">
       <label>Judul Permintaan / Tugas *</label>
@@ -5444,8 +5445,8 @@ async function modalAddKaizen() {
       <div class="text-xs mt-4" style="color:#999">Maks 3 file. Format: Gambar, PDF, Word, Excel.</div>
     </div>
 
-    <input type="hidden" id="targetNandaId" value="${nanda ? nanda.id : ''}">
-    <input type="hidden" id="targetNandaNama" value="${nanda ? nanda.nama : 'Nanda Yoga Maulana'}">
+    <input type="hidden" id="targetGAId" value="${gaUser ? gaUser.id : ''}">
+    <input type="hidden" id="targetGANama" value="${gaUser ? gaUser.nama : 'Muhammad Rizky Nur Fadilah'}">
 
     <button class="btn btn-primary" style="width:100%" onclick="simpanKaizen()">📤 Kirim Form Kaizen</button>
   `);
@@ -5616,8 +5617,8 @@ async function modalApproveKaizen(id) {
     <div class="modal-title">✅ Approval Form Kaizen</div>
     <div style="background:#f8f9ff;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
       <div class="fw-700">Tugas: ${escHtml(task.title.replace('⚡ KAIZEN: ', ''))}</div>
-      <div class="text-xs color-light">Dikerjakan oleh: <b>Nanda Yoga Maulana</b></div>
-      <div class="text-xs color-light">Catatan Akhir Nanda: <i>"${escHtml(task.aktivitas)}"</i></div>
+      <div class="text-xs color-light">Dikerjakan oleh: <b>Muhammad Rizky Nur Fadilah</b></div>
+      <div class="text-xs color-light">Catatan Akhir Rizky: <i>"${escHtml(task.aktivitas)}"</i></div>
     </div>
 
     <div class="form-group">
@@ -5697,8 +5698,8 @@ async function simpanApprovalKaizen(id, action) {
                     progress: 100,
                     done: true,
                     doneAt: new Date().toISOString(),
-                    userId: nandaId || task.userId,
-                    targetUserName: task.targetUserName || 'Nanda Yoga Maulana',
+                    userId: gaId || task.userId,
+                    targetUserName: task.targetUserName || 'Muhammad Rizky Nur Fadilah',
                     departemen: 'GENERAL AFFAIR',
                     ownerLevel: 1,
                     attachments: task.attachments || [],

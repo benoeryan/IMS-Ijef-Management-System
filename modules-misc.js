@@ -233,9 +233,9 @@ async function hitungKPIIntegrasi(nama, periode) {
   const reportScore = clampScore(Math.min(100, (reportCount / 22) * 100));
   let taskScore = taskTotal ? clampScore((taskDone / taskTotal) * 100) : 100;
 
-  // Special KPI Logic for Nanda Yoga Maulana (Kaizen integration)
-  const isNanda = namaLower.includes('nanda yoga');
-  if (isNanda && kaizenTotal > 0) {
+  // Special KPI Logic for General Affair (Kaizen integration)
+  const isGA = namaLower.includes('rizky') || namaLower.includes('rizkynur');
+  if (isGA && kaizenTotal > 0) {
       const kaizenScore = (kaizenDone / kaizenTotal) * 100;
       // Weight: 70% regular tasks, 30% kaizen tasks
       taskScore = clampScore((taskScore * 0.7) + (kaizenScore * 0.3));
@@ -1271,21 +1271,61 @@ async function renderAkun() {
   let h = '';
   snap.forEach((d) => {
     const p = d.data();
-    h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(d.id)}</td><td><span class="badge badge-primary">${p.role}</span></td><td>${escHtml(p.departemen || '-')}</td><td><span class="badge badge-${p.status === 'aktif' ? 'success' : 'danger'}">${p.status || 'aktif'}</span></td><td><button class="btn btn-xs btn-info" onclick="modalAkun('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_users','${d.id}','akun')">🗑️</button></td></tr>`;
+    h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(d.id)}</td><td><span class="badge badge-primary">${p.role}</span></td><td>${escHtml(p.departemen || '-')}</td><td><span class="badge badge-${p.status === 'aktif' ? 'success' : 'danger'}">${p.status || 'aktif'}</span></td><td><button class="btn btn-xs btn-info" onclick="modalAkun('${d.id}')">✏️</button> <button class="btn btn-xs btn-warning" onclick="migrateUserData('${d.id}','${escHtml(p.nama)}')">🔄</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_users','${d.id}','akun')">🗑️</button></td></tr>`;
   });
   document.getElementById('tblAkun').innerHTML = h;
 }
 
-// ── MIGRASI DATA GA ───────────────────────────────────────────
-async function migrateGAData() {
-  const oldNama = "NANDA YOGA MAULANA";
-  const newNama = "MUHAMMAD RIZKY NUR FADILAH";
-  const newNamaAlt = "MUHAMMADA RIZKY NUR FADILAH";
-  const oldUserId = "nanda"; // Username sebelumnya
-  const newUserId = "rizky"; // Username baru
+// ── MIGRASI DATA USER ─────────────────────────────────────────
+async function migrateUserData(oldId, oldNama) {
+  // If not provided, ask for target user
+  const uSnap = await db.collection('hrd_users').get();
+  const users = [];
+  uSnap.forEach(doc => {
+      const u = doc.data();
+      if (doc.id !== oldId) users.push({ id: doc.id, nama: u.nama });
+  });
 
-  if (!confirm(`Migrasi semua data dari ${oldNama} ke ${newNama}?`)) return;
+  if (users.length === 0) return toast("Tidak ada user tujuan untuk migrasi", "warning");
 
+  let opts = '<option value="">-- Pilih User Tujuan --</option>';
+  users.forEach(u => {
+      opts += `<option value="${u.id}" data-nama="${u.nama}">${escHtml(u.nama)} (${u.id})</option>`;
+  });
+
+  openModal(`
+    <div class="modal-title">🔄 Migrasi Data User</div>
+    <p class="text-sm mb-16">Pindahkan seluruh riwayat, tugas, dan tanggung jawab dari <b>${escHtml(oldNama)}</b> ke user lain.</p>
+
+    <div class="form-group">
+        <label>Pilih User Tujuan</label>
+        <select class="form-control" id="migTargetUser">${opts}</select>
+    </div>
+
+    <div style="background:#fff3e0; padding:12px; border-radius:8px; border-left:4px solid #ff9800; margin-bottom:16px">
+        <div class="text-xs" style="line-height:1.6">
+            <b>Apa yang akan dipindahkan?</b><br>
+            • Jobdesk & Tanggung Jawab<br>
+            • Daily Tasks & Reports<br>
+            • Riwayat Absensi & Cuti<br>
+            • Pengajuan Overtime & Reimburse<br>
+            • Pinjaman/Kasbon & Penalty
+        </div>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%" onclick="doMigrateUser('${oldId}', '${escHtml(oldNama)}')">🚀 Jalankan Migrasi</button>
+  `);
+}
+
+async function doMigrateUser(oldId, oldNama) {
+  const sel = document.getElementById('migTargetUser');
+  const newId = sel.value;
+  const newNama = sel.options[sel.selectedIndex]?.dataset?.nama;
+
+  if (!newId) return toast("Pilih user tujuan", "warning");
+  if (!confirm(`KONFIRMASI: Pindahkan SEMUA data dari ${oldNama} ke ${newNama}?\n\nProses ini tidak dapat dibatalkan.`)) return;
+
+  closeModalDirect();
   toast("⏳ Memulai migrasi data...", "info");
   let count = 0;
 
@@ -1313,10 +1353,10 @@ async function migrateGAData() {
         const dNama = (d[item.nameField] || "").toUpperCase();
         const dUser = d[item.userField] || "";
 
-        if (dNama === oldNama || dUser === oldUserId) {
+        if (dNama === oldNama.toUpperCase() || dUser === oldId) {
           batch.update(doc.ref, {
             [item.nameField]: newNama,
-            [item.userField]: newUserId,
+            [item.userField]: newId,
             updatedAt: new Date().toISOString(),
             migratedFrom: oldNama
           });
@@ -1329,10 +1369,16 @@ async function migrateGAData() {
     }
 
     toast(`✅ Migrasi selesai! ${count} dokumen diperbarui.`, "success");
+    renderAkun();
   } catch (e) {
     console.error(e);
     toast("Gagal migrasi: " + e.message, "danger");
   }
+}
+
+// ── MIGRASI DATA GA (Legacy compat) ───────────────────────────
+async function migrateGAData() {
+    migrateUserData('nanda', 'NANDA YOGA MAULANA');
 }
 
 // ── DATA PERUSAHAAN ───────────────────────────────────────────
