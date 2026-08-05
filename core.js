@@ -335,6 +335,7 @@ async function initApp() {
     await seedDefaultAccounts();
   } catch (e) {
     console.error('[Auth] Failed to initialize accounts:', e);
+    toast(DB_CONNECTION_ERROR, 'error');
   }
   const saved = localStorage.getItem('hrd_session');
   if (saved) {
