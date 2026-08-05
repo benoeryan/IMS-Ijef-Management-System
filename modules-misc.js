@@ -1318,16 +1318,17 @@ async function doMigrateWorkflow(oldId, oldNama, targetIdParam, targetNamaParam)
   const newNama = targetNamaParam || sel.options[sel.selectedIndex]?.dataset?.nama;
 
   if (!newId) return toast("Pilih user pengganti", "warning");
-  if (!confirm(`Konfirmasi: Alihkan seluruh tanggung jawab alur kerja dari ${oldNama} ke ${newNama}?`)) return;
+  if (!confirm(`Konfirmasi: Alihkan seluruh tanggung jawab alur kerja DAN riwayat pekerjaan dari ${oldNama} ke ${newNama}?`)) return;
 
-  toast("⏳ Memproses pengalihan alur...", "info");
+  toast("⏳ Memproses pengalihan alur & riwayat...", "info");
   let countFlow = 0;
+  let countHistory = 0;
 
   try {
     // 1. Update hrd_approval_flow (Replace approver in steps)
     const flowSnap = await db.collection('hrd_approval_flow').get();
-    const batch = db.batch();
-    let hasChange = false;
+    const batchFlow = db.batch();
+    let hasFlowChange = false;
 
     flowSnap.forEach(doc => {
         const f = doc.data();
@@ -1341,15 +1342,46 @@ async function doMigrateWorkflow(oldId, oldNama, targetIdParam, targetNamaParam)
         });
 
         if (changed) {
-            batch.update(doc.ref, { steps: newSteps, updatedAt: new Date().toISOString() });
+            batchFlow.update(doc.ref, { steps: newSteps, updatedAt: new Date().toISOString() });
             countFlow++;
-            hasChange = true;
+            hasFlowChange = true;
         }
     });
 
-    if (hasChange) await batch.commit();
+    if (hasFlowChange) await batchFlow.commit();
 
-    toast(`✅ Berhasil! ${countFlow} alur approval diperbarui.`, "success");
+    // 2. Update Work History (hrd_daily_tasks, hrd_jobdesk)
+    const historyCollections = [
+      { col: 'hrd_daily_tasks', nameField: 'nama', userField: 'userId' },
+      { col: 'hrd_jobdesk', nameField: 'nama', userField: 'userId' }
+    ];
+
+    for (const item of historyCollections) {
+      const snap = await db.collection(item.col).get();
+      const batchHist = db.batch();
+      let hasHistChange = false;
+
+      snap.forEach(doc => {
+        const d = doc.data();
+        const dNama = (d[item.nameField] || "").toUpperCase();
+        const dUser = d[item.userField] || "";
+
+        if (dNama === oldNama.toUpperCase() || dUser === oldId) {
+          batchHist.update(doc.ref, {
+            [item.nameField]: newNama,
+            [item.userField]: newId,
+            updatedAt: new Date().toISOString(),
+            migratedFrom: oldNama
+          });
+          countHistory++;
+          hasHistChange = true;
+        }
+      });
+
+      if (hasHistChange) await batchHist.commit();
+    }
+
+    toast(`✅ Berhasil! ${countFlow} alur approval dan ${countHistory} riwayat pekerjaan diperbarui.`, "success");
     closeModalDirect();
     renderAkun();
   } catch (e) {
