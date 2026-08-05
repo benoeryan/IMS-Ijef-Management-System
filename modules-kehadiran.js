@@ -5299,19 +5299,13 @@ async function loadKaizenRecords() {
       .where('source', '==', 'FORM KAIZEN')
       .get();
     
-    let items = [];
-    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
-    items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  const userName = (currentUser.nama || '').toLowerCase().trim();
+  const isGA = userName.includes('rizky') || userName.includes('rizkynur');
+  const addBtn = !isGA ? '<button class="btn btn-primary btn-sm" onclick="modalAddKaizen()">+ Buat Form Kaizen</button>' : '';
 
-    const userName = (currentUser.nama || '').toLowerCase().trim();
-    const isNanda = userName.includes('nanda yoga');
-
-    // Filter by visibility:
-    // Level 3+ (Manager, Head, BOD, Admin) and Nanda see all records
-    // Level 1-2 (Staff, Leader) except Nanda see only their own requests
-    if (!hasAccess(3) && !isNanda) {
-        items = items.filter(it => it.assignedBy === currentUser.id);
-    }
+  // Priority Filter for GA, Manager (3+), and Head (4+)
+  let filterHtml = '';
+  if (isGA || hasAccess(3) || hasHeadLevelAccess()) {
 
     // Apply Priority Filter
     const filterPriority = document.getElementById('kzFilterPriority')?.value || 'all';
@@ -5324,7 +5318,7 @@ async function loadKaizenRecords() {
       html = '<tr><td colspan="6" class="text-center">Belum ada form Kaizen.</td></tr>';
     } else {
       items.forEach(it => {
-        const isNanda = (currentUser.nama || '').toLowerCase().includes('nanda yoga');
+        const isGA = (currentUser.nama || '').toLowerCase().includes('rizky');
         const isIrsan = (currentUser.nama || '').toLowerCase().includes('irsan janwar');
 
         let statusBadge = '';
@@ -5347,8 +5341,8 @@ async function loadKaizenRecords() {
             aksiBtns += ` <button class="btn btn-xs btn-primary" onclick="modalApproveKaizen('${it.id}')" title="Approval Atasan">✅ Approval</button>`;
         }
 
-        // Aksi for Nanda (Worker)
-        if (isNanda && !it.done && it.kaizenStatus !== 'waiting_approval') {
+        // Aksi for GA (Worker)
+        if (isGA && !it.done && it.kaizenStatus !== 'waiting_approval') {
             aksiBtns += ` <button class="btn btn-xs btn-success" onclick="modalUpdateKaizenProgress('${it.id}')" title="Berikan Respon/Progress">⚡ Respon</button>`;
         }
 
@@ -5618,7 +5612,7 @@ async function modalApproveKaizen(id) {
     <div style="background:#f8f9ff;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
       <div class="fw-700">Tugas: ${escHtml(task.title.replace('⚡ KAIZEN: ', ''))}</div>
       <div class="text-xs color-light">Dikerjakan oleh: <b>Muhammad Rizky Nur Fadilah</b></div>
-      <div class="text-xs color-light">Catatan Akhir Rizky: <i>"${escHtml(task.aktivitas)}"</i></div>
+      <div class="text-xs color-light">Catatan Akhir GA: <i>"${escHtml(task.aktivitas)}"</i></div>
     </div>
 
     <div class="form-group">
@@ -5713,14 +5707,14 @@ async function simpanApprovalKaizen(id, action) {
 
         // Notifications
         // 1. Notify Nanda
-        const nandaSnap = await db.collection('hrd_users').get();
-        let nandaId = '';
-        nandaSnap.forEach(d => {
-            if ((d.data().nama || '').toLowerCase().includes('nanda yoga')) nandaId = d.id;
+        const gaSnap = await db.collection('hrd_users').get();
+        let gaId = '';
+        gaSnap.forEach(d => {
+            if ((d.data().nama || '').toLowerCase().includes('rizky')) gaId = d.id;
         });
-        if (nandaId) {
+        if (gaId) {
             const actLabel = action === 'approved' ? 'DISETUJUI' : action === 'pending' ? 'DITANGGUHKAN (REVISI)' : 'DITOLAK (REJECT)';
-            await sendNotification(nandaId, '⚡ STATUS KAIZEN', `Tugas "${task.title.replace('⚡ KAIZEN: ', '')}" telah ${actLabel} oleh Irsan. Pesan: ${komentar || '-'}`, 'kaizen');
+            await sendNotification(gaId, '⚡ STATUS KAIZEN', `Tugas "${task.title.replace('⚡ KAIZEN: ', '')}" telah ${actLabel} oleh Irsan. Pesan: ${komentar || '-'}`, 'kaizen');
         }
 
         // 2. Notify Requester

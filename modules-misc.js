@@ -1216,7 +1216,7 @@ async function renderAkun() {
       '<div class="card"><p>Akses ditolak.</p></div>');
   const main = document.getElementById('mainContent');
   const baseUrl = window.location.origin + window.location.pathname;
-  main.innerHTML = `<div class="page-title"><span>👤 Manajemen Akun</span><div class="flex gap-8"><button class="btn btn-warning btn-sm" onclick="migrateGAData()">🔄 Migrasi GA</button><button class="btn btn-primary btn-sm" onclick="modalAkun()">+ Tambah</button></div></div>
+  main.innerHTML = `<div class="page-title"><span>👤 Manajemen Akun</span><div class="flex gap-8"><button class="btn btn-danger btn-sm" onclick="revertGAMigration()">🔙 Batal Migrasi GA</button><button class="btn btn-primary btn-sm" onclick="modalAkun()">+ Tambah</button></div></div>
   <!-- DATA PERUSAHAAN -->
   <div class="card mb-16" id="companyDataCard">
     <div class="card-title mb-16">🏢 Data Perusahaan</div>
@@ -1271,62 +1271,21 @@ async function renderAkun() {
   let h = '';
   snap.forEach((d) => {
     const p = d.data();
-    h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(d.id)}</td><td><span class="badge badge-primary">${p.role}</span></td><td>${escHtml(p.departemen || '-')}</td><td><span class="badge badge-${p.status === 'aktif' ? 'success' : 'danger'}">${p.status || 'aktif'}</span></td><td><button class="btn btn-xs btn-info" onclick="modalAkun('${d.id}')">✏️</button> <button class="btn btn-xs btn-warning" onclick="migrateUserData('${d.id}','${escHtml(p.nama)}')">🔄</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_users','${d.id}','akun')">🗑️</button></td></tr>`;
+    h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(d.id)}</td><td><span class="badge badge-primary">${p.role}</span></td><td>${escHtml(p.departemen || '-')}</td><td><span class="badge badge-${p.status === 'aktif' ? 'success' : 'danger'}">${p.status || 'aktif'}</span></td><td><button class="btn btn-xs btn-info" onclick="modalAkun('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_users','${d.id}','akun')">🗑️</button></td></tr>`;
   });
   document.getElementById('tblAkun').innerHTML = h;
 }
 
-// ── MIGRASI DATA USER ─────────────────────────────────────────
-async function migrateUserData(oldId, oldNama) {
-  // If not provided, ask for target user
-  const uSnap = await db.collection('hrd_users').get();
-  const users = [];
-  uSnap.forEach(doc => {
-      const u = doc.data();
-      if (doc.id !== oldId) users.push({ id: doc.id, nama: u.nama });
-  });
+// ── REVERT MIGRASI GA ──────────────────────────────────────────
+async function revertGAMigration() {
+  const oldNama = "NANDA YOGA MAULANA";
+  const newNama = "MUHAMMAD RIZKY NUR FADILAH";
+  const oldUserId = "nanda";
+  const newUserId = "rizky";
 
-  if (users.length === 0) return toast("Tidak ada user tujuan untuk migrasi", "warning");
+  if (!confirm(`Batalkan migrasi? Semua data yang dipindahkan ke ${newNama} akan dikembalikan ke ${oldNama}.`)) return;
 
-  let opts = '<option value="">-- Pilih User Tujuan --</option>';
-  users.forEach(u => {
-      opts += `<option value="${u.id}" data-nama="${u.nama}">${escHtml(u.nama)} (${u.id})</option>`;
-  });
-
-  openModal(`
-    <div class="modal-title">🔄 Migrasi Data User</div>
-    <p class="text-sm mb-16">Pindahkan seluruh riwayat, tugas, dan tanggung jawab dari <b>${escHtml(oldNama)}</b> ke user lain.</p>
-
-    <div class="form-group">
-        <label>Pilih User Tujuan</label>
-        <select class="form-control" id="migTargetUser">${opts}</select>
-    </div>
-
-    <div style="background:#fff3e0; padding:12px; border-radius:8px; border-left:4px solid #ff9800; margin-bottom:16px">
-        <div class="text-xs" style="line-height:1.6">
-            <b>Apa yang akan dipindahkan?</b><br>
-            • Jobdesk & Tanggung Jawab<br>
-            • Daily Tasks & Reports<br>
-            • Riwayat Absensi & Cuti<br>
-            • Pengajuan Overtime & Reimburse<br>
-            • Pinjaman/Kasbon & Penalty
-        </div>
-    </div>
-
-    <button class="btn btn-primary" style="width:100%" onclick="doMigrateUser('${oldId}', '${escHtml(oldNama)}')">🚀 Jalankan Migrasi</button>
-  `);
-}
-
-async function doMigrateUser(oldId, oldNama) {
-  const sel = document.getElementById('migTargetUser');
-  const newId = sel.value;
-  const newNama = sel.options[sel.selectedIndex]?.dataset?.nama;
-
-  if (!newId) return toast("Pilih user tujuan", "warning");
-  if (!confirm(`KONFIRMASI: Pindahkan SEMUA data dari ${oldNama} ke ${newNama}?\n\nProses ini tidak dapat dibatalkan.`)) return;
-
-  closeModalDirect();
-  toast("⏳ Memulai migrasi data...", "info");
+  toast("⏳ Mengembalikan data...", "info");
   let count = 0;
 
   try {
@@ -1344,41 +1303,36 @@ async function doMigrateUser(oldId, oldNama) {
     ];
 
     for (const item of collections) {
-      const snap = await db.collection(item.col).get();
+      const snap = await db.collection(item.col).where('migratedFrom', '==', oldNama).get();
       const batch = db.batch();
       let hasChange = false;
 
       snap.forEach(doc => {
-        const d = doc.data();
-        const dNama = (d[item.nameField] || "").toUpperCase();
-        const dUser = d[item.userField] || "";
-
-        if (dNama === oldNama.toUpperCase() || dUser === oldId) {
           batch.update(doc.ref, {
-            [item.nameField]: newNama,
-            [item.userField]: newId,
+            [item.nameField]: oldNama,
+            [item.userField]: oldUserId,
             updatedAt: new Date().toISOString(),
-            migratedFrom: oldNama
+            migratedFrom: firebase.firestore.FieldValue.delete()
           });
           count++;
           hasChange = true;
-        }
       });
 
       if (hasChange) await batch.commit();
     }
 
-    toast(`✅ Migrasi selesai! ${count} dokumen diperbarui.`, "success");
+    toast(`✅ Berhasil! ${count} dokumen dikembalikan ke Nanda.`, "success");
     renderAkun();
   } catch (e) {
     console.error(e);
-    toast("Gagal migrasi: " + e.message, "danger");
+    toast("Gagal membatalkan: " + e.message, "danger");
   }
 }
 
 // ── MIGRASI DATA GA (Legacy compat) ───────────────────────────
 async function migrateGAData() {
-    migrateUserData('nanda', 'NANDA YOGA MAULANA');
+    // Now just a dummy for UI if still referenced elsewhere
+    toast("Fitur migrasi data dimatikan. Silakan gunakan fitur ganti alur kerja.", "info");
 }
 
 // ── DATA PERUSAHAAN ───────────────────────────────────────────
