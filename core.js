@@ -330,7 +330,11 @@ async function initApp() {
     window._sharedPortalUser = window.location.hash.replace('#portal-karyawan-', '');
     window.location.hash = '';
   }
-  await seedDefaultAccounts();
+  try {
+    await seedDefaultAccounts();
+  } catch (e) {
+    console.error('[Auth] Failed to initialize accounts:', e);
+  }
   const saved = localStorage.getItem('hrd_session');
   if (saved) {
     try {
@@ -364,11 +368,21 @@ async function seedDefaultAccounts() {
 }
 
 async function doLogin(username, password) {
-  let doc = await db.collection('hrd_users').doc(username).get();
+  let doc;
+  try {
+    doc = await db.collection('hrd_users').doc(username).get();
+  } catch (e) {
+    throw new Error('Gagal terhubung ke database. Periksa koneksi internet lalu coba lagi.');
+  }
   let data;
   if (!doc.exists) {
     // Fallback: search by username field (in case doc ID is NIP or something else)
-    const snap = await db.collection('hrd_users').where('username', '==', username).limit(1).get();
+    let snap;
+    try {
+      snap = await db.collection('hrd_users').where('username', '==', username).limit(1).get();
+    } catch (e) {
+      throw new Error('Gagal terhubung ke database. Periksa koneksi internet lalu coba lagi.');
+    }
     if (snap.empty) throw new Error('Akun tidak ditemukan');
     doc = snap.docs[0];
   }
