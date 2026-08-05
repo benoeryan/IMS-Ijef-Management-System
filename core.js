@@ -274,6 +274,7 @@ async function cleanupFCMToken(userId) {
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
 const APP_VERSION = '12.4';
+const DB_CONNECTION_ERROR = 'Gagal terhubung ke database. Periksa koneksi internet lalu coba lagi.';
 
 const DEFAULT_ACCOUNTS = [
   {
@@ -372,7 +373,7 @@ async function doLogin(username, password) {
   try {
     doc = await db.collection('hrd_users').doc(username).get();
   } catch (e) {
-    throw new Error('Gagal terhubung ke database. Periksa koneksi internet lalu coba lagi.');
+    throw new Error(DB_CONNECTION_ERROR);
   }
   let data;
   if (!doc.exists) {
@@ -381,7 +382,7 @@ async function doLogin(username, password) {
     try {
       snap = await db.collection('hrd_users').where('username', '==', username).limit(1).get();
     } catch (e) {
-      throw new Error('Gagal terhubung ke database. Periksa koneksi internet lalu coba lagi.');
+      throw new Error(DB_CONNECTION_ERROR);
     }
     if (snap.empty) throw new Error('Akun tidak ditemukan');
     doc = snap.docs[0];
