@@ -1567,30 +1567,28 @@ let _dailyTaskData = [];
 async function loadDailyTasks(filter) {
   _dailyTaskFilter = filter || 'all';
   document.querySelectorAll('#taskTabs .tab').forEach((t) => t.classList.remove('active'));
+  const map = {
+    all: 'Semua',
+    today: 'Hari Ini',
+    upcoming: 'Mendatang',
+    done: 'Selesai',
+    overdue: 'Terlambat',
+    assigned: '📋 Ditugaskan',
+    'history-assigned': '📊 History Tugas',
+    report: '📝 Daily Report',
+    'team-report': '📊 Report Tim',
+    'all-report': '🏢 Semua Divisi',
+  };
   document.querySelectorAll('#taskTabs .tab').forEach((t) => {
-    const map = {
-      all: 'Semua',
-      today: 'Hari Ini',
-      upcoming: 'Mendatang',
-      done: 'Selesai',
-      overdue: 'Terlambat',
-      assigned: '📋 Ditugaskan',
-      'history-assigned': '📊 History Tugas',
-      report: '📝 Daily Report',
-      'team-report': '📊 Report Tim',
-      'all-report': '🏢 Semua Divisi',
-    };
     if (t.textContent.trim() === map[filter]) t.classList.add('active');
   });
-  try {
-    const snap = await db.collection('hrd_daily_tasks').get();
-    _dailyTaskData = [];
-    const myDept = (currentUser.departemen || '').toLowerCase().trim();
-    const myId = currentUser.id;
-    const myLevel = ROLES[currentUser.role] || 0;
-    const myName = (currentUser.nama || '').toLowerCase().trim();
 
-    // Prep for Level 2 (Direct Subordinates)
+  const myId = currentUser.id;
+  const myLevel = ROLES[currentUser.role] || 0;
+  const myDept = (currentUser.departemen || '').toLowerCase().trim();
+  const myName = (currentUser.nama || '').toLowerCase().trim();
+
+  try {
     let directSubNames = [];
     if (myLevel === 2) {
       const kSnap = await db.collection('hrd_karyawan').where('atasan', '==', currentUser.nama).get();
@@ -1601,6 +1599,8 @@ async function loadDailyTasks(filter) {
     }
     window._directSubNamesCache = directSubNames;
 
+    const snap = await db.collection('hrd_daily_tasks').get();
+    _dailyTaskData = [];
     snap.forEach((d) => {
       const t = d.data();
       const taskDept = (t.departemen || '').toLowerCase().trim();
@@ -1609,25 +1609,13 @@ async function loadDailyTasks(filter) {
       const isReport = t.type === 'report' || (t.title && t.title.includes('Daily Report'));
 
       let isVisible = false;
-
-      // Hierarchical Visibility Enforced (Daily Report & Tasks):
       if (hasAccess(4) || currentUser.id === 'admin') {
-        // Level 4+ (GM, BOD, Admin): See all
         isVisible = true;
-      }
-      else if (hasAccess(3)) {
-        // Level 3 (Manager): Own + All in Department
-        if (ownerId === myId || t.assignedBy === myId) isVisible = true;
-        else if (taskDept === myDept || !taskDept) isVisible = true;
-      }
-      else if (hasAccess(2)) {
-        // Level 2 (Leader): Own + Direct Subordinates
-        if (ownerId === myId || t.assignedBy === myId) isVisible = true;
-        else if (isReport && directSubNames.includes(ownerName)) isVisible = true;
-        else if (!isReport && taskDept === myDept) isVisible = true;
-      }
-      else {
-        // Level 1 (Staff): Own only
+      } else if (hasAccess(3)) {
+        if (ownerId === myId || t.assignedBy === myId || taskDept === myDept || !taskDept) isVisible = true;
+      } else if (hasAccess(2)) {
+        if (ownerId === myId || t.assignedBy === myId || (isReport && directSubNames.includes(ownerName)) || (!isReport && taskDept === myDept)) isVisible = true;
+      } else {
         if (ownerId === myId || t.assignedBy === myId) isVisible = true;
       }
 
@@ -1636,8 +1624,126 @@ async function loadDailyTasks(filter) {
   } catch (e) {
     _dailyTaskData = [];
   }
+
   const today = todayStr();
   let filtered = _dailyTaskData;
+
+  if (filter === 'today') filtered = _dailyTaskData.filter((t) => t.tanggal === today && !t.done);
+  else if (filter === 'upcoming') filtered = _dailyTaskData.filter((t) => t.tanggal > today && !t.done);
+  else if (filter === 'done') filtered = _dailyTaskData.filter((t) => t.done);
+  else if (filter === 'overdue') filtered = _dailyTaskData.filter((t) => t.tanggal < today && !t.done);
+  else if (filter === 'assigned') filtered = _dailyTaskData.filter((t) => t.assignedBy === myId && t.userId !== myId);
+  else if (filter === 'history-assigned') {
+    filtered = _dailyTaskData.filter(t => (hasAccess(4) ? (t.assignedBy && t.assignedBy !== t.userId) : (t.assignedBy === myId && t.userId !== myId)));
+    const haFrom = document.getElementById('historyAssignedFrom')?.value;
+    const haTo = document.getElementById('historyAssignedTo')?.value;
+    if (haFrom) filtered = filtered.filter(t => t.tanggal >= haFrom);
+    if (haTo) filtered = filtered.filter(t => t.tanggal <= haTo);
+    filtered.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+  } else if (filter === 'report') {
+    filtered = _dailyTaskData.filter(t => (t.type === 'report' || t.title?.includes('Daily Report')) && (t.userId === myId || (t.targetUserName || '').toLowerCase().trim() === myName));
+  } else if (filter === 'team-report' || filter === 'all-report') {
+    filtered = _dailyTaskData.filter(t => t.type === 'report' || t.title?.includes('Daily Report'));
+    if (filter === 'team-report' && !hasAccess(4)) {
+      if (hasAccess(3)) filtered = filtered.filter(t => (t.departemen || '').toLowerCase().trim() === myDept);
+      else if (hasAccess(2)) {
+        const subs = window._directSubNamesCache || [];
+        filtered = filtered.filter(t => subs.includes((t.targetUserName || '').toLowerCase().trim()) || t.userId === myId);
+      }
+    }
+    const drFrom = document.getElementById('reportDateFrom')?.value;
+    const drTo = document.getElementById('reportDateTo')?.value;
+    if (drFrom) filtered = filtered.filter(t => t.tanggal >= drFrom);
+    if (drTo) filtered = filtered.filter(t => t.tanggal <= drTo);
+
+    const divFilter = filter === 'team-report' ? window._teamReportDivFilter : window._allReportDivFilter;
+    if (divFilter) filtered = filtered.filter(t => (t.departemen || '').toUpperCase().includes(divFilter));
+
+    const catFilter = filter === 'team-report' ? window._teamReportCatFilter : window._allReportCatFilter;
+    if (catFilter) filtered = filtered.filter(t => catFilter === 'Tanpa Kategori' ? (!t.kategori || t.kategori === '') : (t.kategori || '').toLowerCase().includes(catFilter.toLowerCase()));
+
+    filtered.sort((a, b) => (a.departemen || '').localeCompare(b.departemen || '') || (a.kategori || '').localeCompare(b.kategori || '') || b.tanggal.localeCompare(a.tanggal));
+  }
+
+  if (!['team-report', 'all-report', 'history-assigned'].includes(filter)) {
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    filtered.sort((a, b) => {
+      if (!a.done && !b.done) {
+        if (a.tanggal < today && b.tanggal >= today) return -1;
+        if (b.tanggal < today && a.tanggal >= today) return 1;
+      }
+      return a.tanggal.localeCompare(b.tanggal) || (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1);
+    });
+  }
+
+  const statsEl = document.getElementById('taskStats');
+  if (statsEl) {
+    const total = _dailyTaskData.length;
+    const done = _dailyTaskData.filter(t => t.done).length;
+    const todayTasks = _dailyTaskData.filter(t => t.tanggal === today && !t.done).length;
+    const overdue = _dailyTaskData.filter(t => t.tanggal < today && !t.done).length;
+    statsEl.innerHTML = `<div class="stat-card" style="border-left-color:#1565c0"><div class="stat-value" style="color:#1565c0">${total}</div><div class="stat-label">Total Task</div></div><div class="stat-card" style="border-left-color:#f57f17"><div class="stat-value" style="color:#f57f17">${todayTasks}</div><div class="stat-label">Hari Ini</div></div><div class="stat-card" style="border-left-color:#c62828"><div class="stat-value" style="color:#c62828">${overdue}</div><div class="stat-label">Terlambat</div></div><div class="stat-card" style="border-left-color:#2e7d32"><div class="stat-value" style="color:#2e7d32">${done}</div><div class="stat-label">Selesai</div></div>`;
+  }
+
+  const listEl = document.getElementById('taskList');
+  if (!listEl) return;
+
+  let html = '';
+  if (filter === 'team-report' || filter === 'all-report') {
+    const curFrom = document.getElementById('reportDateFrom')?.value || '';
+    const curTo = document.getElementById('reportDateTo')?.value || '';
+    html = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px;background:#f8f9ff;border-radius:8px">
+      <span class="text-sm fw-700">📅 Periode:</span>
+      <input type="date" class="form-control" id="reportDateFrom" value="${curFrom}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('${filter}')">
+      <span class="text-sm">s/d</span>
+      <input type="date" class="form-control" id="reportDateTo" value="${curTo}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('${filter}')">
+      <button class="btn btn-xs btn-outline" onclick="document.getElementById('reportDateFrom').value='';document.getElementById('reportDateTo').value='';loadDailyTasks('${filter}')">Reset</button>
+    </div>`;
+
+    let divFilterBtns = '';
+    if (hasHeadLevelAccess()) {
+      const curDiv = filter === 'team-report' ? window._teamReportDivFilter : window._allReportDivFilter;
+      divFilterBtns = `<button class="btn btn-xs ${!curDiv ? 'btn-primary' : 'btn-outline'}" onclick="window['_${filter === 'team-report' ? 'team' : 'all'}ReportDivFilter']='';loadDailyTasks('${filter}')">Semua</button>
+      <button class="btn btn-xs ${curDiv === 'ACADEMIC' ? 'btn-primary' : 'btn-outline'}" onclick="window['_${filter === 'team-report' ? 'team' : 'all'}ReportDivFilter']='ACADEMIC';loadDailyTasks('${filter}')">📚 ACADEMIC</button>
+      <button class="btn btn-xs ${curDiv === 'OFFICE' ? 'btn-primary' : 'btn-outline'}" onclick="window['_${filter === 'team-report' ? 'team' : 'all'}ReportDivFilter']='OFFICE';loadDailyTasks('${filter}')">🏢 OFFICE</button>`;
+    }
+
+    let catOpts = '<option value="">Semua Kategori</option>';
+    const catList = ['Siswa', 'Sensei', 'Curriculum', 'TSK-Job', 'HR & Legal', 'Document', "Facility's", 'Finance', 'Marketing & Sales', 'Promosi', 'Tanpa Kategori'];
+    const curCat = filter === 'team-report' ? window._teamReportCatFilter : window._allReportCatFilter;
+    catList.forEach(c => catOpts += `<option value="${c}" ${curCat === c ? 'selected' : ''}>${c}</option>`);
+
+    html += `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">${divFilterBtns} <select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window['_${filter === 'team-report' ? 'team' : 'all'}ReportCatFilter']=this.value;loadDailyTasks('${filter}')">${catOpts}</select></div>`;
+    html += _renderGroupedReportTracker(filtered, filter);
+    listEl.innerHTML = html;
+    return;
+  }
+
+  filtered.forEach((t) => {
+    if (t.type === 'report' || t.title?.includes('Daily Report')) {
+      const progressColor = (t.progress || 0) >= 80 ? '#2e7d32' : (t.progress || 0) >= 50 ? '#f57f17' : '#c62828';
+      html += `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border-left:4px solid #7b1fa2;margin-bottom:8px;background:#faf5ff;border-radius:0 8px 8px 0;cursor:pointer" onclick="viewDailyReport('${t.id}')">
+        <div style="font-size:1.5rem">📝</div>
+        <div style="flex:1"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:700;font-size:.9rem">${escHtml(t.title || 'Daily Report')}</span><span class="badge" style="background:#7b1fa220;color:#7b1fa2">Report</span></div>
+        <div style="font-size:.8rem;color:#666;margin-top:4px">${escHtml((t.aktivitas || '').substring(0, 100))}...</div>
+        <div style="font-size:.7rem;color:#999;margin-top:4px">👤 ${escHtml(t.targetUserName || '')} | 📅 ${formatDate(t.tanggal)} | Progress: <span style="color:${progressColor};font-weight:600">${t.progress || 0}%</span></div>
+        </div>
+        <div style="display:flex;gap:4px"><button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewDailyReport('${t.id}')">👁️</button>
+        ${(t.userId === myId || hasAccess(3)) ? `<button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyReport('${t.id}')">✏️</button>` : ''}
+        </div></div>`;
+    } else {
+      const isOverdue = t.tanggal < today && !t.done;
+      const borderColor = t.done ? '#2e7d32' : isOverdue ? '#c62828' : t.tanggal === today ? '#1565c0' : '#e0e0e0';
+      html += `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border-left:4px solid ${borderColor};margin-bottom:8px;background:${t.done ? '#f1f8e9' : isOverdue ? '#fff8f8' : '#fff'};border-radius:0 8px 8px 0;cursor:pointer" onclick="viewDailyTask('${t.id}')">
+        <input type="checkbox" ${t.done ? 'checked' : ''} onchange="event.stopPropagation();toggleDailyTask('${t.id}')" style="margin-top:4px;width:18px;height:18px;accent-color:#2e7d32;cursor:pointer">
+        <div style="flex:1"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:700;font-size:.9rem;${t.done ? 'text-decoration:line-through;color:#999' : ''}">${escHtml(t.title)}</span></div>
+        <div style="font-size:.8rem;color:#666;margin-top:4px">${escHtml(t.description || '')}</div>
+        <div style="font-size:.7rem;color:#999;margin-top:4px">📅 ${formatDate(t.tanggal)} | ${t.priority}</div></div>
+        <div style="display:flex;gap:4px"><button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyTask('${t.id}')">✏️</button></div></div>`;
+    }
+  });
+  listEl.innerHTML = html;
+}
   if (filter === 'today') filtered = _dailyTaskData.filter((t) => t.tanggal === today && !t.done);
   else if (filter === 'upcoming')
     filtered = _dailyTaskData.filter((t) => t.tanggal > today && !t.done);
@@ -4420,6 +4526,7 @@ var _wrDateTo = '';
 var _weeklyReportLookup = {};
 var WEEKLY_REPORT_DEFAULT_COL = 'hrd_daily_tasks';
 var WEEKLY_REPORT_PREVIEW_MAX_LENGTH = 140;
+
 async function loadWeeklyReports(divFilter) {
   if (divFilter !== undefined) _weeklyReportFilter = divFilter;
   document.querySelectorAll('#taskTabs .tab').forEach(function (t) {
@@ -4433,39 +4540,39 @@ async function loadWeeklyReports(divFilter) {
   listEl.innerHTML = '<p class="text-sm" style="color:#999">Memuat laporan mingguan...</p>';
   try {
     var items = [];
-    var snap = await db
-      .collection('hrd_daily_tasks')
-      .where('type', '==', 'report')
-      .get();
-    snap.forEach(function (d) {
+    var [snap1, snap2] = await Promise.all([
+      db.collection('hrd_daily_tasks').where('type', '==', 'report').get(),
+      db.collection('hrd_weekly_reports').get(),
+    ]);
+    snap1.forEach(function (d) {
       items.push({ id: d.id, col: 'hrd_daily_tasks', ...d.data() });
     });
-    try {
-      var snap2 = await db.collection('hrd_weekly_reports').get();
-      snap2.forEach(function (d) {
-        items.push({ id: d.id, col: 'hrd_weekly_reports', ...d.data() });
-      });
-    } catch (e2) {}
+    snap2.forEach(function (d) {
+      items.push({ id: d.id, col: 'hrd_weekly_reports', ...d.data() });
+    });
+
     items.sort(function (a, b) {
       return (b.tanggal || b.bulan || '').localeCompare(a.tanggal || a.bulan || '');
     });
+
     if (!items.length) {
       listEl.innerHTML =
         '<div style="text-align:center;padding:32px;color:#999"><div style="font-size:2rem;margin-bottom:8px">📈</div><p>Belum ada laporan mingguan.</p></div>';
       return;
     }
-        // Hierarchical visibility for Weekly Reports: Manager+ see all, Staff/Leader see own division
+
+    // Hierarchical visibility for Weekly Reports: Manager+ see all, Staff/Leader see own division
     if (!hasAccess(3)) {
       var myDept = (currentUser.departemen || '').toUpperCase().trim();
       if (myDept) {
         items = items.filter(function (r) {
           var d = (r.departemen || r.divisi || '').toUpperCase().trim();
-          // For staff/leader, also allow reports they themselves created
           const isOwn = r.userId === currentUser.id || (r.targetUserName || '').toUpperCase().trim() === (currentUser.nama || '').toUpperCase().trim();
           return isOwn || d === myDept || d.includes(myDept) || myDept.includes(d) || !d;
         });
       }
     }
+
     var filtered = items;
     if (_weeklyReportFilter === 'akademik')
       filtered = items.filter(function (r) {
@@ -4477,19 +4584,14 @@ async function loadWeeklyReports(divFilter) {
         var d = (r.departemen || r.divisi || '').toUpperCase();
         return d.includes('OFFICE') || d.includes('MANAJEMEN');
       });
+
     var filterFrom = document.getElementById('wrDateFrom')?.value || _wrDateFrom;
     var filterTo = document.getElementById('wrDateTo')?.value || _wrDateTo;
     _wrDateFrom = filterFrom;
     _wrDateTo = filterTo;
-    if (filterFrom)
-      filtered = filtered.filter(function (r) {
-        return (r.tanggal || '') >= filterFrom;
-      });
-    if (filterTo)
-      filtered = filtered.filter(function (r) {
-        return (r.tanggal || '') <= filterTo;
-      });
-    // Apply category filter
+    if (filterFrom) filtered = filtered.filter(function (r) { return (r.tanggal || '') >= filterFrom; });
+    if (filterTo) filtered = filtered.filter(function (r) { return (r.tanggal || '') <= filterTo; });
+
     if (window._wrCatFilter) {
       filtered = filtered.filter(function (r) {
         var kat = (r.kategori || '').toLowerCase();
@@ -4498,6 +4600,7 @@ async function loadWeeklyReports(divFilter) {
         return kat.includes(fv);
       });
     }
+
     var html = '';
 
     // --- RANGKUMAN DATA LAPORAN MINGGUAN (DASHBOARD BOX) ---
@@ -4521,115 +4624,39 @@ async function loadWeeklyReports(divFilter) {
         </div>
     </div>`;
 
-    html +=
-      '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">';
-    html +=
-      '<button class="btn btn-xs ' +
-      (_weeklyReportFilter === 'all' ? 'btn-primary' : 'btn-outline') +
-      '" onclick="loadWeeklyReports(\'all\')">Semua</button>';
-    html +=
-      '<button class="btn btn-xs ' +
-      (_weeklyReportFilter === 'akademik' ? 'btn-primary' : 'btn-outline') +
-      '" onclick="loadWeeklyReports(\'akademik\')">📚 ACADEMIC</button>';
-    html +=
-      '<button class="btn btn-xs ' +
-      (_weeklyReportFilter === 'manajemen' ? 'btn-primary' : 'btn-outline') +
-      '" onclick="loadWeeklyReports(\'manajemen\')">🏢 OFFICE</button>';
-
-    // ADDED: Rangkuman Button
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">';
+    html += '<button class="btn btn-xs ' + (_weeklyReportFilter === 'all' ? 'btn-primary' : 'btn-outline') + '" onclick="loadWeeklyReports(\'all\')">Semua</button>';
+    html += '<button class="btn btn-xs ' + (_weeklyReportFilter === 'akademik' ? 'btn-primary' : 'btn-outline') + '" onclick="loadWeeklyReports(\'akademik\')">📚 ACADEMIC</button>';
+    html += '<button class="btn btn-xs ' + (_weeklyReportFilter === 'manajemen' ? 'btn-primary' : 'btn-outline') + '" onclick="loadWeeklyReports(\'manajemen\')">🏢 OFFICE</button>';
     html += '<button class="btn btn-xs btn-info" style="margin-left:8px" onclick="showWeeklyReportSummaryModal()">📊 Lihat Rangkuman</button>';
 
-    // Category filter for weekly reports
     let wrCatOpts = '<option value="">Semua Kategori</option>';
-    const wrDiv = _weeklyReportFilter;
-    if (wrDiv === 'akademik') {
-      ['Siswa', 'Sensei', 'Curriculum', 'TSK-Job', 'Tanpa Kategori'].forEach(function (c) {
-        wrCatOpts +=
-          '<option value="' +
-          c +
-          '" ' +
-          (window._wrCatFilter === c ? 'selected' : '') +
-          '>' +
-          c +
-          '</option>';
-      });
-    } else if (wrDiv === 'manajemen') {
-      ['HR & Legal', 'Document', "Facility's", 'Finance', 'Marketing & Sales', 'Promosi'].forEach(
-        function (c) {
-          wrCatOpts +=
-            '<option value="' +
-            c +
-            '" ' +
-            (window._wrCatFilter === c ? 'selected' : '') +
-            '>' +
-            c +
-            '</option>';
-        }
-      );
-    } else {
-      [
-        'Siswa',
-        'Sensei',
-        'Curriculum',
-        'TSK-Job',
-        'HR & Legal',
-        'Document',
-        "Facility's",
-        'Finance',
-        'Marketing & Sales',
-        'Promosi',
-        'Tanpa Kategori',
-      ].forEach(function (c) {
-        wrCatOpts +=
-          '<option value="' +
-          c +
-          '" ' +
-          (window._wrCatFilter === c ? 'selected' : '') +
-          '>' +
-          c +
-          '</option>';
-      });
-    }
-    html +=
-      '<select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window._wrCatFilter=this.value;loadWeeklyReports()">' +
-      wrCatOpts +
-      '</select>';
+    const categories = _weeklyReportFilter === 'akademik' ? ['Siswa', 'Sensei', 'Curriculum', 'TSK-Job', 'Tanpa Kategori'] :
+                       _weeklyReportFilter === 'manajemen' ? ['HR & Legal', 'Document', "Facility's", 'Finance', 'Marketing & Sales', 'Promosi'] :
+                       ['Siswa', 'Sensei', 'Curriculum', 'TSK-Job', 'HR & Legal', 'Document', "Facility's", 'Finance', 'Marketing & Sales', 'Promosi', 'Tanpa Kategori'];
+    categories.forEach(function (c) {
+      wrCatOpts += '<option value="' + c + '" ' + (window._wrCatFilter === c ? 'selected' : '') + '>' + c + '</option>';
+    });
+    html += '<select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window._wrCatFilter=this.value;loadWeeklyReports()">' + wrCatOpts + '</select>';
     html += '<span style="margin-left:auto"></span>';
     if (currentUser.role !== 'bod') {
-      html +=
-        '<button class="btn btn-xs btn-danger" onclick="deleteSelectedWeeklyReports()">🗑️ Hapus Terpilih</button> ';
-      html +=
-        '<button class="btn btn-xs btn-warning" onclick="resetAllWeeklyReports()">⚠️ Reset Semua</button>';
+      html += '<button class="btn btn-xs btn-danger" onclick="deleteSelectedWeeklyReports()">🗑️ Hapus Terpilih</button> ';
+      html += '<button class="btn btn-xs btn-warning" onclick="resetAllWeeklyReports()">⚠️ Reset Semua</button>';
     }
     html += '</div>';
-    html +=
-      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:8px 12px;background:#f8f9ff;border-radius:8px">';
+
+    html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:8px 12px;background:#f8f9ff;border-radius:8px">';
     html += '<span class="text-sm fw-700">📅 Periode:</span>';
-    html +=
-      '<input type="date" class="form-control" id="wrDateFrom" value="' +
-      filterFrom +
-      '" style="max-width:140px;padding:4px 8px;font-size:.82rem" onchange="_wrDateFrom=this.value;loadWeeklyReports()">';
+    html += '<input type="date" class="form-control" id="wrDateFrom" value="' + filterFrom + '" style="max-width:140px;padding:4px 8px;font-size:.82rem" onchange="_wrDateFrom=this.value;loadWeeklyReports()">';
     html += '<span class="text-sm">—</span>';
-    html +=
-      '<input type="date" class="form-control" id="wrDateTo" value="' +
-      filterTo +
-      '" style="max-width:140px;padding:4px 8px;font-size:.82rem" onchange="_wrDateTo=this.value;loadWeeklyReports()">';
-    if (filterFrom || filterTo)
-      html +=
-        '<button class="btn btn-xs btn-outline" onclick="_wrDateFrom=\'\';_wrDateTo=\'\';loadWeeklyReports()">✕</button>';
+    html += '<input type="date" class="form-control" id="wrDateTo" value="' + filterTo + '" style="max-width:140px;padding:4px 8px;font-size:.82rem" onchange="_wrDateTo=this.value;loadWeeklyReports()">';
+    if (filterFrom || filterTo) html += '<button class="btn btn-xs btn-outline" onclick="_wrDateFrom=\'\';_wrDateTo=\'\';loadWeeklyReports()">✕</button>';
     html += '</div>';
+
     if (currentUser.role !== 'bod') {
-      html +=
-        '<div style="margin-bottom:8px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="wrSelectAll" onchange="document.querySelectorAll(\'.wr-check\').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="text-sm fw-700">Pilih Semua (' +
-        filtered.length +
-        ' data)</span></label></div>';
+      html += '<div style="margin-bottom:8px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="wrSelectAll" onchange="document.querySelectorAll(\'.wr-check\').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="text-sm fw-700">Pilih Semua (' + filtered.length + ' data)</span></label></div>';
     }
-    if (!filtered.length) {
-      html +=
-        '<div style="text-align:center;padding:24px;color:#999">Tidak ada data untuk filter ini.</div>';
-      listEl.innerHTML = html;
-      return;
-    }
+
     _weeklyReportLookup = {};
     var groups = {};
     filtered.forEach(function (r) {
@@ -4637,117 +4664,55 @@ async function loadWeeklyReports(divFilter) {
       if (!groups[div]) groups[div] = [];
       groups[div].push(r);
     });
-    Object.keys(groups)
-      .sort()
-      .forEach(function (div) {
-        var rows = groups[div];
-        html += '<div style="margin-bottom:20px">';
-        html +=
-          '<div style="padding:8px 14px;background:#e8eaf6;border-radius:8px;font-weight:700;font-size:.88rem;color:#283593;border-left:4px solid #3f51b5;margin-bottom:8px">🏢 ' +
-          escHtml(div) +
-          ' (' +
-          rows.length +
-          ' data)</div>';
-        var byPic = {};
-        rows.forEach(function (r) {
-          var picKey = r.targetUserName || r.pic || r.nama || '-';
-          if (!byPic[picKey]) byPic[picKey] = [];
-          byPic[picKey].push(r);
-        });
-        Object.keys(byPic)
-          .sort()
-          .forEach(function (pic) {
-            var userRows = byPic[pic];
-            html +=
-              '<div style="padding:8px 12px;margin:10px 0 8px;background:#f4f6ff;border-radius:8px;border-left:4px solid #5c6bc0;font-weight:700;font-size:.82rem;color:#3949ab">👤 ' +
-              escHtml(pic) +
-              ' (' +
-              userRows.length +
-              ' report)</div>';
-            userRows.forEach(function (r) {
-              var tgl = r.tanggal || r.bulan || '-';
-              var kat = r.kategori || '-';
-              var aktivitas = r.aktivitas || '';
-              var progressText = String(r.progress || '').trim();
-              var progressNum = parseInt(progressText, 10);
-              var hasProgressNum = !isNaN(progressNum);
-              if (hasProgressNum) progressNum = Math.max(0, Math.min(100, progressNum));
-              var progressColor = hasProgressNum
-                ? progressNum >= 100
-                  ? '#2e7d32'
-                  : progressNum >= 70
-                    ? '#f57f17'
-                    : '#c62828'
-                : '#1565c0';
-              var kendala = r.kendala || r.case_desc || '';
-              var solusi = r.solusi || r.solution || '';
-              var rencana = r.rencanaBesok || r.rencana || r.planning || '';
-              var komentar = r.komentar || r.keterangan || r.komentarAtasan || '';
-              var wrKey = (r.col || WEEKLY_REPORT_DEFAULT_COL) + '::' + r.id;
-              var wrKeyEncoded = encodeURIComponent(wrKey);
-              _weeklyReportLookup[wrKey] = r;
-              var previewText = [aktivitas, kendala, solusi, rencana, komentar].find(function (txt) {
-                return txt && txt.trim();
-              });
-              if (!previewText) previewText = '-';
-              if (previewText.length > WEEKLY_REPORT_PREVIEW_MAX_LENGTH)
-                previewText =
-                  previewText.substring(0, WEEKLY_REPORT_PREVIEW_MAX_LENGTH) + '...';
-              html +=
-                '<div style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;cursor:pointer" onclick="viewWeeklyReportItem(\'' +
-                wrKeyEncoded +
-                '\')">';
-              html += '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">';
-              if (currentUser.role !== 'bod') {
-                html +=
-                  '<input type="checkbox" class="wr-check" value="' +
-                  r.id +
-                  '" data-col="' +
-                  (r.col || WEEKLY_REPORT_DEFAULT_COL) +
-                  '" onclick="event.stopPropagation()">';
-              }
-              html += '<div style="flex:1"><div class="fw-700">' + escHtml(pic) + '</div>';
-              html +=
-                '<div class="text-xs" style="color:#666">📅 ' +
-                escHtml(tgl) +
-                ' | 🏢 ' +
-                escHtml(div) +
-                ' | 🏷️ ' +
-                escHtml(kat) +
-                '</div></div></div>';
-              html +=
-                '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px"><div style="font-size:.8rem;font-weight:700;color:' +
-                progressColor +
-                '">📈 Progress: ' +
-                escHtml(progressText || '-') +
-                (hasProgressNum && progressText.indexOf('%') === -1 ? '%' : '') +
-                '</div><button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem(\'' +
-                wrKeyEncoded +
-                '\')">👁️ View</button></div>';
-              html +=
-                '<div style="font-size:.82rem;color:#333;line-height:1.5;background:#f8f9ff;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ' +
-                escHtml(previewText) +
-                '</div>';
-              html += '</div>';
-            });
-            html += _buildReportTrackerStats(userRows);
-          });
-        html += _buildReportTrackerStats(rows);
-        html += '</div>';
+
+    Object.keys(groups).sort().forEach(function (div) {
+      var rows = groups[div];
+      html += '<div style="margin-bottom:20px">';
+      html += '<div style="padding:8px 14px;background:#e8eaf6;border-radius:8px;font-weight:700;font-size:.88rem;color:#283593;border-left:4px solid #3f51b5;margin-bottom:8px">🏢 ' + escHtml(div) + ' (' + rows.length + ' data)</div>';
+      var byPic = {};
+      rows.forEach(function (r) {
+        var picKey = r.targetUserName || r.pic || r.nama || '-';
+        if (!byPic[picKey]) byPic[picKey] = [];
+        byPic[picKey].push(r);
       });
-    // Overall summary tracker for all filtered data across all divisions
+      Object.keys(byPic).sort().forEach(function (pic) {
+        var userRows = byPic[pic];
+        html += '<div style="padding:8px 12px;margin:10px 0 8px;background:#f4f6ff;border-radius:8px;border-left:4px solid #5c6bc0;font-weight:700;font-size:.82rem;color:#3949ab">👤 ' + escHtml(pic) + ' (' + userRows.length + ' report)</div>';
+        userRows.forEach(function (r) {
+          var tgl = r.tanggal || r.bulan || '-';
+          var kat = r.kategori || '-';
+          var wrKey = (r.col || WEEKLY_REPORT_DEFAULT_COL) + '::' + r.id;
+          _weeklyReportLookup[wrKey] = r;
+          var previewText = [r.aktivitas, r.kendala, r.solusi, r.rencanaBesok, r.rencana, r.planning, r.komentar, r.keterangan].find(t => t && t.trim()) || '-';
+          if (previewText.length > WEEKLY_REPORT_PREVIEW_MAX_LENGTH) previewText = previewText.substring(0, WEEKLY_REPORT_PREVIEW_MAX_LENGTH) + '...';
+
+          var progressNum = parseInt(r.progress, 10);
+          var progressColor = !isNaN(progressNum) ? (progressNum >= 100 ? '#2e7d32' : progressNum >= 70 ? '#f57f17' : '#c62828') : '#1565c0';
+
+          html += `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;cursor:pointer" onclick="viewWeeklyReportItem('${encodeURIComponent(wrKey)}')">
+            <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+              ${currentUser.role !== 'bod' ? `<input type="checkbox" class="wr-check" value="${r.id}" data-col="${r.col || WEEKLY_REPORT_DEFAULT_COL}" onclick="event.stopPropagation()">` : ''}
+              <div style="flex:1"><div class="fw-700">${escHtml(pic)}</div>
+              <div class="text-xs" style="color:#666">📅 ${escHtml(tgl)} | 🏢 ${escHtml(div)} | 🏷️ ${escHtml(kat)}</div></div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+              <div style="font-size:.8rem;font-weight:700;color:${progressColor}">📈 Progress: ${escHtml(r.progress || '-')}${!isNaN(progressNum) && String(r.progress).indexOf('%') === -1 ? '%' : ''}</div>
+              <button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem('${encodeURIComponent(wrKey)}')">👁️ View</button>
+            </div>
+            <div style="font-size:.82rem;color:#333;line-height:1.5;background:#f8f9ff;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ${escHtml(previewText)}</div>
+          </div>`;
+        });
+        html += _buildReportTrackerStats(userRows);
+      });
+      html += _buildReportTrackerStats(rows);
+      html += '</div>';
+    });
     if (Object.keys(groups).length > 0) {
-      html +=
-        '<div style="margin-top:20px;padding:10px 14px;background:#fafafa;border-radius:8px;border:1px solid #ddd;font-weight:700;font-size:.82rem;color:#555">' +
-        '\ud83d\udcca Ringkasan Keseluruhan Laporan Mingguan (' +
-        filtered.length +
-        ' data)</div>';
+      html += `<div style="margin-top:20px;padding:10px 14px;background:#fafafa;border-radius:8px;border:1px solid #ddd;font-weight:700;font-size:.82rem;color:#555">📊 Ringkasan Keseluruhan Laporan Mingguan (${filtered.length} data)</div>`;
       html += _buildReportTrackerStats(filtered);
     }
     listEl.innerHTML = html;
   } catch (e) {
-    listEl.innerHTML =
-      '<p class="text-sm" style="color:#c62828">Gagal memuat: ' + escHtml(e.message) + '</p>';
+    listEl.innerHTML = '<p class="text-sm" style="color:#c62828">Gagal memuat: ' + escHtml(e.message) + '</p>';
   }
 }
 
@@ -5850,57 +5815,18 @@ async function fixKaizenNamingData() {
 
     toast("⏳ Membersihkan data Kaizen...", "info");
     const snap = await db.collection('hrd_daily_tasks').where('source', '==', 'FORM KAIZEN').get();
-    const gaUser = await findCurrentGA();
-    if (!gaUser) return toast("GA aktif tidak ditemukan", "danger");
 
-    const batch = db.batch();
-    let count = 0;
-
-    snap.forEach(doc => {
-        const d = doc.data();
-        const fields = ['title', 'description', 'aktivitas', 'hasil'];
-        let changed = false;
-        const updateObj = {};
-
-        fields.forEach(f => {
-            if (d[f] && typeof d[f] === 'string' && (d[f].toUpperCase().includes('NANDA') || d[f].toUpperCase().includes('YOGA'))) {
-                // Multi-variant replacement
-                updateObj[f] = d[f]
-                    .replace(/Nanda Yoga Maulana/gi, gaUser.nama)
-                    .replace(/Nanda Yoga/gi, gaUser.nama)
-                    .replace(/Nanda/gi, gaUser.nama);
-                changed = true;
-            }
+    // Find Muhammad Rizky Nur Fadilah's user ID
+    let gaUser = null;
+    try {
+        const uSnap = await db.collection('hrd_users').get();
+        uSnap.forEach(d => {
+            const u = d.data();
+            if ((u.nama || '').toLowerCase().includes('rizky')) gaUser = { id: d.id, ...u };
         });
+    } catch (e) {}
 
-        // Also fix targetUserName and userId if it was still nanda
-        if (d.targetUserName && (d.targetUserName.toUpperCase().includes('NANDA') || d.targetUserName.toUpperCase().includes('YOGA'))) {
-            updateObj.targetUserName = gaUser.nama;
-            updateObj.userId = gaUser.id;
-            changed = true;
-        }
-
-        if (changed) {
-            batch.update(doc.ref, updateObj);
-            count++;
-        }
-    });
-
-    if (count > 0) {
-        await batch.commit();
-        toast(`✅ Berhasil membersihkan ${count} data!`, "success");
-        renderFormKaizen();
-    } else {
-        toast("Semua data sudah bersih.", "success");
-    }
-}
-async function fixKaizenNamingData() {
-    if (!confirm("Sistem akan mengganti seluruh teks 'Nanda Yoga Maulana' menjadi 'Muhammad Rizky Nur Fadilah' di data Kaizen. Lanjutkan?")) return;
-
-    toast("⏳ Membersihkan data Kaizen...", "info");
-    const snap = await db.collection('hrd_daily_tasks').where('source', '==', 'FORM KAIZEN').get();
-    const gaUser = await findCurrentGA();
-    if (!gaUser) return toast("GA aktif tidak ditemukan", "danger");
+    if (!gaUser) return toast("Data Muhammad Rizky tidak ditemukan", "error");
 
     const batch = db.batch();
     let count = 0;
