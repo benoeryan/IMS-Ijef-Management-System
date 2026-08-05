@@ -2300,6 +2300,8 @@ function viewDailyTask(id) {
 }
 
 function _showDailyTaskDetail(task) {
+  const userName = (currentUser.nama || '').toLowerCase().trim();
+  const isGA = userName.includes('rizky') || userName.includes('rizkynur');
   const priorityLabel =
     task.priority === 'high' ? 'Tinggi' : task.priority === 'low' ? 'Rendah' : 'Sedang';
   const priorityColor =
@@ -2417,7 +2419,7 @@ function _showDailyTaskDetail(task) {
     ${commentInput}
 
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-      ${(hasAccess(6) || task.userId === currentUser.id || task.assignedBy === currentUser.id) ? `<button class="btn btn-sm btn-warning" onclick="closeModalDirect();editDailyTask('${task.id}')">✏️ Edit</button>` : ''}
+      ${(hasAccess(6) || (task.userId === currentUser.id && !isGA) || task.assignedBy === currentUser.id) ? `<button class="btn btn-sm btn-warning" onclick="closeModalDirect();editDailyTask('${task.id}')">✏️ Edit</button>` : ''}
       <a href="${buildGCalUrl(task)}" target="_blank" class="btn btn-sm btn-info" style="text-decoration:none">📅 Google Calendar</a>
       <button class="btn btn-sm btn-outline" onclick="closeModalDirect()">Tutup</button>
     </div>`);
@@ -5270,7 +5272,10 @@ async function renderFormKaizen() {
   main.innerHTML = `
     <div class="page-title">
       <span>⚡ FORM KAIZEN (General Affair)</span>
-      ${addBtn}
+      <div class="flex gap-8">
+          ${hasAccess(6) ? '<button class="btn btn-warning btn-sm" onclick="fixKaizenNamingData()">🔄 Sync Naming</button>' : ''}
+          ${addBtn}
+      </div>
     </div>
     <div class="card">
       <p class="text-sm mb-16" style="color:#666">Pemberian tugas/permintaan perbaikan terkait fasilitas & General Affair ditujukan kepada <b>Muhammad Rizky Nur Fadilah</b>.</p>
@@ -5298,23 +5303,28 @@ async function renderFormKaizen() {
   loadKaizenRecords();
 }
 
-async function loadKaizenRecords() {
+async function loadKaizenRecords(roles) {
   const tbody = document.getElementById('tblKaizen');
   const statsEl = document.getElementById('kaizenStats');
   if (!tbody) return;
 
   try {
+    const { isGA, isIrsan, isGM, isAdmin } = roles || {
+        isGA: (currentUser.nama || '').toLowerCase().includes('rizky'),
+        isIrsan: (currentUser.nama || '').toLowerCase().includes('irsan janwar'),
+        isGM: (currentUser.posisi || '').toLowerCase().includes('general manager') || (currentUser.posisi || '').toLowerCase() === 'gm',
+        isAdmin: hasAccess(6)
+    };
+
     const snap = await db.collection('hrd_daily_tasks').where('source', '==', 'FORM KAIZEN').get();
     
     let items = [];
     snap.forEach(d => items.push({ id: d.id, ...d.data() }));
     items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
-    const userName = (currentUser.nama || '').toLowerCase().trim();
-    const isGA = userName.includes('rizky') || userName.includes('rizkynur');
-
+    // Filter by visibility: Level 3+ and GA see all, others see only their assigned/owned
     if (!hasAccess(3) && !isGA) {
-        items = items.filter(it => it.assignedBy === currentUser.id);
+        items = items.filter(it => it.assignedBy === currentUser.id || it.userId === currentUser.id);
     }
 
     const filterPriority = document.getElementById('kzFilterPriority')?.value || 'all';
@@ -5324,12 +5334,9 @@ async function loadKaizenRecords() {
 
     let html = '';
     if (!items.length) {
-      html = '<tr><td colspan="6" class="text-center">Belum ada form Kaizen.</td></tr>';
+      html = '<tr><td colspan="7" class="text-center">Belum ada form Kaizen.</td></tr>';
     } else {
       items.forEach(it => {
-        const isGAUser = (currentUser.nama || '').toLowerCase().includes('rizky');
-        const isIrsan = (currentUser.nama || '').toLowerCase().includes('irsan janwar');
-
         let statusBadge = '';
         if (it.done) {
             statusBadge = '<span class="badge badge-success">Selesai</span>';
@@ -5349,11 +5356,16 @@ async function loadKaizenRecords() {
             aksiBtns += ` <button class="btn btn-xs btn-primary" onclick="modalApproveKaizen('${it.id}')" title="Approval Atasan">✅ Approval</button>`;
         }
 
-        if (isGAUser && !it.done && it.kaizenStatus !== 'waiting_approval') {
+        if (isGA && !it.done && it.kaizenStatus !== 'waiting_approval') {
             aksiBtns += ` <button class="btn btn-xs btn-success" onclick="modalUpdateKaizenProgress('${it.id}')" title="Berikan Respon/Progress">⚡ Respon</button>`;
         }
 
-        if (it.assignedBy === currentUser.id || hasAccess(6)) {
+        // Edit access: GA specifically EXCLUDED from editing Kaizen tasks
+        if (isAdmin || isGM || (isIrsan && !isGA)) {
+            aksiBtns += ` <button class="btn btn-xs btn-warning" onclick="editDailyTask('${it.id}')" title="Edit Form Kaizen">✏️</button>`;
+        }
+
+        if (it.assignedBy === currentUser.id || isAdmin) {
             aksiBtns += ` <button class="btn btn-xs btn-danger" onclick="hapusDailyTask('${it.id}')" title="Hapus">🗑️</button>`;
         }
 
@@ -5807,6 +5819,54 @@ async function fixKaizenNamingData() {
         toast("Semua data sudah bersih.", "success");
     }
 }
+async function fixKaizenNamingData() {
+    if (!confirm("Sistem akan mengganti seluruh teks 'Nanda Yoga Maulana' menjadi 'Muhammad Rizky Nur Fadilah' di data Kaizen. Lanjutkan?")) return;
+
+    toast("⏳ Membersihkan data Kaizen...", "info");
+    const snap = await db.collection('hrd_daily_tasks').where('source', '==', 'FORM KAIZEN').get();
+    const gaUser = await findCurrentGA();
+    if (!gaUser) return toast("GA aktif tidak ditemukan", "danger");
+
+    const batch = db.batch();
+    let count = 0;
+
+    snap.forEach(doc => {
+        const d = doc.data();
+        const fields = ['title', 'description', 'aktivitas', 'hasil'];
+        let changed = false;
+        const updateObj = {};
+
+        fields.forEach(f => {
+            if (d[f] && typeof d[f] === 'string' && (d[f].toUpperCase().includes('NANDA') || d[f].toUpperCase().includes('YOGA'))) {
+                updateObj[f] = d[f]
+                    .replace(/Nanda Yoga Maulana/gi, gaUser.nama)
+                    .replace(/Nanda Yoga/gi, gaUser.nama)
+                    .replace(/Nanda/gi, gaUser.nama);
+                changed = true;
+            }
+        });
+
+        if (d.targetUserName && (d.targetUserName.toUpperCase().includes('NANDA') || d.targetUserName.toUpperCase().includes('YOGA'))) {
+            updateObj.targetUserName = gaUser.nama;
+            updateObj.userId = gaUser.id;
+            changed = true;
+        }
+
+        if (changed) {
+            batch.update(doc.ref, updateObj);
+            count++;
+        }
+    });
+
+    if (count > 0) {
+        await batch.commit();
+        toast(`✅ Berhasil membersihkan ${count} data!`, "success");
+        renderFormKaizen();
+    } else {
+        toast("Semua data sudah bersih.", "success");
+    }
+}
+
 function modalCutiBersamaMassal() {
   if (!hasAccess(3)) return toast('Akses ditolak', 'warning');
   openModal(`
