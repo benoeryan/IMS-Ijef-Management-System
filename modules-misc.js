@@ -1216,7 +1216,7 @@ async function renderAkun() {
       '<div class="card"><p>Akses ditolak.</p></div>');
   const main = document.getElementById('mainContent');
   const baseUrl = window.location.origin + window.location.pathname;
-  main.innerHTML = `<div class="page-title"><span>👤 Manajemen Akun</span><div class="flex gap-8"><button class="btn btn-danger btn-sm" onclick="revertGAMigration()">🔙 Kembalikan Data Nanda</button><button class="btn btn-primary btn-sm" onclick="modalAkun()">+ Tambah</button></div></div>
+  main.innerHTML = `<div class="page-title"><span>👤 Manajemen Akun</span><button class="btn btn-primary btn-sm" onclick="modalAkun()">+ Tambah</button></div>
   <!-- DATA PERUSAHAAN -->
   <div class="card mb-16" id="companyDataCard">
     <div class="card-title mb-16">🏢 Data Perusahaan</div>
@@ -1271,68 +1271,91 @@ async function renderAkun() {
   let h = '';
   snap.forEach((d) => {
     const p = d.data();
-    h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(d.id)}</td><td><span class="badge badge-primary">${p.role}</span></td><td>${escHtml(p.departemen || '-')}</td><td><span class="badge badge-${p.status === 'aktif' ? 'success' : 'danger'}">${p.status || 'aktif'}</span></td><td><button class="btn btn-xs btn-info" onclick="modalAkun('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_users','${d.id}','akun')">🗑️</button></td></tr>`;
+    h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(d.id)}</td><td><span class="badge badge-primary">${p.role}</span></td><td>${escHtml(p.departemen || '-')}</td><td><span class="badge badge-${p.status === 'aktif' ? 'success' : 'danger'}">${p.status || 'aktif'}</span></td><td><button class="btn btn-xs btn-info" onclick="modalAkun('${d.id}')" title="Edit Akun">✏️</button> <button class="btn btn-xs btn-warning" onclick="modalMigrateWorkflow('${d.id}','${escHtml(p.nama)}')" title="Ganti Alur Kerja / Divisi">🔄</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_users','${d.id}','akun')" title="Hapus">🗑️</button></td></tr>`;
   });
   document.getElementById('tblAkun').innerHTML = h;
 }
 
-// ── REVERT MIGRASI GA ──────────────────────────────────────────
-async function revertGAMigration() {
-  const oldNama = "NANDA YOGA MAULANA";
-  const newNama = "MUHAMMAD RIZKY NUR FADILAH";
-  const oldUserId = "nanda";
-  const newUserId = "rizky";
+// ── MIGRASI ALUR KERJA (GANTI PERAN) ─────────────────────────
+async function modalMigrateWorkflow(oldId, oldNama) {
+  const uSnap = await db.collection('hrd_users').get();
+  const users = [];
+  uSnap.forEach(doc => {
+      const u = doc.data();
+      if (doc.id !== oldId && u.status !== 'nonaktif') users.push({ id: doc.id, nama: u.nama });
+  });
 
-  if (!confirm(`Batalkan migrasi? Semua data yang dipindahkan ke ${newNama} akan dikembalikan ke ${oldNama}.`)) return;
+  let opts = '<option value="">-- Pilih User Pengganti --</option>';
+  users.forEach(u => {
+      opts += `<option value="${u.id}" data-nama="${u.nama}">${escHtml(u.nama)} (${u.id})</option>`;
+  });
 
-  toast("⏳ Mengembalikan data...", "info");
-  let count = 0;
+  openModal(`
+    <div class="modal-title">🔄 Pengalihan Alur Kerja & Divisi</div>
+    <p class="text-sm mb-16">Gunakan fitur ini jika <b>${escHtml(oldNama)}</b> pindah divisi atau resign. Sistem akan otomatis mengganti perannya dalam seluruh alur approval sistem kepada user pengganti.</p>
+
+    <div class="form-group">
+        <label>User Pengganti Alur Kerja</label>
+        <select class="form-control" id="mwTargetUser">${opts}</select>
+    </div>
+
+    <div style="background:#f0f7ff; padding:12px; border-radius:8px; border-left:4px solid var(--primary); margin-bottom:16px">
+        <div class="text-xs" style="line-height:1.6">
+            <b>Apa yang terjadi secara otomatis?</b><br>
+            • Mengganti <b>${escHtml(oldNama)}</b> sebagai Approver di semua <i>Approval Flow</i>.<br>
+            • Alur kerja (Jobdesk/Kaizen/Dinas) akan otomatis diarahkan ke user baru.<br>
+            • <span class="color-primary fw-700">Data historis (Absensi/Gaji lama) TIDAK akan dipindahkan.</span>
+        </div>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%" onclick="doMigrateWorkflow('${oldId}', '${escHtml(oldNama)}')">🚀 Update Seluruh Alur Kerja</button>
+  `);
+}
+
+async function doMigrateWorkflow(oldId, oldNama, targetIdParam, targetNamaParam) {
+  const sel = document.getElementById('mwTargetUser');
+  const newId = targetIdParam || sel.value;
+  const newNama = targetNamaParam || sel.options[sel.selectedIndex]?.dataset?.nama;
+
+  if (!newId) return toast("Pilih user pengganti", "warning");
+  if (!confirm(`Konfirmasi: Alihkan seluruh tanggung jawab alur kerja dari ${oldNama} ke ${newNama}?`)) return;
+
+  toast("⏳ Memproses pengalihan alur...", "info");
+  let countFlow = 0;
 
   try {
-    const collections = [
-      { col: 'hrd_jobdesk', nameField: 'nama', userField: 'karyawanId' },
-      { col: 'hrd_daily_tasks', nameField: 'nama', userField: 'userId' },
-      { col: 'hrd_absensi', nameField: 'nama', userField: 'userId' },
-      { col: 'hrd_cuti', nameField: 'nama', userField: 'userId' },
-      { col: 'hrd_overtime', nameField: 'nama', userField: 'userId' },
-      { col: 'hrd_reimbursement', nameField: 'nama', userField: 'userId' },
-      { col: 'hrd_kasbon', nameField: 'nama', userField: 'userId' },
-      { col: 'hrd_penalty', nameField: 'nama', userField: 'userId' },
-      { col: 'hrd_insentif', nameField: 'nama', userField: 'userId' },
-      { col: 'hrd_performance', nameField: 'nama', userField: 'userId' }
-    ];
+    // 1. Update hrd_approval_flow (Replace approver in steps)
+    const flowSnap = await db.collection('hrd_approval_flow').get();
+    const batch = db.batch();
+    let hasChange = false;
 
-    for (const item of collections) {
-      const snap = await db.collection(item.col).where('migratedFrom', '==', oldNama).get();
-      const batch = db.batch();
-      let hasChange = false;
+    flowSnap.forEach(doc => {
+        const f = doc.data();
+        let changed = false;
+        const newSteps = (f.steps || []).map(step => {
+            if (isSameName(step.nama, oldNama)) {
+                changed = true;
+                return { ...step, nama: newNama };
+            }
+            return step;
+        });
 
-      snap.forEach(doc => {
-          batch.update(doc.ref, {
-            [item.nameField]: oldNama,
-            [item.userField]: oldUserId,
-            updatedAt: new Date().toISOString(),
-            migratedFrom: firebase.firestore.FieldValue.delete()
-          });
-          count++;
-          hasChange = true;
-      });
+        if (changed) {
+            batch.update(doc.ref, { steps: newSteps, updatedAt: new Date().toISOString() });
+            countFlow++;
+            hasChange = true;
+        }
+    });
 
-      if (hasChange) await batch.commit();
-    }
+    if (hasChange) await batch.commit();
 
-    toast(`✅ Berhasil! ${count} dokumen dikembalikan ke Nanda.`, "success");
+    toast(`✅ Berhasil! ${countFlow} alur approval diperbarui.`, "success");
+    closeModalDirect();
     renderAkun();
   } catch (e) {
     console.error(e);
-    toast("Gagal membatalkan: " + e.message, "danger");
+    toast("Gagal: " + e.message, "danger");
   }
-}
-
-// ── MIGRASI DATA GA (Legacy compat) ───────────────────────────
-async function migrateGAData() {
-    // Now just a dummy for UI if still referenced elsewhere
-    toast("Fitur migrasi data dimatikan. Silakan gunakan fitur ganti alur kerja.", "info");
 }
 
 // ── DATA PERUSAHAAN ───────────────────────────────────────────
