@@ -274,6 +274,8 @@ async function cleanupFCMToken(userId) {
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
 const APP_VERSION = '12.4';
+const LOGIN_CONNECTION_ERROR = 'Gagal terhubung ke database. Periksa koneksi internet lalu coba lagi.';
+const INIT_CONNECTION_ERROR = 'Koneksi database bermasalah. Halaman login tetap bisa dipakai, lalu coba masuk lagi sesaat.';
 
 const DEFAULT_ACCOUNTS = [
   {
@@ -330,7 +332,12 @@ async function initApp() {
     window._sharedPortalUser = window.location.hash.replace('#portal-karyawan-', '');
     window.location.hash = '';
   }
-  await seedDefaultAccounts();
+  try {
+    await seedDefaultAccounts();
+  } catch (e) {
+    console.error('[Auth] Failed to initialize accounts:', e);
+    toast(INIT_CONNECTION_ERROR, 'warning');
+  }
   const saved = localStorage.getItem('hrd_session');
   if (saved) {
     try {
@@ -364,11 +371,21 @@ async function seedDefaultAccounts() {
 }
 
 async function doLogin(username, password) {
-  let doc = await db.collection('hrd_users').doc(username).get();
+  let doc;
+  try {
+    doc = await db.collection('hrd_users').doc(username).get();
+  } catch (e) {
+    throw new Error(LOGIN_CONNECTION_ERROR);
+  }
   let data;
   if (!doc.exists) {
     // Fallback: search by username field (in case doc ID is NIP or something else)
-    const snap = await db.collection('hrd_users').where('username', '==', username).limit(1).get();
+    let snap;
+    try {
+      snap = await db.collection('hrd_users').where('username', '==', username).limit(1).get();
+    } catch (e) {
+      throw new Error(LOGIN_CONNECTION_ERROR);
+    }
     if (snap.empty) throw new Error('Akun tidak ditemukan');
     doc = snap.docs[0];
   }
