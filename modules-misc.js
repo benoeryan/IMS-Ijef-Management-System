@@ -1216,7 +1216,7 @@ async function renderAkun() {
       '<div class="card"><p>Akses ditolak.</p></div>');
   const main = document.getElementById('mainContent');
   const baseUrl = window.location.origin + window.location.pathname;
-  main.innerHTML = `<div class="page-title"><span>👤 Manajemen Akun</span><div class="flex gap-8"><button class="btn btn-danger btn-sm" onclick="revertGAMigration()">🔙 Batal Migrasi GA</button><button class="btn btn-primary btn-sm" onclick="modalAkun()">+ Tambah</button></div></div>
+  main.innerHTML = `<div class="page-title"><span>👤 Manajemen Akun</span><div class="flex gap-8"><button class="btn btn-danger btn-sm" onclick="revertGAMigration()">🔙 Kembalikan Data Nanda</button><button class="btn btn-primary btn-sm" onclick="modalAkun()">+ Tambah</button></div></div>
   <!-- DATA PERUSAHAAN -->
   <div class="card mb-16" id="companyDataCard">
     <div class="card-title mb-16">🏢 Data Perusahaan</div>
