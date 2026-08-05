@@ -41,7 +41,7 @@
         left: var(--sidebar-w);
         right: 0;
         height: var(--header-h);
-        background: linear-gradient(90deg, #1a1a1a 0%, #2d1515 100%);
+        background: #000;
         color: #fff;
         display: flex;
         align-items: center;
