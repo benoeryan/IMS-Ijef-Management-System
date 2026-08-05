@@ -97,14 +97,20 @@ async function renderPortal() {
     const data = d.data();
     if (data.read === false) inboxCount++;
   });
-  document.getElementById('pAbsen').textContent = absenCount + ' hari';
+  if (document.getElementById('pAbsen')) document.getElementById('pAbsen').textContent = absenCount + ' hari';
   const kDataPortal =
     kSnapPortal && !kSnapPortal.empty
       ? kSnapPortal.docs[0].data()
       : { tanggalMasuk: '', status: 'aktif' };
-  const jatahCuti = hitungJatahCuti(kDataPortal);
-  document.getElementById('pCuti').textContent = Math.max(0, jatahCuti - cutiUsed) + ' hari';
-  document.getElementById('pInbox').textContent = inboxCount;
+
+  // hitungJatahCuti is defined in modules-kehadiran.js
+  let jatahCuti = 12;
+  if (typeof hitungJatahCuti === 'function') {
+      jatahCuti = hitungJatahCuti(kDataPortal);
+  }
+
+  if (document.getElementById('pCuti')) document.getElementById('pCuti').textContent = Math.max(0, jatahCuti - cutiUsed) + ' hari';
+  if (document.getElementById('pInbox')) document.getElementById('pInbox').textContent = inboxCount;
   // Daily task today
   const today = todayStr();
   const myTasks = [];

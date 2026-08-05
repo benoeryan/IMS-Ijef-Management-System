@@ -1018,35 +1018,36 @@ async function syncHariLiburNasional() {
   loadHariLiburView();
 }
 
-// Auto-load national holidays on first render if collection is empty for current year
+// Auto-load national holidays on first render if collection is empty for 2025 and 2026
 async function autoLoadHariLiburNasional() {
-  const year = new Date().getFullYear();
-  let dataToSync = [];
-  if (year === 2025) dataToSync = HARI_LIBUR_NASIONAL_2025;
-  else if (year === 2026) dataToSync = HARI_LIBUR_NASIONAL_2026;
-  else return;
+  const years = [2025, 2026];
+  for (const year of years) {
+    const dataToSync = year === 2025 ? HARI_LIBUR_NASIONAL_2025 : HARI_LIBUR_NASIONAL_2026;
 
-  const existingSnap = await db.collection('hrd_hari_libur').where('tahun', '==', year).get();
-  let alreadyPopulated = false;
-  existingSnap.forEach((d) => {
-    const t = d.data().tipe;
-    if (t === 'nasional' || t === 'cuti_bersama') alreadyPopulated = true;
-  });
-  if (alreadyPopulated) return; // Already populated
+    const existingSnap = await db.collection('hrd_hari_libur').where('tahun', '==', year).get();
+    let alreadyPopulated = false;
+    existingSnap.forEach((d) => {
+      const t = d.data().tipe;
+      if (t === 'nasional' || t === 'cuti_bersama') alreadyPopulated = true;
+    });
 
-  const batch = [];
-  dataToSync.forEach((h) => {
-    batch.push(
-      db.collection('hrd_hari_libur').add({
-        tanggal: h.tanggal,
-        nama: h.nama,
-        tipe: h.tipe,
-        tahun: year,
-        createdAt: new Date().toISOString(),
-      })
-    );
-  });
-  await Promise.all(batch);
+    if (!alreadyPopulated) {
+      console.log(`[PAYROLL] Auto-loading holidays for ${year}...`);
+      const batch = [];
+      dataToSync.forEach((h) => {
+        batch.push(
+          db.collection('hrd_hari_libur').add({
+            tanggal: h.tanggal,
+            nama: h.nama,
+            tipe: h.tipe,
+            tahun: year,
+            createdAt: new Date().toISOString(),
+          })
+        );
+      });
+      await Promise.all(batch);
+    }
+  }
 }
 
 // Check if a given date is a holiday - returns holiday info or null
@@ -2415,7 +2416,11 @@ function _showDailyTaskDetail(task) {
     ${logsHtml}
     ${commentInput}
 
-    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end"><a href="${buildGCalUrl(task)}" target="_blank" class="btn btn-sm btn-info" style="text-decoration:none">📅 Tambah ke Google Calendar</a><button class="btn btn-sm btn-outline" onclick="closeModalDirect()">Tutup</button></div>`);
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+      ${(hasAccess(6) || task.userId === currentUser.id || task.assignedBy === currentUser.id) ? `<button class="btn btn-sm btn-warning" onclick="closeModalDirect();editDailyTask('${task.id}')">✏️ Edit</button>` : ''}
+      <a href="${buildGCalUrl(task)}" target="_blank" class="btn btn-sm btn-info" style="text-decoration:none">📅 Google Calendar</a>
+      <button class="btn btn-sm btn-outline" onclick="closeModalDirect()">Tutup</button>
+    </div>`);
 }
 
 async function modalAddTask() {
@@ -2657,6 +2662,7 @@ async function editDailyTask(id) {
     if (!doc.exists) return toast('Data tidak ditemukan', 'warning');
     task = { id: doc.id, ...doc.data() };
   }
+  // If admin, show re-assignment dropdown
   let reassignHtml = '';
   if (hasAccess(3)) {
     try {
@@ -5236,123 +5242,79 @@ function viewProfilePhoto(src) {
   document.body.appendChild(overlay);
 }
 
-// ── FORM KAIZEN — General Affair Work Request ──
-
-async function findCurrentGA() {
-  try {
-    const snap = await db.collection('hrd_users').where('status', '==', 'aktif').get();
-    let ga = null;
-    snap.forEach(d => {
-      const u = d.data();
-      const pos = (u.posisi || '').toUpperCase();
-      const name = (u.nama || '').toUpperCase();
-      const role = (u.role || '').toLowerCase();
-
-      // Strict check: prioritize RIZKY or anyone with GA in position
-      if (name.includes('RIZKY NUR FADILAH') || pos === 'GENERAL AFFAIR' || pos === 'GA' || role === 'ga') {
-          ga = { id: d.id, ...u };
-      }
-    });
-    return ga;
-  } catch (e) {
-    console.error("Error finding GA:", e);
-    return null;
-  }
-}
+// ── FORM KAIZEN — General Affair Work Request for GA ──
 
 async function renderFormKaizen() {
   const main = document.getElementById('mainContent');
   if (!main) return;
 
-  main.innerHTML = `<div class="p-20 text-center"><div class="spinner mb-12"></div><p>Memuat modul Kaizen...</p></div>`;
+  const userName = (currentUser.nama || '').toLowerCase().trim();
+  const isGA = userName.includes('rizky') || userName.includes('rizkynur');
+  const addBtn = !isGA ? '<button class="btn btn-primary btn-sm" onclick="modalAddKaizen()">+ Buat Form Kaizen</button>' : '';
 
-  try {
-    const gaUser = await findCurrentGA();
-    const gaNama = gaUser ? gaUser.nama : 'Petugas GA';
-
-    const isGA = gaUser && currentUser.id === gaUser.id;
-    const isIrsan = (currentUser.nama || '').toLowerCase().includes('irsan janwar');
-    const isGM = (currentUser.posisi || '').toLowerCase().includes('general manager') || (currentUser.posisi || '').toLowerCase() === 'gm';
-    const isAdmin = hasAccess(6);
-
-    const addBtn = !isGA ? '<button class="btn btn-primary btn-sm" onclick="modalAddKaizen()">+ Buat Form Kaizen</button>' : '';
-
-    // Priority Filter
-    let filterHtml = '';
-    if (isGA || hasAccess(3) || hasHeadLevelAccess()) {
-      filterHtml = `
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; background:#f8f9ff; padding:8px 12px; border-radius:8px">
-          <span class="text-sm fw-700">🚩 Skala Prioritas:</span>
-          <select class="form-control" id="kzFilterPriority" style="max-width:180px; padding:4px 8px; font-size:.82rem" onchange="loadKaizenRecords({ isGA, isIrsan, isGM, isAdmin })">
-            <option value="all">Semua Prioritas</option>
-            <option value="high">🔴 Tinggi (Mendesak)</option>
-            <option value="medium">🟡 Sedang</option>
-            <option value="low">🟢 Rendah</option>
-          </select>
-        </div>`;
-    }
-
-    main.innerHTML = `
-      <div class="page-title">
-        <span>⚡ FORM KAIZEN (General Affair)</span>
-        <div class="flex gap-8">
-            ${isAdmin ? '<button class="btn btn-warning btn-sm" onclick="fixKaizenNamingData()">🔄 Sync Naming</button>' : ''}
-            ${addBtn}
-        </div>
-      </div>
-      <div class="card">
-        <p class="text-sm mb-16" style="color:#666">Pemberian tugas/permintaan perbaikan terkait fasilitas & General Affair ditujukan kepada <b>${escHtml(gaNama)}</b>.</p>
-        ${filterHtml}
-        <div id="kaizenStats" class="stats-grid mb-16"></div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Judul Tugas</th>
-                <th>Pemohon</th>
-                <th>Target Selesai</th>
-                <th>Sisa Waktu</th>
-                <th>Status</th>
-                <th>Aksi</th>
-              </tr>
-            </thead>
-            <tbody id="tblKaizen">
-              <tr><td colspan="7" class="text-center">Memuat data...</td></tr>
-            </tbody>
-          </table>
-        </div>
+  // Priority Filter
+  let filterHtml = '';
+  if (isGA || hasAccess(3) || hasHeadLevelAccess()) {
+    filterHtml = `
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; background:#f8f9ff; padding:8px 12px; border-radius:8px">
+        <span class="text-sm fw-700">🚩 Skala Prioritas:</span>
+        <select class="form-control" id="kzFilterPriority" style="max-width:180px; padding:4px 8px; font-size:.82rem" onchange="loadKaizenRecords()">
+          <option value="all">Semua Prioritas</option>
+          <option value="high">🔴 Tinggi (Mendesak)</option>
+          <option value="medium">🟡 Sedang</option>
+          <option value="low">🟢 Rendah</option>
+        </select>
       </div>`;
-
-    loadKaizenRecords({ isGA, isIrsan, isGM, isAdmin });
-  } catch (err) {
-    console.error("Kaizen render error:", err);
-    main.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Gagal memuat form Kaizen: ${err.message}</p></div>`;
   }
+
+  main.innerHTML = `
+    <div class="page-title">
+      <span>⚡ FORM KAIZEN (General Affair)</span>
+      ${addBtn}
+    </div>
+    <div class="card">
+      <p class="text-sm mb-16" style="color:#666">Pemberian tugas/permintaan perbaikan terkait fasilitas & General Affair ditujukan kepada <b>Muhammad Rizky Nur Fadilah</b>.</p>
+      ${filterHtml}
+      <div id="kaizenStats" class="stats-grid mb-16"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Judul Tugas</th>
+              <th>Pemohon</th>
+              <th>Target Selesai</th>
+              <th>Sisa Waktu</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblKaizen">
+            <tr><td colspan="6" class="text-center">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  loadKaizenRecords();
 }
 
-async function loadKaizenRecords(roles) {
+async function loadKaizenRecords() {
   const tbody = document.getElementById('tblKaizen');
   const statsEl = document.getElementById('kaizenStats');
   if (!tbody) return;
 
   try {
-    const { isGA, isIrsan, isGM, isAdmin } = roles || {
-        isGA: false,
-        isIrsan: (currentUser.nama || '').toLowerCase().includes('irsan janwar'),
-        isGM: (currentUser.posisi || '').toLowerCase().includes('general manager') || (currentUser.posisi || '').toLowerCase() === 'gm',
-        isAdmin: hasAccess(6)
-    };
-
     const snap = await db.collection('hrd_daily_tasks').where('source', '==', 'FORM KAIZEN').get();
     
     let items = [];
     snap.forEach(d => items.push({ id: d.id, ...d.data() }));
     items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
-    // Filter by visibility
+    const userName = (currentUser.nama || '').toLowerCase().trim();
+    const isGA = userName.includes('rizky') || userName.includes('rizkynur');
+
     if (!hasAccess(3) && !isGA) {
-        items = items.filter(it => it.assignedBy === currentUser.id || it.userId === currentUser.id);
+        items = items.filter(it => it.assignedBy === currentUser.id);
     }
 
     const filterPriority = document.getElementById('kzFilterPriority')?.value || 'all';
@@ -5362,9 +5324,12 @@ async function loadKaizenRecords(roles) {
 
     let html = '';
     if (!items.length) {
-      html = '<tr><td colspan="7" class="text-center">Belum ada form Kaizen.</td></tr>';
+      html = '<tr><td colspan="6" class="text-center">Belum ada form Kaizen.</td></tr>';
     } else {
       items.forEach(it => {
+        const isGAUser = (currentUser.nama || '').toLowerCase().includes('rizky');
+        const isIrsan = (currentUser.nama || '').toLowerCase().includes('irsan janwar');
+
         let statusBadge = '';
         if (it.done) {
             statusBadge = '<span class="badge badge-success">Selesai</span>';
@@ -5384,16 +5349,11 @@ async function loadKaizenRecords(roles) {
             aksiBtns += ` <button class="btn btn-xs btn-primary" onclick="modalApproveKaizen('${it.id}')" title="Approval Atasan">✅ Approval</button>`;
         }
 
-        if (isGA && !it.done && it.kaizenStatus !== 'waiting_approval') {
+        if (isGAUser && !it.done && it.kaizenStatus !== 'waiting_approval') {
             aksiBtns += ` <button class="btn btn-xs btn-success" onclick="modalUpdateKaizenProgress('${it.id}')" title="Berikan Respon/Progress">⚡ Respon</button>`;
         }
 
-        // Edit access for Admin, GM, or Irsan
-        if (isAdmin || isGM || isIrsan) {
-            aksiBtns += ` <button class="btn btn-xs btn-warning" onclick="editDailyTask('${it.id}')" title="Edit Form Kaizen">✏️</button>`;
-        }
-
-        if (it.assignedBy === currentUser.id || isAdmin) {
+        if (it.assignedBy === currentUser.id || hasAccess(6)) {
             aksiBtns += ` <button class="btn btn-xs btn-danger" onclick="hapusDailyTask('${it.id}')" title="Hapus">🗑️</button>`;
         }
 
@@ -5443,66 +5403,11 @@ async function loadKaizenRecords(roles) {
       `;
     }
   } catch (e) {
-    console.error("loadKaizenRecords error:", e);
-    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="color:red">Gagal memuat data: ${e.message}</td></tr>`;
-  }
-}
-
-        // Hitung Sisa Waktu
-        let sisaWaktuHtml = '-';
-        if (it.done) {
-            sisaWaktuHtml = '<span class="badge badge-success">Selesai</span>';
-        } else if (it.tanggal) {
-            const tglTarget = new Date(it.tanggal + 'T23:59:59');
-            const tglSkrg = new Date();
-            const diffTime = tglTarget - tglSkrg;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            if (diffDays < 0) {
-                sisaWaktuHtml = `<span style="color:#c62828;font-weight:700">🔴 Terlambat ${Math.abs(diffDays)} hr</span>`;
-            } else if (diffDays === 0) {
-                sisaWaktuHtml = `<span style="color:#f57f17;font-weight:700">🟡 Hari Ini</span>`;
-            } else {
-                sisaWaktuHtml = `<span style="color:#1565c0;font-weight:700">🔵 ${diffDays} hr lagi</span>`;
-            }
-        }
-
-        html += `
-          <tr>
-            <td class="text-xs">#${it.id.substring(0, 5)}</td>
-            <td class="fw-700">
-                ${escHtml(it.title.replace('⚡ KAIZEN: ', ''))}
-                <div class="text-xs" style="font-weight:400;color:#666">Progress: ${it.progress || 0}%</div>
-            </td>
-            <td>${escHtml(it.assignedByName || '-')}</td>
-            <td>${formatDate(it.tanggal)}</td>
-            <td>${sisaWaktuHtml}</td>
-            <td>${statusBadge}</td>
-            <td>${aksiBtns}</td>
-          </tr>`;
-      });
-    }
-    tbody.innerHTML = html;
-
-    // Update stats
-    const total = items.length;
-    const done = items.filter(it => it.done).length;
-    const pending = total - done;
-    if (statsEl) {
-      statsEl.innerHTML = `
-        <div class="stat-card" style="border-left-color:var(--primary)"><div class="stat-value">${total}</div><div class="stat-label">Total Permintaan</div></div>
-        <div class="stat-card" style="border-left-color:var(--warning)"><div class="stat-value">${pending}</div><div class="stat-label">Sedang Diproses</div></div>
-        <div class="stat-card" style="border-left-color:var(--success)"><div class="stat-value">${done}</div><div class="stat-label">Berhasil Diperbaiki</div></div>
-      `;
-    }
-  } catch (e) {
     if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="color:red">Error: ${e.message}</td></tr>`;
   }
 }
 
 async function modalAddKaizen() {
-  // Find Nanda's user record for reference
-  let nandasync function modalAddKaizen() {
   let gaUser = null;
   try {
     const uSnap = await db.collection('hrd_users').get();
@@ -5514,7 +5419,7 @@ async function modalAddKaizen() {
 
   openModal(`
     <div class="modal-title">⚡ Buat FORM KAIZEN (General Affair)</div>
-    <p class="text-sm mb-16" style="color:#666">Gunakan form ini untuk memberikan tugas perbaikan fasilitas atau GA kepada <b>Muhammad Rizky Nur Fadilah</b>.</p>
+    <p class="text-sm mb-16" style="color:#666">Gunakan form ini untuk memberikan tugas perbaikan fasilitas atau GA kepada <b>${escHtml(gaNama)}</b>.</p>
     
     <div class="form-group">
       <label>Judul Permintaan / Tugas *</label>
@@ -5537,7 +5442,7 @@ async function modalAddKaizen() {
       <div class="text-xs mt-4" style="color:#999">Maks 3 file. Format: Gambar, PDF, Word, Excel.</div>
     </div>
 
-    <input type="hidden" id="targetGAId" value="${gaUser ? gaUser.id : ''}">
+    <input type="hidden" id="targetGAId" value="${gaUser ? gaUser.id : 'rizky'}">
     <input type="hidden" id="targetGANama" value="${gaUser ? gaUser.nama : 'Muhammad Rizky Nur Fadilah'}">
 
     <button class="btn btn-primary" style="width:100%" onclick="simpanKaizen()">📤 Kirim Form Kaizen</button>
@@ -5547,8 +5452,8 @@ async function modalAddKaizen() {
 async function simpanKaizen() {
   const title = document.getElementById('kzTitle').value.trim();
   const desc = document.getElementById('kzDesc').value.trim();
-  const targetId = document.getElementById('targetNandaId').value;
-  const targetNama = document.getElementById('targetNandaNama').value;
+  const targetId = document.getElementById('targetGAId').value;
+  const targetNama = document.getElementById('targetGANama').value;
   
   if (!title || !desc) return toast('Judul dan deskripsi wajib diisi', 'warning');
 
@@ -5559,13 +5464,13 @@ async function simpanKaizen() {
     description: desc,
     tanggal: document.getElementById('kzTanggal').value,
     priority: document.getElementById('kzPriority').value,
-    userId: targetId || 'nanda_manual',
+    userId: targetId,
     targetUserName: targetNama,
     assignedBy: currentUser.id,
     assignedByName: currentUser.nama,
     done: false,
     progress: 0,
-    aktivitas: 'Menunggu pengerjaan oleh Nanda.',
+    aktivitas: `Menunggu pengerjaan oleh GA.`,
     ownerLevel: 1,
     departemen: 'GENERAL AFFAIR',
     createdAt: new Date().toISOString()
@@ -5576,12 +5481,11 @@ async function simpanKaizen() {
     data.attachments = await getFilesAsBase64('kzFiles');
     await db.collection('hrd_daily_tasks').add(data);
     
-    // Notify Nanda
     if (targetId) {
         await sendNotification(targetId, '⚡ FORM KAIZEN BARU', `${currentUser.nama} memberikan tugas: ${title}`, 'kaizen');
     }
 
-    toast('Form Kaizen berhasil dikirim ke Nanda', 'success');
+    toast('Form Kaizen berhasil dikirim ke GA', 'success');
     closeModalDirect();
     renderFormKaizen();
   } catch (e) {
@@ -5644,7 +5548,6 @@ async function simpanUpdateKaizen(id) {
       progress: progress,
       aktivitas: aktivitas,
       updatedAt: new Date().toISOString(),
-      // Log entry for Nanda including attachments for this specific step
       kaizenLogs: firebase.firestore.FieldValue.arrayUnion({
           userId: currentUser.id,
           userName: currentUser.nama,
@@ -5656,11 +5559,10 @@ async function simpanUpdateKaizen(id) {
       })
     };
 
-    // Logic: If Nanda marks as DONE, it goes to WAITING APPROVAL first
     if (markDone) {
       updateData.kaizenStatus = 'waiting_approval';
       updateData.progress = 100;
-      updateData.done = false; // Stay false until approved by Irsan
+      updateData.done = false;
     } else {
       updateData.kaizenStatus = 'proses';
       updateData.done = false;
@@ -5674,7 +5576,6 @@ async function simpanUpdateKaizen(id) {
 
     await db.collection('hrd_daily_tasks').doc(id).update(updateData);
 
-    // Notify Irsan if waiting approval
     if (markDone) {
         try {
             const irsanSnap = await db.collection('hrd_users').get();
@@ -5683,15 +5584,14 @@ async function simpanUpdateKaizen(id) {
                 if ((d.data().nama || '').toLowerCase().includes('irsan janwar')) irsanId = d.id;
             });
             if (irsanId) {
-                await sendNotification(irsanId, '🔔 Approval Kaizen', `Nanda telah menyelesaikan tugas Kaizen. Mohon tinjau & approve.`, 'kaizen');
+                await sendNotification(irsanId, '🔔 Approval Kaizen', `GA telah menyelesaikan tugas Kaizen. Mohon tinjau & approve.`, 'kaizen');
             }
         } catch (err) {}
     }
 
-    // Notify the requester
     const finalDoc = await db.collection('hrd_daily_tasks').doc(id).get();
     const taskFinal = finalDoc.data();
-    await sendNotification(taskFinal.assignedBy, '⚡ UPDATE KAIZEN', `Nanda telah mengupdate tugas: "${taskFinal.title.replace('⚡ KAIZEN: ', '')}" ke ${progress}%`, 'kaizen');
+    await sendNotification(taskFinal.assignedBy, '⚡ UPDATE KAIZEN', `GA telah mengupdate tugas: "${taskFinal.title.replace('⚡ KAIZEN: ', '')}" ke ${progress}%`, 'kaizen');
 
     toast(markDone ? 'Tugas dikirim untuk approval atasan' : 'Progress diperbarui', 'success');
     closeModalDirect();
@@ -5710,7 +5610,7 @@ async function modalApproveKaizen(id) {
     <div style="background:#f8f9ff;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
       <div class="fw-700">Tugas: ${escHtml(task.title.replace('⚡ KAIZEN: ', ''))}</div>
       <div class="text-xs color-light">Dikerjakan oleh: <b>Muhammad Rizky Nur Fadilah</b></div>
-      <div class="text-xs color-light">Catatan Akhir Rizky: <i>"${escHtml(task.aktivitas)}"</i></div>
+      <div class="text-xs color-light">Catatan GA: <i>"${escHtml(task.aktivitas)}"</i></div>
     </div>
 
     <div class="form-group">
@@ -5739,11 +5639,10 @@ async function simpanApprovalKaizen(id, action) {
         kaizenStatus: action,
         approverComment: komentar,
         updatedAt: new Date().toISOString(),
-        // Add to logs
         kaizenLogs: firebase.firestore.FieldValue.arrayUnion({
             userId: currentUser.id,
             userName: currentUser.nama,
-            action: action, // approved, pending, rejected
+            action: action,
             comment: komentar || 'Status diperbarui',
             timestamp: new Date().toISOString()
         })
@@ -5755,25 +5654,16 @@ async function simpanApprovalKaizen(id, action) {
         updateData.progress = 100;
     } else {
         updateData.done = false;
-        // If pending, keep progress at 90% to indicate nearly done but needs fix
         if (action === 'pending') updateData.progress = 90;
-        else updateData.progress = 0; // Rejected reverts progress
+        else updateData.progress = 0;
     }
 
     try {
         toast('⏳ Memproses approval...', 'info');
         await db.collection('hrd_daily_tasks').doc(id).update(updateData);
 
-        // ── INTEGRASI DAILY REPORT HANYA JIKA APPROVED ──
         if (action === 'approved') {
             try {
-                // Find Nanda's User Record
-                const nandaSnap = await db.collection('hrd_users').get();
-                let nandaId = '';
-                nandaSnap.forEach(d => {
-                    if ((d.data().nama || '').toLowerCase().includes('nanda yoga')) nandaId = d.id;
-                });
-
                 const reportData = {
                     type: 'report',
                     source: 'AUTO-KAIZEN-FINAL',
@@ -5782,7 +5672,7 @@ async function simpanApprovalKaizen(id, action) {
                     kategori: "FACILITY'S",
                     jamMasuk: '08:00',
                     jamKeluar: new Date().toTimeString().substring(0, 5),
-                    aktivitas: `[APPROVED KAIZEN] - ${task.title.replace('⚡ KAIZEN: ', '')}\nRespon Nanda: ${task.aktivitas}\nReview Atasan: ${komentar || 'Sesuai'}`,
+                    aktivitas: `[APPROVED KAIZEN] - ${task.title.replace('⚡ KAIZEN: ', '')}\nRespon GA: ${task.aktivitas}\nReview Atasan: ${komentar || 'Sesuai'}`,
                     hasil: `Pekerjaan Selesai & Disetujui Atasan: ${task.title.replace('⚡ KAIZEN: ', '')}`,
                     kendala: '',
                     solusi: '',
@@ -5790,7 +5680,7 @@ async function simpanApprovalKaizen(id, action) {
                     progress: 100,
                     done: true,
                     doneAt: new Date().toISOString(),
-                    userId: gaId || task.userId,
+                    userId: task.userId,
                     targetUserName: task.targetUserName || 'Muhammad Rizky Nur Fadilah',
                     departemen: 'GENERAL AFFAIR',
                     ownerLevel: 1,
@@ -5803,19 +5693,16 @@ async function simpanApprovalKaizen(id, action) {
             }
         }
 
-        // Notifications
-        // 1. Notify Nanda
-        const nandaSnap = await db.collection('hrd_users').get();
-        let nandaId = '';
-        nandaSnap.forEach(d => {
-            if ((d.data().nama || '').toLowerCase().includes('nanda yoga')) nandaId = d.id;
+        const gaSnap = await db.collection('hrd_users').get();
+        let gaId = '';
+        gaSnap.forEach(d => {
+            if ((d.data().nama || '').toLowerCase().includes('rizky')) gaId = d.id;
         });
-        if (nandaId) {
+        if (gaId) {
             const actLabel = action === 'approved' ? 'DISETUJUI' : action === 'pending' ? 'DITANGGUHKAN (REVISI)' : 'DITOLAK (REJECT)';
-            await sendNotification(nandaId, '⚡ STATUS KAIZEN', `Tugas "${task.title.replace('⚡ KAIZEN: ', '')}" telah ${actLabel} oleh Irsan. Pesan: ${komentar || '-'}`, 'kaizen');
+            await sendNotification(gaId, '⚡ STATUS KAIZEN', `Tugas "${task.title.replace('⚡ KAIZEN: ', '')}" telah ${actLabel} oleh Irsan. Pesan: ${komentar || '-'}`, 'kaizen');
         }
 
-        // 2. Notify Requester
         await sendNotification(task.assignedBy, '⚡ UPDATE KAIZEN', `Tugas yang Anda minta "${task.title.replace('⚡ KAIZEN: ', '')}" berstatus: ${action.toUpperCase()}. Pesan Atasan: ${komentar || '-'}`, 'kaizen');
 
         toast('Status Kaizen diperbarui: ' + action.toUpperCase(), 'success');
@@ -5889,14 +5776,18 @@ async function fixKaizenNamingData() {
         const updateObj = {};
 
         fields.forEach(f => {
-            if (d[f] && typeof d[f] === 'string' && d[f].toUpperCase().includes('NANDA')) {
-                updateObj[f] = d[f].replace(/Nanda Yoga Maulana/gi, gaUser.nama).replace(/Nanda/gi, gaUser.nama);
+            if (d[f] && typeof d[f] === 'string' && (d[f].toUpperCase().includes('NANDA') || d[f].toUpperCase().includes('YOGA'))) {
+                // Multi-variant replacement
+                updateObj[f] = d[f]
+                    .replace(/Nanda Yoga Maulana/gi, gaUser.nama)
+                    .replace(/Nanda Yoga/gi, gaUser.nama)
+                    .replace(/Nanda/gi, gaUser.nama);
                 changed = true;
             }
         });
 
-        // Also fix userId if it was still nanda
-        if (d.targetUserName && d.targetUserName.toUpperCase().includes('NANDA')) {
+        // Also fix targetUserName and userId if it was still nanda
+        if (d.targetUserName && (d.targetUserName.toUpperCase().includes('NANDA') || d.targetUserName.toUpperCase().includes('YOGA'))) {
             updateObj.targetUserName = gaUser.nama;
             updateObj.userId = gaUser.id;
             changed = true;
