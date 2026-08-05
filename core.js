@@ -512,7 +512,7 @@ function renderApp() {
     })
     .catch(() => {});
   // Auto-load national holidays if not yet populated
-  autoLoadHariLiburNasional().catch(() => {});
+  if (typeof autoLoadHariLiburNasional === 'function') autoLoadHariLiburNasional().catch(() => {});
   // Start task reminder checker
   if (typeof startTaskReminderCheck === 'function') startTaskReminderCheck();
   // Start report summary scheduler (for Head/BOD)
