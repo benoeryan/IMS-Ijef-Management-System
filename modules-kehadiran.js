@@ -1055,7 +1055,6 @@ async function autoLoadHariLiburNasional() {
     }
   }
 }
-}
 
 // Check if a given date is a holiday - returns holiday info or null
 async function checkHoliday(dateStr) {
