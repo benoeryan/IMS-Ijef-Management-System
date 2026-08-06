@@ -1,5 +1,5 @@
 'use strict';
-// CORE.JS — HRD & Legal IJEF Corp v5.1
+// CORE.JS — HRD & Legal IJEF Corp v14.0
 // Firebase Config, Auth, Router, Helpers
 // ============================================================
 console.log('IMS Core Initializing...');
@@ -273,7 +273,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = '13.9';
+const APP_VERSION = '14.0';
 
 const DEFAULT_ACCOUNTS = [
   {
