@@ -1024,30 +1024,37 @@ async function autoLoadHariLiburNasional() {
   for (const year of years) {
     const dataToSync = year === 2025 ? HARI_LIBUR_NASIONAL_2025 : HARI_LIBUR_NASIONAL_2026;
 
-    const existingSnap = await db.collection('hrd_hari_libur').where('tahun', '==', year).get();
-    let alreadyPopulated = false;
-    existingSnap.forEach((d) => {
-      const t = d.data().tipe;
-      if (t === 'nasional' || t === 'cuti_bersama') alreadyPopulated = true;
-    });
+    try {
+      const existingSnap = await db.collection('hrd_hari_libur').where('tahun', '==', year).get();
+      let alreadyPopulated = false;
+      existingSnap.forEach((d) => {
+        const t = d.data().tipe;
+        if (t === 'nasional' || t === 'cuti_bersama') alreadyPopulated = true;
+      });
 
-    if (!alreadyPopulated) {
-      console.log(`[PAYROLL] Auto-loading holidays for ${year}...`);
-      const batch = [];
-      dataToSync.forEach((h) => {
-        batch.push(
-          db.collection('hrd_hari_libur').add({
+      if (!alreadyPopulated) {
+        console.log(`[HOLIDAY] Auto-loading holidays for ${year}...`);
+        // Use a batch to prevent partial loads
+        const batch = db.batch();
+        dataToSync.forEach((h) => {
+          const ref = db.collection('hrd_hari_libur').doc();
+          batch.set(ref, {
             tanggal: h.tanggal,
             nama: h.nama,
             tipe: h.tipe,
             tahun: year,
             createdAt: new Date().toISOString(),
-          })
-        );
-      });
-      await Promise.all(batch);
+            autoLoaded: true
+          });
+        });
+        await batch.commit();
+        console.log(`[HOLIDAY] ${year} holidays loaded successfully.`);
+      }
+    } catch (err) {
+      console.warn(`[HOLIDAY] Auto-load failed for ${year}:`, err.message);
     }
   }
+}
 }
 
 // Check if a given date is a holiday - returns holiday info or null

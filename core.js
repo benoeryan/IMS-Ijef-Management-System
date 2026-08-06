@@ -273,9 +273,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = '12.4';
-const LOGIN_CONNECTION_ERROR = 'Gagal terhubung ke database. Periksa koneksi internet lalu coba lagi.';
-const INIT_CONNECTION_ERROR = 'Koneksi database bermasalah. Halaman login tetap bisa dipakai, lalu coba masuk lagi sesaat.';
+const APP_VERSION = '13.4';
 
 const DEFAULT_ACCOUNTS = [
   {
@@ -332,12 +330,7 @@ async function initApp() {
     window._sharedPortalUser = window.location.hash.replace('#portal-karyawan-', '');
     window.location.hash = '';
   }
-  try {
-    await seedDefaultAccounts();
-  } catch (e) {
-    console.error('[Auth] Failed to initialize accounts:', e);
-    toast(INIT_CONNECTION_ERROR, 'warning');
-  }
+  await seedDefaultAccounts();
   const saved = localStorage.getItem('hrd_session');
   if (saved) {
     try {
@@ -371,21 +364,11 @@ async function seedDefaultAccounts() {
 }
 
 async function doLogin(username, password) {
-  let doc;
-  try {
-    doc = await db.collection('hrd_users').doc(username).get();
-  } catch (e) {
-    throw new Error(LOGIN_CONNECTION_ERROR);
-  }
+  let doc = await db.collection('hrd_users').doc(username).get();
   let data;
   if (!doc.exists) {
     // Fallback: search by username field (in case doc ID is NIP or something else)
-    let snap;
-    try {
-      snap = await db.collection('hrd_users').where('username', '==', username).limit(1).get();
-    } catch (e) {
-      throw new Error(LOGIN_CONNECTION_ERROR);
-    }
+    const snap = await db.collection('hrd_users').where('username', '==', username).limit(1).get();
     if (snap.empty) throw new Error('Akun tidak ditemukan');
     doc = snap.docs[0];
   }
@@ -512,7 +495,7 @@ function renderApp() {
     })
     .catch(() => {});
   // Auto-load national holidays if not yet populated
-  if (typeof autoLoadHariLiburNasional === 'function') autoLoadHariLiburNasional().catch(() => {});
+  autoLoadHariLiburNasional().catch(() => {});
   // Start task reminder checker
   if (typeof startTaskReminderCheck === 'function') startTaskReminderCheck();
   // Start report summary scheduler (for Head/BOD)
@@ -701,11 +684,6 @@ function toggleNavGroup(el) {
   if (arrow) arrow.classList.toggle('open', isHidden);
 }
 
-function _setPageError(main, icon, message, page) {
-  const safePage = page.replace(/['"\\]/g, '');
-  main.innerHTML = `<div class="empty-state"><div class="icon">${icon}</div><p>${message}</p><button class="btn btn-sm btn-primary" style="margin-top:12px" onclick="navigateTo('${safePage}')">🔄 Coba Lagi</button></div>`;
-}
-
 function navigateTo(page) {
   if (currentPage !== page) {
     lastPage = currentPage;
@@ -813,7 +791,7 @@ function navigateTo(page) {
       fn();
     } catch (e) {
       console.error(`Error rendering page "${page}":`, e);
-      _setPageError(main, '❌', `Gagal memuat halaman "${page}". Silakan refresh browser.`, page);
+      main.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Gagal memuat halaman "${page}". Silakan refresh browser.</p></div>`;
     }
   } else if (funcName) {
     // Retry with increasing delays (in case scripts are still loading on slow connections)
@@ -825,12 +803,12 @@ function navigateTo(page) {
       if (typeof retryFn === 'function') {
         try { retryFn(); } catch (e) {
           console.error(`Error rendering "${page}":`, e);
-          _setPageError(main, '❌', `Gagal memuat halaman "${page}". Silakan refresh browser.`, page);
+          main.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Gagal memuat halaman "${page}". Silakan refresh browser.</p></div>`;
         }
       } else if (attempt < delays.length) {
         setTimeout(tryRender, delays[attempt++]);
       } else {
-        _setPageError(main, '⚠️', `Halaman "${page}" gagal dimuat. Periksa koneksi lalu refresh browser.`, page);
+        main.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Halaman "${page}" gagal dimuat. Periksa koneksi lalu refresh browser.</p></div>`;
       }
     };
     setTimeout(tryRender, delays[attempt++]);

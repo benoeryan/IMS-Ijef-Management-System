@@ -58,7 +58,11 @@ async function renderDashboard() {
       <div class="stat-card" style="cursor:pointer" onclick="navigateTo('pengumuman')"><div class="stat-icon">📢</div><div class="stat-value">${pengumuman.size}</div><div class="stat-label">Pengumuman</div></div>`;
   }
 
-  let widgetLeft = '<div class="card"><div class="card-title mb-8">📋 Pengajuan Menunggu Approval</div>';
+  // --- WIDGETS ---
+  let widgetLeft = '';
+
+  // 1. Pengajuan Pending
+  widgetLeft += '<div class="card"><div class="card-title mb-8">📋 Pengajuan Menunggu Approval</div>';
   if (!totalPending) {
     widgetLeft += '<p class="text-sm" style="color:#999">Tidak ada pengajuan pending</p>';
   } else {
@@ -71,24 +75,53 @@ async function renderDashboard() {
   }
   widgetLeft += '</div>';
 
-  widgetLeft += '<div class="card"><div class="card-title mb-8">📢 Pengumuman Terbaru</div>';
+  // 2. User Info Card (Administrator Card)
+  const u = currentUser;
+  widgetLeft += `
+  <div class="card" style="border-left:4px solid var(--accent)">
+    <div class="flex gap-16" style="align-items:center">
+      <div style="width:50px;height:50px;font-size:1.5rem;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center">${u.nama.charAt(0)}</div>
+      <div>
+        <div class="fw-700" style="font-size:1rem">${escHtml(u.nama)}</div>
+        <div class="text-sm" style="color:#999">${escHtml(u.id)} • ${escHtml(u.departemen || '-')}</div>
+      </div>
+    </div>
+  </div>`;
+
+  // 3. Team Report Widget (HEAD+)
+  if (hasHeadLevelAccess()) {
+    widgetLeft += `
+    <div class="card" id="dashTeamReportSection">
+      <div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center">
+        <span>📊 Report Tim Hari Ini</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-xs btn-outline" onclick="loadPortalTeamReport('dashTeamReportList', '_dashTeamDivFilter')">🔄</button>
+          <button class="btn btn-xs btn-primary" onclick="navigateTo('daily-task')">Lihat Semua</button>
+        </div>
+      </div>
+      <div id="dashTeamReportList"><p class="text-sm" style="color:#999">Memuat...</p></div>
+    </div>`;
+  }
+
+  // --- RIGHT WIDGETS ---
+  let widgetRight = '';
+
+  // 1. Pengumuman
+  widgetRight += '<div class="card"><div class="card-title mb-8">📢 Pengumuman Terbaru</div>';
   if (pengumuman.empty) {
-    widgetLeft += '<p class="text-sm" style="color:#999">Belum ada</p>';
+    widgetRight += '<p class="text-sm" style="color:#999">Belum ada</p>';
   } else {
     const items = [];
     pengumuman.forEach((d) => items.push({ id: d.id, ...d.data() }));
     items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     items.slice(0, 5).forEach((p) => {
-      widgetLeft += `<div style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="viewPengumuman('${p.id}')"><div class="fw-700 text-sm">${escHtml(p.judul)}</div><div class="text-xs" style="color:#999">${formatDate(p.createdAt)}</div></div>`;
+      widgetRight += `<div style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="viewPengumuman('${p.id}')"><div class="fw-700 text-sm">${escHtml(p.judul)}</div><div class="text-xs" style="color:#999">${formatDate(p.createdAt)}</div></div>`;
     });
   }
-  widgetLeft += '</div>';
+  widgetRight += '</div>';
 
-  if (isBOD) {
-    widgetLeft += '<div class="card" style="border-left:4px solid #0d47a1"><div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span>📋 Tugaskan Daily Task</span><div style="display:flex;gap:6px"><button class="btn btn-xs btn-primary" onclick="modalAddTask()">+ Tugaskan Task</button><button class="btn btn-xs btn-outline" onclick="navigateTo(\'daily-task\')">Lihat Semua</button></div></div><div id="dashBodTaskList"><p class="text-sm" style="color:#999">Memuat...</p></div></div>';
-  }
-
-  let widgetRight = `<div class="card"><div class="card-title mb-12">⚡ Aksi Cepat</div><div style="display:flex;gap:8px;flex-wrap:wrap">`;
+  // 2. Aksi Cepat
+  widgetRight += `<div class="card"><div class="card-title mb-12">⚡ Aksi Cepat</div><div style="display:flex;gap:8px;flex-wrap:wrap">`;
   const actions = [
     { label: 'Daily Task', page: 'daily-task', icon: '📝', color: '#1565c0' },
     { label: 'Absensi', page: 'absensi', icon: '📍', color: '#000' },
@@ -108,14 +141,25 @@ async function renderDashboard() {
   });
   widgetRight += `</div></div>`;
 
+  if (isBOD) {
+    widgetRight += '<div class="card" style="border-left:4px solid #0d47a1"><div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span>📋 Tugaskan Daily Task</span><div style="display:flex;gap:6px"><button class="btn btn-xs btn-primary" onclick="modalAddTask()">+ Tugaskan Task</button><button class="btn btn-xs btn-outline" onclick="navigateTo(\'daily-task\')">Lihat Semua</button></div></div><div id="dashBodTaskList"><p class="text-sm" style="color:#999">Memuat...</p></div></div>';
+  }
+
   const widgetsEl = document.getElementById('dashWidgets');
   if (widgetsEl) {
     widgetsEl.innerHTML = widgetLeft + widgetRight;
   }
 
+  if (hasHeadLevelAccess()) {
+      if (typeof loadPortalTeamReport === 'function') {
+          loadPortalTeamReport('dashTeamReportList', '_dashTeamDivFilter').catch(() => {});
+      }
+  }
+
   if (isBOD) {
     loadDashBodTasks();
   }
+}
 }
 
 async function loadDashBodTasks() {
