@@ -273,7 +273,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = '14.0';
+const APP_VERSION = '14.1';
 
 const DEFAULT_ACCOUNTS = [
   {

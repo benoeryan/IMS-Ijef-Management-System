@@ -205,7 +205,6 @@ function loadDashAbsenToday(absenSnap) {
     h += '</tbody></table></div>';
     el.innerHTML = h;
 }
-}
 
 async function loadDashBodTasks() {
   const el = document.getElementById('dashBodTaskList');
