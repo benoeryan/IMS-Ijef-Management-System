@@ -3418,7 +3418,6 @@ async function loadSheetList() {
   } catch (e) {
     selectEl.innerHTML = '<option value="' + GSHEET_GID + '">GABUNGAN REPORT (default)</option>';
   }
-}
 
 var _gsImportData = [];
 
