@@ -160,7 +160,6 @@ async function renderDashboard() {
     loadDashBodTasks();
   }
 }
-}
 
 async function loadDashBodTasks() {
   const el = document.getElementById('dashBodTaskList');
