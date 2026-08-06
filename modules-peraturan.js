@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '12.4',
+            version: '14.2',
             updatedAt: new Date().toISOString(),
-            note: 'Final synchronization for Dinas Luar/SPPD and Black Theme Refinement'
+            note: 'Fix attendance synchronization & dashboard cleanup'
         }, { merge: true });
 
     } catch (e) {

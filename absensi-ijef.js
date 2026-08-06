@@ -1357,12 +1357,16 @@ async function checkTodayStatus() {
 
 async function loadTodayHistory() {
   const todayDate = todayStr();
-  const snap = await db.collection('hrd_absensi').get();
+  const snap = await db.collection('hrd_absensi').where('tanggal', '==', todayDate).get();
   let h = '';
   let found = false;
-  snap.forEach((d) => {
-    const p = d.data();
-    if (p.tanggal !== todayDate) return;
+
+  const docs = [];
+  snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
+  // Sort by time desc
+  docs.sort((a, b) => (b.waktu || "").localeCompare(a.waktu || ""));
+
+  docs.forEach((p) => {
     if (!hasAccess(3) && p.userId !== currentUser.id) return;
     found = true;
     const tipeLabel =

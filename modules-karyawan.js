@@ -48,12 +48,18 @@ async function renderDashboard() {
     dinasCount = dinas.size;
   }
 
+  const uniqueHadir = new Set();
+  absen.forEach(d => {
+      const p = d.data();
+      if (p.userId) uniqueHadir.add(p.userId);
+  });
+
   const totalPending = cutiCount + overtimeCount + reimburseCount + dinasCount;
   const statsEl = document.getElementById('dashStats');
   if (statsEl) {
     statsEl.innerHTML = `
       <div class="stat-card" style="cursor:pointer" onclick="navigateTo('karyawan')"><div class="stat-icon">👥</div><div class="stat-value">${karyawan.size}</div><div class="stat-label">Total Karyawan</div></div>
-      <div class="stat-card" style="cursor:pointer" onclick="navigateTo('absensi')"><div class="stat-icon">📍</div><div class="stat-value">${absen.size}</div><div class="stat-label">Hadir Hari Ini</div></div>
+      <div class="stat-card" style="cursor:pointer" onclick="navigateTo('absensi')"><div class="stat-icon">📍</div><div class="stat-value">${uniqueHadir.size}</div><div class="stat-label">Hadir Hari Ini</div></div>
       <div class="stat-card" style="cursor:pointer" onclick="navigateTo('approval-center')"><div class="stat-icon">📋</div><div class="stat-value">${totalPending}</div><div class="stat-label">Pengajuan Pending</div></div>
       <div class="stat-card" style="cursor:pointer" onclick="navigateTo('pengumuman')"><div class="stat-icon">📢</div><div class="stat-value">${pengumuman.size}</div><div class="stat-label">Pengumuman</div></div>`;
   }
@@ -61,16 +67,7 @@ async function renderDashboard() {
   // --- WIDGETS ---
   let widgetLeft = '';
 
-  // 1. Clock In/Out (Absensi) Widget - Restored
-  widgetLeft += `
-  <div class="card" style="border-left:4px solid var(--primary)">
-    <div class="card-title mb-12">⏰ Absensi / Kehadiran</div>
-    <div id="dashClockInOut">
-        <p class="text-sm color-gray">Memuat modul absensi...</p>
-    </div>
-  </div>`;
-
-  // 2. Pengajuan Pending
+  // 1. Pengajuan Pending
   widgetLeft += '<div class="card"><div class="card-title mb-8">📋 Pengajuan Menunggu Approval</div>';
   if (!totalPending) {
     widgetLeft += '<p class="text-sm" style="color:#999">Tidak ada pengajuan pending</p>';
@@ -172,9 +169,6 @@ async function renderDashboard() {
   }
 
   // Load Widget Data
-  if (typeof renderClockInOut === 'function') {
-      renderClockInOut(document.getElementById('dashClockInOut'));
-  }
   loadDashAbsenToday(absen);
 
   if (hasHeadLevelAccess()) {
@@ -195,14 +189,38 @@ function loadDashAbsenToday(absenSnap) {
         el.innerHTML = '<p class="text-sm color-gray">Belum ada karyawan hadir hari ini.</p>';
         return;
     }
-    let h = '<div class="table-wrap"><table><tbody style="font-size:.8rem">';
+
+    // Group by employee
+    const summary = {};
     absenSnap.forEach(d => {
         const p = d.data();
-        const time = p.jam || (p.createdAt ? p.createdAt.split('T')[1].substring(0,5) : '-');
-        const badge = (p.status || '').toLowerCase() === 'terlambat' ? 'badge-danger' : 'badge-success';
-        h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${time}</td><td><span class="badge ${badge}">${p.status || 'Hadir'}</span></td></tr>`;
+        const uid = p.userId || p.nama;
+        if (!summary[uid]) summary[uid] = { nama: p.nama, in: '-', out: '-', foto: p.foto, status: 'Hadir' };
+
+        if (p.tipe === 'masuk') {
+            summary[uid].in = p.waktu;
+            summary[uid].status = p.status || 'Hadir';
+            if (p.foto) summary[uid].foto = p.foto;
+        } else if (p.tipe === 'pulang') {
+            summary[uid].out = p.waktu;
+        }
     });
-    h += '</tbody></table></div>';
+
+    let h = '<div style="display:grid;gap:10px">';
+    Object.values(summary).forEach(s => {
+        const avatar = s.foto ? `<img src="${s.foto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">` : `<div style="width:36px;height:36px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center">👤</div>`;
+        const badge = (s.status || '').toLowerCase() === 'terlambat' ? 'badge-danger' : 'badge-success';
+
+        h += `<div style="display:flex;align-items:center;gap:12px;padding:8px;background:#f9f9f9;border-radius:8px">
+            ${avatar}
+            <div style="flex:1">
+                <div class="fw-700 text-sm">${escHtml(s.nama)}</div>
+                <div class="text-xs" style="color:#666">In: <b>${s.in}</b> | Out: <b>${s.out}</b></div>
+            </div>
+            <span class="badge ${badge}">${s.status}</span>
+        </div>`;
+    });
+    h += '</div>';
     el.innerHTML = h;
 }
 
