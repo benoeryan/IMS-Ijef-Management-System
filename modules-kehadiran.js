@@ -1615,7 +1615,7 @@ async function loadDailyTasks(filter) {
       const isReport = t.type === 'report' || (t.title && t.title.includes('Daily Report'));
 
       let isVisible = false;
-      if (hasAccess(4) || currentUser.id === 'admin') {
+      if (hasHeadLevelAccess() || currentUser.id === 'admin' || currentUser.role === 'admin') {
         isVisible = true;
       } else if (hasAccess(3)) {
         if (ownerId === myId || t.assignedBy === myId || taskDept === myDept || !taskDept) isVisible = true;

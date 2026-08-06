@@ -407,7 +407,7 @@ function hasAccess(minLevel) {
 function hasHeadLevelAccess() {
   if (hasAccess(4)) return true;
   var posisi = (currentUser?.posisi || '').toUpperCase();
-  return posisi.includes('HEAD') || posisi.includes('KEPALA');
+  return posisi.includes('HEAD') || posisi.includes('KEPALA') || posisi.includes('GENERAL MANAGER') || posisi === 'GM';
 }
 
 function renderLogin() {

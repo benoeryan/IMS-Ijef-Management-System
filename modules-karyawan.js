@@ -61,7 +61,16 @@ async function renderDashboard() {
   // --- WIDGETS ---
   let widgetLeft = '';
 
-  // 1. Pengajuan Pending
+  // 1. Clock In/Out (Absensi) Widget - Restored
+  widgetLeft += `
+  <div class="card" style="border-left:4px solid var(--primary)">
+    <div class="card-title mb-12">⏰ Absensi / Kehadiran</div>
+    <div id="dashClockInOut">
+        <p class="text-sm color-gray">Memuat modul absensi...</p>
+    </div>
+  </div>`;
+
+  // 2. Pengajuan Pending
   widgetLeft += '<div class="card"><div class="card-title mb-8">📋 Pengajuan Menunggu Approval</div>';
   if (!totalPending) {
     widgetLeft += '<p class="text-sm" style="color:#999">Tidak ada pengajuan pending</p>';
@@ -75,9 +84,24 @@ async function renderDashboard() {
   }
   widgetLeft += '</div>';
 
-  // 2. User Info Card (Administrator Card)
-  const u = currentUser;
+  // 3. Hadir Hari Ini (Detailed List) - Restored
   widgetLeft += `
+  <div class="card">
+    <div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center">
+        <span>📍 Hadir Hari Ini</span>
+        <button class="btn btn-xs btn-outline" onclick="navigateTo('absensi')">Lihat Semua</button>
+    </div>
+    <div id="dashAbsenToday" style="max-height:300px;overflow-y:auto">
+        <p class="text-sm color-gray">Memuat data kehadiran...</p>
+    </div>
+  </div>`;
+
+  // --- RIGHT WIDGETS ---
+  let widgetRight = '';
+
+  // 1. User Info Card (Profil Administrator)
+  const u = currentUser;
+  widgetRight += `
   <div class="card" style="border-left:4px solid var(--accent)">
     <div class="flex gap-16" style="align-items:center">
       <div style="width:50px;height:50px;font-size:1.5rem;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center">${u.nama.charAt(0)}</div>
@@ -88,9 +112,9 @@ async function renderDashboard() {
     </div>
   </div>`;
 
-  // 3. Team Report Widget (HEAD+)
+  // 2. Team Report Widget (HEAD+)
   if (hasHeadLevelAccess()) {
-    widgetLeft += `
+    widgetRight += `
     <div class="card" id="dashTeamReportSection">
       <div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center">
         <span>📊 Report Tim Hari Ini</span>
@@ -103,24 +127,7 @@ async function renderDashboard() {
     </div>`;
   }
 
-  // --- RIGHT WIDGETS ---
-  let widgetRight = '';
-
-  // 1. Pengumuman
-  widgetRight += '<div class="card"><div class="card-title mb-8">📢 Pengumuman Terbaru</div>';
-  if (pengumuman.empty) {
-    widgetRight += '<p class="text-sm" style="color:#999">Belum ada</p>';
-  } else {
-    const items = [];
-    pengumuman.forEach((d) => items.push({ id: d.id, ...d.data() }));
-    items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-    items.slice(0, 5).forEach((p) => {
-      widgetRight += `<div style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="viewPengumuman('${p.id}')"><div class="fw-700 text-sm">${escHtml(p.judul)}</div><div class="text-xs" style="color:#999">${formatDate(p.createdAt)}</div></div>`;
-    });
-  }
-  widgetRight += '</div>';
-
-  // 2. Aksi Cepat
+  // 3. Aksi Cepat
   widgetRight += `<div class="card"><div class="card-title mb-12">⚡ Aksi Cepat</div><div style="display:flex;gap:8px;flex-wrap:wrap">`;
   const actions = [
     { label: 'Daily Task', page: 'daily-task', icon: '📝', color: '#1565c0' },
@@ -141,6 +148,20 @@ async function renderDashboard() {
   });
   widgetRight += `</div></div>`;
 
+  // 4. Pengumuman
+  widgetRight += '<div class="card"><div class="card-title mb-8">📢 Pengumuman Terbaru</div>';
+  if (pengumuman.empty) {
+    widgetRight += '<p class="text-sm" style="color:#999">Belum ada</p>';
+  } else {
+    const items = [];
+    pengumuman.forEach((d) => items.push({ id: d.id, ...d.data() }));
+    items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    items.slice(0, 5).forEach((p) => {
+      widgetRight += `<div style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="viewPengumuman('${p.id}')"><div class="fw-700 text-sm">${escHtml(p.judul)}</div><div class="text-xs" style="color:#999">${formatDate(p.createdAt)}</div></div>`;
+    });
+  }
+  widgetRight += '</div>';
+
   if (isBOD) {
     widgetRight += '<div class="card" style="border-left:4px solid #0d47a1"><div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span>📋 Tugaskan Daily Task</span><div style="display:flex;gap:6px"><button class="btn btn-xs btn-primary" onclick="modalAddTask()">+ Tugaskan Task</button><button class="btn btn-xs btn-outline" onclick="navigateTo(\'daily-task\')">Lihat Semua</button></div></div><div id="dashBodTaskList"><p class="text-sm" style="color:#999">Memuat...</p></div></div>';
   }
@@ -149,6 +170,12 @@ async function renderDashboard() {
   if (widgetsEl) {
     widgetsEl.innerHTML = widgetLeft + widgetRight;
   }
+
+  // Load Widget Data
+  if (typeof renderClockInOut === 'function') {
+      renderClockInOut(document.getElementById('dashClockInOut'));
+  }
+  loadDashAbsenToday(absen);
 
   if (hasHeadLevelAccess()) {
       if (typeof loadPortalTeamReport === 'function') {
@@ -159,6 +186,25 @@ async function renderDashboard() {
   if (isBOD) {
     loadDashBodTasks();
   }
+}
+
+function loadDashAbsenToday(absenSnap) {
+    const el = document.getElementById('dashAbsenToday');
+    if (!el) return;
+    if (absenSnap.empty) {
+        el.innerHTML = '<p class="text-sm color-gray">Belum ada karyawan hadir hari ini.</p>';
+        return;
+    }
+    let h = '<div class="table-wrap"><table><tbody style="font-size:.8rem">';
+    absenSnap.forEach(d => {
+        const p = d.data();
+        const time = p.jam || (p.createdAt ? p.createdAt.split('T')[1].substring(0,5) : '-');
+        const badge = (p.status || '').toLowerCase() === 'terlambat' ? 'badge-danger' : 'badge-success';
+        h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${time}</td><td><span class="badge ${badge}">${p.status || 'Hadir'}</span></td></tr>`;
+    });
+    h += '</tbody></table></div>';
+    el.innerHTML = h;
+}
 }
 
 async function loadDashBodTasks() {
