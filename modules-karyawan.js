@@ -181,6 +181,117 @@ async function loadDashBodTasks() {
   }
 }
 
+function modalKaryawan(id) {
+  if (id)
+    db.collection('hrd_karyawan')
+      .doc(id)
+      .get()
+      .then((d) => showKaryawanForm(id, d.data() || {}));
+  else showKaryawanForm(null, {});
+}
+
+async function showKaryawanForm(id, p) {
+  window._kyFoto = p.foto || null;
+  const [depts, posisi, cabang] = await Promise.all([
+    db.collection('hrd_departemen').get(),
+    db.collection('hrd_posisi').get(),
+    db.collection('hrd_cabang').get(),
+  ]);
+  let dOpts = '<option value="">-- Pilih Departemen --</option>';
+  depts.forEach((d) => (dOpts += `<option value="${d.data().nama}" ${p.departemen === d.data().nama ? 'selected' : ''}>${d.data().nama}</option>`));
+  let pOpts = '<option value="">-- Pilih Posisi --</option>';
+  posisi.forEach((d) => (pOpts += `<option value="${d.data().nama}" ${p.posisi === d.data().nama ? 'selected' : ''}>${d.data().nama}</option>`));
+  let cOpts = '<option value="">-- Pilih Cabang --</option>';
+  cabang.forEach((d) => (cOpts += `<option value="${d.data().nama}" ${p.cabang === d.data().nama ? 'selected' : ''}>${d.data().nama}</option>`));
+
+  openModal(
+    `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Karyawan</div>
+    <div style="display:flex;gap:20px;margin-bottom:20px">
+      <div id="kyFotoPreview" style="width:100px;height:100px;border-radius:10px;background:#eee;overflow:hidden;cursor:pointer" onclick="document.getElementById('kyFotoFile').click()">${p.foto ? `<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:2.5rem">👤</div>'}</div>
+      <div><input type="file" id="kyFotoFile" accept="image/*" style="display:none" onchange="previewKaryawanFoto(this)"><button class="btn btn-sm btn-primary" onclick="document.getElementById('kyFotoFile').click()">📸 Upload Foto</button><p class="text-xs color-gray mt-4">Klik foto atau tombol untuk upload</p></div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group"><label>NIP</label><input class="form-control" id="kyNip" value="${escHtml(p.nip || '')}" placeholder="Contoh: NIP2024001"></div>
+      <div class="form-group"><label>Nama Lengkap</label><input class="form-control" id="kyNama" value="${escHtml(p.nama || '')}"></div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group"><label>Departemen</label><select class="form-control" id="kyDept">${dOpts}</select></div>
+      <div class="form-group"><label>Posisi</label><select class="form-control" id="kyPos">${pOpts}</select></div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group"><label>Tipe Karyawan</label><select class="form-control" id="kyTipe"><option value="PKWTT" ${p.tipeKaryawan === 'PKWTT' ? 'selected' : ''}>PKWTT (Tetap)</option><option value="PKWT" ${p.tipeKaryawan === 'PKWT' ? 'selected' : ''}>PKWT (Kontrak)</option><option value="PROBATION" ${p.tipeKaryawan === 'PROBATION' ? 'selected' : ''}>PROBATION</option><option value="FREELANCE" ${p.tipeKaryawan === 'FREELANCE' ? 'selected' : ''}>FREELANCE</option></select></div>
+      <div class="form-group"><label>Status</label><select class="form-control" id="kyStatus"><option value="aktif" ${p.status === 'aktif' ? 'selected' : ''}>Aktif</option><option value="nonaktif" ${p.status === 'nonaktif' ? 'selected' : ''}>Nonaktif</option></select></div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group"><label>Tanggal Masuk</label><input class="form-control" type="date" id="kyMasuk" value="${p.tanggalMasuk || ''}"></div>
+      <div class="form-group"><label>Grade Jabatan</label><input class="form-control" id="kyGrade" value="${escHtml(p.gradeJabatan || '')}" placeholder="Staff, Leader, Manager, dll"></div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group"><label>Email</label><input class="form-control" type="email" id="kyEmail" value="${escHtml(p.email || '')}"></div>
+      <div class="form-group"><label>WhatsApp</label><input class="form-control" id="kyWa" value="${escHtml(p.whatsapp || '')}"></div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group"><label>Gaji Pokok</label><input class="form-control" type="number" id="kyGaji" value="${p.gajiPokok || 0}"></div>
+      <div class="form-group"><label>Cabang</label><select class="form-control" id="kyCabang">${cOpts}</select></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="simpanKaryawan('${id || ''}')">💾 Simpan Data Karyawan</button>`,
+    true
+  );
+}
+
+function previewKaryawanFoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 300;
+      canvas.height = 300;
+      const ctx = canvas.getContext('2d');
+      const size = Math.min(img.width, img.height);
+      const sx = (img.width - size) / 2, sy = (img.height - size) / 2;
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, 300, 300);
+      window._kyFoto = canvas.toDataURL('image/jpeg', 0.8);
+      document.getElementById('kyFotoPreview').innerHTML = `<img src="${window._kyFoto}" style="width:100%;height:100%;object-fit:cover">`;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function simpanKaryawan(id) {
+  const data = {
+    nip: document.getElementById('kyNip').value.trim(),
+    nama: document.getElementById('kyNama').value.trim(),
+    departemen: document.getElementById('kyDept').value,
+    posisi: document.getElementById('kyPos').value,
+    tipeKaryawan: document.getElementById('kyTipe').value,
+    status: document.getElementById('kyStatus').value,
+    tanggalMasuk: document.getElementById('kyMasuk').value,
+    gradeJabatan: document.getElementById('kyGrade').value.trim(),
+    email: document.getElementById('kyEmail').value.trim(),
+    whatsapp: document.getElementById('kyWa').value.trim(),
+    gajiPokok: Number(document.getElementById('kyGaji').value) || 0,
+    cabang: document.getElementById('kyCabang').value,
+    updatedAt: new Date().toISOString(),
+  };
+  if (window._kyFoto) data.foto = window._kyFoto;
+  if (!data.nama || !data.nip) return toast('Nama & NIP wajib diisi', 'warning');
+
+  try {
+    if (id) await db.collection('hrd_karyawan').doc(id).update(data);
+    else await db.collection('hrd_karyawan').add({ ...data, createdAt: new Date().toISOString() });
+    closeModalDirect();
+    toast('Data karyawan berhasil disimpan', 'success');
+    renderKaryawan();
+    window._kyFoto = null;
+  } catch (e) {
+    toast('Gagal menyimpan: ' + e.message, 'error');
+  }
+}
+
 async function renderDepartemen() {
   const main = document.getElementById('mainContent');
   if (!main) return;
