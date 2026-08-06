@@ -446,7 +446,7 @@ function renderApp() {
   <div class="sidebar" id="sidebar">
     <div class="logo">🏛️ <span>IMS</span></div>
     <nav>${buildNavItems(isPortalUser)}</nav>
-    <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,.1)"><div style="font-size:.75rem;color:rgba(255,255,255,.5)">v${APP_VERSION} — ${currentUser.nama}</div></div>
+    <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,.1)"><div style="font-size:.75rem;color:rgba(255,255,255,.5)">v${APP_VERSION} (LATEST) — ${currentUser.nama}</div></div>
   </div>
   <div class="header">
     <button class="menu-btn" onclick="toggleSidebar()">☰</button>
