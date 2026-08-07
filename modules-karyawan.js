@@ -3,7 +3,7 @@
 // MODULES.JS — HRD & Legal IJEF Corp v13.0
 // ============================================================
 
-// ── DASHBOARD ─────────────────────────────────────────────────
+// == DASHBOARD ================================================-
 async function renderDashboard() {
   const main = document.getElementById('mainContent');
   if (!main) return;
@@ -11,10 +11,9 @@ async function renderDashboard() {
   main.innerHTML =
     `<div class="page-title"><span>${renderBackButton()}🏠 Beranda</span></div><div class="stats-grid" id="dashStats">Loading...</div><div class="grid-2" id="dashWidgets"></div>`;
 
-  const [karyawan, cuti, absen, pengumuman, overtime, reimburse, dinas] = await Promise.all([
+  const [karyawan, cuti, pengumuman, overtime, reimburse, dinas] = await Promise.all([
     db.collection('hrd_karyawan').where('status', '==', 'aktif').get(),
     db.collection('hrd_cuti').where('status', '==', 'pending').get(),
-    db.collection('hrd_absensi').where('tanggal', '==', todayStr()).get(),
     db.collection('hrd_pengumuman').get(),
     db.collection('hrd_overtime').where('status', '==', 'pending').get(),
     db.collection('hrd_reimbursement').where('status', '==', 'pending').get(),

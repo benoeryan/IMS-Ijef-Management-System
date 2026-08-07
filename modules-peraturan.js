@@ -1,5 +1,5 @@
 'use strict';
-// ── PERATURAN PERUSAHAAN v14.6 ──────────────────────────────
+// == PERATURAN PERUSAHAAN v14.7 ==============================
 const PERATURAN_PERUSAHAAN={
   nama:'LPK IJEF CORP',
   versi:'2026',
@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '14.4',
+            version: '14.7',
             updatedAt: new Date().toISOString(),
-            note: 'Fix attendance synchronization & dashboard cleanup'
+            note: 'Comprehensive stability fix & theme sync (v14.7)'
         }, { merge: true });
 
     } catch (e) {
@@ -293,7 +293,7 @@ window.renderPeraturan = async function(){
     seedPeraturanIfEmpty();
 }
 
-// ── ADMIN EDITOR LOGIC ────────────────────────────────────────
+// == ADMIN EDITOR LOGIC ========================================
 
 window.modalTambahBab = function() {
     openModal(`
@@ -388,7 +388,7 @@ async function updatePeraturanFirestore(data) {
     }
 }
 
-// ── GENERATOR SURAT ───────────────────────────────────────────
+// == GENERATOR SURAT ==========================================-
 window.renderSurat = async function(){const main=document.getElementById('mainContent');main.innerHTML=`<div class="page-title"><span>✉️ Generator Surat</span><button class="btn btn-primary btn-sm" onclick="window.modalSurat()">+ Generate</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nomor</th><th>Jenis</th><th>Perihal</th><th>Tanggal</th></tr></thead><tbody id="tblSurat"></tbody></table></div></div>`;const snap=await db.collection('hrd_surat').get();let h='';if(snap.empty)h='<tr><td colspan="4" class="text-center">Belum ada</td></tr>';else snap.forEach(d=>{const p=d.data();h+=`<tr><td class="fw-700">${escHtml(p.nomor)}</td><td>${escHtml(p.jenis)}</td><td>${escHtml(p.perihal)}</td><td>${formatDate(p.tanggal)}</td></tr>`;});document.getElementById('tblSurat').innerHTML=h;}
 window.modalSurat = async function(){const snap=await db.collection('hrd_surat').get();const seq=String(snap.size+1).padStart(3,'0');const now=new Date();const mo=String(now.getMonth()+1).padStart(2,'0');openModal(`<div class="modal-title">Generate Nomor Surat</div><div class="form-group"><label>Jenis</label><select class="form-control" id="srJenis"><option value="SK">SK</option><option value="SP">SP</option><option value="SPK">SPK</option><option value="SR">Referensi</option><option value="SKet">Keterangan</option></select></div><div class="form-group"><label>Perihal</label><input class="form-control" id="srPerihal"></div><div class="form-group"><label>Preview</label><input class="form-control" readonly value="${seq}/[JENIS]/IJEF/${mo}/${now.getFullYear()}" id="srPreview"></div><button class="btn btn-primary" onclick="window.simpanSurat('${seq}','${mo}','${now.getFullYear()}')">Generate</button>`);}
 window.simpanSurat = async function(seq,mo,yr){const jenis=document.getElementById('srJenis').value;const nomor=`${seq}/${jenis}/IJEF/${mo}/${yr}`;await db.collection('hrd_surat').add({nomor,jenis,perihal:document.getElementById('srPerihal').value,tanggal:todayStr(),dibuatOleh:currentUser.nama,createdAt:new Date().toISOString()});closeModalDirect();toast('Nomor surat digenerate','success');window.renderSurat();}

@@ -1,8 +1,8 @@
 'use strict';
 
-// ══════════════════════════════════════════════════════════════
-// ── BENEFIT CONFIG BY GRADE (Perjalanan Dinas) ────────────────
-// ══════════════════════════════════════════════════════════════
+// ==============================================================
+// == BENEFIT CONFIG BY GRADE (Perjalanan Dinas) ================
+// ==============================================================
 
 const BENEFIT_CONFIG_BY_GRADE = {
   BOD: {
@@ -208,9 +208,9 @@ async function getUserGrade() {
   return currentUser.gradeJabatan;
 }
 
-// ══════════════════════════════════════════════════════════════
-// ── PERATURAN DINAS PER GRADE ─────────────────────────────────
-// ══════════════════════════════════════════════════════════════
+// ==============================================================
+// == PERATURAN DINAS PER GRADE ================================-
+// ==============================================================
 
 const PERATURAN_DINAS_BY_GRADE = {
   BOD: {
@@ -305,9 +305,9 @@ function getGradePeraturanSync(grade) {
   return PERATURAN_DINAS_BY_GRADE[key];
 }
 
-// ══════════════════════════════════════════════════════════════
-// ── PROSEDUR PERJALANAN DINAS — Terintegrasi ──────────────────
-// ══════════════════════════════════════════════════════════════
+// ==============================================================
+// == PROSEDUR PERJALANAN DINAS — Terintegrasi ==================
+// ==============================================================
 
 window.renderPerjalananDinas = async function() {
   window._portalDinasMode = false;
@@ -502,7 +502,7 @@ async function loadSPPDDaftar(el) {
   el.innerHTML = h;
 }
 
-// ── Bulk Selection & Actions for SPPD ──
+// == Bulk Selection & Actions for SPPD ==
 function toggleAllSPPDCheckbox(masterCheckbox) {
   var items = document.querySelectorAll('.sppd-check-item');
   for (var i = 0; i < items.length; i++) {
@@ -625,7 +625,7 @@ async function loadSPPDProsedur(el) {
         </div>
       </div>
     </div>
-    <div class="mt-16" style="padding:12px;background:#e8f5e9;border-radius:8px;border-left:4px solid var(--success)">
+    <div class="mt-16" style="padding:12px;background:#e8f5e9;border-radius:8px;border-left:4px solid var(--primary)">
       <div class="fw-700 text-sm mb-8">📌 Ketentuan Umum:</div>
       <ul class="text-sm" style="padding-left:16px;line-height:1.8;color:#333">
         <li>SPPD harus diajukan minimal <b>3 hari kerja</b> sebelum keberangkatan</li>
@@ -637,7 +637,7 @@ async function loadSPPDProsedur(el) {
     </div>`;
 
   // Grade-specific section
-  html += `<div class="mt-16" style="padding:16px;background:#fff3e0;border-radius:12px;border-left:4px solid #ff9800">
+  html += `<div class="mt-16" style="padding:16px;background:#fff3e0;border-radius:12px;border-left:4px solid var(--primary)">
     <div class="fw-700 mb-12" style="color:#e65100;font-size:1.05rem">📋 Ketentuan Berdasarkan Grade Anda (${escHtml(grade || 'STAFF')})</div>
     <div style="display:grid;gap:10px">
       <div style="display:flex;align-items:center;gap:10px;padding:10px;background:#fff;border-radius:8px">
@@ -712,7 +712,7 @@ async function loadSPPDProsedur(el) {
       return PERATURAN_DINAS_BY_GRADE[grade][field];
     };
 
-    html += `<div class="mt-16" style="padding:16px;background:#f3e5f5;border-radius:12px;border-left:4px solid #9c27b0">
+    html += `<div class="mt-16" style="padding:16px;background:#f3e5f5;border-radius:12px;border-left:4px solid var(--primary)">
       <div class="fw-700 mb-12" style="color:#6a1b9a;font-size:1.05rem">⚙️ Konfigurasi Benefit per Grade (Admin - Editable)</div>
       <div class="table-wrap"><table><thead><tr><th>Komponen</th>${allGrades2.map((g) => '<th>' + BENEFIT_CONFIG_BY_GRADE[g].label + '</th>').join('')}</tr></thead><tbody>
         <tr><td class="fw-700">Uang Harian</td>${allGrades2.map((g) => '<td><input type="number" class="form-control" id="cfg_uangHarian_' + g + '" value="' + getBenVal(g, 'uangHarian') + '" style="width:120px"></td>').join('')}</tr>
@@ -792,7 +792,7 @@ async function saveBenefitConfig() {
       peraturan,
       updatedAt: new Date().toISOString(),
       updatedBy: currentUser.nama,
-    });
+    }
     invalidateBenefitCache();
     toast('Konfigurasi benefit berhasil disimpan!', 'success');
     showSPPDTab('prosedur');
@@ -808,7 +808,7 @@ async function modalAjukanSPPD() {
   openModal(
     `<div class="modal-title">✈️ Ajukan Surat Perintah Perjalanan Dinas</div>
     <div style="background:#f9f9f9;padding:10px;border-radius:8px;margin-bottom:16px"><span class="fw-700">No. SPPD:</span> ${noSPPD}</div>
-    <div style="background:#e8f5e9;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--success)">
+    <div style="background:#e8f5e9;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
       <div class="fw-700 text-sm mb-4">🎯 Grade Anda: <span class="badge badge-info">${escHtml(grade || 'STAFF')}</span> (${escHtml(cfg.label)})</div>
       <div class="text-sm" style="color:#555">Uang Harian: ${formatCurrency(cfg.uangHarian)} | Hotel: ${formatCurrency(cfg.maxHotel)}/mlm (${escHtml(cfg.kelasHotel)}) | Makan: ${formatCurrency(cfg.maxMakan)}/hr | Saku: ${formatCurrency(cfg.uangSaku)}/hr</div>
     </div>
@@ -1248,7 +1248,7 @@ function cetakSPPD(id) {
     });
 }
 
-// ── UANG MUKA PERJALANAN DINAS ────────────────────────────────
+// == UANG MUKA PERJALANAN DINAS ================================
 
 async function loadSPPDUangMuka(el) {
   const isPortal = window._portalDinasMode || !hasAccess(3);
@@ -1388,7 +1388,7 @@ function viewUangMukaDinas(id) {
     });
 }
 
-// ── LAPORAN PERJALANAN DINAS ──────────────────────────────────
+// == LAPORAN PERJALANAN DINAS ==================================
 
 async function loadSPPDLaporan(el) {
   const isPortal = window._portalDinasMode || !hasAccess(3);
@@ -1510,7 +1510,7 @@ function viewLaporanDinas(id) {
     });
 }
 
-// ── REIMBURSEMENT PERJALANAN DINAS ────────────────────────────
+// == REIMBURSEMENT PERJALANAN DINAS ============================
 
 async function loadSPPDReimbursement(el) {
   const isPortal = window._portalDinasMode || !hasAccess(3);

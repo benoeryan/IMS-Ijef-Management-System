@@ -19,7 +19,7 @@ const storage = firebase.storage();
 const MAX_STORAGE_UPLOAD_BYTES = 500 * 1024 * 1024;
 let storageAuthReadyPromise = null;
 
-// ── FILE UPLOAD HELPER — Firebase Storage (max 500MB) ─────────
+// == FILE UPLOAD HELPER — Firebase Storage (max 500MB) ========-
 async function ensureStorageAuth() {
   if (auth.currentUser) return auth.currentUser;
   if (!storageAuthReadyPromise) {
@@ -136,7 +136,7 @@ function buildWhatsAppShareUrl(message, phoneNumber) {
   return phoneNumber ? `https://wa.me/${phoneNumber}?text=${text}` : `https://wa.me/?text=${text}`;
 }
 
-// ── FCM (Firebase Cloud Messaging) Push Notifications ──────────────────
+// == FCM (Firebase Cloud Messaging) Push Notifications ==================
 // IMPORTANT: Replace this placeholder with your actual VAPID public key.
 // Generate it in Firebase Console > Project Settings > Cloud Messaging >
 // Web Push certificates > "Generate key pair". Without a valid key,
@@ -273,7 +273,92 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = '14.4';
+const APP_VERSION = '14.7';
+
+// Indonesian National Holidays 2025
+const HARI_LIBUR_NASIONAL_2025 = [
+  { tanggal: '2025-01-01', nama: 'Tahun Baru Masehi', tipe: 'nasional' },
+  { tanggal: '2025-01-27', nama: "Isra Mi'raj Nabi Muhammad SAW", tipe: 'nasional' },
+  { tanggal: '2025-01-29', nama: 'Tahun Baru Imlek 2576 Kongzili', tipe: 'nasional' },
+  { tanggal: '2025-03-29', nama: 'Hari Raya Nyepi Tahun Baru Saka 1947', tipe: 'nasional' },
+  { tanggal: '2025-03-30', nama: 'Hari Raya Idul Fitri 1446 H (Hari 1)', tipe: 'nasional' },
+  { tanggal: '2025-03-31', nama: 'Hari Raya Idul Fitri 1446 H (Hari 2)', tipe: 'nasional' },
+  { tanggal: '2025-03-28', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
+  { tanggal: '2025-04-01', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
+  { tanggal: '2025-04-02', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
+  { tanggal: '2025-04-03', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
+  { tanggal: '2025-04-04', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
+  { tanggal: '2025-04-18', nama: 'Wafat Isa Al Masih', tipe: 'nasional' },
+  { tanggal: '2025-05-01', nama: 'Hari Buruh Internasional', tipe: 'nasional' },
+  { tanggal: '2025-05-12', nama: 'Hari Raya Waisak 2569 BE', tipe: 'nasional' },
+  { tanggal: '2025-05-29', nama: 'Kenaikan Isa Al Masih', tipe: 'nasional' },
+  { tanggal: '2025-06-01', nama: 'Hari Lahir Pancasila', tipe: 'nasional' },
+  { tanggal: '2025-06-06', nama: 'Hari Raya Idul Adha 1446 H', tipe: 'nasional' },
+  { tanggal: '2025-06-27', nama: 'Tahun Baru Islam 1447 H', tipe: 'nasional' },
+  { tanggal: '2025-08-17', nama: 'Hari Kemerdekaan RI', tipe: 'nasional' },
+  { tanggal: '2025-09-05', nama: 'Maulid Nabi Muhammad SAW', tipe: 'nasional' },
+  { tanggal: '2025-12-25', nama: 'Hari Natal', tipe: 'nasional' },
+  { tanggal: '2025-12-26', nama: 'Cuti Bersama Natal', tipe: 'cuti_bersama' },
+];
+
+const HARI_LIBUR_NASIONAL_2026 = [
+  { tanggal: '2026-01-01', nama: 'Tahun Baru Masehi', tipe: 'nasional' },
+  { tanggal: '2026-01-16', nama: "Isra Mi'raj Nabi Muhammad SAW", tipe: 'nasional' },
+  { tanggal: '2026-02-17', nama: 'Tahun Baru Imlek 2577 Kongzili', tipe: 'nasional' },
+  { tanggal: '2026-03-19', nama: 'Hari Raya Nyepi Tahun Baru Saka 1948', tipe: 'nasional' },
+  { tanggal: '2026-03-20', nama: 'Hari Raya Idul Fitri 1447 H (Hari 1)', tipe: 'nasional' },
+  { tanggal: '2026-03-21', nama: 'Hari Raya Idul Fitri 1447 H (Hari 2)', tipe: 'nasional' },
+  { tanggal: '2026-03-18', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
+  { tanggal: '2026-03-22', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
+  { tanggal: '2026-03-23', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
+  { tanggal: '2026-04-03', nama: 'Wafat Isa Al Masih', tipe: 'nasional' },
+  { tanggal: '2026-05-01', nama: 'Hari Buruh Internasional', tipe: 'nasional' },
+  { tanggal: '2026-05-14', nama: 'Kenaikan Isa Al Masih', tipe: 'nasional' },
+  { tanggal: '2026-05-27', nama: 'Hari Raya Idul Adha 1447 H', tipe: 'nasional' },
+  { tanggal: '2026-05-28', nama: 'Cuti Bersama Idul Adha', tipe: 'cuti_bersama' },
+  { tanggal: '2026-05-29', nama: 'Cuti Bersama Idul Adha', tipe: 'cuti_bersama' },
+  { tanggal: '2026-05-31', nama: 'Hari Raya Waisak 2570 BE', tipe: 'nasional' },
+  { tanggal: '2026-06-01', nama: 'Hari Lahir Pancasila', tipe: 'nasional' },
+  { tanggal: '2026-06-16', nama: 'Tahun Baru Islam 1448 H', tipe: 'nasional' },
+  { tanggal: '2026-08-17', nama: 'Hari Kemerdekaan RI', tipe: 'nasional' },
+  { tanggal: '2026-08-26', nama: 'Maulid Nabi Muhammad SAW', tipe: 'nasional' },
+  { tanggal: '2026-12-24', nama: 'Cuti Bersama Natal', tipe: 'cuti_bersama' },
+  { tanggal: '2026-12-25', nama: 'Hari Natal', tipe: 'nasional' },
+  { tanggal: '2026-12-31', nama: 'Cuti Bersama Tahun Baru', tipe: 'cuti_bersama' },
+];
+
+async function autoLoadHariLiburNasional() {
+  const years = [2025, 2026];
+  for (const year of years) {
+    const dataToSync = year === 2025 ? HARI_LIBUR_NASIONAL_2025 : HARI_LIBUR_NASIONAL_2026;
+    try {
+      const existingSnap = await db.collection('hrd_hari_libur').where('tahun', '==', year).get();
+      let alreadyPopulated = false;
+      existingSnap.forEach((d) => {
+        const t = d.data().tipe;
+        if (t === 'nasional' || t === 'cuti_bersama') alreadyPopulated = true;
+      });
+      if (!alreadyPopulated) {
+        console.log(`[HOLIDAY] Auto-loading holidays for ${year}...`);
+        const batch = db.batch();
+        dataToSync.forEach((h) => {
+          const ref = db.collection('hrd_hari_libur').doc();
+          batch.set(ref, {
+            tanggal: h.tanggal,
+            nama: h.nama,
+            tipe: h.tipe,
+            tahun: year,
+            createdAt: new Date().toISOString(),
+            autoLoaded: true,
+          });
+        });
+        await batch.commit();
+      }
+    } catch (err) {
+      console.warn(`[HOLIDAY] Auto-load failed for ${year}:`, err.message);
+    }
+  }
+}
 
 const DEFAULT_ACCOUNTS = [
   {
@@ -878,7 +963,7 @@ function escHtml(str) {
   return d.innerHTML;
 }
 
-// ── APPROVAL FLOW CACHE — Pending approver visibility ─────────
+// == APPROVAL FLOW CACHE — Pending approver visibility ========-
 var _approvalFlowCache = null;
 async function loadApprovalFlows() {
   if (_approvalFlowCache) return _approvalFlowCache;
@@ -1158,7 +1243,7 @@ function listenNotifications() {
   unsubscribers.push(unsub7);
 }
 
-// ── NOTIFICATION SOUND — Loud & Clear ─────────────────────────
+// == NOTIFICATION SOUND — Loud & Clear ========================-
 let _notifSoundCooldown = false;
 let _notifAudioCtx = null;
 let _audioUnlocked = false;
@@ -1441,7 +1526,7 @@ async function getAllUsers() {
   return users;
 }
 
-// ── PWA INSTALL PROMPT ─────────────────────────────────────────
+// == PWA INSTALL PROMPT ========================================-
 let deferredInstallPrompt = null;
 
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -1492,7 +1577,7 @@ if ('serviceWorker' in navigator) {
 }
 document.addEventListener('DOMContentLoaded', initApp);
 
-// ── REAL-TIME SYNC: Auto-refresh current page when data changes ───
+// == REAL-TIME SYNC: Auto-refresh current page when data changes ==-
 function setupRealtimeSync() {
   // Listen to key collections and refresh current page when changes detected
   const watchCollections = [
@@ -1510,7 +1595,7 @@ function setupRealtimeSync() {
         // Update notification badge always
         if (currentUser) updateNotifBadge();
 
-        // ── LIVE PORTAL REFRESH ──
+        // == LIVE PORTAL REFRESH ==
         // If employee is viewing their own portal-absensi, refresh it automatically on data change
         if (col === 'hrd_absensi' && typeof currentPage !== 'undefined' && currentPage === 'portal-absensi') {
             if (typeof renderPortalAbsensi === 'function') {
@@ -1536,7 +1621,7 @@ function setupRealtimeSync() {
     );
   unsubscribers.push(unsubBenefit);
 
-  // ── REAL-TIME ACCESS CONTROL: Logout if account disabled ───
+  // == REAL-TIME ACCESS CONTROL: Logout if account disabled ==-
   if (currentUser) {
     const unsubStatus = db.collection('hrd_users').doc(currentUser.id).onSnapshot(doc => {
       if (doc.exists) {

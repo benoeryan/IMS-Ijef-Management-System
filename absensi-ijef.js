@@ -11,7 +11,7 @@ let dinasStream = null,
   dinasPhoto = null,
   dinasGPS = null;
 
-// ── FLEXIBLE ATTENDANCE HELPER ────────────────────────────────
+// == FLEXIBLE ATTENDANCE HELPER ================================
 // Checks if current user is whitelisted for flexible (no geofence) attendance
 async function isFlexibleUser() {
   try {
@@ -36,7 +36,7 @@ async function isFlexibleUser() {
   }
 }
 
-// ── MAIN RENDER ───────────────────────────────────────────────
+// == MAIN RENDER ==============================================-
 function renderAbsensiIJEF() {
   const main = document.getElementById('mainContent');
   const isPortal = window._portalAbsensiMode || currentUser.role === 'karyawan';
@@ -93,9 +93,9 @@ function showAbsenTab(tab) {
   else if (tab === 'setting') renderAbsenSetting(c);
 }
 
-// ══════════════════════════════════════════════════════════════
-// ── SETTING ABSENSI — Lokasi, Radius, Shift, Jam Operasional ──
-// ══════════════════════════════════════════════════════════════
+// ==============================================================
+// == SETTING ABSENSI — Lokasi, Radius, Shift, Jam Operasional ==
+// ==============================================================
 
 async function renderAbsenSetting(container) {
   container.innerHTML = `<div class="card"><div class="card-title mb-16">⚙️ Setting Absensi</div><div id="settingContent">Loading...</div></div>`;
@@ -353,7 +353,7 @@ async function hapusLokasiAbsen(idx) {
   showSettingSection('lokasi');
 }
 
-// ── FLEXIBLE USER MANAGEMENT ──────────────────────────────────
+// == FLEXIBLE USER MANAGEMENT ==================================
 function modalTambahFlexibleUser() {
   // Load karyawan list for selection
   db.collection('hrd_karyawan')
@@ -544,9 +544,9 @@ async function hapusShift(idx) {
   showSettingSection('shift');
 }
 
-// ══════════════════════════════════════════════════════════════
-// ── CLOCK IN/OUT — Menggunakan setting lokasi & shift ─────────
-// ══════════════════════════════════════════════════════════════
+// ==============================================================
+// == CLOCK IN/OUT — Menggunakan setting lokasi & shift ========-
+// ==============================================================
 
 function renderClockInOut(container) {
   container.innerHTML = `<div class="card"><div class="card-title mb-16">📍 Absensi — Selfie + GPS</div>
@@ -770,7 +770,7 @@ async function autoDetectLocation() {
   );
 }
 
-// ── ABSEN DENGAN SELFIE — Validasi foto wajib sebelum clock in/out ──
+// == ABSEN DENGAN SELFIE — Validasi foto wajib sebelum clock in/out ==
 async function doAbsenWithSelfie() {
   if (!capturedPhoto)
     return toast('📸 Ambil foto selfie dulu! Foto wajib sebagai validasi kehadiran.', 'warning');
@@ -1406,7 +1406,7 @@ async function loadTodayHistory() {
   if (el) el.innerHTML = h;
 }
 
-// ── BREAK TRACKING ────────────────────────────────────────────
+// == BREAK TRACKING ============================================
 
 async function loadBreakStatus() {
   const breakActionsEl = document.getElementById('breakActions');
@@ -1498,7 +1498,7 @@ async function doEndBreak() {
   loadTodayHistory();
 }
 
-// ── WEEKLY ACCUMULATION ───────────────────────────────────────
+// == WEEKLY ACCUMULATION ======================================-
 
 function getWeekDates() {
   const today = new Date();
@@ -1560,7 +1560,7 @@ async function loadWeeklyAccumulation() {
     <div class="text-xs mt-8" style="color:#999">Senin - Minggu (${start} s/d ${end})</div>`;
 }
 
-// ── CORE HOURS STATUS ─────────────────────────────────────────
+// == CORE HOURS STATUS ========================================-
 
 async function loadCoreHoursStatus() {
   const el = document.getElementById('coreHoursStatus');
@@ -1593,10 +1593,10 @@ async function loadCoreHoursStatus() {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// ── DINAS LUAR — Form Pengajuan + Absen Selfie+GPS di Lokasi ──
-// ── Uses BENEFIT_CONFIG_BY_GRADE via getGradeConfig/getUserGrade for grade-based benefit display ──
-// ══════════════════════════════════════════════════════════════
+// ==============================================================
+// == DINAS LUAR — Form Pengajuan + Absen Selfie+GPS di Lokasi ==
+// == Uses BENEFIT_CONFIG_BY_GRADE via getGradeConfig/getUserGrade for grade-based benefit display ==
+// ==============================================================
 
 function renderDinasLuar(container) {
   container.innerHTML = `
@@ -2069,7 +2069,7 @@ async function approveDinas(id, status) {
   loadDinasTab('pengajuan');
 }
 
-// ── ABSEN DINAS LUAR — Selfie + GPS (tanpa batasan radius) ────
+// == ABSEN DINAS LUAR — Selfie + GPS (tanpa batasan radius) ====
 function modalAbsenDinasLuar() {
   dinasPhoto = null;
   dinasGPS = null;
@@ -2183,9 +2183,9 @@ async function submitAbsenDinas() {
   loadTodayHistory();
 }
 
-// ══════════════════════════════════════════════════════════════
-// ── REKAP GRID ────────────────────────────────────────────────
-// ══════════════════════════════════════════════════════════════
+// ==============================================================
+// == REKAP GRID ================================================
+// ==============================================================
 
 function renderRekapAbsensi(container) {
   container.innerHTML = `<div class="card">
@@ -2471,7 +2471,7 @@ async function loadRekapGrid() {
   }
 }
 
-// ── IMPORT CSV ────────────────────────────────────────────────
+// == IMPORT CSV ================================================
 function renderImportCSV(container) {
   container.innerHTML = `<div class="card"><div class="card-title mb-16">📥 Import CSV</div>
     <div class="tabs mb-16"><div class="tab active" onclick="switchImportTabAbsensi('file')">📄 Upload CSV</div><div class="tab" onclick="switchImportTabAbsensi('api')">🔗 Google Sheets</div></div>
@@ -2678,7 +2678,7 @@ async function processAbsenImportText(text) {
   toast('Import absensi selesai', 'success');
 }
 
-// ── EDIT ABSEN PER KARYAWAN ───────────────────────────────────
+// == EDIT ABSEN PER KARYAWAN ==================================-
 async function autoCalculateManualStatus() {
   const tipe = document.getElementById('editAbsTipe').value;
   const waktu = document.getElementById('editAbsWaktu').value;
@@ -2873,7 +2873,7 @@ async function hapusSatuAbsen(docId) {
   }
 }
 
-// ── KOREKSI HISTORY LEMBUR — One-time fix ─────────────────────
+// == KOREKSI HISTORY LEMBUR — One-time fix ====================-
 async function koreksiHistoryLembur() {
   if (
     !confirm(
@@ -2925,7 +2925,7 @@ async function koreksiHistoryLembur() {
             lemburJam: 0,
             _correctedAt: new Date().toISOString(),
             _correctedBy: currentUser.nama,
-          });
+          }
         corrected++;
       }
     }
@@ -2966,7 +2966,7 @@ async function hapusAbsenHari() {
   setTimeout(() => loadRekapGrid(), 500);
 }
 
-// ── VIEW/EDIT DINAS LUAR ──────────────────────────────────────
+// == VIEW/EDIT DINAS LUAR ======================================
 function viewDinasLuar(id) {
   Promise.all([
     db.collection('hrd_dinas_luar').doc(id).get(),
@@ -3073,7 +3073,7 @@ function viewAbsenDinas(id) {
     });
 }
 
-// ── GENERATE ABSENSI PERIODE ──────────────────────────────────
+// == GENERATE ABSENSI PERIODE ==================================
 function modalGenerateAbsensi() {
   if (!hasAccess(6)) return toast('Akses ditolak', 'warning');
 
@@ -3161,7 +3161,7 @@ async function doGenerateAbsensi() {
                 manual: true,
                 editedBy: currentUser.nama,
                 createdAt: new Date().toISOString()
-            });
+            }
             await db.collection('hrd_absensi').add({
                 userId: k.id,
                 nama: k.nama,

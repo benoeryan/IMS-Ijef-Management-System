@@ -108,11 +108,11 @@ window.calculateLoanEligibility = async function(k) {
   };
 });
 
-// ── LAPORAN KEUANGAN ──────────────────────────────────────────
+// == LAPORAN KEUANGAN ==========================================
 function renderLaporanKeuangan() {
   const main = document.getElementById('mainContent');
   main.innerHTML = `<div class="page-title"><span>📊 Laporan Keuangan</span></div>
-    <div class="card" style="border-left:4px solid #2e7d32">
+    <div class="card" style="border-left:4px solid var(--primary)">
       <div class="card-title mb-12">💰 Portal Laporan Keuangan IJEF</div>
       <p class="text-sm mb-16" style="color:#666;line-height:1.6">Akses portal laporan keuangan perusahaan. Data keuangan terintegrasi langsung dengan akun Anda.</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
@@ -129,7 +129,7 @@ function renderLaporanKeuangan() {
     </div>`;
 }
 
-// ── KPI ───────────────────────────────────────────────────────
+// == KPI ======================================================-
 function clampScore(v) {
   return Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
 }
@@ -171,7 +171,7 @@ async function hitungKPIIntegrasi(nama, periode) {
     const jd = d.data() || {};
     const idMatch = karyawanId && (jd.karyawanId === karyawanId || jd.userId === karyawanId);
     if (idMatch && !jobdeskData) jobdeskData = jd;
-  });
+  }
   const bidangJobdesk = ['deskripsi', 'tanggungJawab', 'kualifikasi', 'kpi'];
   const filledJobdesk = jobdeskData
     ? bidangJobdesk.filter((key) => (jobdeskData[key] || '').toString().trim()).length
@@ -203,7 +203,7 @@ async function hitungKPIIntegrasi(nama, periode) {
     totalEventMasuk ? ketepatanMasuk * 0.6 + kehadiranBulanan * 0.4 : 75
   );
 
-  // ── INTEGRASI DAILY TASK & REPORT ──
+  // == INTEGRASI DAILY TASK & REPORT ==
   let reportCount = 0;
   let taskTotal = 0;
   let taskDone = 0;
@@ -312,7 +312,7 @@ async function renderKPI() {
   snap.forEach((d) => {
     const p = d.data();
     const namaLower = (p.nama || '').toLowerCase().trim();
-    if (karyawanNames.has(namaLower)) kpiItems.push({ id: d.id, ...p });
+    if (karyawanNames.has(namaLower)) kpiItems.push({ id: d.id, ...p }
   });
   if (!kpiItems.length)
     h = `<tr><td colspan="${currentUser.role === 'admin' ? 8 : 7}" class="text-center">Belum ada</td></tr>`;
@@ -410,7 +410,7 @@ function sinkronPenaltyKPI() {
     })
     .catch((e) => {
       toast('Gagal sinkron: ' + e.message, 'error');
-    });
+    }
 }
 async function modalKPI() {
   const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
@@ -565,7 +565,7 @@ async function updateKPI(id) {
       },
       updatedAt: new Date().toISOString(),
       updatedBy: currentUser.nama,
-    });
+    }
   closeModalDirect();
   toast('KPI diperbarui', 'success');
   renderKPI();
@@ -578,7 +578,7 @@ async function hapusKPI(id) {
   renderKPI();
 }
 
-// ── PELATIHAN ─────────────────────────────────────────────────
+// == PELATIHAN ================================================-
 async function renderPelatihan() {
   const main = document.getElementById('mainContent');
   main.innerHTML = `<div class="page-title"><span>🎓 Pelatihan & Sertifikasi</span><button class="btn btn-primary btn-sm" onclick="modalPelatihan()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Judul</th><th>Jenis</th><th>Tanggal</th><th>Peserta</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblPelatihan"></tbody></table></div></div>`;
@@ -654,7 +654,7 @@ function viewPelatihan(id) {
           '</div>',
         true
       );
-    });
+    }
 }
 async function hapusPelatihan(id) {
   if (!confirm('Yakin hapus pelatihan ini?')) return;
@@ -695,7 +695,7 @@ async function simpanPelatihan(id) {
   renderPelatihan();
 }
 
-// ── KONTRAK ───────────────────────────────────────────────────
+// == KONTRAK ==================================================-
 window.renderKontrak = async function() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
@@ -763,7 +763,7 @@ function modalKontrak(id) {
       .doc(id)
       .get()
       .then((d) => showKontrakForm(id, d.data() || {}));
-  else showKontrakForm(null, {});
+  else showKontrakForm(null, {}
 }
 
 async function showKontrakForm(id, p) {
@@ -938,9 +938,9 @@ function lihatFileKontrak(id) {
     });
 }
 
-// ══════════════════════════════════════════════════════════════
-// ── DOKUMEN KARYAWAN — Upload kelengkapan dokumen per karyawan ─
-// ══════════════════════════════════════════════════════════════
+// ==============================================================
+// == DOKUMEN KARYAWAN — Upload kelengkapan dokumen per karyawan -
+// ==============================================================
 
 async function renderDokumenKaryawan(container) {
   const isBOD = currentUser.role === 'bod';
@@ -973,7 +973,7 @@ function renderDokFolders() {
     const key = d.karyawanId || 'unknown';
     if (!grouped[key]) grouped[key] = { nama: d.namaKaryawan || '-', docs: [] };
     grouped[key].docs.push(d);
-  });
+  }
   // Sort by name
   const entries = Object.entries(grouped).sort((a, b) => a[1].nama.localeCompare(b[1].nama));
   let html = '';
@@ -1153,7 +1153,7 @@ async function hapusDokumen(id) {
   filterDokumenList();
 }
 
-// ── ASSET ─────────────────────────────────────────────────────
+// == ASSET ====================================================-
 window.renderAsset = async function() {
   const main = document.getElementById('mainContent');
   main.innerHTML = `<div class="page-title"><span>💻 Asset Management</span><button class="btn btn-primary btn-sm" onclick="modalAsset()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Pengguna</th><th>Kondisi</th><th>Aksi</th></tr></thead><tbody id="tblAsset"></tbody></table></div></div>`;
@@ -1165,7 +1165,7 @@ window.renderAsset = async function() {
       h += `<tr><td>${escHtml(p.kode || '-')}</td><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.kategori || '-')}</td><td>${escHtml(p.pengguna || '-')}</td><td><span class="badge badge-${p.kondisi === 'baik' ? 'success' : p.kondisi === 'rusak' ? 'danger' : 'warning'}">${p.kondisi || 'baik'}</span></td><td><button class="btn btn-xs btn-info" onclick="modalAsset('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_asset','${d.id}','asset')">🗑️</button></td></tr>`;
     }
   document.getElementById('tblAsset').innerHTML = h;
-});
+}
 function modalAsset(id) {
   if (id)
       .doc(id)
@@ -1195,9 +1195,9 @@ async function simpanAsset(id) {
   renderAsset();
 }
 
-// ══════════════════════════════════════════════════════════════
+// ==============================================================
 
-// ── MANAJEMEN AKUN ────────────────────────────────────────────
+// == MANAJEMEN AKUN ============================================
 async function renderAkun() {
   if (!hasAccess(6))
     return (document.getElementById('mainContent').innerHTML =
@@ -1264,13 +1264,13 @@ async function renderAkun() {
   document.getElementById('tblAkun').innerHTML = h;
 }
 
-// ── MIGRASI ALUR KERJA (GANTI PERAN) ─────────────────────────
+// == MIGRASI ALUR KERJA (GANTI PERAN) ========================-
 async function modalMigrateWorkflow(oldId, oldNama) {
   const uSnap = await db.collection('hrd_users').get();
   const users = [];
   uSnap.forEach(doc => {
     const u = doc.data();
-    if (doc.id !== oldId && u.status !== 'nonaktif') users.push({ id: doc.id, nama: u.nama });
+    if (doc.id !== oldId && u.status !== 'nonaktif') users.push({ id: doc.id, nama: u.nama }
   });
 
   let opts = '<option value="">-- Pilih User Pengganti --</option>';
@@ -1371,7 +1371,7 @@ async function doMigrateWorkflow(oldId, oldNama, targetIdParam, targetNamaParam)
                       const regex = new RegExp(oldNama, 'gi');
                       updateObj[f] = d[f].replace(regex, newNama);
                   }
-              });
+              }
           }
 
           batchHist.update(doc.ref, updateObj);
@@ -1392,7 +1392,7 @@ async function doMigrateWorkflow(oldId, oldNama, targetIdParam, targetNamaParam)
   }
 }
 
-// ── DATA PERUSAHAAN ───────────────────────────────────────────
+// == DATA PERUSAHAAN ==========================================-
 async function loadCompanyData() {
   const doc = await db.collection('hrd_settings').doc('perusahaan').get();
   if (!doc.exists) return;
@@ -1621,7 +1621,7 @@ async function showAkunForm(id, p) {
       nip: k.nip || '',
       departemen: k.departemen || '',
       posisi: k.posisi || '',
-    });
+    }
   }
   karyData.sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
   let karyOpts = '<option value="">-- Tidak disambungkan --</option>';
@@ -1741,7 +1741,7 @@ async function simpanAkun(id) {
   }
 }
 
-// ── APPROVAL CENTER — Multi-step flow with department filtering ──
+// == APPROVAL CENTER — Multi-step flow with department filtering ==
 async function renderApprovalCenter(tab = 'pending') {
   const main = document.getElementById('mainContent');
   const role = (currentUser.role || '').toLowerCase();
@@ -1812,8 +1812,7 @@ async function renderApprovalCenter(tab = 'pending') {
           deptMap[(data.nama || '').toLowerCase().trim()] ||
           ''
         ).toLowerCase().trim();
-        items.push(data);
-      });
+        items.push(data);});
     } catch (e) {
       console.warn(`Error fetching ${col}:`, e);
       // Fallback for collections without composite index
@@ -1953,7 +1952,7 @@ async function renderApprovalCenter(tab = 'pending') {
   document.getElementById('approvalList').innerHTML = h;
 }
 
-// ── APPROVAL DETAIL HELPERS ────────────────────────────────────
+// == APPROVAL DETAIL HELPERS ====================================
 function _buildEmployeeProfile(karyawan, p) {
   let h =
     '<div style="border-left:4px solid var(--primary);background:#f9f9f9;padding:14px 16px;border-radius:0 8px 8px 0;margin-bottom:16px">';
@@ -2021,7 +2020,7 @@ async function _buildCutiDetail(p, karyawan) {
       const overlaps = holidays.filter((hl) => {
         const ht = new Date(hl.tanggal);
         return ht >= start && ht <= end;
-      });
+      }
       if (overlaps.length) {
         h +=
           '<div style="margin-top:8px;padding:8px;background:#fff3e0;border-radius:6px;font-size:.82rem">';
@@ -2202,7 +2201,7 @@ async function _buildReimbDetail(p) {
         if (cr.startsWith(tahunIni)) totalTahun += amt;
         const cat = rd.kategori || 'Lainnya';
         byCategory[cat] = (byCategory[cat] || 0) + amt;
-       });
+       }
       h +=
         '<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:6px;font-size:.83rem">';
       h += `<div class="fw-700 mb-4">📊 Riwayat Klaim (Approved)</div>`;
@@ -2249,7 +2248,7 @@ async function _buildKasbonDetail(p, karyawan) {
           totalOutstanding += sisa;
           activeCount++;
         }
-       });
+       }
       h +=
         '<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:6px;font-size:.83rem">';
       h += `<div class="fw-700 mb-4">📊 Pinjaman Aktif</div>`;
@@ -2461,7 +2460,7 @@ async function approveItem(col, id, status, catatan) {
         let targetUserId = '';
         uSnap.forEach(uDoc => {
             if (isSameName(uDoc.data().nama, nextApprover.nama)) targetUserId = uDoc.id;
-        });
+        }
 
         if (targetUserId)
           await sendNotification(
@@ -2549,7 +2548,7 @@ async function approveItem(col, id, status, catatan) {
   }
 }
 
-// ── APPROVAL MANAGEMENT ───────────────────────────────────────
+// == APPROVAL MANAGEMENT ======================================-
 async function renderApprovalMgmt() {
   if (!hasAccess(6))
     return (document.getElementById('mainContent').innerHTML =
@@ -2621,7 +2620,7 @@ async function generateAllApprovalFlows() {
     // Step 1: Direct atasan
     if (k.atasan && k.atasan.toLowerCase() !== 'founder') {
       const atasan = karyawan.find((a) => a.nama?.toLowerCase() === k.atasan?.toLowerCase());
-      if (atasan) steps.push({ nama: atasan.nama, role: atasan.posisi || '', userId: atasan.id });
+      if (atasan) steps.push({ nama: atasan.nama, role: atasan.posisi || '', userId: atasan.id }
     }
     // Step 2: Head (if atasan is not head)
     if (steps.length && steps[0].role) {
@@ -2656,7 +2655,7 @@ async function generateAllApprovalFlows() {
         departemen: k.departemen || '',
         steps,
         createdAt: new Date().toISOString(),
-      });
+      }
       count++;
     }
   }
@@ -2711,7 +2710,7 @@ async function simpanEditApprovalFlow(id) {
   const s1 = document.getElementById('eafStep1').value;
   const s2 = document.getElementById('eafStep2').value;
   const s3 = document.getElementById('eafStep3').value;
-  if (s1) steps.push({ nama: s1, role: s1 });
+  if (s1) steps.push({ nama: s1, role: s1 }
   if (s2) steps.push({ nama: s2, role: s2 });
   if (s3) steps.push({ nama: s3, role: s3 });
   if (!steps.length) return toast('Minimal 1 approver', 'warning');
@@ -2743,7 +2742,7 @@ async function modalApprovalFlow() {
   let deptOpts = '';
   depts.forEach((d) => {
     if (d) deptOpts += `<option>${escHtml(d)}</option>`;
-  });
+  }
   openModal(
     `<div class="modal-title">Tambah Approval Flow</div>
     <div class="form-group"><label>Jenis Pengajuan</label><select class="form-control" id="afJenis"><option value="Cuti/Izin">Cuti / Izin</option><option value="WFH">WFH (Work From Home)</option><option value="Dinas Luar">Dinas Luar</option><option value="Overtime">Overtime / Lembur</option><option value="Reimbursement">Reimbursement</option><option value="Kasbon">Kasbon & Loan</option><option value="Insentif">Insentif</option><option value="Penggajian">Penggajian</option><option value="Onboarding">Onboarding</option><option value="Offboarding">Offboarding</option><option value="Perpanjangan Kontrak">Perpanjangan Kontrak</option><option value="Pelatihan">Pelatihan</option></select></div>
@@ -2789,7 +2788,7 @@ async function simpanApprovalFlow() {
   renderApprovalMgmt();
 }
 
-// ── QR & PWA & DOWNLOAD APP ───────────────────────────────────
+// == QR & PWA & DOWNLOAD APP ==================================-
 function renderQRShare() {
   const url = 'https://hrlegal.netlify.app';
   document.getElementById('mainContent').innerHTML =
@@ -2889,8 +2888,8 @@ async function shareAppBroadcast() {
   toast(`Broadcast terkirim ke ${users.length} karyawan`, 'success');
 }
 
-// ── EDIT FUNCTIONS — untuk semua modul ────────────────────────
-// ══════════════════════════════════════════════════════════════
+// == EDIT FUNCTIONS — untuk semua modul ========================
+// ==============================================================
 
 function editCutiDoc(id) {
     .doc(id)
@@ -3104,7 +3103,7 @@ async function updateKasbonDoc(id) {
   }
 }
 
-// ── HELPER HAPUS ──────────────────────────────────────────────
+// == HELPER HAPUS ==============================================
 async function hapusDoc(col, id, page) {
   if (!confirm('Yakin hapus?')) return;
   await db.collection(col).doc(id).delete();
@@ -3112,16 +3111,16 @@ async function hapusDoc(col, id, page) {
   navigateTo(page);
 }
 
-// ── ABSENSI ADMIN (delegate to absensi-ijef.js) ───────────────
+// == ABSENSI ADMIN (delegate to absensi-ijef.js) ==============-
 function renderAbsensiAdmin() {
   if (typeof renderAbsensiIJEF === 'function') renderAbsensiIJEF();
   else
     document.getElementById('mainContent').innerHTML = '<div class="card">Loading absensi...</div>';
 }
 
-// ══════════════════════════════════════════════════════════════
+// ==============================================================
 
-// ── DISC TEST PAGE (Admin/HR view with View, Edit, Delete, Sync KPI) ──────────
+// == DISC TEST PAGE (Admin/HR view with View, Edit, Delete, Sync KPI) ==========
 function renderDiscTestPage() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
@@ -3197,7 +3196,7 @@ function startDiscEvalForKaryawan() {
     pos: opt.dataset.pos,
     periode,
     mode: 'evaluasi',
-  });
+  }
   closeModalDirect();
   window.open('disc-test.html#evaluasi?' + params.toString(), '_blank');
 }
@@ -3253,7 +3252,7 @@ async function viewDiscResult(id) {
     let dots = '';
     vals.forEach((v, i) => {
       dots += `<circle cx="${15 + i * 40}" cy="${toY(v)}" r="3" fill="#1a237e"/><text x="${15 + i * 40}" y="${toY(v) - 8}" text-anchor="middle" font-size="7" font-weight="700" fill="${v >= 0 ? '#2e7d32' : '#c62828'}">${v > 0 ? '+' : ''}${typeof v === 'number' ? v.toFixed(1) : v}</text>`;
-     });
+     }
     const pts = vals.map((v, i) => `${15 + i * 40},${toY(v)}`).join(' ');
     return `<div style="text-align:center;flex:1;min-width:150px"><div style="font-size:.63rem;font-weight:700;color:var(--primary)">${title}</div><div style="font-size:.55rem;color:#999">${sub}</div><svg width="155" height="${h + 18}" viewBox="0 0 155 ${h + 18}" style="border:1px solid #ddd;border-radius:4px;background:#fafafa"><line x1="5" y1="${h / 2}" x2="150" y2="${h / 2}" stroke="#999" stroke-width="0.5" stroke-dasharray="2"/><polyline points="${pts}" fill="none" stroke="#1a237e" stroke-width="1.5"/>${dots}<text x="15" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">D</text><text x="55" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">I</text><text x="95" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">S</text><text x="135" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">C</text></svg></div>`;
   }
@@ -3358,7 +3357,7 @@ async function viewDiscResult(id) {
   negT.forEach((t) => {
     negH += `<div style="padding:2px 0;font-size:.73rem;color:#c62828">⚠️ ${escHtml(t)}</div>`;
     coreT += `<div style="font-size:.7rem">${escHtml(t)}</div>`;
-  });
+  }
   [...posT, ...negT].forEach((t) => {
     mirrorT += `<div style="font-size:.7rem">${escHtml(t)}</div>`;
   });
@@ -3552,14 +3551,14 @@ async function syncAllDiscToKPI() {
         discPattern: r.pattern || '',
         discProfile: r.profileName || '',
         createdAt: new Date().toISOString(),
-      });
+      }
       count++;
     }
   }
   toast(`${count} hasil DISC disinkronkan ke KPI`, 'success');
 }
 
-// ── SYSTEM ADMIN — Reset & Backup ─────────────────────────────
+// == SYSTEM ADMIN — Reset & Backup ============================-
 function renderSystemAdmin() {
   if (!hasAccess(6))
     return (document.getElementById('mainContent').innerHTML =
@@ -3635,7 +3634,7 @@ async function backupAllData() {
       snap.forEach((d) => backup.data[col].push({ id: d.id, ...d.data() }));
     } catch (e) {}
   }
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `IMS_backup_${todayStr()}.json`;
@@ -3709,12 +3708,12 @@ async function resetEntireSystem() {
   const batch = db.batch();
   usersSnap.forEach((d) => {
     if (d.data().role !== 'admin') batch.delete(d.ref);
-  });
+  }
   await batch.commit();
   toast('Sistem berhasil direset. Hanya akun admin yang tersisa.', 'success');
 }
 
-// ── PANDUAN SISTEM ────────────────────────────────────────────
+// == PANDUAN SISTEM ============================================
 function renderPanduan() {
   const main = document.getElementById('mainContent');
   const role = currentUser.role || 'staff';
@@ -3742,14 +3741,14 @@ function renderPanduan() {
         <div><b>5.</b> Laporan akan diteruskan otomatis ke atasan (Leader/Manager).</div>
       </div></div>`;
 
-    content += `<div class="card mb-16" style="border-left:4px solid #2e7d32"><div class="fw-700 mb-8" style="color:#2e7d32">📍 Absensi</div>
+    content += `<div class="card mb-16" style="border-left:4px solid var(--primary)"><div class="fw-700 mb-8" style="color:#2e7d32">📍 Absensi</div>
       <div class="text-sm" style="line-height:2">
         <div><b>1.</b> Buka menu <b>Absensi</b> → klik <b>Clock In</b> saat mulai kerja.</div>
         <div><b>2.</b> Pastikan lokasi GPS aktif (untuk verifikasi lokasi kantor).</div>
         <div><b>3.</b> Klik <b>Clock Out</b> saat selesai kerja.</div>
       </div></div>`;
 
-    content += `<div class="card mb-16" style="border-left:4px solid #ff6f00"><div class="fw-700 mb-8" style="color:#ff6f00">🏖️ Cuti & Izin</div>
+    content += `<div class="card mb-16" style="border-left:4px solid var(--primary)"><div class="fw-700 mb-8" style="color:#ff6f00">🏖️ Cuti & Izin</div>
       <div class="text-sm" style="line-height:2">
         <div><b>1.</b> Buka menu <b>Cuti/Izin</b> → klik <b>+ Pengajuan</b>.</div>
         <div><b>2.</b> Pilih jenis (Cuti Tahunan, Izin, WFH, dll), isi tanggal & keterangan.</div>
@@ -3759,7 +3758,7 @@ function renderPanduan() {
 
   // Leader instructions
   if (level >= 2) {
-    content += `<div class="card mb-16" style="border-left:4px solid #7b1fa2"><div class="fw-700 mb-8" style="color:#7b1fa2">📋 Instruksi Task ke Bawahan (Leader)</div>
+    content += `<div class="card mb-16" style="border-left:4px solid var(--primary)"><div class="fw-700 mb-8" style="color:#7b1fa2">📋 Instruksi Task ke Bawahan (Leader)</div>
       <div class="text-sm" style="line-height:2">
         <div><b>1.</b> Buka <b>Daily Task</b> → klik <b>+ Tambah</b> → pilih <b>"Daily Task"</b>.</div>
         <div><b>2.</b> Di field "Tugaskan Ke", pilih anggota tim dari divisi Anda.</div>
@@ -3768,7 +3767,7 @@ function renderPanduan() {
         <div><b>5.</b> Monitor progress di tab <b>"📊 Report Tim"</b>.</div>
       </div></div>`;
 
-    content += `<div class="card mb-16" style="border-left:4px solid #e65100"><div class="fw-700 mb-8" style="color:#e65100">⚠️ Penalty Point (Leader/Manager)</div>
+    content += `<div class="card mb-16" style="border-left:4px solid var(--primary)"><div class="fw-700 mb-8" style="color:#e65100">⚠️ Penalty Point (Leader/Manager)</div>
       <div class="text-sm" style="line-height:2">
         <div><b>1.</b> Buka menu <b>Penalty Point</b> → klik <b>+ Tambah</b>.</div>
         <div><b>2.</b> Pilih karyawan (hanya divisi sendiri), jenis pelanggaran, poin.</div>
@@ -3779,7 +3778,7 @@ function renderPanduan() {
 
   // Manager+ gets Rekrutmen
   if (level >= 3) {
-    content += `<div class="card mb-16" style="border-left:4px solid #00695c"><div class="fw-700 mb-8" style="color:#00695c">⚖️ Manajemen Legal & Aset (Manager+)</div>
+    content += `<div class="card mb-16" style="border-left:4px solid var(--primary)"><div class="fw-700 mb-8" style="color:#00695c">⚖️ Manajemen Legal & Aset (Manager+)</div>
       <div class="text-sm" style="line-height:1.8">
         <div><b>1. Manajemen Kontrak:</b> Klik <b>+ Upload Kontrak</b>. Pilih <b>"Eksternal"</b> untuk MOU/MOU kerjasama/Vendor. Isi <b>Judul/Perihal</b> agar mudah dicari di daftar.</div>
         <div><b>2. Legalitas & Perizinan:</b> Catat NIB, SIUP, dll. Upload softcopy dokumen untuk akses cepat. Sistem akan memberi peringatan jika status <b>Expired</b> (Merah).</div>
@@ -3790,7 +3789,7 @@ function renderPanduan() {
         <div><b>4. Integrasi HR:</b> Semua kontrak yang diupload akan otomatis muncul di portal karyawan yang bersangkutan pada menu "Dokumen Saya".</div>
       </div></div>`;
 
-    content += `<div class="card mb-16" style="border-left:4px solid #00695c"><div class="fw-700 mb-8" style="color:#00695c">📊 Monitoring & Approval (Manager)</div>
+    content += `<div class="card mb-16" style="border-left:4px solid var(--primary)"><div class="fw-700 mb-8" style="color:#00695c">📊 Monitoring & Approval (Manager)</div>
       <div class="text-sm" style="line-height:2">
         <div><b>📊 Report Tim:</b> Lihat semua daily report anggota divisi Anda, dikelompokkan per kategori.</div>
         <div><b>📅 Filter Tanggal:</b> Gunakan filter tanggal di tab Report Tim untuk melihat laporan periode tertentu.</div>
@@ -3808,7 +3807,7 @@ function renderPanduan() {
         <div><b>Undangan:</b> Hanya menerima undangan yang ditujukan untuk divisi/perorangan Anda.</div>
       </div></div>`;
 
-    content += `<div class="card mb-16" style="border-left:4px solid #37474f"><div class="fw-700 mb-8" style="color:#37474f">👥 Rekrutmen & Karyawan (Manager)</div>
+    content += `<div class="card mb-16" style="border-left:4px solid var(--primary)"><div class="fw-700 mb-8" style="color:#37474f">👥 Rekrutmen & Karyawan (Manager)</div>
       <div class="text-sm" style="line-height:2">
         <div><b>Lowongan:</b> Buat lowongan (pilih posisi & departemen dari dropdown).</div>
         <div><b>Pipeline:</b> Kelola kandidat dari Applied → DISC → Interview → Offering → Hired.</div>
@@ -3833,7 +3832,7 @@ function renderPanduan() {
 
   // BOD instructions
   if (level >= 5) {
-    content += `<div class="card mb-16" style="border-left:4px solid #4a148c"><div class="fw-700 mb-8" style="color:#4a148c">🎯 Board of Directors (BOD)</div>
+    content += `<div class="card mb-16" style="border-left:4px solid var(--primary)"><div class="fw-700 mb-8" style="color:#4a148c">🎯 Board of Directors (BOD)</div>
       <div class="text-sm" style="line-height:2">
         <div><b>Dashboard:</b> Melihat ringkasan keseluruhan perusahaan (karyawan, absensi, pengajuan).</div>
         <div><b>📊 Report:</b> Melihat gabungan daily report dari semua divisi (tanpa perlu input task sendiri).</div>
@@ -3845,7 +3844,7 @@ function renderPanduan() {
 
   // Admin instructions
   if (level >= 6) {
-    content += `<div class="card mb-16" style="border-left:4px solid #1a1a1a"><div class="fw-700 mb-8" style="color:#1a1a1a">🔧 Administrasi Sistem (Admin)</div>
+    content += `<div class="card mb-16" style="border-left:4px solid var(--primary)"><div class="fw-700 mb-8" style="color:#1a1a1a">🔧 Administrasi Sistem (Admin)</div>
       <div class="text-sm" style="line-height:2">
         <div><b>👤 Manajemen Akun:</b> Tambah/edit user, set role (staff/leader/manager/head/bod/admin) & departemen.</div>
         <div><b>📈 KPI & Penilaian:</b> Input nilai KPI, edit, hapus semua data. Sinkron penalty ke KPI.</div>

@@ -1,5 +1,5 @@
 'use strict';
-// ── CUTI / IZIN / WFH ─────────────────────────────────────────
+// == CUTI / IZIN / WFH ========================================-
 async function renderCuti() {
   const main = document.getElementById('mainContent');
   // Tombol Admin/Manager
@@ -49,7 +49,7 @@ async function renderCuti() {
     const masaKerja = hitungMasaKerja(k.tanggalMasuk);
     const color = sisa <= 2 ? 'var(--danger)' : sisa <= 5 ? 'var(--warning)' : 'var(--success)';
     quotaHtml += `<tr><td class="fw-700">${escHtml(k.nama)}</td><td>${escHtml(k.departemen || '-')}</td><td>${masaKerja}</td><td>${quota} hari</td><td>${used} hari</td><td style="color:${color};font-weight:700">${sisa} hari</td></tr>`;
-  });
+  }
   quotaHtml += '</tbody></table></div>';
   const cutiQuotaEl = document.getElementById('cutiQuotaList');
   if (cutiQuotaEl) cutiQuotaEl.innerHTML = quotaHtml;
@@ -414,7 +414,7 @@ async function viewCutiDetail(id) {
             <div style="color:${color}; font-weight:700; font-size:0.65rem">${actionLabel}</div>
             ${h.catatan ? `<div class="mt-4" style="color:#666; font-style:italic">"${escHtml(h.catatan)}"</div>` : ''}
         </div>`;
-    });
+    }
     historyHtml += '</div>';
   }
 
@@ -464,7 +464,7 @@ async function viewCutiDetail(id) {
     <div class="mt-16"><button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button></div>`);
 }
 
-// ── OVERTIME ──────────────────────────────────────────────────
+// == OVERTIME ==================================================
 async function renderOvertime() {
   const main = document.getElementById('mainContent');
   main.innerHTML = `<div class="page-title"><span>${renderBackButton()}⏰ Overtime</span><button class="btn btn-primary btn-sm" onclick="modalOvertime()">+ Pengajuan</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tanggal</th><th>Jam</th><th>Durasi</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblOT"></tbody></table></div></div>`;
@@ -528,7 +528,7 @@ async function renderOvertime() {
       const canApprove = isPending && hasAccess(3) && isMyTurn;
       const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${formatDate(p.tanggal)}</td><td>${p.jamMulai || '-'}-${p.jamSelesai || '-'}</td><td>${p.durasi || 0}j</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewOvertimeDetail('${d.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_overtime','${d.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_overtime','${d.id}','rejected')">❌</button>` : ''} ${hasAccess(6) ? `<button class="btn btn-xs btn-warning" onclick="editOTDoc('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_overtime','${d.id}','overtime')">🗑️</button>` : ''}</td></tr>`;
-    });
+    }
   document.getElementById('tblOT').innerHTML = h;
 }
 function modalOvertime() {
@@ -569,59 +569,9 @@ async function simpanOvertime() {
   renderOvertime();
 }
 
-// ── HARI LIBUR ────────────────────────────────────────────────
+// == HARI LIBUR ================================================
 
-// Indonesian National Holidays 2025
-const HARI_LIBUR_NASIONAL_2025 = [
-  { tanggal: '2025-01-01', nama: 'Tahun Baru Masehi', tipe: 'nasional' },
-  { tanggal: '2025-01-27', nama: "Isra Mi'raj Nabi Muhammad SAW", tipe: 'nasional' },
-  { tanggal: '2025-01-29', nama: 'Tahun Baru Imlek 2576 Kongzili', tipe: 'nasional' },
-  { tanggal: '2025-03-29', nama: 'Hari Raya Nyepi Tahun Baru Saka 1947', tipe: 'nasional' },
-  { tanggal: '2025-03-30', nama: 'Hari Raya Idul Fitri 1446 H (Hari 1)', tipe: 'nasional' },
-  { tanggal: '2025-03-31', nama: 'Hari Raya Idul Fitri 1446 H (Hari 2)', tipe: 'nasional' },
-  { tanggal: '2025-03-28', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
-  { tanggal: '2025-04-01', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
-  { tanggal: '2025-04-02', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
-  { tanggal: '2025-04-03', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
-  { tanggal: '2025-04-04', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
-  { tanggal: '2025-04-18', nama: 'Wafat Isa Al Masih', tipe: 'nasional' },
-  { tanggal: '2025-05-01', nama: 'Hari Buruh Internasional', tipe: 'nasional' },
-  { tanggal: '2025-05-12', nama: 'Hari Raya Waisak 2569 BE', tipe: 'nasional' },
-  { tanggal: '2025-05-29', nama: 'Kenaikan Isa Al Masih', tipe: 'nasional' },
-  { tanggal: '2025-06-01', nama: 'Hari Lahir Pancasila', tipe: 'nasional' },
-  { tanggal: '2025-06-06', nama: 'Hari Raya Idul Adha 1446 H', tipe: 'nasional' },
-  { tanggal: '2025-06-27', nama: 'Tahun Baru Islam 1447 H', tipe: 'nasional' },
-  { tanggal: '2025-08-17', nama: 'Hari Kemerdekaan RI', tipe: 'nasional' },
-  { tanggal: '2025-09-05', nama: 'Maulid Nabi Muhammad SAW', tipe: 'nasional' },
-  { tanggal: '2025-12-25', nama: 'Hari Natal', tipe: 'nasional' },
-  { tanggal: '2025-12-26', nama: 'Cuti Bersama Natal', tipe: 'cuti_bersama' },
-];
-
-const HARI_LIBUR_NASIONAL_2026 = [
-  { tanggal: '2026-01-01', nama: 'Tahun Baru Masehi', tipe: 'nasional' },
-  { tanggal: '2026-01-16', nama: "Isra Mi'raj Nabi Muhammad SAW", tipe: 'nasional' },
-  { tanggal: '2026-02-17', nama: 'Tahun Baru Imlek 2577 Kongzili', tipe: 'nasional' },
-  { tanggal: '2026-03-19', nama: 'Hari Raya Nyepi Tahun Baru Saka 1948', tipe: 'nasional' },
-  { tanggal: '2026-03-20', nama: 'Hari Raya Idul Fitri 1447 H (Hari 1)', tipe: 'nasional' },
-  { tanggal: '2026-03-21', nama: 'Hari Raya Idul Fitri 1447 H (Hari 2)', tipe: 'nasional' },
-  { tanggal: '2026-03-18', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
-  { tanggal: '2026-03-22', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
-  { tanggal: '2026-03-23', nama: 'Cuti Bersama Idul Fitri', tipe: 'cuti_bersama' },
-  { tanggal: '2026-04-03', nama: 'Wafat Isa Al Masih', tipe: 'nasional' },
-  { tanggal: '2026-05-01', nama: 'Hari Buruh Internasional', tipe: 'nasional' },
-  { tanggal: '2026-05-14', nama: 'Kenaikan Isa Al Masih', tipe: 'nasional' },
-  { tanggal: '2026-05-27', nama: 'Hari Raya Idul Adha 1447 H', tipe: 'nasional' },
-  { tanggal: '2026-05-28', nama: 'Cuti Bersama Idul Adha', tipe: 'cuti_bersama' },
-  { tanggal: '2026-05-29', nama: 'Cuti Bersama Idul Adha', tipe: 'cuti_bersama' },
-  { tanggal: '2026-05-31', nama: 'Hari Raya Waisak 2570 BE', tipe: 'nasional' },
-  { tanggal: '2026-06-01', nama: 'Hari Lahir Pancasila', tipe: 'nasional' },
-  { tanggal: '2026-06-16', nama: 'Tahun Baru Islam 1448 H', tipe: 'nasional' },
-  { tanggal: '2026-08-17', nama: 'Hari Kemerdekaan RI', tipe: 'nasional' },
-  { tanggal: '2026-08-26', nama: 'Maulid Nabi Muhammad SAW', tipe: 'nasional' },
-  { tanggal: '2026-12-24', nama: 'Cuti Bersama Natal', tipe: 'cuti_bersama' },
-  { tanggal: '2026-12-25', nama: 'Hari Natal', tipe: 'nasional' },
-  { tanggal: '2026-12-31', nama: 'Cuti Bersama Tahun Baru', tipe: 'cuti_bersama' },
-];
+// Indonesian National Holidays moved to core.js
 
 let hariLiburCalendarMonth = null;
 let hariLiburViewMode = 'myCalendar'; // 'myCalendar' or 'daftar'
@@ -699,7 +649,7 @@ async function loadHariLiburView() {
       const snap = await db.collection('hrd_hari_libur').get();
       for (const d of snap) { const data = d.data();
         if (data.tanggal >= startDate && data.tanggal <= endDate)
-          holidays.push({ id: d.id, ...data });
+          holidays.push({ id: d.id, ...data }
       }
     } catch (e) {
       console.warn('Failed to load holidays:', e);
@@ -814,7 +764,7 @@ async function renderMyCalendarView(container) {
     });
     for (const d of taskSnap) { const t = d.data();
       if (t.userId === currentUser.id && t.tanggal >= startDate && t.tanggal <= endDate) {
-        tasks.push({ id: d.id, ...t });
+        tasks.push({ id: d.id, ...t }
       }
       if (
         hasAccess(3) &&
@@ -1005,50 +955,14 @@ async function syncHariLiburNasional() {
         createdAt: new Date().toISOString(),
       })
     );
-  });
+  }
   await Promise.all(batch2);
 
   toast(`${dataToSync.length} hari libur nasional ${year} berhasil disinkronkan`, 'success');
   loadHariLiburView();
 }
 
-// Auto-load national holidays on first render if collection is empty for 2025 and 2026
-async function autoLoadHariLiburNasional() {
-  const years = [2025, 2026];
-  for (const year of years) {
-    const dataToSync = year === 2025 ? HARI_LIBUR_NASIONAL_2025 : HARI_LIBUR_NASIONAL_2026;
-
-    try {
-      const existingSnap = await db.collection('hrd_hari_libur').where('tahun', '==', year).get();
-      let alreadyPopulated = false;
-      for (const d of existingSnap) {
-        const t = d.data().tipe;
-        if (t === 'nasional' || t === 'cuti_bersama') alreadyPopulated = true;
-      }
-
-      if (!alreadyPopulated) {
-        console.log(`[HOLIDAY] Auto-loading holidays for ${year}...`);
-        // Use a batch to prevent partial loads
-        const batch = db.batch();
-        dataToSync.forEach((h) => {
-          const ref = db.collection('hrd_hari_libur').doc();
-          batch.set(ref, {
-            tanggal: h.tanggal,
-            nama: h.nama,
-            tipe: h.tipe,
-            tahun: year,
-            createdAt: new Date().toISOString(),
-            autoLoaded: true
-          });
-        });
-        await batch.commit();
-        console.log(`[HOLIDAY] ${year} holidays loaded successfully.`);
-      }
-    } catch (err) {
-      console.warn(`[HOLIDAY] Auto-load failed for ${year}:`, err.message);
-    }
-  }
-}
+// autoLoadHariLiburNasional moved to core.js
 
 // Check if a given date is a holiday - returns holiday info or null
 async function checkHoliday(dateStr) {
@@ -1057,7 +971,7 @@ async function checkHoliday(dateStr) {
   return snap.docs[0].data();
 }
 
-// ── PENALTY ───────────────────────────────────────────────────
+// == PENALTY ==================================================-
 async function renderPenalty() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
@@ -1117,7 +1031,7 @@ async function renderPenalty() {
     summary[p.nama].poin += parseInt(p.poin) || 0;
     const j = p.jenis || 'Lainnya';
     summary[p.nama].detail[j] = (summary[p.nama].detail[j] || 0) + 1;
-  });
+  }
   // Render summary - only employees with points > 0
   const summaryItems = Object.values(summary).filter((s) => s.poin > 0);
   summaryItems.sort((a, b) => b.poin - a.poin);
@@ -1321,7 +1235,7 @@ async function syncPenaltyToKPI() {
           penaltyPoin: totalPenalty,
           penaltyDeduction: totalPenalty * 2,
           syncedAt: new Date().toISOString(),
-        });
+        }
       count++;
     }
   }
@@ -1351,7 +1265,7 @@ async function syncPenaltyToKPI() {
         catatan: `Auto-generated dari sinkronisasi penalty (${totalPenalty} poin)`,
         createdAt: new Date().toISOString(),
         syncedAt: new Date().toISOString(),
-      });
+      }
       count++;
     }
   }
@@ -1423,7 +1337,7 @@ async function simpanPenalty() {
       const k = d.data();
       if ((k.nama || '').toLowerCase().trim() === nTarget)
         dept = k.departemen || '';
-    });
+    }
   } catch (e) {}
   const data = {
     nama: nama,
@@ -1442,7 +1356,7 @@ async function simpanPenalty() {
   renderPenalty();
 }
 
-// ── DAILY TASK & REMINDER ─────────────────────────────────────
+// == DAILY TASK & REMINDER ====================================-
 function buildGCalUrl(t) {
   const title = encodeURIComponent(t.title);
   let dates;
@@ -1619,7 +1533,7 @@ async function loadDailyTasks(filter) {
         if (ownerId === myId || t.assignedBy === myId) isVisible = true;
       }
 
-      if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
+      if (isVisible) _dailyTaskData.push({ id: d.id, ...t }
     });
   } catch (e) {
     _dailyTaskData = [];
@@ -1759,7 +1673,7 @@ function viewDailyTask(id) {
         if (!doc.exists) return toast('Data tidak ditemukan', 'warning');
         var t = { id: doc.id, ...doc.data() };
         _showDailyTaskDetail(t);
-      });
+      }
     return;
   }
   _showDailyTaskDetail(task);
@@ -1965,7 +1879,7 @@ async function modalAddTask() {
             escHtml(u.departemen || '-') +
             ')</span></span></label>';
         }
-       });
+       }
       assignHtml = '<div class="form-group"><label>Tugaskan Ke (Head / Manager)</label>';
       assignHtml +=
         '<div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
@@ -2040,7 +1954,7 @@ async function simpanDailyTask() {
   var targets = [];
   var selfCb = document.getElementById('dtAssignSelf');
   if (selfCb && selfCb.checked) {
-    targets.push({ id: currentUser.id, nama: currentUser.nama });
+    targets.push({ id: currentUser.id, nama: currentUser.nama }
   }
   var assignCbs = document.querySelectorAll('.dt-assign-cb:checked');
   assignCbs.forEach(function (cb) {
@@ -2228,7 +2142,7 @@ async function hapusDailyTask(id) {
   await loadDailyTasks(_dailyTaskFilter);
 }
 
-// ── TASK REMINDER SYSTEM ──────────────────────────────────────
+// == TASK REMINDER SYSTEM ======================================
 let _reminderCheckInterval = null;
 
 async function checkTaskReminders() {
@@ -2239,7 +2153,7 @@ async function checkTaskReminders() {
     const today = todayStr();
     const tasks = [];
     for (const d of snap) { const t = d.data();
-      if (t.userId === currentUser.id && !t.done) tasks.push({ id: d.id, ...t });
+      if (t.userId === currentUser.id && !t.done) tasks.push({ id: d.id, ...t }
     }
 
     for (const task of tasks) {
@@ -2287,7 +2201,7 @@ async function checkTaskReminders() {
           read: false,
           type: 'task-overdue',
           createdAt: new Date().toISOString(),
-        });
+        }
       }
     }
   } catch (_e) {
@@ -2358,7 +2272,7 @@ async function updateDailyReport(id) {
   await loadDailyTasks(_dailyTaskFilter);
 }
 
-// ── FILE UPLOAD HELPERS ───────────────────────────────────────
+// == FILE UPLOAD HELPERS ======================================-
 function previewTaskFiles(input, previewId) {
   const preview = document.getElementById(previewId);
   if (!preview) return;
@@ -2389,7 +2303,7 @@ function previewTaskFiles(input, previewId) {
       }
     };
     reader.readAsDataURL(file);
-   });
+   }
 }
 
 async function getFilesAsBase64(inputId) {
@@ -2403,7 +2317,7 @@ async function getFilesAsBase64(inputId) {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target.result);
         reader.readAsDataURL(file);
-      });
+      }
       results.push({ name: file.name, type: file.type, size: file.size, data: base64 });
     }
   }
@@ -2550,7 +2464,7 @@ function stopCamera() {
   }
 }
 
-// ── EVIDEN ZOOM VIEWER ─────────────────────────────────────────
+// == EVIDEN ZOOM VIEWER ========================================-
 var _zoomState = {
   scale: 1,
   posX: 0,
@@ -2790,7 +2704,7 @@ function startTaskReminderCheck() {
   _reminderCheckInterval = setInterval(checkTaskReminders, 2 * 60 * 1000);
 }
 
-// ── DAILY REPORT AUTO-SUMMARY & WA SHARE ──────────────────────
+// == DAILY REPORT AUTO-SUMMARY & WA SHARE ======================
 let _reportSummaryInterval = null;
 let _reportSummaryDivisionFilter = 'all';
 let _reportSummaryCache = {};
@@ -2878,7 +2792,7 @@ async function _loadReportSummaryForDate(dateVal) {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  });
+  }
 
   var waText = '\ud83d\udccb *REPORT HARIAN IJEF*\n\ud83d\udcc5 ' + dayName + ', ' + dateStr + '\n\n';
 
@@ -3160,7 +3074,7 @@ async function loadReportSummaryByDate(dateVal) {
   await _loadReportSummaryForDate(dateVal);
 }
 
-// ── DAILY REPORT ──────────────────────────────────────────────
+// == DAILY REPORT ==============================================
 const REPORT_CATEGORIES = {
   ACADEMIC: ['SISWA', 'TSK-JOB', 'SENSEI', 'CURRICULUM'],
   OFFICE: ["FACILITY'S", 'FINANCE', 'HR & LEGAL', 'PROMOSI', 'DOCUMENT', 'MARKETING & SALES'],
@@ -3292,7 +3206,7 @@ function viewDailyReport(id) {
   );
 }
 
-// ── IMPORT LAPORAN MINGGUAN (dari Spreadsheet) ────────────────────────
+// == IMPORT LAPORAN MINGGUAN (dari Spreadsheet) ========================
 function modalImportWeeklyReport() {
   openModal(
     '<div class="modal-title">⬆️ Import Laporan Mingguan</div>' +
@@ -3364,7 +3278,7 @@ async function loadSheetList() {
     var regex = /gid=(\d+)[^"]*"[^>]*>([^<]+)</g;
     var match;
     while ((match = regex.exec(html)) !== null) {
-      sheets.push({ gid: match[1], name: match[2].trim() });
+      sheets.push({ gid: match[1], name: match[2].trim() }
     }
     // Method 2: Try alternate pattern
     if (!sheets.length) {
@@ -3523,7 +3437,7 @@ async function pullFromGoogleSheets() {
       );
     var workbook = XLSX.read(csvText, { type: 'string'  }
     var sheet = workbook.Sheets[workbook.SheetNames[0]];
-    var jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    var jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' }
     if (!jsonData.length) {
       preview.innerHTML = '<p class="text-sm" style="color:#c62828">Data kosong.</p>';
       return;
@@ -3553,7 +3467,7 @@ async function pullFromGoogleSheets() {
         var div = (r.divisi || '').toUpperCase().trim();
         var filt = filterDivisi.toUpperCase().trim();
         return kat === filt || div === filt || kat.includes(filt) || div.includes(filt);
-      });
+      }
     }
     if (filterMode === 'bulan' && filterBulan) {
       var fYear = filterBulan.split('-')[0];
@@ -3789,7 +3703,7 @@ function previewWeeklyImport(input) {
           '</td><td>' +
           escHtml(r.pic) +
           '</td></tr>';
-      });
+      }
       if (_weeklyImportData.length > 20)
         h +=
           '<tr><td colspan="6" class="text-center">... dan ' +
@@ -3860,7 +3774,7 @@ async function submitWeeklyImport() {
   }
 }
 
-// ── DISPLAY LAPORAN MINGGUAN ──────────────────────────────────
+// == DISPLAY LAPORAN MINGGUAN ==================================
 var _weeklyReportFilter = 'all';
 var _wrDateFrom = '';
 var _wrDateTo = '';
@@ -3886,7 +3800,7 @@ async function loadWeeklyReports(divFilter) {
       db.collection('hrd_weekly_reports').get(),
     ]);
     for (const d of snap1.docs) {
-      items.push({ id: d.id, col: 'hrd_daily_tasks', ...d.data() });
+      items.push({ id: d.id, col: 'hrd_daily_tasks', ...d.data() }
     }
     snap2.forEach(function (d) {
       items.push({ id: d.id, col: 'hrd_weekly_reports', ...d.data() });
@@ -4319,7 +4233,7 @@ async function viewUserProfile(nama) {
   }
 }
 
-// ── ACTIVITY TRACKER HELPERS ────────────────────────────────────
+// == ACTIVITY TRACKER HELPERS ====================================
 // Compute and render tracker stats block for a group of report items
 function _buildReportTrackerStats(items) {
   var done = 0,
@@ -4536,7 +4450,7 @@ function _renderGroupedReportTracker(reports, filter) {
               ')</div>';
             catItems.forEach(function (r) {
               html += _buildReportTrackerRow(r);
-            });
+            }
             html += _buildReportTrackerStats(catItems);
             html += '</div>';
           });
@@ -4608,7 +4522,7 @@ function viewProfilePhoto(src) {
   document.body.appendChild(overlay);
 }
 
-// ── FORM KAIZEN — General Affair Work Request for GA ──
+// == FORM KAIZEN — General Affair Work Request for GA ==
 
 async function renderFormKaizen() {
   const main = document.getElementById('mainContent');
@@ -5273,7 +5187,7 @@ async function doInputCutiBersamaMassal() {
             approvedAt: createdAt,
             createdAt,
             isMassive: true
-        });
+        }
 
         batchCount++;
         totalProcessed++;
