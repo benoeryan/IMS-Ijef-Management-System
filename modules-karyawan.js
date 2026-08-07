@@ -48,12 +48,6 @@ async function renderDashboard() {
     dinasCount = dinas.size;
   }
 
-  const uniqueHadir = new Set();
-  absen.forEach(d => {
-      const p = d.data();
-      if (p.userId) uniqueHadir.add(p.userId);
-  });
-
   const totalPending = cutiCount + overtimeCount + reimburseCount + dinasCount;
   const statsEl = document.getElementById('dashStats');
   if (statsEl) {

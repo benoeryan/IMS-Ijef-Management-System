@@ -690,11 +690,11 @@ async function loadSPPDProsedur(el) {
         <tr><td class="fw-700">Uang Harian</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f1f1f1' : '') + '">' + formatCurrency(getCmpBen(g, 'uangHarian')) + '</td>').join('')}</tr>
         <tr><td class="fw-700">Max Hotel/Malam</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f1f1f1' : '') + '">' + formatCurrency(getCmpBen(g, 'maxHotel')) + '</td>').join('')}</tr>
         <tr><td class="fw-700">Kelas Hotel</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f1f1f1' : '') + '">' + escHtml(getCmpPer(g, 'kelasHotelDiizinkan')) + '</td>').join('')}</tr>
-        <tr><td class="fw-700">Transport</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#e3f2fd' : '') + ';font-size:.8rem">' + escHtml((getCmpPer(g, 'transportasiDiizinkan') || []).slice(0, 2).join(', ')) + '</td>').join('')}</tr>
+        <tr><td class="fw-700">Transport</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f9f9f9' : '') + ';font-size:.8rem">' + escHtml((getCmpPer(g, 'transportasiDiizinkan') || []).slice(0, 2).join(', ')) + '</td>').join('')}</tr>
         <tr><td class="fw-700">Uang Muka</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f1f1f1' : '') + '">' + getCmpPer(g, 'persenUangMuka') + '%</td>').join('')}</tr>
         <tr><td class="fw-700">Max Durasi (tanpa approval khusus)</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f1f1f1' : '') + '">' + getCmpPer(g, 'maxDurasiTanpaApprovalKhusus') + ' hari</td>').join('')}</tr>
         <tr><td class="fw-700">Batas Laporan</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f1f1f1' : '') + '">' + getCmpPer(g, 'batasWaktuLaporan') + ' hari</td>').join('')}</tr>
-        <tr><td class="fw-700">Alur Approval</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#e3f2fd' : '') + ';font-size:.8rem">' + escHtml(getCmpPer(g, 'alurApproval')) + '</td>').join('')}</tr>
+        <tr><td class="fw-700">Alur Approval</td>${allGrades.map((g) => '<td style="' + (g === userGradeKey ? 'background:#f9f9f9' : '') + ';font-size:.8rem">' + escHtml(getCmpPer(g, 'alurApproval')) + '</td>').join('')}</tr>
       </tbody></table></div></div>`;
   }
 

@@ -1,5 +1,5 @@
 'use strict';
-// ── PERATURAN PERUSAHAAN v14.3 ──────────────────────────────
+// ── PERATURAN PERUSAHAAN v14.5 ──────────────────────────────
 const PERATURAN_PERUSAHAAN={
   nama:'LPK IJEF CORP',
   versi:'2026',
@@ -199,7 +199,7 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '14.3',
+            version: '14.4',
             updatedAt: new Date().toISOString(),
             note: 'Fix attendance synchronization & dashboard cleanup'
         }, { merge: true });

@@ -36,7 +36,7 @@ async function renderCuti() {
         cutiUsed[namaKey] = (cutiUsed[namaKey] || 0) + durasi;
       }
     }
-  });
+  }
   // Build quota table
   let quotaHtml =
     '<div class="table-wrap"><table><thead><tr><th>Nama</th><th>Dept</th><th>Masa Kerja</th><th>Jatah/Tahun</th><th>Terpakai</th><th>Sisa</th></tr></thead><tbody>';
@@ -390,7 +390,7 @@ async function viewCutiDetail(id) {
           '<span style="font-size:.6rem;color:#1565c0;font-weight:600">👁️ Lihat</span>' +
           '</div>';
       }
-    });
+    }
     attachHtml += '</div></td></tr>';
   }
   // Pending approver row
@@ -700,7 +700,7 @@ async function loadHariLiburView() {
       for (const d of snap) { const data = d.data();
         if (data.tanggal >= startDate && data.tanggal <= endDate)
           holidays.push({ id: d.id, ...data });
-      });
+      }
     } catch (e) {
       console.warn('Failed to load holidays:', e);
     }
@@ -810,7 +810,7 @@ async function renderMyCalendarView(container) {
     holSnap.forEach((d) => {
       const data = d.data();
       if (data.tanggal >= startDate && data.tanggal <= endDate)
-        holidays.push({ id: d.id, ...data  }
+        holidays.push({ id: d.id, ...data });
     });
     for (const d of taskSnap) { const t = d.data();
       if (t.userId === currentUser.id && t.tanggal >= startDate && t.tanggal <= endDate) {
@@ -825,7 +825,7 @@ async function renderMyCalendarView(container) {
       ) {
         tasks.push({ id: d.id, ...t, _isAssigned: true });
       }
-    });
+    }
   } catch (e) {
     console.warn('Failed to load calendar data:', e);
   }
@@ -990,7 +990,7 @@ async function syncHariLiburNasional() {
     const tipe = data.tipe || '';
     if (tgl >= startYear && tgl <= endYear && (tipe === 'nasional' || tipe === 'cuti_bersama'))
       batch1.push(d.ref.delete());
-  });
+  }
   await Promise.all(batch1);
 
   // Add all national holidays
@@ -1005,7 +1005,7 @@ async function syncHariLiburNasional() {
         createdAt: new Date().toISOString(),
       })
     );
-   }
+  });
   await Promise.all(batch2);
 
   toast(`${dataToSync.length} hari libur nasional ${year} berhasil disinkronkan`, 'success');
@@ -1105,7 +1105,7 @@ async function renderPenalty() {
       }
     }
     summary[k.nama] = { nama: k.nama, departemen: k.departemen || '-', poin: 0, detail: {} };
-  });
+  }
   visiblePenalty.forEach((p) => {
     if (!summary[p.nama])
       summary[p.nama] = {
@@ -1205,7 +1205,9 @@ function viewPenaltyDetail(nama) {
       });
       h += '</tbody></table></div>';
       openModal(h, true);
-    });
+    } catch (e) {
+      toast('Gagal memuat detail: ' + e.message, 'error');
+    }
 }
 
 async function viewPenaltyItem(id) {
@@ -1297,7 +1299,7 @@ async function syncPenaltyToKPI() {
     const p = d.data();
     const n = (p.nama || '').toLowerCase().trim();
     penaltyMap[n] = (penaltyMap[n] || 0) + (parseInt(p.poin) || 0);
-   }
+  });
   // Track which names already have KPI records
   const kpiNames = new Set();
   let count = 0;
@@ -1328,9 +1330,10 @@ async function syncPenaltyToKPI() {
     if (totalPenalty > 0 && !kpiNames.has(namaLower)) {
       // Find original nama from karyawan
       let originalNama = namaLower;
-      for (const d of karySnap) { const k = d.data();
+      for (const d of karySnap.docs) {
+        const k = d.data();
         if ((k.nama || '').toLowerCase().trim() === namaLower) originalNama = k.nama;
-      });
+      }
       const skorMurni = 80; // Default skor murni
       const skorAkhir = Math.max(0, skorMurni - totalPenalty * 2);
       await db.collection('hrd_kpi').add({
@@ -1348,7 +1351,7 @@ async function syncPenaltyToKPI() {
         catatan: `Auto-generated dari sinkronisasi penalty (${totalPenalty} poin)`,
         createdAt: new Date().toISOString(),
         syncedAt: new Date().toISOString(),
-       }
+      });
       count++;
     }
   }
@@ -1367,7 +1370,7 @@ async function modalPenalty(prefillNama) {
     }
     const sel = prefillNama && k.nama === prefillNama ? ' selected' : '';
     opts += `<option value="${escHtml(k.nama)}"${sel}>${escHtml(k.nama)} — ${escHtml(k.departemen || '-')} (${escHtml(k.posisi || '-')})</option>`;
-  });
+  }
   openModal(`<div class="modal-title">Tambah Penalty</div>
     <div style="background:#fff8e1;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid #ff9800">
       <div class="text-xs fw-700 mb-4">📋 Panduan Perhitungan Poin Penalty:</div>
@@ -1415,11 +1418,12 @@ async function simpanPenalty() {
   let dept = '';
   try {
     const kSnap = await db.collection('hrd_karyawan').get();
+    const nTarget = nama.toLowerCase().trim();
     kSnap.forEach((d) => {
       const k = d.data();
-      if ((k.nama || '').toLowerCase().trim() === nama.toLowerCase().trim())
+      if ((k.nama || '').toLowerCase().trim() === nTarget)
         dept = k.departemen || '';
-     }
+    });
   } catch (e) {}
   const data = {
     nama: nama,
@@ -1591,7 +1595,7 @@ async function loadDailyTasks(filter) {
       const kSnap = await db.collection('hrd_karyawan').where('atasan', '==', currentUser.nama).get();
       for (const sk of kSnap) { const n = sk.data().nama;
         if (n) directSubNames.push(n.toLowerCase().trim());
-      });
+      }
     }
     window._directSubNamesCache = directSubNames;
 
@@ -1615,7 +1619,7 @@ async function loadDailyTasks(filter) {
         if (ownerId === myId || t.assignedBy === myId) isVisible = true;
       }
 
-      if (isVisible) _dailyTaskData.push({ id: d.id, ...t  }
+      if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
     });
   } catch (e) {
     _dailyTaskData = [];
@@ -1736,7 +1740,7 @@ async function loadDailyTasks(filter) {
         <div style="font-size:.7rem;color:#999;margin-top:4px">📅 ${formatDate(t.tanggal)} | ${t.priority}</div></div>
         <div style="display:flex;gap:4px"><button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyTask('${t.id}')">✏️</button></div></div>`;
     }
-  });
+  }
   listEl.innerHTML = html;
 }
 
@@ -1994,7 +1998,7 @@ async function modalAddTask() {
             escHtml(u.departemen || '-') +
             ')</span></span></label>';
         }
-      });
+      }
       assignHtml = '<div class="form-group"><label>Tugaskan Ke</label>';
       assignHtml +=
         '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:4px;background:#f9f9f9;border-radius:6px;cursor:pointer"><input type="checkbox" id="dtAssignSelf" checked> <span class="fw-700">📝 Untuk Diri Sendiri</span></label>';
@@ -2083,7 +2087,7 @@ async function simpanDailyTask() {
         assignedBy: assignedBy,
         assignedByName: assignedByName,
         createdAt: new Date().toISOString(),
-       }
+      });
       // Notify target user if assigned to someone else
       if (t.id !== currentUser.id) {
         await db.collection('hrd_notifikasi').add({
@@ -2133,7 +2137,7 @@ async function editDailyTask(id) {
       for (const d of usersSnap) { const u = d.data();
         if (u.status !== 'nonaktif')
           opts += `<option value="${d.id}" data-nama="${escHtml(u.nama)}" ${d.id === task.userId && d.id !== currentUser.id ? 'selected' : ''}>${escHtml(u.nama)} (${u.role})</option>`;
-      });
+      }
       reassignHtml = `<div class="form-group"><label>Untuk Siapa</label><select class="form-control" id="dtEditAssignUser">${opts}</select></div>`;
     } catch (_e) {
       reassignHtml = '';
@@ -2236,7 +2240,7 @@ async function checkTaskReminders() {
     const tasks = [];
     for (const d of snap) { const t = d.data();
       if (t.userId === currentUser.id && !t.done) tasks.push({ id: d.id, ...t });
-    });
+    }
 
     for (const task of tasks) {
       if (!task.reminder || !task.tanggal) continue;
@@ -2301,7 +2305,7 @@ async function editDailyReport(id) {
     const cats = REPORT_CATEGORIES[(currentUser.departemen || '').toUpperCase().trim()] || [];
     let opts = '<option value="">-- Pilih --</option>';
     for (const c of cats) { opts += `<option value="${c}" ${t.kategori === c ? 'selected' : ''}>${c}</option>`;
-    });
+    }
     catHtml = `<div class="form-group"><label>Kategori</label><select class="form-control" id="erKategori">${opts}</select></div>`;
   }
   openModal(
@@ -2864,7 +2868,7 @@ async function _loadReportSummaryForDate(dateVal) {
       allReports.push(rep);
       _reportSummaryCache[d.id] = rep;
     }
-  });
+  }
 
   // Prepare header info
   var dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -3167,7 +3171,7 @@ function getReportCategoryOptions() {
   const cats = REPORT_CATEGORIES[dept] || REPORT_CATEGORIES['OFFICE'] || [];
   let opts = '<option value="">-- Pilih Kategori --</option>';
   for (const c of cats) { opts += `<option value="${c}">${c}</option>`;
-  });
+  }
   return opts;
 }
 
@@ -3360,7 +3364,7 @@ async function loadSheetList() {
     var regex = /gid=(\d+)[^"]*"[^>]*>([^<]+)</g;
     var match;
     while ((match = regex.exec(html)) !== null) {
-      sheets.push({ gid: match[1], name: match[2].trim()  }
+      sheets.push({ gid: match[1], name: match[2].trim() });
     }
     // Method 2: Try alternate pattern
     if (!sheets.length) {
@@ -3387,7 +3391,7 @@ async function loadSheetList() {
       var opts = '';
       for (const s of sheets) { var selected = s.name.toUpperCase().includes('GABUNGAN') ? ' selected' : '';
         opts += '<option value="' + s.gid + '"' + selected + '>' + escHtml(s.name) + '</option>';
-      });
+      }
       selectEl.innerHTML = opts;
     } else {
       // Fallback: use default
@@ -3541,7 +3545,7 @@ async function pullFromGoogleSheets() {
       if (mapped.progress || mapped.case_desc || mapped.planning || mapped.pic) {
         _gsImportData.push(mapped);
       }
-    });
+    }
     // Apply filters
     if (filterDivisi) {
       _gsImportData = _gsImportData.filter(function (r) {
@@ -3755,7 +3759,7 @@ function previewWeeklyImport(input) {
         if (mapped.progress || mapped.case_desc || mapped.planning || mapped.pic) {
           _weeklyImportData.push(mapped);
         }
-      });
+      }
       if (!_weeklyImportData.length) {
         preview.innerHTML =
           '<p class="text-sm" style="color:#c62828">Tidak ada data valid ditemukan.</p>';
@@ -3832,7 +3836,7 @@ async function submitWeeklyImport() {
           importedBy: currentUser.nama,
           importedAt: new Date().toISOString(),
           type: 'weekly-report',
-         }
+        });
         success++;
       } catch (e) {
         failed++;
@@ -3881,8 +3885,9 @@ async function loadWeeklyReports(divFilter) {
       db.collection('hrd_daily_tasks').where('type', '==', 'report').get(),
       db.collection('hrd_weekly_reports').get(),
     ]);
-    for (const d of snap1) { items.push({ id: d.id, col: 'hrd_daily_tasks', ...d.data() });
-    });
+    for (const d of snap1.docs) {
+      items.push({ id: d.id, col: 'hrd_daily_tasks', ...d.data() });
+    }
     snap2.forEach(function (d) {
       items.push({ id: d.id, col: 'hrd_weekly_reports', ...d.data() });
     });
@@ -4501,7 +4506,7 @@ function _renderGroupedReportTracker(reports, filter) {
       var cat = r.kategori || 'Tanpa Kategori';
       if (!byDept[dept][cat]) byDept[dept][cat] = [];
       byDept[dept][cat].push(r);
-    });
+    }
     Object.keys(byDept)
       .sort()
       .forEach(function (dept) {
