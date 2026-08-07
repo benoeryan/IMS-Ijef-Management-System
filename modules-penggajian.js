@@ -112,7 +112,7 @@ window.syncSinglePayrollData = async function(nama, periode) {
         tunj: true, insentif: true, reimb: true, kasbon: true,
         bpjsKes: true, bpjsTK: true, pph: true
     });
-}
+});
 async function loadGaji() {
   const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
   const allSnap = await db.collection('hrd_penggajian').get();
@@ -599,7 +599,7 @@ async function autoFillGajiFromKaryawan() {
     const all = await db.collection('hrd_karyawan').get();
     all.forEach((d) => {
       if (d.data().nama?.toLowerCase() === nama.toLowerCase()) k = d.data();
-     }
+     });
     if (!k) return toast('Karyawan tidak ditemukan', 'warning');
   }
   const gaji = k.gajiPokok || 0;
@@ -623,7 +623,7 @@ async function autoFillGajiFromKaryawan() {
   reimbSnap.forEach((d) => {
     const r = d.data();
     if ((r.nama || '').toLowerCase() === nama.toLowerCase()) totalReimb += r.jumlah || 0;
-   }
+   });
   document.getElementById('gjReimburse').value = totalReimb;
   // Auto-load kasbon/loan (aktif)
   const kasbonSnap = await db.collection('hrd_kasbon').get();
@@ -646,7 +646,7 @@ async function autoFillGajiFromKaryawan() {
       kpiScore = r.skor || 0;
       kpiFound = true;
     }
-   }
+   });
   if (kpiFound && kpiScore > 0) {
     // Insentif formula: KPI >= 90 = 15% gaji, >= 80 = 10%, >= 70 = 5%, < 70 = 0
     let insentifPct = 0;
@@ -766,7 +766,7 @@ async function processImportPenggajianFromText(text) {
       map.totalBersih = i;
     else if (['lembur', 'overtime', 'uang lembur'].includes(h)) map.lembur = i;
     else if (['bonus'].includes(h)) map.bonus = i;
-   }
+   });
   if (map.nama === undefined) return toast('Header harus berisi kolom "Nama"', 'warning');
   let added = 0,
     updated = 0;
@@ -1223,7 +1223,7 @@ async function renderKasbon() {
         k.posisi ||
         ''
       ).toLowerCase();
-     }
+     });
   }
   const items = [];
   for (const d of snap) { const data = { id: d.id, ...d.data() };
@@ -1416,7 +1416,7 @@ async function renderTunjangan() {
     snap.forEach((d) => {
       const p = d.data();
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td><span class="badge badge-${p.jenis === 'tetap' ? 'success' : 'info'}">${p.jenis || 'tetap'}</span></td><td>${formatCurrency(p.nominal)}</td><td>${escHtml(p.penerima || 'Semua')}</td><td><button class="btn btn-xs btn-info" onclick="modalTunjangan('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_tunjangan','${d.id}','tunjangan')">🗑️</button></td></tr>`;
-     }
+     });
   document.getElementById('tblTunj').innerHTML = h;
 }
 
@@ -1506,7 +1506,7 @@ async function modalInsentif() {
   kSnap.forEach((d) => {
     const k = d.data();
     opts += `<option value="${escHtml(k.nama)}" data-gaji="${k.gajiPokok || 0}" data-dept="${escHtml(k.departemen || '')}">${escHtml(k.nama)} — ${escHtml(k.departemen || '')} (${formatCurrency(k.gajiPokok || 0)})</option>`;
-   }
+   });
   openModal(`<div class="modal-title">Tambah Insentif KPI</div>
     <div class="form-group"><label>Karyawan</label><select class="form-control" id="insKary" onchange="onInsKaryChange()">${opts}</select></div>
     <div class="grid-2"><div class="form-group"><label>KPI Score</label><input class="form-control" type="number" id="insKPI" value="0" oninput="calcInsentif()"></div><div class="form-group"><label>Periode</label><input class="form-control" id="insPeriode" value="${monthStr()}"></div></div>
@@ -1772,7 +1772,7 @@ async function loadTaxKaryList() {
     const pphBln = Math.round(pph / 12);
     const thp = gaji - bpjsKes - bpjsTK - pphBln;
     h += `<tr><td class="fw-700">${escHtml(k.nama)}</td><td>${formatCurrency(gaji)}</td><td style="color:var(--accent)">${formatCurrency(bpjsKes)}</td><td style="color:var(--accent)">${formatCurrency(bpjsTK)}</td><td style="color:var(--accent)">${formatCurrency(pphBln)}</td><td class="fw-700">${formatCurrency(thp)}</td></tr>`;
-   }
+   });
   h += '</tbody></table></div>';
   document.getElementById('tcKaryList').innerHTML = h;
 }

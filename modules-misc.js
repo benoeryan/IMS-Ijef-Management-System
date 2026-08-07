@@ -106,7 +106,7 @@ window.calculateLoanEligibility = async function(k) {
       regularMsg,
       isPermanent: tipe === 'PKWTT' || tipe === 'TETAP'
   };
-}
+});
 
 // ── LAPORAN KEUANGAN ──────────────────────────────────────────
 function renderLaporanKeuangan() {
@@ -712,7 +712,7 @@ window.renderKontrak = async function() {
     </div>
     <div id="kontrakContent"></div>`;
   showKontrakTab('list');
-}
+});
 
 async function showKontrakTab(tab) {
   const tabs = document.getElementById('kontrakTabs');
@@ -776,7 +776,7 @@ async function showKontrakForm(id, p) {
       const selected = p.karyawanId === d.id || p.namaKaryawan === k.nama ? 'selected' : '';
       karyOptions += `<option value="${d.id}" data-nama="${escHtml(k.nama)}" data-dept="${escHtml(k.departemen || '')}" ${selected}>${escHtml(k.nama)} — ${escHtml(k.departemen || '-')}</option>`;
     }
-   }
+   });
   openModal(
     `<div class="modal-title">${id ? 'Edit' : 'Upload'} Kontrak / MOU</div>
     <div class="form-group">
@@ -1027,7 +1027,7 @@ async function modalUploadDokumen(preKaryId) {
     const k = d.data();
     if (k.status === 'aktif' || !k.status)
       karyOptions += `<option value="${d.id}" data-nama="${escHtml(k.nama)}" ${preKaryId === d.id ? 'selected' : ''}>${escHtml(k.nama)} — ${escHtml(k.departemen || '-')}</option>`;
-   }
+   });
   openModal(
     `<div class="modal-title">📁 Upload Dokumen Karyawan</div>
     <div class="form-group"><label>Karyawan <span style="color:var(--danger)">*</span></label><select class="form-control" id="dokKaryawan">${karyOptions}</select></div>
@@ -1165,7 +1165,7 @@ window.renderAsset = async function() {
       h += `<tr><td>${escHtml(p.kode || '-')}</td><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.kategori || '-')}</td><td>${escHtml(p.pengguna || '-')}</td><td><span class="badge badge-${p.kondisi === 'baik' ? 'success' : p.kondisi === 'rusak' ? 'danger' : 'warning'}">${p.kondisi || 'baik'}</span></td><td><button class="btn btn-xs btn-info" onclick="modalAsset('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_asset','${d.id}','asset')">🗑️</button></td></tr>`;
     }
   document.getElementById('tblAsset').innerHTML = h;
-}
+});
 function modalAsset(id) {
   if (id)
       .doc(id)
@@ -1189,7 +1189,7 @@ async function simpanAsset(id) {
   };
   if (!data.nama) return toast('Nama wajib', 'warning');
   if (id) await db.collection('hrd_asset').doc(id).update(data);
-  else await db.collection('hrd_asset').add({ ...data, createdAt: new Date().toISOString()  }
+  else await db.collection('hrd_asset').add({ ...data, createdAt: new Date().toISOString() });
   closeModalDirect();
   toast('Disimpan', 'success');
   renderAsset();
@@ -1813,19 +1813,20 @@ async function renderApprovalCenter(tab = 'pending') {
           ''
         ).toLowerCase().trim();
         items.push(data);
-       }
+      });
     } catch (e) {
       console.warn(`Error fetching ${col}:`, e);
       // Fallback for collections without composite index
       const snap = await db.collection(col).get();
-      for (const d of snap) { const data = { id: d.id, collection: col, ...d.data() };
+      for (const d of snap) {
+        const data = { id: d.id, collection: col, ...d.data() };
         data._dept = (
           data.departemen ||
           deptMap[(data.nama || '').toLowerCase().trim()] ||
           ''
         ).toLowerCase().trim();
         items.push(data);
-      });
+      }
     }
   }
 
@@ -1994,7 +1995,7 @@ async function _buildCutiDetail(p, karyawan) {
       cutiSnap.forEach((d) => {
         const cd = d.data();
         if (cd.jenis === 'Cuti Tahunan' && cd.status === 'approved') terpakai += cd.durasi || 0;
-       }
+       });
       const sisa = Math.max(0, jatah - terpakai);
       h +=
         '<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:6px;font-size:.83rem">';
@@ -2060,7 +2061,7 @@ async function _buildOvertimeDetail(p, karyawan) {
         const od = d.data();
         if (od.status === 'approved' && (od.tanggal || '').startsWith(monthPrefix))
           totalJam += parseFloat(od.durasi) || 0;
-       }
+       });
       h +=
         '<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:6px;font-size:.83rem">';
       h += `<div class="fw-700 mb-4">📊 Total Lembur Bulan Ini (Approved)</div>`;
@@ -2201,7 +2202,7 @@ async function _buildReimbDetail(p) {
         if (cr.startsWith(tahunIni)) totalTahun += amt;
         const cat = rd.kategori || 'Lainnya';
         byCategory[cat] = (byCategory[cat] || 0) + amt;
-       }
+       });
       h +=
         '<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:6px;font-size:.83rem">';
       h += `<div class="fw-700 mb-4">📊 Riwayat Klaim (Approved)</div>`;
@@ -2248,7 +2249,7 @@ async function _buildKasbonDetail(p, karyawan) {
           totalOutstanding += sisa;
           activeCount++;
         }
-       }
+       });
       h +=
         '<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:6px;font-size:.83rem">';
       h += `<div class="fw-700 mb-4">📊 Pinjaman Aktif</div>`;
@@ -3252,7 +3253,7 @@ async function viewDiscResult(id) {
     let dots = '';
     vals.forEach((v, i) => {
       dots += `<circle cx="${15 + i * 40}" cy="${toY(v)}" r="3" fill="#1a237e"/><text x="${15 + i * 40}" y="${toY(v) - 8}" text-anchor="middle" font-size="7" font-weight="700" fill="${v >= 0 ? '#2e7d32' : '#c62828'}">${v > 0 ? '+' : ''}${typeof v === 'number' ? v.toFixed(1) : v}</text>`;
-     }
+     });
     const pts = vals.map((v, i) => `${15 + i * 40},${toY(v)}`).join(' ');
     return `<div style="text-align:center;flex:1;min-width:150px"><div style="font-size:.63rem;font-weight:700;color:var(--primary)">${title}</div><div style="font-size:.55rem;color:#999">${sub}</div><svg width="155" height="${h + 18}" viewBox="0 0 155 ${h + 18}" style="border:1px solid #ddd;border-radius:4px;background:#fafafa"><line x1="5" y1="${h / 2}" x2="150" y2="${h / 2}" stroke="#999" stroke-width="0.5" stroke-dasharray="2"/><polyline points="${pts}" fill="none" stroke="#1a237e" stroke-width="1.5"/>${dots}<text x="15" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">D</text><text x="55" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">I</text><text x="95" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">S</text><text x="135" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">C</text></svg></div>`;
   }

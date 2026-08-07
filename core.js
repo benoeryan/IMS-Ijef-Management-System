@@ -1,5 +1,5 @@
 'use strict';
-// CORE.JS — HRD & Legal IJEF Corp v14.5
+// CORE.JS — HRD & Legal IJEF Corp v14.6
 // Firebase Config, Auth, Router, Helpers
 // ============================================================
 console.log('IMS Core Initializing...');

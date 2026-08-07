@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 console.log('[ABSENSI-IJEF] v2.2-flexible loaded');
 // ============================================================
 // ABSENSI-IJEF.JS — Selfie+GPS + Dinas Luar + Setting + Rekap

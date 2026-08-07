@@ -1073,7 +1073,7 @@ async function renderPenalty() {
   karyawanSnap.forEach((d) => {
     const k = d.data();
     karyDeptMap[(k.nama || '').toLowerCase().trim()] = k.departemen || '-';
-   }
+   });
   const myDept = (currentUser.departemen || '').toLowerCase().trim();
   const myNama = (currentUser.nama || '').toLowerCase().trim();
   // Filter penalty data based on role
@@ -1965,7 +1965,7 @@ async function modalAddTask() {
             escHtml(u.departemen || '-') +
             ')</span></span></label>';
         }
-       }
+       });
       assignHtml = '<div class="form-group"><label>Tugaskan Ke (Head / Manager)</label>';
       assignHtml +=
         '<div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
@@ -2389,7 +2389,7 @@ function previewTaskFiles(input, previewId) {
       }
     };
     reader.readAsDataURL(file);
-   }
+   });
 }
 
 async function getFilesAsBase64(inputId) {
@@ -3645,7 +3645,7 @@ async function submitGSheetImport() {
         '|' +
         (e.targetUserName || '');
       existingKeys.add(key.toLowerCase().trim());
-     }
+     });
   } catch (ex) {}
   var success = 0,
     skipped = 0;
@@ -4343,7 +4343,7 @@ function _buildReportTrackerStats(items) {
     }
     if ((r.kendala || r.case_desc || '').trim()) kendala++;
     else tanpaKendala++;
-   }
+   });
   var total = items.length;
   var avg = total ? Math.round(totalPct / total) : 0;
   var kendalaCov = total ? Math.round((kendala / total) * 100) : 0;
@@ -4768,7 +4768,7 @@ async function loadKaizenRecords(roles) {
             <td>${statusBadge}</td>
             <td>${aksiBtns}</td>
           </tr>`;
-       }
+       });
     }
     tbody.innerHTML = html;
 
