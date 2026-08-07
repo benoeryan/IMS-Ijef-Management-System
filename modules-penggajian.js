@@ -112,13 +112,13 @@ window.syncSinglePayrollData = async function(nama, periode) {
         tunj: true, insentif: true, reimb: true, kasbon: true,
         bpjsKes: true, bpjsTK: true, pph: true
     });
-});
+};
 async function loadGaji() {
   const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
   const allSnap = await db.collection('hrd_penggajian').get();
   window._gajiData = [];
   for (const d of allSnap) { const data = d.data();
-    if (data.periode === bulan) window._gajiData.push({ id: d.id, ...data }
+    if (data.periode === bulan) window._gajiData.push({ id: d.id, ...data });
   }
   // Populate dept filter from karyawan data
   const kSnap = await db.collection('hrd_karyawan').get();

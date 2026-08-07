@@ -2925,7 +2925,7 @@ async function koreksiHistoryLembur() {
             lemburJam: 0,
             _correctedAt: new Date().toISOString(),
             _correctedBy: currentUser.nama,
-          }
+          });
         corrected++;
       }
     }

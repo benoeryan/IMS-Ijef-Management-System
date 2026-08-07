@@ -1,6 +1,6 @@
 'use strict';
 // ============================================================
-// MODULES.JS — HRD & Legal IJEF Corp v13.0
+// MODULES.JS — HRD & Legal IJEF Corp v15.0
 // ============================================================
 
 // == DASHBOARD ================================================-
@@ -154,7 +154,7 @@ async function renderDashboard() {
 
   const widgetsEl = document.getElementById('dashWidgets');
   if (widgetsEl) {
-    widgetsEl.innerHTML = widgetLeft + widgetRight;
+    widgetsEl.innerHTML = `<div>${widgetLeft}</div><div>${widgetRight}</div>`;
   }
 
   if (hasHeadLevelAccess()) {

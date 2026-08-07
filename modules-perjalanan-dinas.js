@@ -792,7 +792,7 @@ async function saveBenefitConfig() {
       peraturan,
       updatedAt: new Date().toISOString(),
       updatedBy: currentUser.nama,
-    }
+    });
     invalidateBenefitCache();
     toast('Konfigurasi benefit berhasil disimpan!', 'success');
     showSPPDTab('prosedur');

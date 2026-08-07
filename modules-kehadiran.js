@@ -49,7 +49,7 @@ async function renderCuti() {
     const masaKerja = hitungMasaKerja(k.tanggalMasuk);
     const color = sisa <= 2 ? 'var(--danger)' : sisa <= 5 ? 'var(--warning)' : 'var(--success)';
     quotaHtml += `<tr><td class="fw-700">${escHtml(k.nama)}</td><td>${escHtml(k.departemen || '-')}</td><td>${masaKerja}</td><td>${quota} hari</td><td>${used} hari</td><td style="color:${color};font-weight:700">${sisa} hari</td></tr>`;
-  }
+  });
   quotaHtml += '</tbody></table></div>';
   const cutiQuotaEl = document.getElementById('cutiQuotaList');
   if (cutiQuotaEl) cutiQuotaEl.innerHTML = quotaHtml;
@@ -377,7 +377,7 @@ async function viewCutiDetail(id) {
   if (p.attachments && p.attachments.length) {
     attachHtml =
       '<tr><td class="fw-700" style="padding:6px 8px">Lampiran</td><td style="padding:6px 8px"><div style="display:flex;gap:8px;flex-wrap:wrap">';
-    p.for (const a of attachments) { const fileData = encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }));
+    for (const a of p.attachments) { const fileData = encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }));
       if (a.data && (a.type || '').startsWith('image/')) {
         attachHtml +=
           '<img src="' +
@@ -414,7 +414,7 @@ async function viewCutiDetail(id) {
             <div style="color:${color}; font-weight:700; font-size:0.65rem">${actionLabel}</div>
             ${h.catatan ? `<div class="mt-4" style="color:#666; font-style:italic">"${escHtml(h.catatan)}"</div>` : ''}
         </div>`;
-    }
+    });
     historyHtml += '</div>';
   }
 
@@ -528,7 +528,7 @@ async function renderOvertime() {
       const canApprove = isPending && hasAccess(3) && isMyTurn;
       const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${formatDate(p.tanggal)}</td><td>${p.jamMulai || '-'}-${p.jamSelesai || '-'}</td><td>${p.durasi || 0}j</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewOvertimeDetail('${d.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_overtime','${d.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_overtime','${d.id}','rejected')">❌</button>` : ''} ${hasAccess(6) ? `<button class="btn btn-xs btn-warning" onclick="editOTDoc('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_overtime','${d.id}','overtime')">🗑️</button>` : ''}</td></tr>`;
-    }
+    });
   document.getElementById('tblOT').innerHTML = h;
 }
 function modalOvertime() {
@@ -557,7 +557,7 @@ async function simpanOvertime() {
     status: 'pending',
     userId: currentUser.id,
     createdAt: new Date().toISOString(),
-   }
+  });
   await sendNotification(
     'hr',
     '📋 Pengajuan Overtime',
@@ -649,7 +649,7 @@ async function loadHariLiburView() {
       const snap = await db.collection('hrd_hari_libur').get();
       for (const d of snap) { const data = d.data();
         if (data.tanggal >= startDate && data.tanggal <= endDate)
-          holidays.push({ id: d.id, ...data }
+          holidays.push({ id: d.id, ...data });
       }
     } catch (e) {
       console.warn('Failed to load holidays:', e);
@@ -764,7 +764,7 @@ async function renderMyCalendarView(container) {
     });
     for (const d of taskSnap) { const t = d.data();
       if (t.userId === currentUser.id && t.tanggal >= startDate && t.tanggal <= endDate) {
-        tasks.push({ id: d.id, ...t }
+        tasks.push({ id: d.id, ...t });
       }
       if (
         hasAccess(3) &&
@@ -903,7 +903,7 @@ async function simpanHariLibur() {
     tipe,
     tahun,
     createdAt: new Date().toISOString(),
-   }
+  });
   closeModalDirect();
   toast('Hari libur ditambahkan', 'success');
   loadHariLiburView();
@@ -955,7 +955,7 @@ async function syncHariLiburNasional() {
         createdAt: new Date().toISOString(),
       })
     );
-  }
+  });
   await Promise.all(batch2);
 
   toast(`${dataToSync.length} hari libur nasional ${year} berhasil disinkronkan`, 'success');
@@ -1031,7 +1031,7 @@ async function renderPenalty() {
     summary[p.nama].poin += parseInt(p.poin) || 0;
     const j = p.jenis || 'Lainnya';
     summary[p.nama].detail[j] = (summary[p.nama].detail[j] || 0) + 1;
-  }
+  });
   // Render summary - only employees with points > 0
   const summaryItems = Object.values(summary).filter((s) => s.poin > 0);
   summaryItems.sort((a, b) => b.poin - a.poin);
@@ -1082,15 +1082,14 @@ async function renderPenalty() {
   document.getElementById('tblPenalty').innerHTML = h;
 }
 
-function viewPenaltyDetail(nama) {
-  db.collection('hrd_penalty')
-    .get()
-    .then((snap) => {
-      const items = [];
-      snap.forEach((d) => {
-        const p = d.data();
-        if (p.nama === nama) items.push({ id: d.id, ...p });
-      });
+async function viewPenaltyDetail(nama) {
+  try {
+    const snap = await db.collection('hrd_penalty').get();
+    const items = [];
+    snap.forEach((d) => {
+      const p = d.data();
+      if (p.nama === nama) items.push({ id: d.id, ...p });
+    });
       items.sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || ''));
       const totalPoin = items.reduce((sum, p) => sum + (parseInt(p.poin) || 0), 0);
       const statusLabel =
@@ -1235,7 +1234,7 @@ async function syncPenaltyToKPI() {
           penaltyPoin: totalPenalty,
           penaltyDeduction: totalPenalty * 2,
           syncedAt: new Date().toISOString(),
-        }
+        });
       count++;
     }
   }
@@ -1265,7 +1264,7 @@ async function syncPenaltyToKPI() {
         catatan: `Auto-generated dari sinkronisasi penalty (${totalPenalty} poin)`,
         createdAt: new Date().toISOString(),
         syncedAt: new Date().toISOString(),
-      }
+      });
       count++;
     }
   }
@@ -1337,7 +1336,7 @@ async function simpanPenalty() {
       const k = d.data();
       if ((k.nama || '').toLowerCase().trim() === nTarget)
         dept = k.departemen || '';
-    }
+    });
   } catch (e) {}
   const data = {
     nama: nama,
@@ -1533,7 +1532,7 @@ async function loadDailyTasks(filter) {
         if (ownerId === myId || t.assignedBy === myId) isVisible = true;
       }
 
-      if (isVisible) _dailyTaskData.push({ id: d.id, ...t }
+      if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
     });
   } catch (e) {
     _dailyTaskData = [];
@@ -1673,7 +1672,7 @@ function viewDailyTask(id) {
         if (!doc.exists) return toast('Data tidak ditemukan', 'warning');
         var t = { id: doc.id, ...doc.data() };
         _showDailyTaskDetail(t);
-      }
+      });
     return;
   }
   _showDailyTaskDetail(task);
@@ -1879,7 +1878,7 @@ async function modalAddTask() {
             escHtml(u.departemen || '-') +
             ')</span></span></label>';
         }
-       }
+      });
       assignHtml = '<div class="form-group"><label>Tugaskan Ke (Head / Manager)</label>';
       assignHtml +=
         '<div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
@@ -1954,7 +1953,7 @@ async function simpanDailyTask() {
   var targets = [];
   var selfCb = document.getElementById('dtAssignSelf');
   if (selfCb && selfCb.checked) {
-    targets.push({ id: currentUser.id, nama: currentUser.nama }
+    targets.push({ id: currentUser.id, nama: currentUser.nama });
   }
   var assignCbs = document.querySelectorAll('.dt-assign-cb:checked');
   assignCbs.forEach(function (cb) {
@@ -2117,7 +2116,7 @@ async function updateDailyTask(id) {
           read: false,
           type: 'daily-task',
           createdAt: new Date().toISOString(),
-         }
+        });
       } catch (_e) {}
     }
   }
@@ -2153,7 +2152,7 @@ async function checkTaskReminders() {
     const today = todayStr();
     const tasks = [];
     for (const d of snap) { const t = d.data();
-      if (t.userId === currentUser.id && !t.done) tasks.push({ id: d.id, ...t }
+      if (t.userId === currentUser.id && !t.done) tasks.push({ id: d.id, ...t });
     }
 
     for (const task of tasks) {
@@ -2181,7 +2180,7 @@ async function checkTaskReminders() {
           read: false,
           type: 'task-reminder',
           createdAt: new Date().toISOString(),
-         }
+        });
         // Show browser notification
         showSystemNotification(
           '⏰ Pengingat Task',
@@ -2201,7 +2200,7 @@ async function checkTaskReminders() {
           read: false,
           type: 'task-overdue',
           createdAt: new Date().toISOString(),
-        }
+        });
       }
     }
   } catch (_e) {
@@ -2218,8 +2217,7 @@ async function editDailyReport(id) {
   if (showKategori) {
     const cats = REPORT_CATEGORIES[(currentUser.departemen || '').toUpperCase().trim()] || [];
     let opts = '<option value="">-- Pilih --</option>';
-    for (const c of cats) { opts += `<option value="${c}" ${t.kategori === c ? 'selected' : ''}>${c}</option>`;
-    }
+    for (const c of cats) { opts += `<option value="${c}" ${t.kategori === c ? 'selected' : ''}>${c}</option>`; }
     catHtml = `<div class="form-group"><label>Kategori</label><select class="form-control" id="erKategori">${opts}</select></div>`;
   }
   openModal(
@@ -2303,7 +2301,7 @@ function previewTaskFiles(input, previewId) {
       }
     };
     reader.readAsDataURL(file);
-   }
+  });
 }
 
 async function getFilesAsBase64(inputId) {
@@ -2317,7 +2315,7 @@ async function getFilesAsBase64(inputId) {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target.result);
         reader.readAsDataURL(file);
-      }
+      });
       results.push({ name: file.name, type: file.type, size: file.size, data: base64 });
     }
   }
@@ -2792,7 +2790,7 @@ async function _loadReportSummaryForDate(dateVal) {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }
+  });
 
   var waText = '\ud83d\udccb *REPORT HARIAN IJEF*\n\ud83d\udcc5 ' + dayName + ', ' + dateStr + '\n\n';
 
@@ -3058,7 +3056,7 @@ async function shareReportWA() {
           requestedById: currentUser?.id || '',
           createdAt: new Date().toISOString(),
           status: 'queued',
-         }
+        });
       })
     );
     toast('Report masuk antrian kirim WA ke ' + waNumbers.length + ' nomor admin.', 'success');
@@ -3084,8 +3082,7 @@ function getReportCategoryOptions() {
   const dept = (currentUser.departemen || '').toUpperCase().trim();
   const cats = REPORT_CATEGORIES[dept] || REPORT_CATEGORIES['OFFICE'] || [];
   let opts = '<option value="">-- Pilih Kategori --</option>';
-  for (const c of cats) { opts += `<option value="${c}">${c}</option>`;
-  }
+  for (const c of cats) { opts += `<option value="${c}">${c}</option>`; }
   return opts;
 }
 
@@ -3278,7 +3275,7 @@ async function loadSheetList() {
     var regex = /gid=(\d+)[^"]*"[^>]*>([^<]+)</g;
     var match;
     while ((match = regex.exec(html)) !== null) {
-      sheets.push({ gid: match[1], name: match[2].trim() }
+      sheets.push({ gid: match[1], name: match[2].trim() });
     }
     // Method 2: Try alternate pattern
     if (!sheets.length) {
@@ -3317,6 +3314,7 @@ async function loadSheetList() {
   } catch (e) {
     selectEl.innerHTML = '<option value="' + GSHEET_GID + '">GABUNGAN REPORT (default)</option>';
   }
+}
 
 var _gsImportData = [];
 
@@ -3435,9 +3433,9 @@ async function pullFromGoogleSheets() {
       throw new Error(
         'Spreadsheet tidak bisa diakses. Pastikan sharing = Anyone with the link can view.'
       );
-    var workbook = XLSX.read(csvText, { type: 'string'  }
+    var workbook = XLSX.read(csvText, { type: 'string' });
     var sheet = workbook.Sheets[workbook.SheetNames[0]];
-    var jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' }
+    var jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
     if (!jsonData.length) {
       preview.innerHTML = '<p class="text-sm" style="color:#c62828">Data kosong.</p>';
       return;
@@ -3467,7 +3465,7 @@ async function pullFromGoogleSheets() {
         var div = (r.divisi || '').toUpperCase().trim();
         var filt = filterDivisi.toUpperCase().trim();
         return kat === filt || div === filt || kat.includes(filt) || div.includes(filt);
-      }
+      });
     }
     if (filterMode === 'bulan' && filterBulan) {
       var fYear = filterBulan.split('-')[0];
@@ -3703,7 +3701,7 @@ function previewWeeklyImport(input) {
           '</td><td>' +
           escHtml(r.pic) +
           '</td></tr>';
-      }
+      });
       if (_weeklyImportData.length > 20)
         h +=
           '<tr><td colspan="6" class="text-center">... dan ' +
@@ -3800,7 +3798,7 @@ async function loadWeeklyReports(divFilter) {
       db.collection('hrd_weekly_reports').get(),
     ]);
     for (const d of snap1.docs) {
-      items.push({ id: d.id, col: 'hrd_daily_tasks', ...d.data() }
+      items.push({ id: d.id, col: 'hrd_daily_tasks', ...d.data() });
     }
     snap2.forEach(function (d) {
       items.push({ id: d.id, col: 'hrd_weekly_reports', ...d.data() });
@@ -4450,7 +4448,7 @@ function _renderGroupedReportTracker(reports, filter) {
               ')</div>';
             catItems.forEach(function (r) {
               html += _buildReportTrackerRow(r);
-            }
+            });
             html += _buildReportTrackerStats(catItems);
             html += '</div>';
           });
@@ -5187,7 +5185,7 @@ async function doInputCutiBersamaMassal() {
             approvedAt: createdAt,
             createdAt,
             isMassive: true
-        }
+        });
 
         batchCount++;
         totalProcessed++;

@@ -106,7 +106,7 @@ window.calculateLoanEligibility = async function(k) {
       regularMsg,
       isPermanent: tipe === 'PKWTT' || tipe === 'TETAP'
   };
-});
+};
 
 // == LAPORAN KEUANGAN ==========================================
 function renderLaporanKeuangan() {
