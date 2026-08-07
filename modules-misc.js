@@ -302,7 +302,8 @@ async function renderKPI() {
     const pe = d.data();
     const nm = (pe.nama || '').toLowerCase().trim();
     penaltyMap[nm] = (penaltyMap[nm] || 0) + (parseInt(pe.poin) || 0);
-   }); // Build set of active karyawan names (exclude calon/kandidat)
+  });
+  // Build set of active karyawan names (exclude calon/kandidat)
   const karyawanNames = new Set();
   for (const d of karySnap) { const k = d.data();
     karyawanNames.add((k.nama || '').toLowerCase().trim());
