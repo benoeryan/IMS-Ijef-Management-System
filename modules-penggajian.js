@@ -117,8 +117,7 @@ async function loadGaji() {
   const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
   const allSnap = await db.collection('hrd_penggajian').get();
   window._gajiData = [];
-  allSnap.forEach((d) => {
-    const data = d.data();
+  for (const d of allSnap) { const data = d.data();
     if (data.periode === bulan) window._gajiData.push({ id: d.id, ...data });
   });
   // Populate dept filter from karyawan data
@@ -129,9 +128,8 @@ async function loadGaji() {
     const k = d.data();
     depts.add(k.departemen || '');
     karyDeptMap[(k.nama || '').toLowerCase()] = k.departemen || '';
-  });
-  window._gajiData.forEach((g) => {
-    g._dept = karyDeptMap[(g.nama || '').toLowerCase()] || '';
+   }
+  window.for (const g of _gajiData) { g._dept = karyDeptMap[(g.nama || '').toLowerCase()] || '';
   });
   const sel = document.getElementById('filterDeptGaji');
   if (sel) {
@@ -264,7 +262,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
     kSnapAll.forEach((d) => {
       const data = d.data();
       if (data.status === 'aktif' || data.status === 'probation' || data.status === 'kontrak') {
-          kDocs.push({ id: d.id, ...data });
+          kDocs.push({ id: d.id, ...data  }
       }
     });
 
@@ -540,8 +538,7 @@ function modalGaji() {
 async function loadKaryawanDropdownGaji() {
   const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
   let opts = '<option value="">-- Pilih Karyawan --</option>';
-  kSnap.forEach((d) => {
-    const k = d.data();
+  for (const d of kSnap) { const k = d.data();
     opts += `<option value="${escHtml(k.nama)}">${escHtml(k.nama)} — ${escHtml(k.departemen || '')} (${escHtml(k.posisi || '')})</option>`;
   });
   openModal(
@@ -601,7 +598,7 @@ async function autoFillGajiFromKaryawan() {
     const all = await db.collection('hrd_karyawan').get();
     all.forEach((d) => {
       if (d.data().nama?.toLowerCase() === nama.toLowerCase()) k = d.data();
-    });
+     }
     if (!k) return toast('Karyawan tidak ditemukan', 'warning');
   }
   const gaji = k.gajiPokok || 0;
@@ -611,8 +608,7 @@ async function autoFillGajiFromKaryawan() {
   // Auto-load tunjangan from hrd_tunjangan
   const tunjSnap = await db.collection('hrd_tunjangan').get();
   let tunjTotal = 0;
-  tunjSnap.forEach((d) => {
-    const t = d.data();
+  for (const d of tunjSnap) { const t = d.data();
     const penerima = (t.penerima || 'Semua').toLowerCase();
     if (penerima === 'semua' || penerima.includes(nama.toLowerCase())) tunjTotal += t.nominal || 0;
   });
@@ -626,13 +622,12 @@ async function autoFillGajiFromKaryawan() {
   reimbSnap.forEach((d) => {
     const r = d.data();
     if ((r.nama || '').toLowerCase() === nama.toLowerCase()) totalReimb += r.jumlah || 0;
-  });
+   }
   document.getElementById('gjReimburse').value = totalReimb;
   // Auto-load kasbon/loan (aktif)
   const kasbonSnap = await db.collection('hrd_kasbon').get();
   let totalLoan = 0;
-  kasbonSnap.forEach((d) => {
-    const r = d.data();
+  for (const d of kasbonSnap) { const r = d.data();
     if (
       (r.nama || '').toLowerCase() === nama.toLowerCase() &&
       (r.status === 'aktif' || r.status === 'approved')
@@ -650,7 +645,7 @@ async function autoFillGajiFromKaryawan() {
       kpiScore = r.skor || 0;
       kpiFound = true;
     }
-  });
+   }
   if (kpiFound && kpiScore > 0) {
     // Insentif formula: KPI >= 90 = 15% gaji, >= 80 = 10%, >= 70 = 5%, < 70 = 0
     let insentifPct = 0;
@@ -668,8 +663,7 @@ async function autoFillGajiFromKaryawan() {
   const pEnd = `${pYear}-${String(pMonth).padStart(2, '0')}-20`;
   const otSnap = await db.collection('hrd_overtime').get();
   let totalOTJam = 0;
-  otSnap.forEach((d) => {
-    const o = d.data();
+  for (const d of otSnap) { const o = d.data();
     if (o.status !== 'approved') return;
     if (!o.tanggal || o.tanggal < pStart || o.tanggal > pEnd) return;
     if ((o.nama || '').toLowerCase() === nama.toLowerCase())
@@ -771,7 +765,7 @@ async function processImportPenggajianFromText(text) {
       map.totalBersih = i;
     else if (['lembur', 'overtime', 'uang lembur'].includes(h)) map.lembur = i;
     else if (['bonus'].includes(h)) map.bonus = i;
-  });
+   }
   if (map.nama === undefined) return toast('Header harus berisi kolom "Nama"', 'warning');
   let added = 0,
     updated = 0;
@@ -816,8 +810,7 @@ async function processImportPenggajianFromText(text) {
     };
     const snap = await db.collection('hrd_penggajian').where('nama', '==', nama).get();
     let existDoc = null;
-    snap.forEach((d) => {
-      if (d.data().periode === periode) existDoc = d;
+    for (const d of snap) { if (d.data().periode === periode) existDoc = d;
     });
     if (existDoc) {
       await db.collection('hrd_penggajian').doc(existDoc.id).update(payload);
@@ -825,7 +818,7 @@ async function processImportPenggajianFromText(text) {
     } else {
       await db
         .collection('hrd_penggajian')
-        .add({ ...payload, createdAt: new Date().toISOString() });
+        .add({ ...payload, createdAt: new Date().toISOString()  }
       added++;
     }
   }
@@ -1067,8 +1060,7 @@ async function renderReimbursement() {
   let gradeMapReimb = {};
   if (isBOD) {
     const kSnap = await db.collection('hrd_karyawan').get();
-    kSnap.forEach((d) => {
-      const k = d.data();
+    for (const d of kSnap) { const k = d.data();
       gradeMapReimb[(k.nama || '').toLowerCase()] = (
         k.gradeJabatan ||
         k.posisi ||
@@ -1228,11 +1220,10 @@ async function renderKasbon() {
         k.posisi ||
         ''
       ).toLowerCase();
-    });
+     }
   }
   const items = [];
-  snap.forEach((d) => {
-    const data = { id: d.id, ...d.data() };
+  for (const d of snap) { const data = { id: d.id, ...d.data() };
     if (isBOD) {
       const grade = gradeMapKasbon[(data.nama || '').toLowerCase()] || '';
       if (!grade.includes('head')) return;
@@ -1422,7 +1413,7 @@ async function renderTunjangan() {
     snap.forEach((d) => {
       const p = d.data();
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td><span class="badge badge-${p.jenis === 'tetap' ? 'success' : 'info'}">${p.jenis || 'tetap'}</span></td><td>${formatCurrency(p.nominal)}</td><td>${escHtml(p.penerima || 'Semua')}</td><td><button class="btn btn-xs btn-info" onclick="modalTunjangan('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_tunjangan','${d.id}','tunjangan')">🗑️</button></td></tr>`;
-    });
+     }
   document.getElementById('tblTunj').innerHTML = h;
 }
 
@@ -1496,8 +1487,7 @@ async function renderInsentif() {
   if (!items.length)
     h = '<tr><td colspan="7" class="text-center">Belum ada data insentif</td></tr>';
   else
-    items.forEach((p) => {
-      const jenis = p.jenis || 'KPI';
+    for (const p of items) { const jenis = p.jenis || 'KPI';
       const basis =
         jenis === 'KPI'
           ? `KPI ${p.kpiScore || 0} (${p.persen || 0}% gaji)`
@@ -1513,7 +1503,7 @@ async function modalInsentif() {
   kSnap.forEach((d) => {
     const k = d.data();
     opts += `<option value="${escHtml(k.nama)}" data-gaji="${k.gajiPokok || 0}" data-dept="${escHtml(k.departemen || '')}">${escHtml(k.nama)} — ${escHtml(k.departemen || '')} (${formatCurrency(k.gajiPokok || 0)})</option>`;
-  });
+   }
   openModal(`<div class="modal-title">Tambah Insentif KPI</div>
     <div class="form-group"><label>Karyawan</label><select class="form-control" id="insKary" onchange="onInsKaryChange()">${opts}</select></div>
     <div class="grid-2"><div class="form-group"><label>KPI Score</label><input class="form-control" type="number" id="insKPI" value="0" oninput="calcInsentif()"></div><div class="form-group"><label>Periode</label><input class="form-control" id="insPeriode" value="${monthStr()}"></div></div>
@@ -1524,8 +1514,7 @@ async function modalInsentif() {
 async function modalInsentifSiswa() {
   const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
   let opts = '<option value="">-- Pilih --</option>';
-  kSnap.forEach((d) => {
-    const k = d.data();
+  for (const d of kSnap) { const k = d.data();
     opts += `<option value="${escHtml(k.nama)}" data-dept="${escHtml(k.departemen || '')}">${escHtml(k.nama)} — ${escHtml(k.departemen || '')}</option>`;
   });
   openModal(`<div class="modal-title">🎓 Insentif Target Siswa</div>
@@ -1557,7 +1546,7 @@ async function simpanInsentifSiswa() {
     periode: document.getElementById('insSiswaPeriode').value,
     status: 'approved',
     createdAt: new Date().toISOString(),
-  });
+   }
   closeModalDirect();
   toast('Insentif target siswa disimpan', 'success');
   renderInsentif();
@@ -1606,8 +1595,7 @@ async function generateInsentifFromKPI() {
   const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
   const kpiSnap = await db.collection('hrd_kpi').get();
   const kpiMap = {};
-  kpiSnap.forEach((d) => {
-    const r = d.data();
+  for (const d of kpiSnap) { const r = d.data();
     const n = (r.nama || '').trim().toLowerCase();
     if (!kpiMap[n] || r.skor > kpiMap[n]) kpiMap[n] = r.skor || 0;
   });
@@ -1631,7 +1619,7 @@ async function generateInsentifFromKPI() {
       periode: monthStr(),
       status: 'approved',
       createdAt: new Date().toISOString(),
-    });
+     }
     count++;
   }
   toast(`${count} insentif di-generate dari KPI`, 'success');
@@ -1684,8 +1672,7 @@ async function renderTaxCalc() {
   const main = document.getElementById('mainContent');
   const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
   let karyOpts = '<option value="">-- Input Manual --</option>';
-  kSnap.forEach((d) => {
-    const k = d.data();
+  for (const d of kSnap) { const k = d.data();
     karyOpts += `<option value="${k.gajiPokok || 0}" data-nama="${escHtml(k.nama)}">${escHtml(k.nama)} — ${formatCurrency(k.gajiPokok || 0)}</option>`;
   });
   main.innerHTML = `<div class="page-title"><span>🧮 Tax & BPJS Calculator</span></div>
@@ -1782,7 +1769,7 @@ async function loadTaxKaryList() {
     const pphBln = Math.round(pph / 12);
     const thp = gaji - bpjsKes - bpjsTK - pphBln;
     h += `<tr><td class="fw-700">${escHtml(k.nama)}</td><td>${formatCurrency(gaji)}</td><td style="color:var(--accent)">${formatCurrency(bpjsKes)}</td><td style="color:var(--accent)">${formatCurrency(bpjsTK)}</td><td style="color:var(--accent)">${formatCurrency(pphBln)}</td><td class="fw-700">${formatCurrency(thp)}</td></tr>`;
-  });
+   }
   h += '</tbody></table></div>';
   document.getElementById('tcKaryList').innerHTML = h;
 }

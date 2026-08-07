@@ -59,7 +59,6 @@ async function renderDashboard() {
   if (statsEl) {
     statsEl.innerHTML = `
       <div class="stat-card" style="cursor:pointer" onclick="navigateTo('karyawan')"><div class="stat-icon">👥</div><div class="stat-value">${karyawan.size}</div><div class="stat-label">Total Karyawan</div></div>
-      <div class="stat-card" style="cursor:pointer" onclick="navigateTo('absensi')"><div class="stat-icon">📍</div><div class="stat-value">${uniqueHadir.size}</div><div class="stat-label">Hadir Hari Ini</div></div>
       <div class="stat-card" style="cursor:pointer" onclick="navigateTo('approval-center')"><div class="stat-icon">📋</div><div class="stat-value">${totalPending}</div><div class="stat-label">Pengajuan Pending</div></div>
       <div class="stat-card" style="cursor:pointer" onclick="navigateTo('pengumuman')"><div class="stat-icon">📢</div><div class="stat-value">${pengumuman.size}</div><div class="stat-label">Pengumuman</div></div>`;
   }
@@ -81,25 +80,13 @@ async function renderDashboard() {
   }
   widgetLeft += '</div>';
 
-  // 3. Hadir Hari Ini (Detailed List) - Restored
-  widgetLeft += `
-  <div class="card">
-    <div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center">
-        <span>📍 Hadir Hari Ini</span>
-        <button class="btn btn-xs btn-outline" onclick="navigateTo('absensi')">Lihat Semua</button>
-    </div>
-    <div id="dashAbsenToday" style="max-height:300px;overflow-y:auto">
-        <p class="text-sm color-gray">Memuat data kehadiran...</p>
-    </div>
-  </div>`;
-
   // --- RIGHT WIDGETS ---
   let widgetRight = '';
 
   // 1. User Info Card (Profil Administrator)
   const u = currentUser;
   widgetRight += `
-  <div class="card" style="border-left:4px solid var(--accent)">
+  <div class="card" style="border-left:4px solid var(--primary)">
     <div class="flex gap-16" style="align-items:center">
       <div style="width:50px;height:50px;font-size:1.5rem;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center">${u.nama.charAt(0)}</div>
       <div>
@@ -109,7 +96,16 @@ async function renderDashboard() {
     </div>
   </div>`;
 
-  // 2. Team Report Widget (HEAD+)
+  // 2. Financial Portal Link (GM Only)
+  if ((currentUser.nama || "").toLowerCase() === "muhammad agus ryanda") {
+    widgetRight += `<div class="card" style="border-left:4px solid #2e7d32">
+      <div class="card-title mb-8">💰 Portal Keuangan</div>
+      <p class="text-xs color-gray mb-12">Akses cepat ke Sistem Laporan Keuangan IJEF Corp.</p>
+      <a href="https://laporankeuanganijef.netlify.app/" target="_blank" class="btn btn-sm" style="background:#2e7d32;color:#fff;width:100%;text-align:center;display:block">📊 Buka Laporan Keuangan</a>
+    </div>`;
+  }
+
+  // 3. Team Report Widget (HEAD+)
   if (hasHeadLevelAccess()) {
     widgetRight += `
     <div class="card" id="dashTeamReportSection">
@@ -168,9 +164,6 @@ async function renderDashboard() {
     widgetsEl.innerHTML = widgetLeft + widgetRight;
   }
 
-  // Load Widget Data
-  loadDashAbsenToday(absen);
-
   if (hasHeadLevelAccess()) {
       if (typeof loadPortalTeamReport === 'function') {
           loadPortalTeamReport('dashTeamReportList', '_dashTeamDivFilter').catch(() => {});
@@ -180,48 +173,6 @@ async function renderDashboard() {
   if (isBOD) {
     loadDashBodTasks();
   }
-}
-
-function loadDashAbsenToday(absenSnap) {
-    const el = document.getElementById('dashAbsenToday');
-    if (!el) return;
-    if (absenSnap.empty) {
-        el.innerHTML = '<p class="text-sm color-gray">Belum ada karyawan hadir hari ini.</p>';
-        return;
-    }
-
-    // Group by employee
-    const summary = {};
-    absenSnap.forEach(d => {
-        const p = d.data();
-        const uid = p.userId || p.nama;
-        if (!summary[uid]) summary[uid] = { nama: p.nama, in: '-', out: '-', foto: p.foto, status: 'Hadir' };
-
-        if (p.tipe === 'masuk') {
-            summary[uid].in = p.waktu;
-            summary[uid].status = p.status || 'Hadir';
-            if (p.foto) summary[uid].foto = p.foto;
-        } else if (p.tipe === 'pulang') {
-            summary[uid].out = p.waktu;
-        }
-    });
-
-    let h = '<div style="display:grid;gap:10px">';
-    Object.values(summary).forEach(s => {
-        const avatar = s.foto ? `<img src="${s.foto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">` : `<div style="width:36px;height:36px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center">👤</div>`;
-        const badge = (s.status || '').toLowerCase() === 'terlambat' ? 'badge-danger' : 'badge-success';
-
-        h += `<div style="display:flex;align-items:center;gap:12px;padding:8px;background:#f9f9f9;border-radius:8px">
-            ${avatar}
-            <div style="flex:1">
-                <div class="fw-700 text-sm">${escHtml(s.nama)}</div>
-                <div class="text-xs" style="color:#666">In: <b>${s.in}</b> | Out: <b>${s.out}</b></div>
-            </div>
-            <span class="badge ${badge}">${s.status}</span>
-        </div>`;
-    });
-    h += '</div>';
-    el.innerHTML = h;
 }
 
 async function loadDashBodTasks() {

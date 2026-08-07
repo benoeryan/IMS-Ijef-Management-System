@@ -25,8 +25,7 @@ async function renderCuti() {
   // Calculate quota per karyawan
   // Index by both userId AND nama (lowercased) so admin table can match by name
   const cutiUsed = {}; // key -> total hari cuti approved (Tahunan & Bersama)
-  cutiSnap.forEach((d) => {
-    const p = d.data();
+  for (const d of cutiSnap) { const p = d.data();
     if (p.status === 'approved' && (p.jenis === 'Cuti Tahunan' || p.jenis === 'Cuti Bersama')) {
       const durasi = p.durasi || 1;
       if (p.userId) {
@@ -213,7 +212,7 @@ function modalCuti() {
         </select>
       </div>
     </div>
-    <div id="cutiInfoBox" class="mb-16 p-12 text-xs" style="background:#f0f4ff; border-radius:8px; border-left:4px solid var(--primary); display:none"></div>
+    <div id="cutiInfoBox" class="mb-16 p-12 text-xs" style="background:#f9f9f9; border-radius:8px; border-left:4px solid var(--primary); display:none"></div>
     <div class="grid-2">
       <div class="form-group"><label>Mulai</label><input class="form-control" type="date" id="ctMulai" value="${todayStr()}" onchange="autoCalculateCutiEnd()"></div>
       <div class="form-group"><label>Selesai</label><input class="form-control" type="date" id="ctSelesai" value="${todayStr()}"></div>
@@ -378,8 +377,7 @@ async function viewCutiDetail(id) {
   if (p.attachments && p.attachments.length) {
     attachHtml =
       '<tr><td class="fw-700" style="padding:6px 8px">Lampiran</td><td style="padding:6px 8px"><div style="display:flex;gap:8px;flex-wrap:wrap">';
-    p.attachments.forEach(function (a) {
-      const fileData = encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }));
+    p.for (const a of attachments) { const fileData = encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }));
       if (a.data && (a.type || '').startsWith('image/')) {
         attachHtml +=
           '<img src="' +
@@ -387,7 +385,7 @@ async function viewCutiDetail(id) {
           '" style="max-width:100px;max-height:100px;border-radius:6px;border:1px solid #ddd;cursor:pointer" onclick="viewEviden(\'' + fileData + '\')">';
       } else {
         attachHtml +=
-          '<div style="cursor:pointer;padding:6px 10px;background:#f0f4ff;border-radius:6px;font-size:.8rem;border:1px solid #d0d9ff;display:flex;align-items:center;gap:6px" onclick="viewEviden(\'' + fileData + '\')">' +
+          '<div style="cursor:pointer;padding:6px 10px;background:#f9f9f9;border-radius:6px;font-size:.8rem;border:1px solid #d0d9ff;display:flex;align-items:center;gap:6px" onclick="viewEviden(\'' + fileData + '\')">' +
           '<span>📄 ' + escHtml(a.name || 'Dokumen') + '</span>' +
           '<span style="font-size:.6rem;color:#1565c0;font-weight:600">👁️ Lihat</span>' +
           '</div>';
@@ -486,12 +484,11 @@ async function renderOvertime() {
   let gradeMapOT = {};
   if (hasAccess(3) && !isAdmin) {
     const kSnap = await db.collection('hrd_karyawan').get();
-    kSnap.forEach((d) => {
-      const k = d.data();
+    for (const d of kSnap) { const k = d.data();
       const namaLow = (k.nama || '').toLowerCase();
       deptMapOT[namaLow] = (k.departemen || '').toLowerCase().trim();
       gradeMapOT[namaLow] = (k.gradeJabatan || k.posisi || '').toLowerCase();
-    });
+     }
   }
   let h = '';
   if (snap.empty) h = '<tr><td colspan="6" class="text-center">Belum ada</td></tr>';
@@ -560,7 +557,7 @@ async function simpanOvertime() {
     status: 'pending',
     userId: currentUser.id,
     createdAt: new Date().toISOString(),
-  });
+   }
   await sendNotification(
     'hr',
     '📋 Pengajuan Overtime',
@@ -700,8 +697,7 @@ async function loadHariLiburView() {
     let holidays = [];
     try {
       const snap = await db.collection('hrd_hari_libur').get();
-      snap.forEach((d) => {
-        const data = d.data();
+      for (const d of snap) { const data = d.data();
         if (data.tanggal >= startDate && data.tanggal <= endDate)
           holidays.push({ id: d.id, ...data });
       });
@@ -814,10 +810,9 @@ async function renderMyCalendarView(container) {
     holSnap.forEach((d) => {
       const data = d.data();
       if (data.tanggal >= startDate && data.tanggal <= endDate)
-        holidays.push({ id: d.id, ...data });
+        holidays.push({ id: d.id, ...data  }
     });
-    taskSnap.forEach((d) => {
-      const t = d.data();
+    for (const d of taskSnap) { const t = d.data();
       if (t.userId === currentUser.id && t.tanggal >= startDate && t.tanggal <= endDate) {
         tasks.push({ id: d.id, ...t });
       }
@@ -958,7 +953,7 @@ async function simpanHariLibur() {
     tipe,
     tahun,
     createdAt: new Date().toISOString(),
-  });
+   }
   closeModalDirect();
   toast('Hari libur ditambahkan', 'success');
   loadHariLiburView();
@@ -990,8 +985,7 @@ async function syncHariLiburNasional() {
     endYear = `${year}-12-31`;
   const existingSnap = await db.collection('hrd_hari_libur').get();
   const batch1 = [];
-  existingSnap.forEach((d) => {
-    const data = d.data();
+  for (const d of existingSnap) { const data = d.data();
     const tgl = data.tanggal || '';
     const tipe = data.tipe || '';
     if (tgl >= startYear && tgl <= endYear && (tipe === 'nasional' || tipe === 'cuti_bersama'))
@@ -1011,7 +1005,7 @@ async function syncHariLiburNasional() {
         createdAt: new Date().toISOString(),
       })
     );
-  });
+   }
   await Promise.all(batch2);
 
   toast(`${dataToSync.length} hari libur nasional ${year} berhasil disinkronkan`, 'success');
@@ -1027,10 +1021,10 @@ async function autoLoadHariLiburNasional() {
     try {
       const existingSnap = await db.collection('hrd_hari_libur').where('tahun', '==', year).get();
       let alreadyPopulated = false;
-      existingSnap.forEach((d) => {
+      for (const d of existingSnap) {
         const t = d.data().tipe;
         if (t === 'nasional' || t === 'cuti_bersama') alreadyPopulated = true;
-      });
+      }
 
       if (!alreadyPopulated) {
         console.log(`[HOLIDAY] Auto-loading holidays for ${year}...`);
@@ -1079,7 +1073,7 @@ async function renderPenalty() {
   karyawanSnap.forEach((d) => {
     const k = d.data();
     karyDeptMap[(k.nama || '').toLowerCase().trim()] = k.departemen || '-';
-  });
+   }
   const myDept = (currentUser.departemen || '').toLowerCase().trim();
   const myNama = (currentUser.nama || '').toLowerCase().trim();
   // Filter penalty data based on role
@@ -1101,8 +1095,7 @@ async function renderPenalty() {
   // Admin (level 6): sees all — no filter
   // Build summary grouped by employee name
   const summary = {};
-  karyawanSnap.forEach((d) => {
-    const k = d.data();
+  for (const d of karyawanSnap) { const k = d.data();
     // Only include karyawan visible to current user
     if (!hasAccess(6)) {
       if (!hasAccess(4)) {
@@ -1196,7 +1189,7 @@ function viewPenaltyDetail(nama) {
               : '⚪ Peringatan';
       const penaltyDeduction = totalPoin * 2;
       let h = `<div class="modal-title">👁️ Detail Penalty - ${escHtml(nama)}</div>
-      <div style="background:#f8f9ff;padding:16px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--accent)">
+      <div style="background:#f9f9f9;padding:16px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
         <div class="fw-700" style="font-size:1.05rem">${escHtml(nama)}</div>
         <div class="text-sm mt-8">Total Poin: <span class="badge badge-danger">${totalPoin}</span></div>
         <div class="text-sm mt-4">Pengurangan Skor KPI: <b>-${penaltyDeduction} poin</b></div>
@@ -1230,7 +1223,7 @@ async function viewPenaltyItem(id) {
             ? '🔴 Mangkir'
             : '⚪ Ringan';
   openModal(`<div class="modal-title">👁️ Detail Penalty</div>
-    <div style="background:#f8f9ff;padding:16px;border-radius:8px;border-left:4px solid var(--danger)">
+    <div style="background:#f9f9f9;padding:16px;border-radius:8px;border-left:4px solid var(--danger)">
       <div class="text-sm" style="line-height:2">
         <div><b>Karyawan:</b> ${escHtml(p.nama)}</div>
         <div><b>Tanggal:</b> ${formatDate(p.tanggal)}</div>
@@ -1304,7 +1297,7 @@ async function syncPenaltyToKPI() {
     const p = d.data();
     const n = (p.nama || '').toLowerCase().trim();
     penaltyMap[n] = (penaltyMap[n] || 0) + (parseInt(p.poin) || 0);
-  });
+   }
   // Track which names already have KPI records
   const kpiNames = new Set();
   let count = 0;
@@ -1335,8 +1328,7 @@ async function syncPenaltyToKPI() {
     if (totalPenalty > 0 && !kpiNames.has(namaLower)) {
       // Find original nama from karyawan
       let originalNama = namaLower;
-      karySnap.forEach((d) => {
-        const k = d.data();
+      for (const d of karySnap) { const k = d.data();
         if ((k.nama || '').toLowerCase().trim() === namaLower) originalNama = k.nama;
       });
       const skorMurni = 80; // Default skor murni
@@ -1356,7 +1348,7 @@ async function syncPenaltyToKPI() {
         catatan: `Auto-generated dari sinkronisasi penalty (${totalPenalty} poin)`,
         createdAt: new Date().toISOString(),
         syncedAt: new Date().toISOString(),
-      });
+       }
       count++;
     }
   }
@@ -1368,8 +1360,7 @@ async function modalPenalty(prefillNama) {
   const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
   const myDept = (currentUser.departemen || '').toLowerCase().trim();
   let opts = '<option value="">-- Pilih Karyawan --</option>';
-  kSnap.forEach((d) => {
-    const k = d.data();
+  for (const d of kSnap) { const k = d.data();
     // Non-admin/head: only show karyawan from same department
     if (!hasAccess(4)) {
       if ((k.departemen || '').toLowerCase().trim() !== myDept) return;
@@ -1428,7 +1419,7 @@ async function simpanPenalty() {
       const k = d.data();
       if ((k.nama || '').toLowerCase().trim() === nama.toLowerCase().trim())
         dept = k.departemen || '';
-    });
+     }
   } catch (e) {}
   const data = {
     nama: nama,
@@ -1598,8 +1589,7 @@ async function loadDailyTasks(filter) {
     let directSubNames = [];
     if (myLevel === 2) {
       const kSnap = await db.collection('hrd_karyawan').where('atasan', '==', currentUser.nama).get();
-      kSnap.forEach((sk) => {
-        const n = sk.data().nama;
+      for (const sk of kSnap) { const n = sk.data().nama;
         if (n) directSubNames.push(n.toLowerCase().trim());
       });
     }
@@ -1625,7 +1615,7 @@ async function loadDailyTasks(filter) {
         if (ownerId === myId || t.assignedBy === myId) isVisible = true;
       }
 
-      if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
+      if (isVisible) _dailyTaskData.push({ id: d.id, ...t  }
     });
   } catch (e) {
     _dailyTaskData = [];
@@ -1698,7 +1688,7 @@ async function loadDailyTasks(filter) {
   if (filter === 'team-report' || filter === 'all-report') {
     const curFrom = document.getElementById('reportDateFrom')?.value || '';
     const curTo = document.getElementById('reportDateTo')?.value || '';
-    html = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px;background:#f8f9ff;border-radius:8px">
+    html = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px;background:#f9f9f9;border-radius:8px">
       <span class="text-sm fw-700">📅 Periode:</span>
       <input type="date" class="form-control" id="reportDateFrom" value="${curFrom}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('${filter}')">
       <span class="text-sm">s/d</span>
@@ -1725,8 +1715,7 @@ async function loadDailyTasks(filter) {
     return;
   }
 
-  filtered.forEach((t) => {
-    if (t.type === 'report' || t.title?.includes('Daily Report')) {
+  for (const t of filtered) { if (t.type === 'report' || t.title?.includes('Daily Report')) {
       const progressColor = (t.progress || 0) >= 80 ? '#2e7d32' : (t.progress || 0) >= 50 ? '#f57f17' : '#c62828';
       html += `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border-left:4px solid #7b1fa2;margin-bottom:8px;background:#faf5ff;border-radius:0 8px 8px 0;cursor:pointer" onclick="viewDailyReport('${t.id}')">
         <div style="font-size:1.5rem">📝</div>
@@ -1873,7 +1862,7 @@ function _showDailyTaskDetail(task) {
       ${task.targetUserName ? `<tr><td style="padding:8px;font-weight:700">Untuk</td><td style="padding:8px">${escHtml(task.targetUserName)}</td></tr>` : ''}
       ${task.doneAt ? `<tr><td style="padding:8px;font-weight:700">Selesai pada</td><td style="padding:8px">${formatDate(task.doneAt.split('T')[0])} ${task.doneAt.split('T')[1] ? task.doneAt.split('T')[1].substring(0, 5) : ''}</td></tr>` : ''}
     </table>
-    <div style="margin-top:16px;padding:14px;background:#f8f9ff;border-radius:10px;border:1px solid #dfe7ff">
+    <div style="margin-top:16px;padding:14px;background:#f9f9f9;border-radius:10px;border:1px solid #dfe7ff">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <div class="fw-700" style="color:#1565c0">📈 Tracker Aktivitas</div>
         <div style="font-weight:700;color:${trackerColor}">${trackerProgress}%</div>
@@ -1885,7 +1874,7 @@ function _showDailyTaskDetail(task) {
       ${task.kendala ? `<div style="font-size:.78rem;color:#c62828;margin-top:8px;white-space:pre-wrap">⚠️ Kendala: ${escHtml(task.kendala)}</div>` : ''}
       ${task.solusi ? `<div style="font-size:.78rem;color:#ef6c00;margin-top:6px;white-space:pre-wrap">💡 Tindak Lanjut: ${escHtml(task.solusi)}</div>` : ''}
     </div>
-    ${task.attachments && task.attachments.length ? `<div style="margin-top:16px;padding:16px;background:#f8f9ff;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:var(--primary)">📎 Lampiran Eviden (${task.attachments.length} file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px">${task.attachments.map((a, i) => (a.type && a.type.startsWith('image/') ? `<div style="text-align:center;cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><img src="${a.data}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.6rem;color:#666;margin-top:4px">${escHtml(a.name || 'Foto ' + (i + 1))}</div></div>` : `<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:12px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><div style="font-size:2rem">${a.name && a.name.endsWith('.pdf') ? '📕' : a.name && a.name.match(/\\.docx?$/) ? '📘' : a.name && a.name.match(/\\.xlsx?$/) ? '📗' : '📄'}</div><div style="font-size:.65rem;color:#333;margin-top:4px;text-align:center;word-break:break-all">${escHtml(a.name)}</div><div style="font-size:.6rem;color:#1565c0;margin-top:4px">👁️ Lihat</div></div>`)).join('')}</div></div>` : ''}
+    ${task.attachments && task.attachments.length ? `<div style="margin-top:16px;padding:16px;background:#f9f9f9;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:var(--primary)">📎 Lampiran Eviden (${task.attachments.length} file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px">${task.attachments.map((a, i) => (a.type && a.type.startsWith('image/') ? `<div style="text-align:center;cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><img src="${a.data}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.6rem;color:#666;margin-top:4px">${escHtml(a.name || 'Foto ' + (i + 1))}</div></div>` : `<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:12px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><div style="font-size:2rem">${a.name && a.name.endsWith('.pdf') ? '📕' : a.name && a.name.match(/\\.docx?$/) ? '📘' : a.name && a.name.match(/\\.xlsx?$/) ? '📗' : '📄'}</div><div style="font-size:.65rem;color:#333;margin-top:4px;text-align:center;word-break:break-all">${escHtml(a.name)}</div><div style="font-size:.6rem;color:#1565c0;margin-top:4px">👁️ Lihat</div></div>`)).join('')}</div></div>` : ''}
 
     ${feedbackHtml}
     ${logsHtml}
@@ -1906,8 +1895,7 @@ async function modalAddTask() {
       const usersSnap = await db.collection('hrd_users').get();
       const myDept = (currentUser.departemen || '').toLowerCase().trim();
       let checkboxes = '';
-      usersSnap.forEach(function (d) {
-        var u = d.data();
+      for (const d of usersSnap) { var u = d.data();
         if (u.status !== 'nonaktif' && d.id !== currentUser.id) {
           // Only show same division members
           if (myDept && (u.departemen || '').toLowerCase().trim() !== myDept) return;
@@ -1926,10 +1914,10 @@ async function modalAddTask() {
             escHtml(u.departemen || '-') +
             ')</span></span></label>';
         }
-      });
+       }
       assignHtml = '<div class="form-group"><label>Tugaskan Ke</label>';
       assignHtml +=
-        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:4px;background:#f8f9ff;border-radius:6px;cursor:pointer"><input type="checkbox" id="dtAssignSelf" checked> <span class="fw-700">📝 Untuk Diri Sendiri</span></label>';
+        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:4px;background:#f9f9f9;border-radius:6px;cursor:pointer"><input type="checkbox" id="dtAssignSelf" checked> <span class="fw-700">📝 Untuk Diri Sendiri</span></label>';
       assignHtml +=
         '<div style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
       assignHtml +=
@@ -1973,7 +1961,7 @@ async function modalAddTask() {
             escHtml(u.departemen || '-') +
             ')</span></span></label>';
         }
-      });
+       }
       assignHtml = '<div class="form-group"><label>Tugaskan Ke (Head / Manager)</label>';
       assignHtml +=
         '<div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
@@ -1989,8 +1977,7 @@ async function modalAddTask() {
     try {
       const usersSnap = await db.collection('hrd_users').get();
       let checkboxes = '';
-      usersSnap.forEach(function (d) {
-        var u = d.data();
+      for (const d of usersSnap) { var u = d.data();
         if (u.status !== 'nonaktif' && d.id !== currentUser.id) {
           checkboxes +=
             '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">';
@@ -2010,7 +1997,7 @@ async function modalAddTask() {
       });
       assignHtml = '<div class="form-group"><label>Tugaskan Ke</label>';
       assignHtml +=
-        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:4px;background:#f8f9ff;border-radius:6px;cursor:pointer"><input type="checkbox" id="dtAssignSelf" checked> <span class="fw-700">📝 Untuk Diri Sendiri</span></label>';
+        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:4px;background:#f9f9f9;border-radius:6px;cursor:pointer"><input type="checkbox" id="dtAssignSelf" checked> <span class="fw-700">📝 Untuk Diri Sendiri</span></label>';
       assignHtml +=
         '<div style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
       assignHtml +=
@@ -2096,7 +2083,7 @@ async function simpanDailyTask() {
         assignedBy: assignedBy,
         assignedByName: assignedByName,
         createdAt: new Date().toISOString(),
-      });
+       }
       // Notify target user if assigned to someone else
       if (t.id !== currentUser.id) {
         await db.collection('hrd_notifikasi').add({
@@ -2143,8 +2130,7 @@ async function editDailyTask(id) {
     try {
       const usersSnap = await db.collection('hrd_users').get();
       let opts = `<option value="self" ${task.userId === currentUser.id ? 'selected' : ''}>\u{1F4DD} Untuk Diri Sendiri (Catatan Pribadi)</option><option disabled>\u2500\u2500 Tugaskan ke Karyawan \u2500\u2500</option>`;
-      usersSnap.forEach((d) => {
-        const u = d.data();
+      for (const d of usersSnap) { const u = d.data();
         if (u.status !== 'nonaktif')
           opts += `<option value="${d.id}" data-nama="${escHtml(u.nama)}" ${d.id === task.userId && d.id !== currentUser.id ? 'selected' : ''}>${escHtml(u.nama)} (${u.role})</option>`;
       });
@@ -2213,7 +2199,7 @@ async function updateDailyTask(id) {
           read: false,
           type: 'daily-task',
           createdAt: new Date().toISOString(),
-        });
+         }
       } catch (_e) {}
     }
   }
@@ -2248,8 +2234,7 @@ async function checkTaskReminders() {
     const now = new Date();
     const today = todayStr();
     const tasks = [];
-    snap.forEach((d) => {
-      const t = d.data();
+    for (const d of snap) { const t = d.data();
       if (t.userId === currentUser.id && !t.done) tasks.push({ id: d.id, ...t });
     });
 
@@ -2278,7 +2263,7 @@ async function checkTaskReminders() {
           read: false,
           type: 'task-reminder',
           createdAt: new Date().toISOString(),
-        });
+         }
         // Show browser notification
         showSystemNotification(
           '⏰ Pengingat Task',
@@ -2315,8 +2300,7 @@ async function editDailyReport(id) {
   if (showKategori) {
     const cats = REPORT_CATEGORIES[(currentUser.departemen || '').toUpperCase().trim()] || [];
     let opts = '<option value="">-- Pilih --</option>';
-    cats.forEach((c) => {
-      opts += `<option value="${c}" ${t.kategori === c ? 'selected' : ''}>${c}</option>`;
+    for (const c of cats) { opts += `<option value="${c}" ${t.kategori === c ? 'selected' : ''}>${c}</option>`;
     });
     catHtml = `<div class="form-group"><label>Kategori</label><select class="form-control" id="erKategori">${opts}</select></div>`;
   }
@@ -2401,7 +2385,7 @@ function previewTaskFiles(input, previewId) {
       }
     };
     reader.readAsDataURL(file);
-  });
+   }
 }
 
 async function getFilesAsBase64(inputId) {
@@ -2874,8 +2858,7 @@ async function _loadReportSummaryForDate(dateVal) {
   // Build cache and collect reports for selected date
   _reportSummaryCache = {};
   const allReports = [];
-  snap.forEach(function (d) {
-    var t = d.data();
+  for (const d of snap) { var t = d.data();
     if (t.type === 'report' && t.tanggal === dateVal) {
       var rep = Object.assign({ id: d.id }, t);
       allReports.push(rep);
@@ -2938,7 +2921,7 @@ async function _loadReportSummaryForDate(dateVal) {
     Object.keys(katMap).sort().forEach(function (kat) {
       var items = katMap[kat];
       waText += '  \ud83d\udcc2 ' + kat + ' (' + items.length + ')\n';
-      htmlContent += `<div style="margin-bottom:12px;background:#f8f9ff;border-radius:8px;padding:10px 12px">
+      htmlContent += `<div style="margin-bottom:12px;background:#f9f9f9;border-radius:8px;padding:10px 12px">
         <div style="font-weight:600;font-size:.82rem;color:#1565c0;margin-bottom:6px;border-bottom:1px solid #d0d9ff;padding-bottom:4px">\ud83d\udcc2 ${escHtml(kat)} (${items.length})</div>`;
 
       items.forEach(function (r) {
@@ -3036,7 +3019,7 @@ function viewReportFromSummary(id) {
     task.progress >= 80 ? '#2e7d32' : task.progress >= 50 ? '#f57f17' : '#c62828';
   openModal(
     '<div class="modal-title">\ud83d\udcdd Daily Report</div>' +
-      '<div style="background:#f8f9ff;padding:16px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">' +
+      '<div style="background:#f9f9f9;padding:16px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">' +
       '<div class="fw-700" style="color:var(--primary)">' +
       escHtml(task.targetUserName || task.nama || '-') +
       '</div>' +
@@ -3097,7 +3080,7 @@ function viewReportFromSummary(id) {
           '</div></div>'
         : '') +
       (task.attachments && task.attachments.length
-        ? '<div class="mb-16" style="padding:16px;background:#f8f9ff;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:#37474f">\ud83d\udcce Lampiran Eviden (' +
+        ? '<div class="mb-16" style="padding:16px;background:#f9f9f9;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:#37474f">\ud83d\udcce Lampiran Eviden (' +
           task.attachments.length +
           ' file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px">' +
           task.attachments
@@ -3157,7 +3140,7 @@ async function shareReportWA() {
           requestedById: currentUser?.id || '',
           createdAt: new Date().toISOString(),
           status: 'queued',
-        });
+         }
       })
     );
     toast('Report masuk antrian kirim WA ke ' + waNumbers.length + ' nomor admin.', 'success');
@@ -3183,8 +3166,7 @@ function getReportCategoryOptions() {
   const dept = (currentUser.departemen || '').toUpperCase().trim();
   const cats = REPORT_CATEGORIES[dept] || REPORT_CATEGORIES['OFFICE'] || [];
   let opts = '<option value="">-- Pilih Kategori --</option>';
-  cats.forEach((c) => {
-    opts += `<option value="${c}">${c}</option>`;
+  for (const c of cats) { opts += `<option value="${c}">${c}</option>`;
   });
   return opts;
 }
@@ -3287,7 +3269,7 @@ function viewDailyReport(id) {
     task.progress >= 80 ? '#2e7d32' : task.progress >= 50 ? '#f57f17' : '#c62828';
   openModal(
     `<div class="modal-title">📝 Daily Report</div>
-    <div style="background:#f8f9ff;padding:16px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary);cursor:pointer" onclick="viewUserProfile('${escHtml(task.targetUserName || task.nama || currentUser.nama)}')">
+    <div style="background:#f9f9f9;padding:16px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary);cursor:pointer" onclick="viewUserProfile('${escHtml(task.targetUserName || task.nama || currentUser.nama)}')">
       <div class="fw-700" style="color:var(--primary)">${escHtml(task.targetUserName || currentUser.nama)} <span style="font-size:.7rem;color:#999;font-weight:400">👤 klik untuk lihat profil</span></div>
       <div class="text-sm" style="color:#666">📅 ${formatDate(task.tanggal)} | ⏰ ${task.jamMasuk || '-'} - ${task.jamKeluar || '-'}</div>
       <div class="text-sm mt-4">🏢 ${escHtml(task.departemen || '-')} | 📂 ${escHtml(task.kategori || '-')}</div>
@@ -3300,7 +3282,7 @@ function viewDailyReport(id) {
     ${task.rencanaBesok || task.rencana || task.planning ? `<div class="mb-16"><div class="fw-700 mb-4" style="color:#1565c0">🌟 Planning & Target / Rencana</div><div style="background:#e3f2fd;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.rencanaBesok || task.rencana || task.planning)}</div></div>` : ''}
     ${task.komentar || task.komentarAtasan ? `<div class="mb-16"><div class="fw-700 mb-4" style="color:#6a1b9a">💬 Komentar</div><div style="background:#f3e5f5;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.komentar || task.komentarAtasan)}</div></div>` : ''}
     ${task.komentarRekan ? `<div class="mb-16"><div class="fw-700 mb-4" style="color:#00695c">🤝 Komentar untuk Rekan Kerja</div><div style="background:#e0f2f1;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.komentarRekan)}</div></div>` : ''}
-    ${task.attachments && task.attachments.length ? `<div class="mb-16" style="padding:16px;background:#f8f9ff;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:#37474f">📎 Lampiran Eviden (${task.attachments.length} file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px">${task.attachments.map((a, i) => (a.type && a.type.startsWith('image/') ? `<div style="text-align:center;cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><img src="${a.data}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.6rem;color:#666;margin-top:4px">${escHtml(a.name || 'Foto ' + (i + 1))}</div></div>` : `<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:14px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><div style="font-size:2.5rem">${a.name && a.name.endsWith('.pdf') ? '📕' : a.name && a.name.match(/\\.docx?$/) ? '📘' : a.name && a.name.match(/\\.xlsx?$/) ? '📗' : '📄'}</div><div style="font-size:.65rem;color:#333;margin-top:6px;text-align:center;word-break:break-all">${escHtml(a.name)}</div><div style="font-size:.6rem;color:#1565c0;margin-top:4px;font-weight:600">👁️ Lihat</div></div>`)).join('')}</div></div>` : ''}
+    ${task.attachments && task.attachments.length ? `<div class="mb-16" style="padding:16px;background:#f9f9f9;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:#37474f">📎 Lampiran Eviden (${task.attachments.length} file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px">${task.attachments.map((a, i) => (a.type && a.type.startsWith('image/') ? `<div style="text-align:center;cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><img src="${a.data}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.6rem;color:#666;margin-top:4px">${escHtml(a.name || 'Foto ' + (i + 1))}</div></div>` : `<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:14px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><div style="font-size:2.5rem">${a.name && a.name.endsWith('.pdf') ? '📕' : a.name && a.name.match(/\\.docx?$/) ? '📘' : a.name && a.name.match(/\\.xlsx?$/) ? '📗' : '📄'}</div><div style="font-size:.65rem;color:#333;margin-top:6px;text-align:center;word-break:break-all">${escHtml(a.name)}</div><div style="font-size:.6rem;color:#1565c0;margin-top:4px;font-weight:600">👁️ Lihat</div></div>`)).join('')}</div></div>` : ''}
     <div class="text-xs" style="color:#999">Dikirim: ${formatDateTime(task.createdAt)}</div>`,
     true
   );
@@ -3378,7 +3360,7 @@ async function loadSheetList() {
     var regex = /gid=(\d+)[^"]*"[^>]*>([^<]+)</g;
     var match;
     while ((match = regex.exec(html)) !== null) {
-      sheets.push({ gid: match[1], name: match[2].trim() });
+      sheets.push({ gid: match[1], name: match[2].trim()  }
     }
     // Method 2: Try alternate pattern
     if (!sheets.length) {
@@ -3403,8 +3385,7 @@ async function loadSheetList() {
     }
     if (sheets.length) {
       var opts = '';
-      sheets.forEach(function (s) {
-        var selected = s.name.toUpperCase().includes('GABUNGAN') ? ' selected' : '';
+      for (const s of sheets) { var selected = s.name.toUpperCase().includes('GABUNGAN') ? ' selected' : '';
         opts += '<option value="' + s.gid + '"' + selected + '>' + escHtml(s.name) + '</option>';
       });
       selectEl.innerHTML = opts;
@@ -3536,7 +3517,7 @@ async function pullFromGoogleSheets() {
       throw new Error(
         'Spreadsheet tidak bisa diakses. Pastikan sharing = Anyone with the link can view.'
       );
-    var workbook = XLSX.read(csvText, { type: 'string' });
+    var workbook = XLSX.read(csvText, { type: 'string'  }
     var sheet = workbook.Sheets[workbook.SheetNames[0]];
     var jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
     if (!jsonData.length) {
@@ -3545,8 +3526,7 @@ async function pullFromGoogleSheets() {
     }
     // Map columns
     _gsImportData = [];
-    jsonData.forEach(function (row) {
-      var mapped = {
+    for (const row of jsonData) { var mapped = {
         bulan: String(row['BULAN'] || row['bulan'] || ''),
         tanggal: String(row['TANGGAL'] || row['tanggal'] || ''),
         divisi: String(row['DIVISI'] || row['divisi'] || ''),
@@ -3661,7 +3641,7 @@ async function submitGSheetImport() {
         '|' +
         (e.targetUserName || '');
       existingKeys.add(key.toLowerCase().trim());
-    });
+     }
   } catch (ex) {}
   var success = 0,
     skipped = 0;
@@ -3754,8 +3734,7 @@ function previewWeeklyImport(input) {
       }
       // Map columns (flexible matching)
       _weeklyImportData = [];
-      jsonData.forEach(function (row) {
-        var mapped = {
+      for (const row of jsonData) { var mapped = {
           bulan: row['BULAN'] || row['bulan'] || row['Bulan'] || '',
           tanggal: row['TANGGAL'] || row['tanggal'] || row['Tanggal'] || '',
           divisi: row['DIVISI'] || row['divisi'] || row['Divisi'] || '',
@@ -3853,7 +3832,7 @@ async function submitWeeklyImport() {
           importedBy: currentUser.nama,
           importedAt: new Date().toISOString(),
           type: 'weekly-report',
-        });
+         }
         success++;
       } catch (e) {
         failed++;
@@ -3902,8 +3881,7 @@ async function loadWeeklyReports(divFilter) {
       db.collection('hrd_daily_tasks').where('type', '==', 'report').get(),
       db.collection('hrd_weekly_reports').get(),
     ]);
-    snap1.forEach(function (d) {
-      items.push({ id: d.id, col: 'hrd_daily_tasks', ...d.data() });
+    for (const d of snap1) { items.push({ id: d.id, col: 'hrd_daily_tasks', ...d.data() });
     });
     snap2.forEach(function (d) {
       items.push({ id: d.id, col: 'hrd_weekly_reports', ...d.data() });
@@ -3967,7 +3945,7 @@ async function loadWeeklyReports(divFilter) {
     const totalObstaclesSummary = filtered.filter(it => (it.kendala || it.case_desc || '').trim().length > 0).length;
 
     html += `
-    <div id="weeklySummaryBox" style="background:#f0f4ff; border:1px solid #d0d9ff; border-radius:12px; padding:16px; margin-bottom:20px; display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:16px">
+    <div id="weeklySummaryBox" style="background:#f9f9f9; border:1px solid #d0d9ff; border-radius:12px; padding:16px; margin-bottom:20px; display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:16px">
         <div style="text-align:center">
             <div style="font-size:0.75rem; color:#666; margin-bottom:4px">📊 Total Laporan</div>
             <div style="font-size:1.5rem; font-weight:800; color:var(--primary)">${totalReportsSummary}</div>
@@ -4003,7 +3981,7 @@ async function loadWeeklyReports(divFilter) {
     }
     html += '</div>';
 
-    html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:8px 12px;background:#f8f9ff;border-radius:8px">';
+    html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:8px 12px;background:#f9f9f9;border-radius:8px">';
     html += '<span class="text-sm fw-700">📅 Periode:</span>';
     html += '<input type="date" class="form-control" id="wrDateFrom" value="' + filterFrom + '" style="max-width:140px;padding:4px 8px;font-size:.82rem" onchange="_wrDateFrom=this.value;loadWeeklyReports()">';
     html += '<span class="text-sm">—</span>';
@@ -4056,7 +4034,7 @@ async function loadWeeklyReports(divFilter) {
               <div style="font-size:.8rem;font-weight:700;color:${progressColor}">📈 Progress: ${escHtml(r.progress || '-')}${!isNaN(progressNum) && String(r.progress).indexOf('%') === -1 ? '%' : ''}</div>
               <button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem('${encodeURIComponent(wrKey)}')">👁️ View</button>
             </div>
-            <div style="font-size:.82rem;color:#333;line-height:1.5;background:#f8f9ff;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ${escHtml(previewText)}</div>
+            <div style="font-size:.82rem;color:#333;line-height:1.5;background:#f9f9f9;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ${escHtml(previewText)}</div>
           </div>`;
         });
         html += _buildReportTrackerStats(userRows);
@@ -4086,7 +4064,7 @@ function showWeeklyReportSummaryModal() {
     openModal(`
         <div class="modal-title">📋 Rangkuman Laporan Mingguan</div>
         <p class="text-sm mb-16" style="color:#666">Statistik berdasarkan filter periode dan divisi yang sedang aktif.</p>
-        <div style="background:#f8f9ff; border:2px solid var(--primary); border-radius:12px; padding:20px; margin-bottom:16px">
+        <div style="background:#f9f9f9; border:2px solid var(--primary); border-radius:12px; padding:20px; margin-bottom:16px">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
                 ${summaryHtml}
             </div>
@@ -4115,7 +4093,7 @@ function viewWeeklyReportItem(key) {
   var komentar = report.komentar || report.keterangan || report.komentarAtasan || '';
   openModal(
     '<div class="modal-title">👁️ Detail Laporan</div>' +
-      '<div style="background:#f8f9ff;padding:14px;border-radius:8px;margin-bottom:14px;border-left:4px solid #1565c0">' +
+      '<div style="background:#f9f9f9;padding:14px;border-radius:8px;margin-bottom:14px;border-left:4px solid #1565c0">' +
       '<div class="fw-700" style="color:#1565c0">👤 ' +
       escHtml(pic) +
       '</div>' +
@@ -4294,7 +4272,7 @@ async function viewUserProfile(nama) {
         '<div class="text-sm" style="color:#666">' +
         escHtml(profile.posisi || profile.role || '-') +
         '</div></div>' +
-        '<div style="background:#f8f9ff;border-radius:10px;padding:16px;border:1px solid #e0e0e0">' +
+        '<div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e0e0e0">' +
         '<table style="width:100%;border-collapse:collapse;font-size:.88rem">' +
         '<tr><td style="padding:8px;font-weight:700;width:140px;color:#555">NIP</td><td style="padding:8px">' +
         escHtml(profile.nip || '-') +
@@ -4360,7 +4338,7 @@ function _buildReportTrackerStats(items) {
     }
     if ((r.kendala || r.case_desc || '').trim()) kendala++;
     else tanpaKendala++;
-  });
+   }
   var total = items.length;
   var avg = total ? Math.round(totalPct / total) : 0;
   var kendalaCov = total ? Math.round((kendala / total) * 100) : 0;
@@ -4518,8 +4496,7 @@ function _renderGroupedReportTracker(reports, filter) {
   if (filter === 'all-report') {
     // group by dept → category
     var byDept = {};
-    reports.forEach(function (r) {
-      var dept = r.departemen || 'Tanpa Departemen';
+    for (const r of reports) { var dept = r.departemen || 'Tanpa Departemen';
       if (!byDept[dept]) byDept[dept] = {};
       var cat = r.kategori || 'Tanpa Kategori';
       if (!byDept[dept][cat]) byDept[dept][cat] = [];
@@ -4545,7 +4522,7 @@ function _renderGroupedReportTracker(reports, filter) {
           .forEach(function (cat) {
             var catItems = katMap[cat];
             html +=
-              '<div style="margin-bottom:12px;background:#f8f9ff;border-radius:8px;padding:10px 12px">' +
+              '<div style="margin-bottom:12px;background:#f9f9f9;border-radius:8px;padding:10px 12px">' +
               '<div style="font-weight:600;font-size:.82rem;color:#7b1fa2;margin-bottom:8px;border-bottom:1px solid #e0d0ff;padding-bottom:4px">' +
               '\ud83d\udcc2 ' +
               escHtml(cat) +
@@ -4644,7 +4621,7 @@ async function renderFormKaizen() {
   let filterHtml = '';
   if (isGA || hasAccess(3) || hasHeadLevelAccess()) {
     filterHtml = `
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; background:#f8f9ff; padding:8px 12px; border-radius:8px">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; background:#f9f9f9; padding:8px 12px; border-radius:8px">
         <span class="text-sm fw-700">🚩 Skala Prioritas:</span>
         <select class="form-control" id="kzFilterPriority" style="max-width:180px; padding:4px 8px; font-size:.82rem" onchange="loadKaizenRecords()">
           <option value="all">Semua Prioritas</option>
@@ -4786,7 +4763,7 @@ async function loadKaizenRecords(roles) {
             <td>${statusBadge}</td>
             <td>${aksiBtns}</td>
           </tr>`;
-      });
+       }
     }
     tbody.innerHTML = html;
 
@@ -4898,7 +4875,7 @@ async function modalUpdateKaizenProgress(id) {
 
   openModal(`
     <div class="modal-title">⚡ Update Progress Form Kaizen</div>
-    <div style="background:#f8f9ff;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
+    <div style="background:#f9f9f9;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
       <div class="fw-700">${escHtml(task.title.replace('⚡ KAIZEN: ', ''))}</div>
       <div class="text-xs color-light">${escHtml(task.description)}</div>
     </div>
@@ -5005,7 +4982,7 @@ async function modalApproveKaizen(id) {
 
   openModal(`
     <div class="modal-title">✅ Approval Form Kaizen</div>
-    <div style="background:#f8f9ff;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
+    <div style="background:#f9f9f9;padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
       <div class="fw-700">Tugas: ${escHtml(task.title.replace('⚡ KAIZEN: ', ''))}</div>
       <div class="text-xs color-light">Dikerjakan oleh: <b>Muhammad Rizky Nur Fadilah</b></div>
       <div class="text-xs color-light">Catatan GA: <i>"${escHtml(task.aktivitas)}"</i></div>
@@ -5265,38 +5242,7 @@ async function doInputCutiBersamaMassal() {
     existSnap.forEach(d => existSet.add(d.data().nama?.toLowerCase().trim()));
 
     let added = 0;
-    let batch = db.batch();
     const createdAt = new Date().toISOString();
-
-    kSnap.forEach(doc => {
-      const k = doc.data();
-      const namaLow = (k.nama || '').toLowerCase().trim();
-
-      // Skip if already added for this exact start date
-      if (existSet.has(namaLow)) return;
-
-      const newRef = db.collection('hrd_cuti').doc();
-      batch.set(newRef, {
-        nama: k.nama,
-        userId: '', // Optional for mass input
-        jenis: 'Cuti Bersama',
-        mulai,
-        selesai,
-        durasi,
-        keterangan: keterangan,
-        status: 'approved',
-        approvedBy: currentUser.nama,
-        approvedAt: createdAt,
-        createdAt,
-        isMassive: true
-      });
-
-      added++;
-      // Batch limit is 500
-      if (added % 400 === 0) {
-          // This part is tricky with await in forEach, let's use a better loop
-      }
-    });
 
     // Re-do with proper for...of loop for batching safety if large headcount
     const karyawanDocs = kSnap.docs;

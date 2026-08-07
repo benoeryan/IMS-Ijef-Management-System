@@ -163,8 +163,7 @@ async function hitungKPIIntegrasi(nama, periode) {
     db.collection('hrd_daily_tasks').get(),
   ]);
   let karyawanId = '';
-  karySnap.forEach((d) => {
-    const k = d.data() || {};
+  for (const d of karySnap) { const k = d.data() || {};
     if ((k.nama || '').toLowerCase().trim() === namaLower && !karyawanId) karyawanId = d.id;
   });
   let jobdeskData = null;
@@ -292,7 +291,7 @@ async function hitungKPIIntegrasi(nama, periode) {
 async function renderKPI() {
   const main = document.getElementById('mainContent');
   const isBOD = currentUser.role === 'bod';
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📈 KPI & Penilaian</span>${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalKPI()">+ Tambah</button>' : '<button class="btn btn-primary btn-sm" onclick="modalKPI()">+ Nilai HEAD</button>'}</div><div style="margin-bottom:12px">${!isBOD ? '<button type="button" class="btn btn-sm btn-info" onclick="document.getElementById(\'kpiInfoPanelAdmin\').style.display=document.getElementById(\'kpiInfoPanelAdmin\').style.display===\'none\'?\'block\':\'none\'">ℹ️ Info Formula KPI</button> <button type="button" class="btn btn-sm btn-warning" onclick="sinkronPenaltyKPI()">🔄 Sinkron Penalty</button>' : ''}<div id="kpiInfoPanelAdmin" style="display:none;margin-top:12px;padding:12px;background:#f0f4ff;border-radius:8px;font-size:.82rem;line-height:1.6"><strong>Metode Penilaian Terintegrasi:</strong><br>• Sumber data: Jobdesk, Absensi, <b>Daily Task (completion)</b>, <b>Daily Report (consistency)</b>, Penalty, dan DISC<br>• Nilai komponen dibentuk dari data terintegrasi lalu bisa disesuaikan penilai<br>• Skor Murni = Rata-rata Produktivitas, Kualitas, Kedisiplinan, Kerjasama<br>• Setiap 1 penalty point mengurangi skor akhir sebesar 2 poin<br>• <strong>Skor Akhir = Skor Murni - (Total Penalty x 2)</strong><br><br><strong>Grade:</strong> A (≥90) | B (≥80) | C (≥70) | D (≥60) | E (&lt;60)</div></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Periode</th><th>Skor Murni</th><th>Penalty</th><th>Skor Akhir</th><th>Grade</th><th>Penilai</th>${!isBOD ? '<th>Aksi</th>' : ''}</tr></thead><tbody id="tblKPI"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📈 KPI & Penilaian</span>${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalKPI()">+ Tambah</button>' : '<button class="btn btn-primary btn-sm" onclick="modalKPI()">+ Nilai HEAD</button>'}</div><div style="margin-bottom:12px">${!isBOD ? '<button type="button" class="btn btn-sm btn-info" onclick="document.getElementById(\'kpiInfoPanelAdmin\').style.display=document.getElementById(\'kpiInfoPanelAdmin\').style.display===\'none\'?\'block\':\'none\'">ℹ️ Info Formula KPI</button> <button type="button" class="btn btn-sm btn-warning" onclick="sinkronPenaltyKPI()">🔄 Sinkron Penalty</button>' : ''}<div id="kpiInfoPanelAdmin" style="display:none;margin-top:12px;padding:12px;background:#f9f9f9;border-radius:8px;font-size:.82rem;line-height:1.6"><strong>Metode Penilaian Terintegrasi:</strong><br>• Sumber data: Jobdesk, Absensi, <b>Daily Task (completion)</b>, <b>Daily Report (consistency)</b>, Penalty, dan DISC<br>• Nilai komponen dibentuk dari data terintegrasi lalu bisa disesuaikan penilai<br>• Skor Murni = Rata-rata Produktivitas, Kualitas, Kedisiplinan, Kerjasama<br>• Setiap 1 penalty point mengurangi skor akhir sebesar 2 poin<br>• <strong>Skor Akhir = Skor Murni - (Total Penalty x 2)</strong><br><br><strong>Grade:</strong> A (≥90) | B (≥80) | C (≥70) | D (≥60) | E (&lt;60)</div></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Periode</th><th>Skor Murni</th><th>Penalty</th><th>Skor Akhir</th><th>Grade</th><th>Penilai</th>${!isBOD ? '<th>Aksi</th>' : ''}</tr></thead><tbody id="tblKPI"></tbody></table></div></div>`;
   const [snap, penSnap, karySnap] = await Promise.all([
     db.collection('hrd_kpi').get(),
     db.collection('hrd_penalty').get(),
@@ -303,10 +302,9 @@ async function renderKPI() {
     const pe = d.data();
     const nm = (pe.nama || '').toLowerCase().trim();
     penaltyMap[nm] = (penaltyMap[nm] || 0) + (parseInt(pe.poin) || 0);
-  }); // Build set of active karyawan names (exclude calon/kandidat)
+   } // Build set of active karyawan names (exclude calon/kandidat)
   const karyawanNames = new Set();
-  karySnap.forEach((d) => {
-    const k = d.data();
+  for (const d of karySnap) { const k = d.data();
     karyawanNames.add((k.nama || '').toLowerCase().trim());
   });
   let h = '';
@@ -339,10 +337,9 @@ async function renderKPI() {
   document.getElementById('tblKPI').innerHTML = h;
 }
 
-function viewKPIDetail(id) {
-  db.collection('hrd_kapi') // Checking if it's hrd_kpi or hrd_kapi, in modules-misc.js it is used as hrd_kpi in renderKPI. Wait, I should check the collection name.
-  // Actually, renderKPI uses hrd_kpi.
-  db.collection('hrd_kpi').doc(id).get().then(async doc => {
+async function viewKPIDetail(id) {
+  try {
+    const doc = await db.collection('hrd_kpi').doc(id).get();
     if (!doc.exists) return toast('Data tidak ditemukan', 'warning');
     const p = doc.data();
 
@@ -350,11 +347,11 @@ function viewKPIDetail(id) {
     const penSnap = await db.collection('hrd_penalty').where('nama', '==', p.nama).get();
     let totalPenalty = 0;
     let penDetails = '';
-    penSnap.forEach(d => {
-        const pd = d.data();
-        totalPenalty += (parseInt(pd.poin) || 0);
-        penDetails += `<div class="text-xs mb-4">• ${formatDate(pd.tanggal)}: ${escHtml(pd.jenis)} (${pd.poin} poin) - ${escHtml(pd.deskripsi || '-')}</div>`;
-    });
+    for (const d of penSnap.docs) {
+      const pd = d.data();
+      totalPenalty += (parseInt(pd.poin) || 0);
+      penDetails += `<div class="text-xs mb-4">• ${formatDate(pd.tanggal)}: ${escHtml(pd.jenis)} (${pd.poin} poin) - ${escHtml(pd.deskripsi || '-')}</div>`;
+    }
 
     const skorMurni = p.skorMurni != null ? p.skorMurni : p.skor;
     const deduksi = totalPenalty * 2;
@@ -362,7 +359,7 @@ function viewKPIDetail(id) {
 
     openModal(`
       <div class="modal-title">👁️ Detail Penilaian KPI — ${escHtml(p.nama)}</div>
-      <div style="background:#f8f9ff;padding:16px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
+      <div style="background:#f9f9f9;padding:16px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary)">
         <div class="grid-2" style="font-size:.85rem;gap:10px">
           <div><b>Karyawan:</b> ${escHtml(p.nama)}</div>
           <div><b>Periode:</b> ${escHtml(p.periode)}</div>
@@ -416,12 +413,11 @@ function sinkronPenaltyKPI() {
 async function modalKPI() {
   const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
   let opts = '<option value="">-- Pilih Karyawan --</option>';
-  kSnap.forEach((d) => {
-    const k = d.data();
+  for (const d of kSnap) { const k = d.data();
     opts += `<option value="${escHtml(k.nama)}">${escHtml(k.nama)} — ${escHtml(k.departemen || '-')}</option>`;
   });
   openModal(
-    `<div class="modal-title">Tambah Penilaian KPI</div><div class="grid-2"><div class="form-group"><label>Karyawan</label><select class="form-control" id="kpiNama" onchange="kpiLoadIntegratedPreview()">${opts}</select></div><div class="form-group"><label>Periode</label><input class="form-control" id="kpiPeriode" value="${monthStr()}" onchange="kpiLoadIntegratedPreview()"></div></div><div id="kpiIntegratedPreview" style="margin-bottom:12px"></div><div class="grid-2"><div class="form-group"><label>Produktivitas (0-100)</label><input class="form-control" type="number" id="kpiProd" value="80"></div><div class="form-group"><label>Kualitas (0-100)</label><input class="form-control" type="number" id="kpiQual" value="80"></div></div><div class="grid-2"><div class="form-group"><label>Kedisiplinan (0-100)</label><input class="form-control" type="number" id="kpiDisc" value="80"></div><div class="form-group"><label>Kerjasama (0-100)</label><input class="form-control" type="number" id="kpiTeam" value="80"></div></div><div class="form-group"><label>Catatan</label><textarea class="form-control" id="kpiNote"></textarea></div><div class="flex gap-8 mb-12"><button type="button" class="btn btn-info btn-sm" onclick="kpiLoadIntegratedPreview()">🔄 Hitung Otomatis Terintegrasi</button></div><button class="btn btn-primary" onclick="simpanKPI()">Simpan</button><div style="margin-top:16px"><button type="button" class="btn btn-sm btn-info" onclick="document.getElementById('kpiInfoPanel').style.display=document.getElementById('kpiInfoPanel').style.display==='none'?'block':'none'">ℹ️ Info Faktor Penilaian</button><div id="kpiInfoPanel" style="display:none;margin-top:12px;padding:12px;background:#f0f4ff;border-radius:8px;font-size:.82rem;line-height:1.6"><strong>Formula Penilaian KPI:</strong><br>• Nilai diambil dari integrasi Jobdesk, Absensi, <b>Daily Task</b>, <b>Daily Report</b>, Penalty, dan DISC<br>• Penilai dapat menyesuaikan nilai sebelum simpan<br>• Skor Murni = Rata-rata 4 komponen<br>• Setiap 1 penalty point mengurangi skor akhir sebesar 2 poin<br>• <strong>Skor Akhir = Skor Murni - (Total Penalty x 2)</strong><br><br><strong>Grade:</strong> A (≥90) | B (≥80) | C (≥70) | D (≥60) | E (&lt;60)</div></div>`
+    `<div class="modal-title">Tambah Penilaian KPI</div><div class="grid-2"><div class="form-group"><label>Karyawan</label><select class="form-control" id="kpiNama" onchange="kpiLoadIntegratedPreview()">${opts}</select></div><div class="form-group"><label>Periode</label><input class="form-control" id="kpiPeriode" value="${monthStr()}" onchange="kpiLoadIntegratedPreview()"></div></div><div id="kpiIntegratedPreview" style="margin-bottom:12px"></div><div class="grid-2"><div class="form-group"><label>Produktivitas (0-100)</label><input class="form-control" type="number" id="kpiProd" value="80"></div><div class="form-group"><label>Kualitas (0-100)</label><input class="form-control" type="number" id="kpiQual" value="80"></div></div><div class="grid-2"><div class="form-group"><label>Kedisiplinan (0-100)</label><input class="form-control" type="number" id="kpiDisc" value="80"></div><div class="form-group"><label>Kerjasama (0-100)</label><input class="form-control" type="number" id="kpiTeam" value="80"></div></div><div class="form-group"><label>Catatan</label><textarea class="form-control" id="kpiNote"></textarea></div><div class="flex gap-8 mb-12"><button type="button" class="btn btn-info btn-sm" onclick="kpiLoadIntegratedPreview()">🔄 Hitung Otomatis Terintegrasi</button></div><button class="btn btn-primary" onclick="simpanKPI()">Simpan</button><div style="margin-top:16px"><button type="button" class="btn btn-sm btn-info" onclick="document.getElementById('kpiInfoPanel').style.display=document.getElementById('kpiInfoPanel').style.display==='none'?'block':'none'">ℹ️ Info Faktor Penilaian</button><div id="kpiInfoPanel" style="display:none;margin-top:12px;padding:12px;background:#f9f9f9;border-radius:8px;font-size:.82rem;line-height:1.6"><strong>Formula Penilaian KPI:</strong><br>• Nilai diambil dari integrasi Jobdesk, Absensi, <b>Daily Task</b>, <b>Daily Report</b>, Penalty, dan DISC<br>• Penilai dapat menyesuaikan nilai sebelum simpan<br>• Skor Murni = Rata-rata 4 komponen<br>• Setiap 1 penalty point mengurangi skor akhir sebesar 2 poin<br>• <strong>Skor Akhir = Skor Murni - (Total Penalty x 2)</strong><br><br><strong>Grade:</strong> A (≥90) | B (≥80) | C (≥70) | D (≥60) | E (&lt;60)</div></div>`
   );
 }
 async function kpiLoadIntegratedPreview() {
@@ -499,7 +495,7 @@ async function simpanKPI() {
       discSource: hasilIntegrasi.discSource,
     },
     createdAt: new Date().toISOString(),
-  });
+   }
   closeModalDirect();
   toast('KPI disimpan', 'success');
   renderKPI();
@@ -588,8 +584,7 @@ async function renderPelatihan() {
   let h = '';
   if (snap.empty) h = '<tr><td colspan="6" class="text-center">Belum ada</td></tr>';
   else
-    snap.forEach((d) => {
-      const p = d.data();
+    for (const d of snap) { const p = d.data();
       h += `<tr><td class="fw-700">${escHtml(p.judul)}</td><td>${escHtml(p.jenis)}</td><td>${formatDate(p.tanggal)}</td><td>${(p.peserta || []).length}</td><td><span class="badge badge-${p.status === 'selesai' ? 'success' : 'info'}">${p.status || 'terjadwal'}</span></td><td><button class="btn btn-xs btn-info" onclick="viewPelatihan('${d.id}')" title="Lihat Detail">👁️</button> <button class="btn btn-xs btn-warning" onclick="modalPelatihan('${d.id}')" title="Edit">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusPelatihan('${d.id}')" title="Hapus">🗑️</button></td></tr>`;
     });
   document.getElementById('tblPelatihan').innerHTML = h;
@@ -672,7 +667,7 @@ function modalPelatihan(id) {
       .doc(id)
       .get()
       .then((d) => showPelForm(id, d.data() || {}));
-  else showPelForm(null, {});
+  else showPelForm(null, { }
 }
 function showPelForm(id, p) {
   openModal(
@@ -746,8 +741,7 @@ async function renderKontrakList(container) {
     const docs = [];
     snap.forEach((d) => docs.push({ id: d.id, ...d.data() }));
     docs.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-    docs.forEach((p) => {
-      const expired = p.berakhir && p.berakhir < today;
+    for (const p of docs) { const expired = p.berakhir && p.berakhir < today;
       const hasFile =
         p.fileURL || p.fileData
           ? '<span class="badge badge-success">Ada</span>'
@@ -783,7 +777,7 @@ async function showKontrakForm(id, p) {
       const selected = p.karyawanId === d.id || p.namaKaryawan === k.nama ? 'selected' : '';
       karyOptions += `<option value="${d.id}" data-nama="${escHtml(k.nama)}" data-dept="${escHtml(k.departemen || '')}" ${selected}>${escHtml(k.nama)} — ${escHtml(k.departemen || '-')}</option>`;
     }
-  });
+   }
   openModal(
     `<div class="modal-title">${id ? 'Edit' : 'Upload'} Kontrak / MOU</div>
     <div class="form-group">
@@ -967,8 +961,7 @@ async function renderDokumenKaryawan(container) {
   // Also load karyawan list for names/photos
   const karySnap = await db.collection('hrd_karyawan').get();
   window._karyawanMap = {};
-  karySnap.forEach((d) => {
-    window._karyawanMap[d.id] = { id: d.id, ...d.data() };
+  for (const d of karySnap) { window._karyawanMap[d.id] = { id: d.id, ...d.data() };
   });
   renderDokFolders();
 }
@@ -1036,7 +1029,7 @@ async function modalUploadDokumen(preKaryId) {
     const k = d.data();
     if (k.status === 'aktif' || !k.status)
       karyOptions += `<option value="${d.id}" data-nama="${escHtml(k.nama)}" ${preKaryId === d.id ? 'selected' : ''}>${escHtml(k.nama)} — ${escHtml(k.departemen || '-')}</option>`;
-  });
+   }
   openModal(
     `<div class="modal-title">📁 Upload Dokumen Karyawan</div>
     <div class="form-group"><label>Karyawan <span style="color:var(--danger)">*</span></label><select class="form-control" id="dokKaryawan">${karyOptions}</select></div>
@@ -1171,8 +1164,7 @@ window.renderAsset = async function() {
   let h = '';
   if (snap.empty) h = '<tr><td colspan="6" class="text-center">Belum ada</td></tr>';
   else
-    snap.forEach((d) => {
-      const p = d.data();
+    for (const d of snap) { const p = d.data();
       h += `<tr><td>${escHtml(p.kode || '-')}</td><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.kategori || '-')}</td><td>${escHtml(p.pengguna || '-')}</td><td><span class="badge badge-${p.kondisi === 'baik' ? 'success' : p.kondisi === 'rusak' ? 'danger' : 'warning'}">${p.kondisi || 'baik'}</span></td><td><button class="btn btn-xs btn-info" onclick="modalAsset('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_asset','${d.id}','asset')">🗑️</button></td></tr>`;
     });
   document.getElementById('tblAsset').innerHTML = h;
@@ -1201,7 +1193,7 @@ async function simpanAsset(id) {
   };
   if (!data.nama) return toast('Nama wajib', 'warning');
   if (id) await db.collection('hrd_asset').doc(id).update(data);
-  else await db.collection('hrd_asset').add({ ...data, createdAt: new Date().toISOString() });
+  else await db.collection('hrd_asset').add({ ...data, createdAt: new Date().toISOString()  }
   closeModalDirect();
   toast('Disimpan', 'success');
   renderAsset();
@@ -1255,7 +1247,7 @@ async function renderAkun() {
     </div>
     <div class="form-group"><label>Logo Perusahaan</label>
       <div style="display:flex;align-items:center;gap:16px;margin-top:8px">
-        <div id="cpLogoPreview" style="width:64px;height:64px;border-radius:50%;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f8f9ff"><span style="font-size:1.5rem">🏛️</span></div>
+        <div id="cpLogoPreview" style="width:64px;height:64px;border-radius:50%;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f9f9f9"><span style="font-size:1.5rem">🏛️</span></div>
         <div>
           <input type="file" id="cpLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="previewCompanyLogo(this)">
           <button class="btn btn-primary btn-sm" onclick="document.getElementById('cpLogoFile').click()">📁 Upload Logo (JPG/PNG)</button>
@@ -1269,10 +1261,10 @@ async function renderAkun() {
   loadCompanyData();
   const snap = await db.collection('hrd_users').get();
   let h = '';
-  snap.forEach((d) => {
+  for (const d of snap) {
     const p = d.data();
     h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(d.id)}</td><td><span class="badge badge-primary">${p.role}</span></td><td>${escHtml(p.departemen || '-')}</td><td><span class="badge badge-${p.status === 'aktif' ? 'success' : 'danger'}">${p.status || 'aktif'}</span></td><td><button class="btn btn-xs btn-info" onclick="modalAkun('${d.id}')" title="Edit Akun">✏️</button> <button class="btn btn-xs btn-warning" onclick="modalMigrateWorkflow('${d.id}','${escHtml(p.nama)}')" title="Ganti Alur Kerja / Divisi">🔄</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_users','${d.id}','akun')" title="Hapus">🗑️</button></td></tr>`;
-  });
+  }
   document.getElementById('tblAkun').innerHTML = h;
 }
 
@@ -1281,8 +1273,8 @@ async function modalMigrateWorkflow(oldId, oldNama) {
   const uSnap = await db.collection('hrd_users').get();
   const users = [];
   uSnap.forEach(doc => {
-      const u = doc.data();
-      if (doc.id !== oldId && u.status !== 'nonaktif') users.push({ id: doc.id, nama: u.nama });
+    const u = doc.data();
+    if (doc.id !== oldId && u.status !== 'nonaktif') users.push({ id: doc.id, nama: u.nama });
   });
 
   let opts = '<option value="">-- Pilih User Pengganti --</option>';
@@ -1628,8 +1620,7 @@ async function showAkunForm(id, p) {
   // Load karyawan list for linking (only active)
   const karySnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
   let karyData = [];
-  karySnap.forEach((d) => {
-    const k = d.data();
+  for (const d of karySnap) { const k = d.data();
     karyData.push({
       id: d.id,
       nama: k.nama,
@@ -1652,7 +1643,7 @@ async function showAkunForm(id, p) {
     <div class="grid-2"><div class="form-group"><label>Username</label><input class="form-control" id="akUser" value="${escHtml(id || '')}" data-old-id="${escHtml(id || '')}"></div><div class="form-group"><label>Password</label><input class="form-control" id="akPass" value="${escHtml(p.password || '')}"></div></div>
     <div class="grid-2"><div class="form-group"><label>Nama</label><input class="form-control" id="akNama" value="${escHtml(p.nama || '')}"></div><div class="form-group"><label>Role</label><select class="form-control" id="akRole"><option value="staff" ${p.role === 'staff' || p.role === 'karyawan' ? 'selected' : ''}>Staff</option><option value="leader" ${p.role === 'leader' ? 'selected' : ''}>Leader</option><option value="manager" ${p.role === 'manager' ? 'selected' : ''}>Manager</option><option value="head" ${p.role === 'head' ? 'selected' : ''}>Head</option><option value="bod" ${p.role === 'bod' ? 'selected' : ''}>BOD / Founder</option><option value="admin" ${p.role === 'admin' || p.role === 'superadmin' ? 'selected' : ''}>Admin (Full Access)</option></select></div></div>
     <div class="grid-2"><div class="form-group"><label>Departemen</label><input class="form-control" id="akDept" value="${escHtml(p.departemen || '')}"></div><div class="form-group"><label>Status</label><select class="form-control" id="akStatus"><option value="aktif" ${p.status === 'aktif' ? 'selected' : ''}>Aktif</option><option value="nonaktif" ${p.status === 'nonaktif' ? 'selected' : ''}>Nonaktif</option></select></div></div>
-    <div class="form-group" style="background:#f0f4ff;padding:12px;border-radius:8px;border-left:4px solid var(--primary)"><label style="color:var(--primary)">🔗 Sambungkan ke Data Karyawan</label><input class="form-control mb-8" id="akLinkedSearch" placeholder="🔍 Ketik nama untuk mencari..." oninput="filterLinkedKary()"><select class="form-control" id="akLinkedKary" size="10" style="height:auto;max-height:250px">${karyOpts}</select><div class="text-xs mt-8" style="color:#666">Hanya karyawan aktif. Ketik nama untuk filter, lalu pilih dari daftar.</div></div>
+    <div class="form-group" style="background:#f9f9f9;padding:12px;border-radius:8px;border-left:4px solid var(--primary)"><label style="color:var(--primary)">🔗 Sambungkan ke Data Karyawan</label><input class="form-control mb-8" id="akLinkedSearch" placeholder="🔍 Ketik nama untuk mencari..." oninput="filterLinkedKary()"><select class="form-control" id="akLinkedKary" size="10" style="height:auto;max-height:250px">${karyOpts}</select><div class="text-xs mt-8" style="color:#666">Hanya karyawan aktif. Ketik nama untuk filter, lalu pilih dari daftar.</div></div>
     <div class="flex gap-8 mt-16"><button class="btn btn-primary" onclick="simpanAkun('${id || ''}')">💾 Simpan</button>${id ? `<button class="btn btn-danger" onclick="hapusDoc('hrd_users','${id}','akun')">🗑️ Hapus</button>` : ''}</div>`,
     true
   );
@@ -1732,7 +1723,7 @@ async function simpanAkun(id) {
       await db
         .collection('hrd_users')
         .doc(newUsername)
-        .set({ ...oldData, ...data, username: newUsername });
+        .set({ ...oldData, ...data, username: newUsername  }
       await db.collection('hrd_users').doc(oldId).delete();
       // Update session if editing own account
       if (currentUser.id === oldId) {
@@ -1787,8 +1778,7 @@ async function renderApprovalCenter(tab = 'pending') {
   const deptMap = {};
   const gradeMap = {};
 
-  karySnap.forEach((d) => {
-    const k = d.data();
+  for (const d of karySnap) { const k = d.data();
     const namaLower = (k.nama || '').toLowerCase().trim();
     allKaryawan.push({ id: d.id, ...k });
     deptMap[namaLower] = (k.departemen || '').trim();
@@ -1828,13 +1818,12 @@ async function renderApprovalCenter(tab = 'pending') {
           ''
         ).toLowerCase().trim();
         items.push(data);
-      });
+       }
     } catch (e) {
       console.warn(`Error fetching ${col}:`, e);
       // Fallback for collections without composite index
       const snap = await db.collection(col).get();
-      snap.forEach((d) => {
-        const data = { id: d.id, collection: col, ...d.data() };
+      for (const d of snap) { const data = { id: d.id, collection: col, ...d.data() };
         data._dept = (
           data.departemen ||
           deptMap[(data.nama || '').toLowerCase().trim()] ||
@@ -1971,7 +1960,7 @@ async function renderApprovalCenter(tab = 'pending') {
 // ── APPROVAL DETAIL HELPERS ────────────────────────────────────
 function _buildEmployeeProfile(karyawan, p) {
   let h =
-    '<div style="border-left:4px solid var(--accent);background:#f8f9ff;padding:14px 16px;border-radius:0 8px 8px 0;margin-bottom:16px">';
+    '<div style="border-left:4px solid var(--primary);background:#f9f9f9;padding:14px 16px;border-radius:0 8px 8px 0;margin-bottom:16px">';
   h += '<div class="fw-700 mb-8" style="font-size:.9rem">👤 Profil Karyawan</div>';
   h += '<div class="grid-2" style="gap:8px;font-size:.85rem">';
   h += `<div><b>Nama:</b> ${escHtml(p.nama || '-')}</div>`;
@@ -2010,7 +1999,7 @@ async function _buildCutiDetail(p, karyawan) {
       cutiSnap.forEach((d) => {
         const cd = d.data();
         if (cd.jenis === 'Cuti Tahunan' && cd.status === 'approved') terpakai += cd.durasi || 0;
-      });
+       }
       const sisa = Math.max(0, jatah - terpakai);
       h +=
         '<div style="margin-top:12px;padding:10px;background:#f0f7ff;border-radius:6px;font-size:.83rem">';
@@ -2028,8 +2017,7 @@ async function _buildCutiDetail(p, karyawan) {
     if (p.mulai && p.selesai) {
       const hSnap = await db.collection('hrd_hari_libur').get();
       const holidays = [];
-      hSnap.forEach((d) => {
-        const hd = d.data();
+      for (const d of hSnap) { const hd = d.data();
         if (hd.tanggal) holidays.push(hd);
       });
       const start = new Date(p.mulai),
@@ -2077,7 +2065,7 @@ async function _buildOvertimeDetail(p, karyawan) {
         const od = d.data();
         if (od.status === 'approved' && (od.tanggal || '').startsWith(monthPrefix))
           totalJam += parseFloat(od.durasi) || 0;
-      });
+       }
       h +=
         '<div style="margin-top:12px;padding:10px;background:#f0f7ff;border-radius:6px;font-size:.83rem">';
       h += `<div class="fw-700 mb-4">📊 Total Lembur Bulan Ini (Approved)</div>`;
@@ -2169,8 +2157,7 @@ async function _buildDinasDetail(p, karyawan) {
         h +=
           '<div style="margin-top:8px;padding:10px;background:#fff;border-radius:6px;border:1px solid var(--border);font-size:.83rem">';
         h += '<div class="fw-700 mb-4">💰 Perbandingan Biaya vs Limit</div>';
-        costs.forEach((c) => {
-          if (c.submitted > 0 || c.max > 0) {
+        for (const c of costs) { if (c.submitted > 0 || c.max > 0) {
             const exceed = c.submitted > c.max;
             h += `<div style="margin-bottom:4px;${exceed ? 'color:#d32f2f;font-weight:700' : ''}">`;
             h += `${exceed ? '⚠️ ' : ''}${c.label}: ${formatCurrency(c.submitted)} / ${formatCurrency(c.max)}`;
@@ -2219,7 +2206,7 @@ async function _buildReimbDetail(p) {
         if (cr.startsWith(tahunIni)) totalTahun += amt;
         const cat = rd.kategori || 'Lainnya';
         byCategory[cat] = (byCategory[cat] || 0) + amt;
-      });
+       }
       h +=
         '<div style="margin-top:12px;padding:10px;background:#f0f7ff;border-radius:6px;font-size:.83rem">';
       h += `<div class="fw-700 mb-4">📊 Riwayat Klaim (Approved)</div>`;
@@ -2227,8 +2214,7 @@ async function _buildReimbDetail(p) {
       const cats = Object.keys(byCategory);
       if (cats.length) {
         h += '<div style="margin-top:6px"><b>Per Kategori (tahun ini):</b></div>';
-        cats.forEach((cat) => {
-          h += `<div>• ${escHtml(cat)}: ${formatCurrency(byCategory[cat])}</div>`;
+        for (const cat of cats) { h += `<div>• ${escHtml(cat)}: ${formatCurrency(byCategory[cat])}</div>`;
         });
       }
       h += '</div>';
@@ -2267,7 +2253,7 @@ async function _buildKasbonDetail(p, karyawan) {
           totalOutstanding += sisa;
           activeCount++;
         }
-      });
+       }
       h +=
         '<div style="margin-top:12px;padding:10px;background:#f0f7ff;border-radius:6px;font-size:.83rem">';
       h += `<div class="fw-700 mb-4">📊 Pinjaman Aktif</div>`;
@@ -2446,8 +2432,7 @@ async function approveItem(col, id, status, catatan) {
         const cat = getApprovalCategory(col, data);
 
         const matchingFlows = [];
-        flowSnap.forEach((d) => {
-          const f = d.data();
+        for (const d of flowSnap) { const f = d.data();
           if (isSameName(f.pengaju, data.nama)) {
               matchingFlows.push(f);
           }
@@ -2470,7 +2455,7 @@ async function approveItem(col, id, status, catatan) {
           approvalStep: nextStep,
           approvalHistory: history,
           lastApprovedBy: currentUser.nama,
-        });
+         }
       const nextApprover = steps[nextStep];
       if (nextApprover?.nama) {
         const uSnap = await db
@@ -2588,8 +2573,7 @@ async function renderApprovalMgmt() {
         (a.jenis || '').localeCompare(b.jenis || '') ||
         (a.pengaju || '').localeCompare(b.pengaju || '')
     );
-    items.forEach((p) => {
-      h += `<tr><td class="fw-700">${escHtml(p.jenis)}</td><td>${escHtml(p.pengaju || 'Semua')}</td><td>${escHtml(p.departemen || 'Semua')}</td><td>${(p.steps || []).map((s) => `<span class="badge badge-primary">${escHtml(s.nama || s.role)}</span>`).join(' → ')}</td><td><button class="btn btn-xs btn-info" onclick="viewApprovalFlow('${p.id}')">👁️</button> <button class="btn btn-xs btn-primary" onclick="editApprovalFlow('${p.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_approval_flow','${p.id}','approval-mgmt')">🗑️</button></td></tr>`;
+    for (const p of items) { h += `<tr><td class="fw-700">${escHtml(p.jenis)}</td><td>${escHtml(p.pengaju || 'Semua')}</td><td>${escHtml(p.departemen || 'Semua')}</td><td>${(p.steps || []).map((s) => `<span class="badge badge-primary">${escHtml(s.nama || s.role)}</span>`).join(' → ')}</td><td><button class="btn btn-xs btn-info" onclick="viewApprovalFlow('${p.id}')">👁️</button> <button class="btn btn-xs btn-primary" onclick="editApprovalFlow('${p.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_approval_flow','${p.id}','approval-mgmt')">🗑️</button></td></tr>`;
     });
   }
   document.getElementById('tblApprFlow').innerHTML = h;
@@ -2633,7 +2617,7 @@ async function generateAllApprovalFlows() {
   const staffAndLeaders = karyawan.filter((k) => {
     const pos = (k.posisi || '').toLowerCase();
     return !pos.includes('founder');
-  });
+   }
   let count = 0;
   for (const k of staffAndLeaders) {
     // Build approval chain: atasan → atasan's atasan → admin
@@ -2697,7 +2681,7 @@ function viewApprovalFlow(id) {
       openModal(`<div class="modal-title">📋 Detail Approval Flow</div>
       <div class="grid-2 mb-16"><div><b>Jenis:</b> ${escHtml(p.jenis)}</div><div><b>Pengaju:</b> ${escHtml(p.pengaju || 'Semua')}</div><div><b>Departemen:</b> ${escHtml(p.departemen || 'Semua')}</div></div>
       <div class="fw-700 text-sm mb-8 color-primary">Alur Approval:</div>
-      <div style="background:#f8f9ff;padding:12px;border-radius:8px">${stepsHtml || '<p class="text-sm" style="color:#999">Tidak ada step</p>'}</div>`);
+      <div style="background:#f9f9f9;padding:12px;border-radius:8px">${stepsHtml || '<p class="text-sm" style="color:#999">Tidak ada step</p>'}</div>`);
     });
 }
 
@@ -2706,8 +2690,7 @@ async function editApprovalFlow(id) {
   const p = d.data();
   const kSnap = await db.collection('hrd_karyawan').where('status', '!=', 'nonaktif').get();
   let approverOpts = '<option value="">-- Tidak ada --</option>';
-  kSnap.forEach((doc) => {
-    const k = doc.data();
+  for (const doc of kSnap) { const k = doc.data();
     approverOpts += `<option value="${escHtml(k.nama)}">${escHtml(k.nama)} — ${escHtml(k.posisi || '')} (${escHtml(k.departemen || '')})</option>`;
   });
   const steps = p.steps || [];
@@ -2740,7 +2723,7 @@ async function simpanEditApprovalFlow(id) {
   await db
     .collection('hrd_approval_flow')
     .doc(id)
-    .update({ steps, updatedAt: new Date().toISOString() });
+    .update({ steps, updatedAt: new Date().toISOString()  }
   closeModalDirect();
   toast('Flow diupdate', 'success');
   renderApprovalMgmt();
@@ -2750,8 +2733,7 @@ async function modalApprovalFlow() {
   let karyOpts = '<option value="Semua">Semua Karyawan</option>';
   let approverOpts = '';
   const depts = new Set();
-  kSnap.forEach((d) => {
-    const k = d.data();
+  for (const d of kSnap) { const k = d.data();
     karyOpts += `<option value="${escHtml(k.nama)}">${escHtml(k.nama)} — ${escHtml(k.departemen || '')} (${escHtml(k.posisi || '')})</option>`;
     depts.add(k.departemen || '');
     const pos = (k.posisi || '').toUpperCase();
@@ -2806,7 +2788,7 @@ async function simpanApprovalFlow() {
     pengaju: document.getElementById('afPengaju').value,
     steps,
     createdAt: new Date().toISOString(),
-  });
+   }
   closeModalDirect();
   toast('Flow disimpan', 'success');
   renderApprovalMgmt();
@@ -3165,7 +3147,7 @@ function renderDiscTestPage() {
           : ''
       }
     </div>
-    <div style="background:#e3f2fd;border-radius:8px;padding:14px;margin-bottom:16px;border-left:4px solid var(--info)">
+    <div style="background:#e3f2fd;border-radius:8px;padding:14px;margin-bottom:16px;border-left:4px solid var(--primary)">
       <p class="text-sm" style="line-height:1.6"><strong>DISC</strong> = Dominance, Influence, Steadiness, Compliance.<br>
       • <strong>Calon Karyawan:</strong> Bagikan link tes kepada kandidat saat rekrutmen<br>
       • <strong>Evaluasi Periodik:</strong> Pilih karyawan dari database, data otomatis terisi<br>
@@ -3183,14 +3165,13 @@ function renderDiscTestPage() {
 async function modalDiscEvalKaryawan() {
   const snap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
   let opts = '<option value="">-- Pilih Karyawan --</option>';
-  snap.forEach((d) => {
-    const p = d.data();
+  for (const d of snap) { const p = d.data();
     opts += `<option value="${d.id}" data-nama="${escHtml(p.nama)}" data-nip="${escHtml(p.nip || '')}" data-dept="${escHtml(p.departemen || '')}" data-pos="${escHtml(p.posisi || '')}">${escHtml(p.nama)} — ${escHtml(p.departemen || '')} (${escHtml(p.nip || '')})</option>`;
   });
   openModal(
     `<div class="modal-title">📊 Evaluasi DISC — Pilih Karyawan</div>
     <div class="form-group"><label>Karyawan</label><select class="form-control" id="discEvalSelect" onchange="onDiscEvalSelect()">${opts}</select></div>
-    <div id="discEvalInfo" style="display:none;background:#f8f9ff;border-radius:8px;padding:12px;margin-bottom:16px">
+    <div id="discEvalInfo" style="display:none;background:#f9f9f9;border-radius:8px;padding:12px;margin-bottom:16px">
       <div class="grid-2" style="font-size:.82rem"><div><strong>Nama:</strong> <span id="deNama">-</span></div><div><strong>NIP:</strong> <span id="deNip">-</span></div><div><strong>Departemen:</strong> <span id="deDept">-</span></div><div><strong>Posisi:</strong> <span id="dePos">-</span></div></div>
     </div>
     <div class="form-group"><label>Periode Evaluasi</label><input class="form-control" id="discEvalPeriode" placeholder="Contoh: Q1 2026, Semester 1 2026"></div>
@@ -3243,14 +3224,13 @@ function fltDisc() {
     if (q && !r.nama?.toLowerCase().includes(q)) return false;
     if (m && r.mode !== m) return false;
     return true;
-  });
+   }
   let h = '';
   if (!data.length)
     h =
       '<tr><td colspan="7" class="text-center" style="color:var(--text-light)">Belum ada data</td></tr>';
   else
-    data.forEach((r) => {
-      const dt = r.createdAt
+    for (const r of data) { const dt = r.createdAt
         ? new Date(r.createdAt).toLocaleDateString('id-ID', {
             day: '2-digit',
             month: 'short',
@@ -3282,7 +3262,7 @@ async function viewDiscResult(id) {
     let dots = '';
     vals.forEach((v, i) => {
       dots += `<circle cx="${15 + i * 40}" cy="${toY(v)}" r="3" fill="#1a237e"/><text x="${15 + i * 40}" y="${toY(v) - 8}" text-anchor="middle" font-size="7" font-weight="700" fill="${v >= 0 ? '#2e7d32' : '#c62828'}">${v > 0 ? '+' : ''}${typeof v === 'number' ? v.toFixed(1) : v}</text>`;
-    });
+     }
     const pts = vals.map((v, i) => `${15 + i * 40},${toY(v)}`).join(' ');
     return `<div style="text-align:center;flex:1;min-width:150px"><div style="font-size:.63rem;font-weight:700;color:var(--primary)">${title}</div><div style="font-size:.55rem;color:#999">${sub}</div><svg width="155" height="${h + 18}" viewBox="0 0 155 ${h + 18}" style="border:1px solid #ddd;border-radius:4px;background:#fafafa"><line x1="5" y1="${h / 2}" x2="150" y2="${h / 2}" stroke="#999" stroke-width="0.5" stroke-dasharray="2"/><polyline points="${pts}" fill="none" stroke="#1a237e" stroke-width="1.5"/>${dots}<text x="15" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">D</text><text x="55" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">I</text><text x="95" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">S</text><text x="135" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">C</text></svg></div>`;
   }
@@ -3381,8 +3361,7 @@ async function viewDiscResult(id) {
     maskT = '',
     coreT = '',
     mirrorT = '';
-  posT.forEach((t) => {
-    posH += `<div style="padding:2px 0;font-size:.73rem;color:#2e7d32">✅ ${escHtml(t)}</div>`;
+  for (const t of posT) { posH += `<div style="padding:2px 0;font-size:.73rem;color:#2e7d32">✅ ${escHtml(t)}</div>`;
     maskT += `<div style="font-size:.7rem">${escHtml(t)}</div>`;
   });
   negT.forEach((t) => {
@@ -3453,16 +3432,16 @@ async function viewDiscResult(id) {
     kpiScore >= 90 ? 'A' : kpiScore >= 80 ? 'B' : kpiScore >= 70 ? 'C' : kpiScore >= 60 ? 'D' : 'E';
   openModal(
     `<div class="modal-title">📊 D.I.S.C. Personality System Graph Page</div>
-    <div style="font-size:.78rem;margin-bottom:8px;background:#f8f9ff;padding:10px;border-radius:8px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:3px"><div><b>Name:</b> ${escHtml(r.nama)}</div><div><b>Tanggal:</b> ${dt}</div><div><b>Mode:</b> ${r.mode === 'evaluasi' ? 'Evaluasi' : 'Calon'}</div><div><b>Posisi:</b> ${escHtml(r.posisi || '-')}</div>${r.departemen ? `<div><b>Dept:</b> ${escHtml(r.departemen)}</div>` : ''}${r.evaluasiPeriode ? `<div><b>Periode:</b> ${escHtml(r.evaluasiPeriode)}</div>` : ''}<div><b>KPI:</b> <span class="badge badge-${kpiScore >= 80 ? 'success' : kpiScore >= 60 ? 'warning' : 'danger'}">${kpiScore} (${kpiGrade})</span></div></div></div>
+    <div style="font-size:.78rem;margin-bottom:8px;background:#f9f9f9;padding:10px;border-radius:8px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:3px"><div><b>Name:</b> ${escHtml(r.nama)}</div><div><b>Tanggal:</b> ${dt}</div><div><b>Mode:</b> ${r.mode === 'evaluasi' ? 'Evaluasi' : 'Calon'}</div><div><b>Posisi:</b> ${escHtml(r.posisi || '-')}</div>${r.departemen ? `<div><b>Dept:</b> ${escHtml(r.departemen)}</div>` : ''}${r.evaluasiPeriode ? `<div><b>Periode:</b> ${escHtml(r.evaluasiPeriode)}</div>` : ''}<div><b>KPI:</b> <span class="badge badge-${kpiScore >= 80 ? 'success' : kpiScore >= 60 ? 'warning' : 'danger'}">${kpiScore} (${kpiGrade})</span></div></div></div>
     <div style="text-align:center;margin-bottom:8px"><span style="display:inline-block;padding:5px 14px;background:linear-gradient(135deg,var(--primary),#283593);color:#fff;border-radius:14px;font-weight:700;font-size:.85rem">${escHtml(r.profileName || '-')} (${escHtml(r.pattern || '-')})</span></div>
     <div style="overflow-x:auto;margin-bottom:8px"><table style="width:auto;margin:0 auto;border-collapse:collapse;font-size:.7rem"><thead><tr style="background:var(--primary);color:#fff"><th style="padding:3px 7px">Line</th><th style="padding:3px 7px">D</th><th style="padding:3px 7px">I</th><th style="padding:3px 7px">S</th><th style="padding:3px 7px">C</th><th style="padding:3px 7px">tot</th></tr></thead><tbody><tr><td style="padding:3px 7px;border:1px solid #ddd;font-weight:700">1(P)</td><td style="padding:3px 7px;border:1px solid #ddd">${r.rawP?.D || 0}</td><td style="padding:3px 7px;border:1px solid #ddd">${r.rawP?.I || 0}</td><td style="padding:3px 7px;border:1px solid #ddd">${r.rawP?.S || 0}</td><td style="padding:3px 7px;border:1px solid #ddd">${r.rawP?.C || 0}</td><td style="padding:3px 7px;border:1px solid #ddd;color:red">24</td></tr><tr><td style="padding:3px 7px;border:1px solid #ddd;font-weight:700">2(K)</td><td style="padding:3px 7px;border:1px solid #ddd">${r.rawK?.D || 0}</td><td style="padding:3px 7px;border:1px solid #ddd">${r.rawK?.I || 0}</td><td style="padding:3px 7px;border:1px solid #ddd">${r.rawK?.S || 0}</td><td style="padding:3px 7px;border:1px solid #ddd">${r.rawK?.C || 0}</td><td style="padding:3px 7px;border:1px solid #ddd;color:red">24</td></tr><tr><td style="padding:3px 7px;border:1px solid #ddd;font-weight:700">3</td><td style="padding:3px 7px;border:1px solid #ddd">${typeof s3.D === 'number' ? s3.D.toFixed(1) : s3.D}</td><td style="padding:3px 7px;border:1px solid #ddd">${typeof s3.I === 'number' ? s3.I.toFixed(1) : s3.I}</td><td style="padding:3px 7px;border:1px solid #ddd">${typeof s3.S === 'number' ? s3.S.toFixed(1) : s3.S}</td><td style="padding:3px 7px;border:1px solid #ddd">${typeof s3.C === 'number' ? s3.C.toFixed(1) : s3.C}</td><td style="padding:3px 7px;border:1px solid #ddd"></td></tr></tbody></table></div>
     <div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap">${graphs}</div>
     <div style="margin-bottom:10px"><div style="font-size:.75rem;font-weight:700;color:var(--primary);text-align:center;margin-bottom:6px">Gambaran Karakter</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><div><div style="font-size:.65rem;font-weight:700;text-decoration:underline;margin-bottom:3px">Mask Public Self</div><div style="font-size:.68rem;font-weight:700;color:var(--primary)">${escHtml(r.profileName || '-')}</div>${maskT}</div><div><div style="font-size:.65rem;font-weight:700;text-decoration:underline;margin-bottom:3px">Core Private Self</div><div style="font-size:.68rem;font-weight:700;color:var(--primary)">${escHtml(r.profileName || '-')}</div>${coreT}</div><div><div style="font-size:.65rem;font-weight:700;text-decoration:underline;margin-bottom:3px">Mirror Perceived Self</div><div style="font-size:.68rem;font-weight:700;color:var(--primary)">${escHtml(r.profileName || '-')}</div>${mirrorT}</div></div></div>
-    <div style="background:#f8f9ff;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;font-size:.76rem;line-height:1.6"><b>📝 Deskripsi Kepribadian:</b><br>${escHtml(gDesc(r.pattern || ''))}</div>
+    <div style="background:#f9f9f9;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;font-size:.76rem;line-height:1.6"><b>📝 Deskripsi Kepribadian:</b><br>${escHtml(gDesc(r.pattern || ''))}</div>
     <div style="border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;font-size:.76rem;line-height:1.7"><b>🔍 Analisis & Kesimpulan Karakter:</b><br><br>${kes}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"><div style="background:#e8f5e9;border-radius:6px;padding:8px"><div style="font-size:.7rem;font-weight:700;color:#2e7d32;margin-bottom:3px">✅ Sifat Positif</div>${posH || '-'}</div><div style="background:#ffebee;border-radius:6px;padding:8px"><div style="font-size:.7rem;font-weight:700;color:#c62828;margin-bottom:3px">⚠️ Sifat Negatif</div>${negH || '-'}</div></div>
     ${career ? `<div style="background:#e8f5e9;border-radius:6px;padding:10px;margin-bottom:10px"><div style="font-size:.72rem;font-weight:700;color:#1b5e20;margin-bottom:6px">💼 Rekomendasi Bidang Pekerjaan yang Cocok</div><div style="font-size:.75rem;color:#2e7d32;line-height:1.6">Melihat profilnya yang kuat dalam ${dom.map(([t]) => dn[t].toLowerCase()).join(' dan ')}, <b>${escHtml(r.nama)}</b> akan sangat unggul dalam pekerjaan yang membutuhkan keahlian mendalam${dom.some(([t]) => t === 'D') ? ', otonomi, dan kepemimpinan' : dom.some(([t]) => t === 'I') ? ', komunikasi, dan kerjasama' : dom.some(([t]) => t === 'S') ? ', kesabaran, dan konsistensi' : ', ketelitian, dan analisis'}.<br><br><b>Bidang pekerjaan yang sangat cocok antara lain:</b><br>${escHtml(career)}<br><br>Ia akan berkembang di lingkungan yang menghargai <b>${posT.slice(0, 3).join(', ')}</b>. Peran yang kurang cocok untuknya adalah yang membutuhkan ${weak.length > 0 ? ddL[weak[0][0]] : 'karakteristik yang berlawanan'}.</div></div>` : ''}
-    <div style="background:#f8f9ff;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px"><div style="display:flex;align-items:center;gap:12px"><div style="text-align:center;padding:10px 16px;border-radius:8px;border:2px solid ${kpiScore >= 80 ? 'var(--success)' : 'var(--warning)'}"><div style="font-size:1.5rem;font-weight:700;color:${kpiScore >= 80 ? 'var(--success)' : 'var(--warning)'}">${kpiScore}</div><div style="font-size:.65rem">Grade ${kpiGrade}</div></div><div style="font-size:.75rem;line-height:1.6"><b>📈 Dampak KPI</b><br>Kekuatan: ${posT.length} poin (+${Math.min(posT.length * 3, 20)})<br>Area Pengembangan: ${negT.length} poin (-${Math.min(negT.length * 2, 15)})</div></div></div>
+    <div style="background:#f9f9f9;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px"><div style="display:flex;align-items:center;gap:12px"><div style="text-align:center;padding:10px 16px;border-radius:8px;border:2px solid ${kpiScore >= 80 ? 'var(--success)' : 'var(--warning)'}"><div style="font-size:1.5rem;font-weight:700;color:${kpiScore >= 80 ? 'var(--success)' : 'var(--warning)'}">${kpiScore}</div><div style="font-size:.65rem">Grade ${kpiGrade}</div></div><div style="font-size:.75rem;line-height:1.6"><b>📈 Dampak KPI</b><br>Kekuatan: ${posT.length} poin (+${Math.min(posT.length * 3, 20)})<br>Area Pengembangan: ${negT.length} poin (-${Math.min(negT.length * 2, 15)})</div></div></div>
     <div class="flex gap-8 flex-wrap"><button class="btn btn-success btn-sm" onclick="syncDiscToKPI('${id}');closeModalDirect()">📈 Sinkron ke KPI</button>${currentUser.role === 'admin' ? `<button class="btn btn-warning btn-sm" onclick="closeModalDirect();editDiscResult('${id}')">✏️ Edit</button>` : ''}<button class="btn btn-primary btn-sm" onclick="printDiscResult()">🖨️ Cetak/Download</button></div>`,
     true
   );
@@ -3551,7 +3530,7 @@ async function syncDiscToKPI(id) {
     discPattern: r.pattern || '',
     discProfile: r.profileName || '',
     createdAt: new Date().toISOString(),
-  });
+   }
   toast(`DISC ${r.nama} disinkronkan ke KPI (Skor: ${kpiScore}, Grade: ${grade})`, 'success');
 }
 
@@ -3596,7 +3575,7 @@ function renderSystemAdmin() {
       '<div class="card"><p>Akses ditolak.</p></div>');
   const main = document.getElementById('mainContent');
   main.innerHTML = `<div class="page-title"><span>🔧 Reset & Backup Sistem</span></div>
-    <div class="card" style="border-left:4px solid var(--accent)">
+    <div class="card" style="border-left:4px solid var(--primary)">
       <div class="card-title mb-16">⚠️ Zona Berbahaya</div>
       <p class="text-sm mb-16" style="color:#666">Fitur ini hanya untuk Administrator. Semua aksi bersifat permanen dan berlaku untuk seluruh data sistem.</p>
       <div class="grid-2">
@@ -3681,8 +3660,7 @@ async function resetCollection(col, label) {
   const batchSize = 400;
   let count = 0;
   let batch = db.batch();
-  snap.forEach((d) => {
-    batch.delete(d.ref);
+  for (const d of snap) { batch.delete(d.ref);
     count++;
     if (count % batchSize === 0) {
       batch.commit();
@@ -3740,7 +3718,7 @@ async function resetEntireSystem() {
   const batch = db.batch();
   usersSnap.forEach((d) => {
     if (d.data().role !== 'admin') batch.delete(d.ref);
-  });
+   }
   await batch.commit();
   toast('Sistem berhasil direset. Hanya akun admin yang tersisa.', 'success');
 }
@@ -3764,7 +3742,7 @@ function renderPanduan() {
 
   // Staff instructions
   if (level >= 1) {
-    content += `<div class="card mb-16" style="border-left:4px solid #1565c0"><div class="fw-700 mb-8" style="color:#1565c0">📋 Daily Report (Wajib)</div>
+    content += `<div class="card mb-16" style="border-left:4px solid var(--primary)"><div class="fw-700 mb-8" style="color:#1565c0">📋 Daily Report (Wajib)</div>
       <div class="text-sm" style="line-height:2">
         <div><b>1.</b> Buka menu <b>Daily Task</b> → klik <b>+ Tambah</b> (atau + Daily Report untuk Staff).</div>
         <div><b>2.</b> Pilih <b>"Daily Report"</b> → isi tanggal, kategori, aktivitas, hasil, kendala, solusi.</div>
@@ -3831,7 +3809,7 @@ function renderPanduan() {
         <div><b>📈 KPI:</b> Lihat skor KPI tim — penalty otomatis mengurangi skor.</div>
       </div></div>`;
 
-    content += `<div class="card mb-16" style="border-left:4px solid #1565c0"><div class="fw-700 mb-8" style="color:#1565c0">📅 Meeting & Broadcast (Manager)</div>
+    content += `<div class="card mb-16" style="border-left:4px solid var(--primary)"><div class="fw-700 mb-8" style="color:#1565c0">📅 Meeting & Broadcast (Manager)</div>
       <div class="text-sm" style="line-height:2">
         <div><b>Buat Meeting:</b> Pilih tipe General (semua divisi) atau Divisi (hanya divisi sendiri).</div>
         <div><b>Meeting Online:</b> Video call via Jitsi. Link aktif 15 menit sebelum jadwal.</div>
@@ -3850,7 +3828,7 @@ function renderPanduan() {
 
   // Head instructions
   if (level >= 4) {
-    content += `<div class="card mb-16" style="border-left:4px solid #c62828"><div class="fw-700 mb-8" style="color:#c62828">🏢 Akses Head (Lintas Divisi)</div>
+    content += `<div class="card mb-16" style="border-left:4px solid var(--primary)"><div class="fw-700 mb-8" style="color:#c62828">🏢 Akses Head (Lintas Divisi)</div>
       <div class="text-sm" style="line-height:2">
         <div><b>🏢 Semua Divisi:</b> Tab khusus untuk melihat gabungan report SEMUA departemen.</div>
         <div><b>📊 Grouping:</b> Report dikelompokkan per Departemen → Kategori → Nama.</div>
