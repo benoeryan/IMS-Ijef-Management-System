@@ -3161,7 +3161,7 @@ async function doGenerateAbsensi() {
                 manual: true,
                 editedBy: currentUser.nama,
                 createdAt: new Date().toISOString()
-            }
+            });
             await db.collection('hrd_absensi').add({
                 userId: k.id,
                 nama: k.nama,

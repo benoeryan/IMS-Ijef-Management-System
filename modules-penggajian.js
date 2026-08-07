@@ -137,7 +137,7 @@ async function loadGaji() {
     let opts = '<option value="">Semua Dept</option>';
     depts.forEach((d) => {
       if (d) opts += `<option>${escHtml(d)}</option>`;
-    }
+    });
     sel.innerHTML = opts;
   }
   filterGajiTable();
@@ -263,7 +263,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
     kSnapAll.forEach((d) => {
       const data = d.data();
       if (data.status === 'aktif' || data.status === 'probation' || data.status === 'kontrak') {
-        kDocs.push({ id: d.id, ...data }
+        kDocs.push({ id: d.id, ...data });
       }
     });
 
@@ -313,7 +313,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
     liburSnap.forEach(d => {
         const h = d.data();
         if (h.tanggal >= periodeStart && h.tanggal <= periodeEnd) holidays.add(h.tanggal);
-    }
+    });
 
     const isWorkDay = (dateStr) => {
         const dt = new Date(dateStr + 'T00:00:00');
@@ -362,7 +362,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
               a.tanggal >= rangeStart && a.tanggal <= rangeEnd) {
               absenDatesSet.add(a.tanggal);
           }
-      }
+      });
 
       const cutiDatesArr = [], dinasDatesArr = [], absentDatesArr = [];
       const cutiSet = new Set(), dinasSet = new Set();
@@ -599,7 +599,7 @@ async function autoFillGajiFromKaryawan() {
     const all = await db.collection('hrd_karyawan').get();
     all.forEach((d) => {
       if (d.data().nama?.toLowerCase() === nama.toLowerCase()) k = d.data();
-     }
+    });
     if (!k) return toast('Karyawan tidak ditemukan', 'warning');
   }
   const gaji = k.gajiPokok || 0;
@@ -623,7 +623,7 @@ async function autoFillGajiFromKaryawan() {
   reimbSnap.forEach((d) => {
     const r = d.data();
     if ((r.nama || '').toLowerCase() === nama.toLowerCase()) totalReimb += r.jumlah || 0;
-   }
+  });
   document.getElementById('gjReimburse').value = totalReimb;
   // Auto-load kasbon/loan (aktif)
   const kasbonSnap = await db.collection('hrd_kasbon').get();
@@ -646,7 +646,7 @@ async function autoFillGajiFromKaryawan() {
       kpiScore = r.skor || 0;
       kpiFound = true;
     }
-   }
+  });
   if (kpiFound && kpiScore > 0) {
     // Insentif formula: KPI >= 90 = 15% gaji, >= 80 = 10%, >= 70 = 5%, < 70 = 0
     let insentifPct = 0;
@@ -766,7 +766,7 @@ async function processImportPenggajianFromText(text) {
       map.totalBersih = i;
     else if (['lembur', 'overtime', 'uang lembur'].includes(h)) map.lembur = i;
     else if (['bonus'].includes(h)) map.bonus = i;
-   }
+  });
   if (map.nama === undefined) return toast('Header harus berisi kolom "Nama"', 'warning');
   let added = 0,
     updated = 0;
@@ -819,7 +819,7 @@ async function processImportPenggajianFromText(text) {
     } else {
       await db
         .collection('hrd_penggajian')
-        .add({ ...payload, createdAt: new Date().toISOString() }
+        .add({ ...payload, createdAt: new Date().toISOString() });
       added++;
     }
   }
@@ -1004,9 +1004,10 @@ function editGaji(id) {
         true
       );
       calcEditGaji();
-    } catch (e) {
+    })
+    .catch((e) => {
       toast('Gagal memuat slip: ' + e.message, 'error');
-    }
+    });
 }
 function calcEditGaji() {
   const gaji = Number(document.getElementById('egPokok')?.value) || 0;
@@ -1089,7 +1090,7 @@ async function renderReimbursement() {
       const canApprove = p.status === 'pending' && hasAccess(3) && !isBOD;
       const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.kategori)}</td><td>${formatCurrency(p.jumlah)}</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewReimb('${d.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveReimb('${d.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveReimb('${d.id}','rejected')">❌</button>` : ''} <button class="btn btn-xs btn-warning" onclick="editReimb('${d.id}')">✏️</button> ${hasAccess(6) ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_reimbursement','${d.id}','reimbursement')">🗑️</button>` : ''}</td></tr>`;
-    }
+    });
   document.getElementById('tblReimb').innerHTML = h;
 }
 function modalReimburse() {
@@ -1254,7 +1255,7 @@ async function renderKasbon() {
               : 'badge-warning';
       const canApprove = p.status === 'pending' && hasAccess(3) && !isBOD;
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.jenis || '-')}</td><td>${formatCurrency(jumlah)}</td><td class="fw-700">${formatCurrency(angsuran)}</td><td>${cicilan} bulan</td><td>${formatCurrency(sudahBayar)}</td><td class="fw-700" style="color:${sisa > 0 ? 'var(--danger)' : 'var(--success)'}">${formatCurrency(sisa)}</td><td>${p.status === 'lunas' ? '✅ Lunas' : sisaBulan + ' bln'}</td><td><span class="badge ${badge}">${p.status || 'pending'}</span></td><td><button class="btn btn-xs btn-info" onclick="viewKasbon('${p.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveKasbon('${p.id}','aktif')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveKasbon('${p.id}','rejected')">❌</button>` : ''} ${p.status === 'aktif' ? `<button class="btn btn-xs btn-info" onclick="bayarAngsuran('${p.id}')">💰 Bayar</button>` : ''} <button class="btn btn-xs btn-warning" onclick="editKasbonDoc('${p.id}')">✏️</button> ${hasAccess(6) ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kasbon','${p.id}','kasbon')">🗑️</button>` : ''}</td></tr>`;
-    }
+    });
   document.getElementById('tblKasbon').innerHTML = h;
 }
 function modalKasbon() {
@@ -1441,7 +1442,7 @@ async function generateDefaultTunjangan() {
     },
   ];
   for (const t of defaults) {
-    await db.collection('hrd_tunjangan').add({ ...t, createdAt: new Date().toISOString() }
+    await db.collection('hrd_tunjangan').add({ ...t, createdAt: new Date().toISOString() });
   }
   toast('3 tunjangan default berhasil dibuat', 'success');
   renderTunjangan();
@@ -1506,7 +1507,7 @@ async function modalInsentif() {
   kSnap.forEach((d) => {
     const k = d.data();
     opts += `<option value="${escHtml(k.nama)}" data-gaji="${k.gajiPokok || 0}" data-dept="${escHtml(k.departemen || '')}">${escHtml(k.nama)} — ${escHtml(k.departemen || '')} (${formatCurrency(k.gajiPokok || 0)})</option>`;
-   }
+  });
   openModal(`<div class="modal-title">Tambah Insentif KPI</div>
     <div class="form-group"><label>Karyawan</label><select class="form-control" id="insKary" onchange="onInsKaryChange()">${opts}</select></div>
     <div class="grid-2"><div class="form-group"><label>KPI Score</label><input class="form-control" type="number" id="insKPI" value="0" oninput="calcInsentif()"></div><div class="form-group"><label>Periode</label><input class="form-control" id="insPeriode" value="${monthStr()}"></div></div>
@@ -1549,7 +1550,7 @@ async function simpanInsentifSiswa() {
     periode: document.getElementById('insSiswaPeriode').value,
     status: 'approved',
     createdAt: new Date().toISOString(),
-   }
+  });
   closeModalDirect();
   toast('Insentif target siswa disimpan', 'success');
   renderInsentif();
@@ -1587,7 +1588,7 @@ async function simpanInsentif() {
     periode: document.getElementById('insPeriode').value,
     status: 'approved',
     createdAt: new Date().toISOString(),
-  }
+  });
   closeModalDirect();
   toast('Insentif disimpan', 'success');
   renderInsentif();
@@ -1622,7 +1623,7 @@ async function generateInsentifFromKPI() {
       periode: monthStr(),
       status: 'approved',
       createdAt: new Date().toISOString(),
-     }
+    });
     count++;
   }
   toast(`${count} insentif di-generate dari KPI`, 'success');
@@ -1646,7 +1647,7 @@ function viewInsentifDetail(id) {
       const p = d.data();
       openModal(`<div class="modal-title">🏆 Detail Insentif</div>
       <div class="grid-2 mb-16"><div><b>Nama:</b> ${escHtml(p.nama)}</div><div><b>Departemen:</b> ${escHtml(p.departemen || '-')}</div><div><b>Jenis:</b> ${escHtml(p.jenis || 'KPI')}</div><div><b>Periode:</b> ${escHtml(p.periode || '-')}</div><div><b>Nominal:</b> <span class="fw-700">${formatCurrency(p.nominal || 0)}</span></div>${p.jenis === 'KPI' ? `<div><b>KPI Score:</b> ${p.kpiScore || 0} (${p.persen || 0}%)</div>` : `<div><b>Siswa:</b> ${p.jumlahSiswa || 0} × ${formatCurrency(p.nominalPerSiswa || 0)}</div>`}</div>`);
-    }
+    });
 }
 async function editInsentif(id) {
   const d = await db.collection('hrd_insentif').doc(id).get();
@@ -1772,7 +1773,7 @@ async function loadTaxKaryList() {
     const pphBln = Math.round(pph / 12);
     const thp = gaji - bpjsKes - bpjsTK - pphBln;
     h += `<tr><td class="fw-700">${escHtml(k.nama)}</td><td>${formatCurrency(gaji)}</td><td style="color:var(--accent)">${formatCurrency(bpjsKes)}</td><td style="color:var(--accent)">${formatCurrency(bpjsTK)}</td><td style="color:var(--accent)">${formatCurrency(pphBln)}</td><td class="fw-700">${formatCurrency(thp)}</td></tr>`;
-   }
+  });
   h += '</tbody></table></div>';
   document.getElementById('tcKaryList').innerHTML = h;
 }

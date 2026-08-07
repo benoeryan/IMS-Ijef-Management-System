@@ -171,7 +171,7 @@ async function hitungKPIIntegrasi(nama, periode) {
     const jd = d.data() || {};
     const idMatch = karyawanId && (jd.karyawanId === karyawanId || jd.userId === karyawanId);
     if (idMatch && !jobdeskData) jobdeskData = jd;
-  }
+  });
   const bidangJobdesk = ['deskripsi', 'tanggungJawab', 'kualifikasi', 'kpi'];
   const filledJobdesk = jobdeskData
     ? bidangJobdesk.filter((key) => (jobdeskData[key] || '').toString().trim()).length
@@ -302,7 +302,7 @@ async function renderKPI() {
     const pe = d.data();
     const nm = (pe.nama || '').toLowerCase().trim();
     penaltyMap[nm] = (penaltyMap[nm] || 0) + (parseInt(pe.poin) || 0);
-   } // Build set of active karyawan names (exclude calon/kandidat)
+   }); // Build set of active karyawan names (exclude calon/kandidat)
   const karyawanNames = new Set();
   for (const d of karySnap) { const k = d.data();
     karyawanNames.add((k.nama || '').toLowerCase().trim());
@@ -312,7 +312,7 @@ async function renderKPI() {
   snap.forEach((d) => {
     const p = d.data();
     const namaLower = (p.nama || '').toLowerCase().trim();
-    if (karyawanNames.has(namaLower)) kpiItems.push({ id: d.id, ...p }
+    if (karyawanNames.has(namaLower)) kpiItems.push({ id: d.id, ...p });
   });
   if (!kpiItems.length)
     h = `<tr><td colspan="${currentUser.role === 'admin' ? 8 : 7}" class="text-center">Belum ada</td></tr>`;
@@ -410,7 +410,7 @@ function sinkronPenaltyKPI() {
     })
     .catch((e) => {
       toast('Gagal sinkron: ' + e.message, 'error');
-    }
+    });
 }
 async function modalKPI() {
   const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
@@ -497,7 +497,7 @@ async function simpanKPI() {
       discSource: hasilIntegrasi.discSource,
     },
     createdAt: new Date().toISOString(),
-   }
+  });
   closeModalDirect();
   toast('KPI disimpan', 'success');
   renderKPI();
@@ -565,7 +565,7 @@ async function updateKPI(id) {
       },
       updatedAt: new Date().toISOString(),
       updatedBy: currentUser.nama,
-    }
+    });
   closeModalDirect();
   toast('KPI diperbarui', 'success');
   renderKPI();
@@ -592,6 +592,7 @@ async function renderPelatihan() {
   document.getElementById('tblPelatihan').innerHTML = h;
 }
 function viewPelatihan(id) {
+  db.collection('hrd_pelatihan')
     .doc(id)
     .get()
     .then(function (d) {
@@ -654,7 +655,7 @@ function viewPelatihan(id) {
           '</div>',
         true
       );
-    }
+    });
 }
 async function hapusPelatihan(id) {
   if (!confirm('Yakin hapus pelatihan ini?')) return;
@@ -664,10 +665,11 @@ async function hapusPelatihan(id) {
 }
 function modalPelatihan(id) {
   if (id)
+    db.collection('hrd_pelatihan')
         .doc(id)
       .get()
       .then((d) => showPelForm(id, d.data() || {}));
-  else showPelForm(null, { }
+  else showPelForm(null, {});
 }
 function showPelForm(id, p) {
   openModal(
@@ -712,7 +714,7 @@ window.renderKontrak = async function() {
     </div>
     <div id="kontrakContent"></div>`;
   showKontrakTab('list');
-});
+};
 
 async function showKontrakTab(tab) {
   const tabs = document.getElementById('kontrakTabs');
@@ -760,10 +762,11 @@ async function renderKontrakList(container) {
 }
 function modalKontrak(id) {
   if (id)
+    db.collection('hrd_kontrak')
       .doc(id)
       .get()
       .then((d) => showKontrakForm(id, d.data() || {}));
-  else showKontrakForm(null, {}
+  else showKontrakForm(null, {});
 }
 
 async function showKontrakForm(id, p) {
@@ -916,6 +919,7 @@ async function simpanKontrak(id) {
 }
 
 function lihatFileKontrak(id) {
+  db.collection('hrd_kontrak')
     .doc(id)
     .get()
     .then((d) => {
@@ -973,7 +977,7 @@ function renderDokFolders() {
     const key = d.karyawanId || 'unknown';
     if (!grouped[key]) grouped[key] = { nama: d.namaKaryawan || '-', docs: [] };
     grouped[key].docs.push(d);
-  }
+  });
   // Sort by name
   const entries = Object.entries(grouped).sort((a, b) => a[1].nama.localeCompare(b[1].nama));
   let html = '';
@@ -1113,6 +1117,7 @@ async function simpanDokumen() {
 }
 
 function lihatDokumen(id) {
+  db.collection('hrd_dokumen_karyawan')
     .doc(id)
     .get()
     .then((d) => {
@@ -1168,6 +1173,7 @@ window.renderAsset = async function() {
 }
 function modalAsset(id) {
   if (id)
+    db.collection('hrd_asset')
       .doc(id)
       .get()
       .then((d) => showAssetForm(id, d.data() || {}));
@@ -1270,7 +1276,7 @@ async function modalMigrateWorkflow(oldId, oldNama) {
   const users = [];
   uSnap.forEach(doc => {
     const u = doc.data();
-    if (doc.id !== oldId && u.status !== 'nonaktif') users.push({ id: doc.id, nama: u.nama }
+    if (doc.id !== oldId && u.status !== 'nonaktif') users.push({ id: doc.id, nama: u.nama });
   });
 
   let opts = '<option value="">-- Pilih User Pengganti --</option>';
@@ -1371,7 +1377,7 @@ async function doMigrateWorkflow(oldId, oldNama, targetIdParam, targetNamaParam)
                       const regex = new RegExp(oldNama, 'gi');
                       updateObj[f] = d[f].replace(regex, newNama);
                   }
-              }
+              });
           }
 
           batchHist.update(doc.ref, updateObj);
@@ -1588,6 +1594,7 @@ function loadCompanyBranding() {
       logoEl.innerHTML = `<img src="${logo}" style="width:28px;height:28px;border-radius:50%;object-fit:contain;margin-right:8px"><span>IMS</span>`;
   }
   // Then sync from Firestore (for all users including karyawan)
+  db.collection('hrd_settings')
     .doc('perusahaan')
     .get()
     .then((doc) => {
@@ -1605,6 +1612,7 @@ function loadCompanyBranding() {
 }
 function modalAkun(id) {
   if (id)
+    db.collection('akun_rekening')
       .doc(id)
       .get()
       .then((d) => showAkunForm(id, d.data() || {}));
@@ -1621,7 +1629,7 @@ async function showAkunForm(id, p) {
       nip: k.nip || '',
       departemen: k.departemen || '',
       posisi: k.posisi || '',
-    }
+    });
   }
   karyData.sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
   let karyOpts = '<option value="">-- Tidak disambungkan --</option>';
@@ -1717,7 +1725,7 @@ async function simpanAkun(id) {
       await db
         .collection('hrd_users')
         .doc(newUsername)
-        .set({ ...oldData, ...data, username: newUsername  }
+        .set({ ...oldData, ...data, username: newUsername });
       await db.collection('hrd_users').doc(oldId).delete();
       // Update session if editing own account
       if (currentUser.id === oldId) {
@@ -2020,7 +2028,7 @@ async function _buildCutiDetail(p, karyawan) {
       const overlaps = holidays.filter((hl) => {
         const ht = new Date(hl.tanggal);
         return ht >= start && ht <= end;
-      }
+      });
       if (overlaps.length) {
         h +=
           '<div style="margin-top:8px;padding:8px;background:#fff3e0;border-radius:6px;font-size:.82rem">';
@@ -2201,7 +2209,7 @@ async function _buildReimbDetail(p) {
         if (cr.startsWith(tahunIni)) totalTahun += amt;
         const cat = rd.kategori || 'Lainnya';
         byCategory[cat] = (byCategory[cat] || 0) + amt;
-       }
+      });
       h +=
         '<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:6px;font-size:.83rem">';
       h += `<div class="fw-700 mb-4">📊 Riwayat Klaim (Approved)</div>`;
@@ -2248,7 +2256,7 @@ async function _buildKasbonDetail(p, karyawan) {
           totalOutstanding += sisa;
           activeCount++;
         }
-       }
+      });
       h +=
         '<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:6px;font-size:.83rem">';
       h += `<div class="fw-700 mb-4">📊 Pinjaman Aktif</div>`;
@@ -2450,7 +2458,7 @@ async function approveItem(col, id, status, catatan) {
           approvalStep: nextStep,
           approvalHistory: history,
           lastApprovedBy: currentUser.nama,
-         }
+        });
       const nextApprover = steps[nextStep];
       if (nextApprover?.nama) {
         const uSnap = await db
@@ -2460,7 +2468,7 @@ async function approveItem(col, id, status, catatan) {
         let targetUserId = '';
         uSnap.forEach(uDoc => {
             if (isSameName(uDoc.data().nama, nextApprover.nama)) targetUserId = uDoc.id;
-        }
+        });
 
         if (targetUserId)
           await sendNotification(
@@ -2612,7 +2620,7 @@ async function generateAllApprovalFlows() {
   const staffAndLeaders = karyawan.filter((k) => {
     const pos = (k.posisi || '').toLowerCase();
     return !pos.includes('founder');
-   }
+  });
   let count = 0;
   for (const k of staffAndLeaders) {
     // Build approval chain: atasan → atasan's atasan → admin
@@ -2620,7 +2628,7 @@ async function generateAllApprovalFlows() {
     // Step 1: Direct atasan
     if (k.atasan && k.atasan.toLowerCase() !== 'founder') {
       const atasan = karyawan.find((a) => a.nama?.toLowerCase() === k.atasan?.toLowerCase());
-      if (atasan) steps.push({ nama: atasan.nama, role: atasan.posisi || '', userId: atasan.id }
+      if (atasan) steps.push({ nama: atasan.nama, role: atasan.posisi || '', userId: atasan.id });
     }
     // Step 2: Head (if atasan is not head)
     if (steps.length && steps[0].role) {
@@ -2655,7 +2663,7 @@ async function generateAllApprovalFlows() {
         departemen: k.departemen || '',
         steps,
         createdAt: new Date().toISOString(),
-      }
+      });
       count++;
     }
   }
@@ -2664,6 +2672,7 @@ async function generateAllApprovalFlows() {
 }
 
 function viewApprovalFlow(id) {
+  db.collection('hrd_approval_flow')
     .doc(id)
     .get()
     .then((d) => {
@@ -2710,14 +2719,14 @@ async function simpanEditApprovalFlow(id) {
   const s1 = document.getElementById('eafStep1').value;
   const s2 = document.getElementById('eafStep2').value;
   const s3 = document.getElementById('eafStep3').value;
-  if (s1) steps.push({ nama: s1, role: s1 }
+  if (s1) steps.push({ nama: s1, role: s1 });
   if (s2) steps.push({ nama: s2, role: s2 });
   if (s3) steps.push({ nama: s3, role: s3 });
   if (!steps.length) return toast('Minimal 1 approver', 'warning');
   await db
     .collection('hrd_approval_flow')
     .doc(id)
-    .update({ steps, updatedAt: new Date().toISOString()  }
+    .update({ steps, updatedAt: new Date().toISOString() });
   closeModalDirect();
   toast('Flow diupdate', 'success');
   renderApprovalMgmt();
@@ -2742,7 +2751,7 @@ async function modalApprovalFlow() {
   let deptOpts = '';
   depts.forEach((d) => {
     if (d) deptOpts += `<option>${escHtml(d)}</option>`;
-  }
+  });
   openModal(
     `<div class="modal-title">Tambah Approval Flow</div>
     <div class="form-group"><label>Jenis Pengajuan</label><select class="form-control" id="afJenis"><option value="Cuti/Izin">Cuti / Izin</option><option value="WFH">WFH (Work From Home)</option><option value="Dinas Luar">Dinas Luar</option><option value="Overtime">Overtime / Lembur</option><option value="Reimbursement">Reimbursement</option><option value="Kasbon">Kasbon & Loan</option><option value="Insentif">Insentif</option><option value="Penggajian">Penggajian</option><option value="Onboarding">Onboarding</option><option value="Offboarding">Offboarding</option><option value="Perpanjangan Kontrak">Perpanjangan Kontrak</option><option value="Pelatihan">Pelatihan</option></select></div>
@@ -2782,7 +2791,7 @@ async function simpanApprovalFlow() {
     pengaju: document.getElementById('afPengaju').value,
     steps,
     createdAt: new Date().toISOString(),
-   }
+  });
   closeModalDirect();
   toast('Flow disimpan', 'success');
   renderApprovalMgmt();
@@ -2892,6 +2901,7 @@ async function shareAppBroadcast() {
 // ==============================================================
 
 function editCutiDoc(id) {
+  db.collection('hrd_cuti')
     .doc(id)
     .get()
     .then((d) => {
@@ -2933,6 +2943,7 @@ async function updateCutiDoc(id) {
 }
 
 function editOTDoc(id) {
+  db.collection('hrd_overtime')
     .doc(id)
     .get()
     .then((d) => {
@@ -2970,6 +2981,7 @@ async function updateOTDoc(id) {
 }
 
 function editReimb(id) {
+  db.collection('hrd_reimbursement')
     .doc(id)
     .get()
     .then((d) => {
@@ -3038,6 +3050,7 @@ async function updateReimb(id) {
 }
 
 function editKasbonDoc(id) {
+  db.collection('hrd_kasbon')
     .doc(id)
     .get()
     .then((d) => {
@@ -3196,7 +3209,7 @@ function startDiscEvalForKaryawan() {
     pos: opt.dataset.pos,
     periode,
     mode: 'evaluasi',
-  }
+  });
   closeModalDirect();
   window.open('disc-test.html#evaluasi?' + params.toString(), '_blank');
 }
@@ -3214,7 +3227,7 @@ function fltDisc() {
     if (q && !r.nama?.toLowerCase().includes(q)) return false;
     if (m && r.mode !== m) return false;
     return true;
-   }
+  });
   let h = '';
   if (!data.length)
     h =
@@ -3252,7 +3265,7 @@ async function viewDiscResult(id) {
     let dots = '';
     vals.forEach((v, i) => {
       dots += `<circle cx="${15 + i * 40}" cy="${toY(v)}" r="3" fill="#1a237e"/><text x="${15 + i * 40}" y="${toY(v) - 8}" text-anchor="middle" font-size="7" font-weight="700" fill="${v >= 0 ? '#2e7d32' : '#c62828'}">${v > 0 ? '+' : ''}${typeof v === 'number' ? v.toFixed(1) : v}</text>`;
-     }
+    });
     const pts = vals.map((v, i) => `${15 + i * 40},${toY(v)}`).join(' ');
     return `<div style="text-align:center;flex:1;min-width:150px"><div style="font-size:.63rem;font-weight:700;color:var(--primary)">${title}</div><div style="font-size:.55rem;color:#999">${sub}</div><svg width="155" height="${h + 18}" viewBox="0 0 155 ${h + 18}" style="border:1px solid #ddd;border-radius:4px;background:#fafafa"><line x1="5" y1="${h / 2}" x2="150" y2="${h / 2}" stroke="#999" stroke-width="0.5" stroke-dasharray="2"/><polyline points="${pts}" fill="none" stroke="#1a237e" stroke-width="1.5"/>${dots}<text x="15" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">D</text><text x="55" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">I</text><text x="95" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">S</text><text x="135" y="${h + 12}" text-anchor="middle" font-size="8" font-weight="700">C</text></svg></div>`;
   }
@@ -3357,7 +3370,7 @@ async function viewDiscResult(id) {
   negT.forEach((t) => {
     negH += `<div style="padding:2px 0;font-size:.73rem;color:#c62828">⚠️ ${escHtml(t)}</div>`;
     coreT += `<div style="font-size:.7rem">${escHtml(t)}</div>`;
-  }
+  });
   [...posT, ...negT].forEach((t) => {
     mirrorT += `<div style="font-size:.7rem">${escHtml(t)}</div>`;
   });
@@ -3520,7 +3533,7 @@ async function syncDiscToKPI(id) {
     discPattern: r.pattern || '',
     discProfile: r.profileName || '',
     createdAt: new Date().toISOString(),
-   }
+  });
   toast(`DISC ${r.nama} disinkronkan ke KPI (Skor: ${kpiScore}, Grade: ${grade})`, 'success');
 }
 
@@ -3551,7 +3564,7 @@ async function syncAllDiscToKPI() {
         discPattern: r.pattern || '',
         discProfile: r.profileName || '',
         createdAt: new Date().toISOString(),
-      }
+      });
       count++;
     }
   }
@@ -3634,7 +3647,7 @@ async function backupAllData() {
       snap.forEach((d) => backup.data[col].push({ id: d.id, ...d.data() }));
     } catch (e) {}
   }
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `IMS_backup_${todayStr()}.json`;
@@ -3708,7 +3721,7 @@ async function resetEntireSystem() {
   const batch = db.batch();
   usersSnap.forEach((d) => {
     if (d.data().role !== 'admin') batch.delete(d.ref);
-  }
+  });
   await batch.commit();
   toast('Sistem berhasil direset. Hanya akun admin yang tersisa.', 'success');
 }
