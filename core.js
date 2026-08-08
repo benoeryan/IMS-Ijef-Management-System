@@ -769,6 +769,48 @@ function toggleNavGroup(el) {
   if (arrow) arrow.classList.toggle('open', isHidden);
 }
 
+window._routeScriptPromises = window._routeScriptPromises || {};
+function getRouteScript(page) {
+  const routeScriptMap = {
+    karyawan: 'modules-karyawan.js',
+    'struktur-org': 'modules-karyawan.js',
+    onboarding: 'modules-karyawan.js',
+    offboarding: 'modules-karyawan.js',
+    'jobdesk-mgmt': 'modules-karyawan.js',
+    lowongan: 'modules-karyawan.js',
+    pipeline: 'modules-karyawan.js',
+    kandidat: 'modules-karyawan.js',
+  };
+  return routeScriptMap[page] || null;
+}
+function loadScriptOnce(src) {
+  if (!src) return Promise.resolve();
+  if (window._routeScriptPromises[src]) return window._routeScriptPromises[src];
+  window._routeScriptPromises[src] = new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[data-lazy-src="${src}"]`);
+    if (existing) {
+      if (existing.getAttribute('data-loaded') === '1') return resolve();
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error(`Gagal load ${src}`)), {
+        once: true,
+      });
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = `${src}?v=15.3`;
+    s.charset = 'utf-8';
+    s.defer = true;
+    s.setAttribute('data-lazy-src', src);
+    s.onload = () => {
+      s.setAttribute('data-loaded', '1');
+      resolve();
+    };
+    s.onerror = () => reject(new Error(`Gagal load ${src}`));
+    document.body.appendChild(s);
+  });
+  return window._routeScriptPromises[src];
+}
+
 function navigateTo(page) {
   if (currentPage !== page) {
     lastPage = currentPage;
@@ -881,6 +923,10 @@ function navigateTo(page) {
   } else if (funcName) {
     // Retry with increasing delays (in case scripts are still loading on slow connections)
     main.innerHTML = `<div class="empty-state"><div class="icon">⌛</div><p>Memuat modul "${page}"...</p></div>`;
+    const routeScript = getRouteScript(page);
+    if (routeScript) {
+      loadScriptOnce(routeScript).catch((e) => console.warn('Lazy-load route script failed:', e));
+    }
     let attempt = 0;
     const delays = [300, 700, 1500, 3000];
     const tryRender = () => {
