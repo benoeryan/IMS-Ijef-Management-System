@@ -474,11 +474,12 @@ async function renderStrukturOrg() {
     return [...list].sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
   }
   function buildAvatar(person, borderColor) {
-    const safeName = escHtml((person.nama || '-').replace(/'/g, "\\'"));
-    const safePosisi = escHtml((person.posisi || '-').replace(/'/g, "\\'"));
+    const encodedName = encodeURIComponent(person.nama || '-').replace(/'/g, '%27');
+    const encodedPosisi = encodeURIComponent(person.posisi || '-').replace(/'/g, '%27');
     if (person.foto) {
       const fotoUrl = escHtml(person.foto);
-      return `<img src="${fotoUrl}" class="org-avatar" style="border-color:${borderColor}" onclick="lihatFotoKaryawan('${fotoUrl}','${safeName}','${safePosisi}')" title="Klik untuk memperbesar">`;
+      const encodedFoto = encodeURIComponent(person.foto).replace(/'/g, '%27');
+      return `<img src="${fotoUrl}" class="org-avatar" style="border-color:${borderColor}" onclick="lihatFotoKaryawan(decodeURIComponent('${encodedFoto}'),decodeURIComponent('${encodedName}'),decodeURIComponent('${encodedPosisi}'))" title="Klik untuk memperbesar">`;
     }
     return `<div class="org-avatar org-avatar-fallback" style="border-color:${borderColor}">${escHtml((person.nama || '?').charAt(0).toUpperCase())}</div>`;
   }
