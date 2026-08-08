@@ -459,11 +459,6 @@ async function renderStrukturOrg() {
   document.getElementById('orgWrap').innerHTML = h || '<div class="empty-state"><div class="icon">🌳</div><p>Belum ada data karyawan</p></div>';
 }
 
-function buildChecklistText(items) {
-  if (!Array.isArray(items) || !items.length) return '-';
-  return items.map((x) => `${x.done ? '✅' : '⬜'} ${escHtml(x.task || '-')}`).join('<br>');
-}
-
 function parseChecklistText(raw) {
   return (raw || '')
     .split('\n')
