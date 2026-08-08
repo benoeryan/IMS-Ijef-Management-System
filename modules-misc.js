@@ -2465,7 +2465,7 @@ async function _buildKasbonDetail(p, karyawan) {
       let activeCount = 0;
       kSnap.forEach((d) => {
         const kd = d.data();
-        if (kd.status !== "approved") return;
+        if (kd.status !== "approved" && kd.status !== "aktif") return;
         const jumlah = parseFloat(kd.jumlah) || 0;
         const sudahBayar = parseFloat(kd.sudahBayar) || 0;
         const sisa = jumlah - sudahBayar;
