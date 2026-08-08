@@ -801,6 +801,12 @@ function loadScriptOnce(src) {
   if (!src) return Promise.resolve();
   if (window._routeScriptPromises[src]) return window._routeScriptPromises[src];
   window._routeScriptPromises[src] = new Promise((resolve, reject) => {
+    const staticScript = Array.from(document.querySelectorAll('script[src]')).find((el) => {
+      const clean = (el.getAttribute('src') || '').split('?')[0];
+      return clean === src && !el.hasAttribute('data-lazy-src');
+    });
+    if (staticScript) return resolve();
+
     const existing = Array.from(document.querySelectorAll('script[data-lazy-src]')).find(
       (el) => el.getAttribute('data-lazy-src') === src
     );
@@ -975,8 +981,11 @@ function navigateTo(page) {
     const routeScript = getRouteScript(page);
     if (routeScript) {
       loadScriptOnce(routeScript)
-        .catch((e) => console.warn('Lazy-load route script failed:', e))
-        .finally(startRetry);
+        .then(startRetry)
+        .catch((e) => {
+          console.warn('Lazy-load route script failed:', e);
+          main.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Modul "${page}" gagal dimuat. Coba refresh browser.</p></div>`;
+        });
     } else {
       startRetry();
     }
