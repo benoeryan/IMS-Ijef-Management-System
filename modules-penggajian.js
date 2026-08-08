@@ -1365,6 +1365,15 @@ async function viewKasbon(id) {
     h += `<div class="mt-12 p-8 bg-light border-radius-8"><label class="text-xs color-gray">Catatan Approval</label><div class="text-sm italic">${escHtml(p.approvalComment || p.alasanTolak)}</div></div>`;
   }
 
+  if (p.paymentHistory && p.paymentHistory.length) {
+    h += `<div class="mt-12"><div class="fw-700 text-sm mb-8">📜 Riwayat Pembayaran Angsuran</div><div class="table-wrap"><table style="font-size:.82rem;width:100%"><thead><tr><th style="text-align:left;padding:4px 8px">#</th><th style="text-align:left;padding:4px 8px">Tanggal</th><th style="text-align:right;padding:4px 8px">Jumlah</th><th style="text-align:left;padding:4px 8px">Dicatat Oleh</th></tr></thead><tbody>`;
+    p.paymentHistory.forEach((ph, i) => {
+      const tgl = ph.tanggal ? new Date(ph.tanggal).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+      h += `<tr><td style="padding:4px 8px">${i + 1}</td><td style="padding:4px 8px">${tgl}</td><td style="padding:4px 8px;text-align:right;color:var(--danger)">${formatCurrency(ph.jumlah || 0)}</td><td style="padding:4px 8px">${escHtml(ph.dicatatOleh || '-')}</td></tr>`;
+    });
+    h += `</tbody></table></div></div>`;
+  }
+
   openModal(h);
 }
 async function approveKasbon(id, status) {
@@ -1395,7 +1404,10 @@ async function bayarAngsuran(id) {
   const angsuran = Math.ceil((p.jumlah || 0) / (p.cicilan || 1));
   const newSudahBayar = (p.sudahBayar || 0) + angsuran;
   const sisa = Math.max(0, (p.jumlah || 0) - newSudahBayar);
-  const update = { sudahBayar: newSudahBayar, lastPayment: new Date().toISOString() };
+  const paymentAt = new Date().toISOString();
+  const paymentHistory = p.paymentHistory || [];
+  paymentHistory.push({ jumlah: angsuran, tanggal: paymentAt, dicatatOleh: currentUser.nama });
+  const update = { sudahBayar: newSudahBayar, lastPayment: paymentAt, paymentHistory };
   if (sisa <= 0) update.status = 'lunas';
   await db.collection('hrd_kasbon').doc(id).update(update);
   toast(`Angsuran ${formatCurrency(angsuran)} dibayar. Sisa: ${formatCurrency(sisa)}`, 'success');
