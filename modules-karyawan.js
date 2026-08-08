@@ -434,3 +434,341 @@ function viewKaryawan(id) {
   let html = `<div class="modal-title">Profil Karyawan</div><div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px"><div style="width:120px;height:120px;border-radius:12px;overflow:hidden;background:#eee">${k.foto ? `<img src="${k.foto}" style="width:100%;height:100%;object-fit:cover">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:3rem">👤</div>'}</div><div style="flex:1"><h3>${escHtml(k.nama)}</h3><p class="color-gray">${escHtml(k.posisi)} — ${escHtml(k.departemen)}</p><div class="flex gap-8 mt-12"><span class="badge badge-primary">Grade: ${escHtml(k.gradeJabatan || k.grade || '-')}</span><span class="badge badge-info">NIP: ${escHtml(k.nip || '-')}</span></div></div></div><div class="grid-2" style="gap:12px;font-size:.85rem"><div><b>Email:</b> ${escHtml(k.email || '-')}</div><div><b>WhatsApp:</b> ${escHtml(k.whatsapp || '-')}</div><div><b>Tgl Masuk:</b> ${formatDate(k.tanggalMasuk)}</div><div><b>Tgl Lahir:</b> ${formatDate(k.tanggalLahir)}</div><div><b>Kelamin:</b> ${escHtml(k.gender || '-')}</div><div><b>Agama:</b> ${escHtml(k.agama || '-')}</div><div><b>NIK:</b> ${escHtml(k.nik || '-')}</div><div><b>NPWP:</b> ${escHtml(k.npwp || '-')}</div><div><b>BPJS Kes:</b> ${escHtml(k.bpjsKes || '-')}</div><div><b>BPJS TK:</b> ${escHtml(k.bpjsTk || '-')}</div><div><b>Bank:</b> ${escHtml(k.namaBank || '-')} - ${escHtml(k.noRekening || '-')}</div><div><b>Status:</b> ${escHtml(k.status || 'aktif')}</div></div><div class="mt-20 flex gap-8">${!isBOD ? `<button class="btn btn-primary" onclick="modalKaryawan('${k.id}')">✏️ Edit Data</button>` : ''}<button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button></div>`;
   openModal(html, true);
 }
+
+async function renderStrukturOrg() {
+  const main = document.getElementById('mainContent');
+  if (!main) return;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🌳 Struktur Organisasi</span></div><div class="card" id="orgWrap">Memuat...</div>`;
+  const snap = await db.collection('hrd_karyawan').get();
+  const groups = {};
+  snap.forEach((d) => {
+    const p = d.data();
+    if (!groups[p.departemen || '-']) groups[p.departemen || '-'] = [];
+    groups[p.departemen || '-'].push({ id: d.id, ...p });
+  });
+  const deptNames = Object.keys(groups).sort();
+  let h = '';
+  deptNames.forEach((dept) => {
+    const members = groups[dept].sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
+    h += `<div class="card mb-16"><div class="card-title">🏢 ${escHtml(dept)}</div><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Grade</th><th>Status</th></tr></thead><tbody>`;
+    members.forEach((m) => {
+      h += `<tr><td class="fw-700">${escHtml(m.nama || '-')}</td><td>${escHtml(m.posisi || '-')}</td><td>${escHtml(m.gradeJabatan || m.grade || '-')}</td><td>${m.status === 'aktif' ? '<span class="badge badge-success">Aktif</span>' : `<span class="badge badge-danger">${escHtml(m.status || 'Nonaktif')}</span>`}</td></tr>`;
+    });
+    h += '</tbody></table></div></div>';
+  });
+  document.getElementById('orgWrap').innerHTML = h || '<div class="empty-state"><div class="icon">🌳</div><p>Belum ada data karyawan</p></div>';
+}
+
+function parseChecklistText(raw) {
+  return (raw || '')
+    .split('\n')
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((task) => ({ task, done: false }));
+}
+
+async function renderOnboarding() {
+  const main = document.getElementById('mainContent');
+  if (!main) return;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🚀 Onboarding</span><button class="btn btn-primary btn-sm" onclick="modalOnboarding()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Tanggal Mulai</th><th>Progress</th><th>Aksi</th></tr></thead><tbody id="tblOnboarding"></tbody></table></div></div>`;
+  const snap = await db.collection('hrd_onboarding').orderBy('createdAt', 'desc').get();
+  let h = '';
+  snap.forEach((d) => {
+    const p = d.data();
+    const total = Array.isArray(p.checklist) ? p.checklist.length : 0;
+    const done = Array.isArray(p.checklist) ? p.checklist.filter((x) => x.done).length : 0;
+    h += `<tr><td class="fw-700">${escHtml(p.nama || '-')}</td><td>${formatDate(p.tanggalMulai)}</td><td>${done}/${total}</td><td><button class="btn btn-xs btn-info" onclick="modalOnboarding('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_onboarding','${d.id}','onboarding')">🗑️</button></td></tr>`;
+  });
+  document.getElementById('tblOnboarding').innerHTML = h || '<tr><td colspan="4" class="text-center">Belum ada data</td></tr>';
+}
+
+function modalOnboarding(id) {
+  if (id) db.collection('hrd_onboarding').doc(id).get().then((d) => showOnboardingForm(id, d.data() || {}));
+  else showOnboardingForm(null, {});
+}
+
+function showOnboardingForm(id, p) {
+  const checklist = Array.isArray(p.checklist) && p.checklist.length ? p.checklist.map((x) => x.task).join('\n') : 'Orientasi perusahaan\nSetup akun kerja\nPengenalan tim\nReview SOP';
+  openModal(
+    `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Onboarding</div>
+    <div class="form-group"><label>Nama</label><input class="form-control" id="obNama" value="${escHtml(p.nama || '')}"></div>
+    <div class="form-group"><label>Tanggal Mulai</label><input class="form-control" type="date" id="obTanggal" value="${p.tanggalMulai || todayStr()}"></div>
+    <div class="form-group"><label>Checklist (1 baris = 1 item)</label><textarea class="form-control" id="obChecklist" rows="6">${escHtml(checklist)}</textarea></div>
+    <button class="btn btn-primary" style="width:100%" onclick="simpanOnboarding('${id || ''}')">💾 Simpan</button>`
+  );
+}
+
+async function simpanOnboarding(id) {
+  const data = {
+    nama: document.getElementById('obNama').value.trim(),
+    tanggalMulai: document.getElementById('obTanggal').value,
+    checklist: parseChecklistText(document.getElementById('obChecklist').value),
+    updatedAt: new Date().toISOString(),
+  };
+  if (!data.nama) return toast('Nama wajib diisi', 'warning');
+  if (id) {
+    const old = (await db.collection('hrd_onboarding').doc(id).get()).data() || {};
+    const oldMap = {};
+    (old.checklist || []).forEach((x) => (oldMap[(x.task || '').trim().toLowerCase()] = !!x.done));
+    data.checklist = data.checklist.map((x) => ({ ...x, done: oldMap[(x.task || '').trim().toLowerCase()] || false }));
+    await db.collection('hrd_onboarding').doc(id).update(data);
+  } else {
+    await db.collection('hrd_onboarding').add({ ...data, createdAt: new Date().toISOString() });
+  }
+  closeModalDirect();
+  toast('Onboarding disimpan', 'success');
+  renderOnboarding();
+}
+
+async function renderOffboarding() {
+  const main = document.getElementById('mainContent');
+  if (!main) return;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📦 Offboarding</span><button class="btn btn-primary btn-sm" onclick="modalOffboarding()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Tanggal Keluar</th><th>Checklist</th><th>Alasan</th><th>Aksi</th></tr></thead><tbody id="tblOffboarding"></tbody></table></div></div>`;
+  const snap = await db.collection('hrd_offboarding').orderBy('createdAt', 'desc').get();
+  let h = '';
+  snap.forEach((d) => {
+    const p = d.data();
+    const total = Array.isArray(p.checklist) ? p.checklist.length : 0;
+    const done = Array.isArray(p.checklist) ? p.checklist.filter((x) => x.done).length : 0;
+    h += `<tr><td class="fw-700">${escHtml(p.nama || '-')}</td><td>${formatDate(p.tanggalKeluar)}</td><td>${done}/${total}</td><td>${escHtml(p.alasan || '-')}</td><td><button class="btn btn-xs btn-info" onclick="modalOffboarding('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_offboarding','${d.id}','offboarding')">🗑️</button></td></tr>`;
+  });
+  document.getElementById('tblOffboarding').innerHTML = h || '<tr><td colspan="5" class="text-center">Belum ada data</td></tr>';
+}
+
+function modalOffboarding(id) {
+  if (id) db.collection('hrd_offboarding').doc(id).get().then((d) => showOffboardingForm(id, d.data() || {}));
+  else showOffboardingForm(null, {});
+}
+
+function showOffboardingForm(id, p) {
+  const defaultChecklist = ['Serah terima tugas', 'Pengembalian aset', 'Deaktivasi akun', 'Exit interview', 'Surat referensi'];
+  const checklist = Array.isArray(p.checklist) && p.checklist.length ? p.checklist.map((x) => x.task).join('\n') : defaultChecklist.join('\n');
+  openModal(
+    `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Offboarding</div>
+    <div class="form-group"><label>Nama</label><input class="form-control" id="ofNama" value="${escHtml(p.nama || '')}"></div>
+    <div class="grid-2">
+      <div class="form-group"><label>Tanggal Keluar</label><input class="form-control" type="date" id="ofTanggal" value="${p.tanggalKeluar || todayStr()}"></div>
+      <div class="form-group"><label>Alasan</label><input class="form-control" id="ofAlasan" value="${escHtml(p.alasan || '')}"></div>
+    </div>
+    <div class="form-group"><label>Checklist (1 baris = 1 item)</label><textarea class="form-control" id="ofChecklist" rows="6">${escHtml(checklist)}</textarea></div>
+    <button class="btn btn-primary" style="width:100%" onclick="simpanOffboarding('${id || ''}')">💾 Simpan</button>`
+  );
+}
+
+async function simpanOffboarding(id) {
+  const data = {
+    nama: document.getElementById('ofNama').value.trim(),
+    tanggalKeluar: document.getElementById('ofTanggal').value,
+    alasan: document.getElementById('ofAlasan').value.trim(),
+    checklist: parseChecklistText(document.getElementById('ofChecklist').value),
+    updatedAt: new Date().toISOString(),
+  };
+  if (!data.nama) return toast('Nama wajib diisi', 'warning');
+  if (id) {
+    const old = (await db.collection('hrd_offboarding').doc(id).get()).data() || {};
+    const oldMap = {};
+    (old.checklist || []).forEach((x) => (oldMap[(x.task || '').trim().toLowerCase()] = !!x.done));
+    data.checklist = data.checklist.map((x) => ({ ...x, done: oldMap[(x.task || '').trim().toLowerCase()] || false }));
+    await db.collection('hrd_offboarding').doc(id).update(data);
+  } else {
+    await db.collection('hrd_offboarding').add({ ...data, createdAt: new Date().toISOString() });
+  }
+  closeModalDirect();
+  toast('Offboarding disimpan', 'success');
+  renderOffboarding();
+}
+
+async function renderJobdeskMgmt() {
+  const main = document.getElementById('mainContent');
+  if (!main) return;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📋 Kelola Jobdesk</span><button class="btn btn-primary btn-sm" onclick="modalJobdesk()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Departemen</th><th>Detail</th><th>Aksi</th></tr></thead><tbody id="tblJobdesk"></tbody></table></div></div>`;
+  const snap = await db.collection('hrd_jobdesk').orderBy('updatedAt', 'desc').get();
+  let h = '';
+  snap.forEach((d) => {
+    const p = d.data();
+    h += `<tr><td class="fw-700">${escHtml(p.nama || '-')}</td><td>${escHtml(p.posisi || '-')}</td><td>${escHtml(p.departemen || '-')}</td><td>${escHtml((p.rincian || p.jobdesk || '').toString().slice(0, 90) || '-')}</td><td><button class="btn btn-xs btn-info" onclick="modalJobdesk('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_jobdesk','${d.id}','jobdesk')">🗑️</button></td></tr>`;
+  });
+  document.getElementById('tblJobdesk').innerHTML = h || '<tr><td colspan="5" class="text-center">Belum ada data</td></tr>';
+}
+
+function modalJobdesk(id) {
+  if (id) db.collection('hrd_jobdesk').doc(id).get().then((d) => showJobdeskForm(id, d.data() || {}));
+  else showJobdeskForm(null, {});
+}
+
+function showJobdeskForm(id, p) {
+  openModal(
+    `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Jobdesk</div>
+    <div class="grid-2">
+      <div class="form-group"><label>Nama Karyawan</label><input class="form-control" id="jdNama" value="${escHtml(p.nama || '')}"></div>
+      <div class="form-group"><label>User ID</label><input class="form-control" id="jdUserId" value="${escHtml(p.userId || '')}" placeholder="opsional"></div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group"><label>Posisi</label><input class="form-control" id="jdPosisi" value="${escHtml(p.posisi || '')}"></div>
+      <div class="form-group"><label>Departemen</label><input class="form-control" id="jdDepartemen" value="${escHtml(p.departemen || '')}"></div>
+    </div>
+    <div class="form-group"><label>Rincian Jobdesk</label><textarea class="form-control" id="jdRincian" rows="6">${escHtml(p.rincian || p.jobdesk || '')}</textarea></div>
+    <button class="btn btn-primary" style="width:100%" onclick="simpanJobdesk('${id || ''}')">💾 Simpan</button>`
+  );
+}
+
+async function simpanJobdesk(id) {
+  const data = {
+    nama: document.getElementById('jdNama').value.trim(),
+    userId: document.getElementById('jdUserId').value.trim(),
+    posisi: document.getElementById('jdPosisi').value.trim(),
+    departemen: document.getElementById('jdDepartemen').value.trim(),
+    rincian: document.getElementById('jdRincian').value.trim(),
+    updatedAt: new Date().toISOString(),
+  };
+  if (!data.nama) return toast('Nama wajib diisi', 'warning');
+  if (id) await db.collection('hrd_jobdesk').doc(id).update(data);
+  else await db.collection('hrd_jobdesk').add({ ...data, createdAt: new Date().toISOString() });
+  closeModalDirect();
+  toast('Jobdesk disimpan', 'success');
+  renderJobdeskMgmt();
+}
+
+async function renderLowongan() {
+  const main = document.getElementById('mainContent');
+  if (!main) return;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📝 Lowongan</span><button class="btn btn-primary btn-sm" onclick="modalLowongan()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Posisi</th><th>Departemen</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblLowongan"></tbody></table></div></div>`;
+  const snap = await db.collection('hrd_lowongan').orderBy('createdAt', 'desc').get();
+  let h = '';
+  snap.forEach((d) => {
+    const p = d.data();
+    h += `<tr><td class="fw-700">${escHtml(p.posisi || '-')}</td><td>${escHtml(p.departemen || '-')}</td><td><span class="badge ${p.status === 'open' ? 'badge-success' : 'badge-secondary'}">${escHtml(p.status || 'open')}</span></td><td><button class="btn btn-xs btn-info" onclick="modalLowongan('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_lowongan','${d.id}','lowongan')">🗑️</button></td></tr>`;
+  });
+  document.getElementById('tblLowongan').innerHTML = h || '<tr><td colspan="4" class="text-center">Belum ada lowongan</td></tr>';
+}
+
+function modalLowongan(id) {
+  if (id) db.collection('hrd_lowongan').doc(id).get().then((d) => showLowonganForm(id, d.data() || {}));
+  else showLowonganForm(null, {});
+}
+
+function showLowonganForm(id, p) {
+  openModal(
+    `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Lowongan</div>
+    <div class="grid-2">
+      <div class="form-group"><label>Posisi</label><input class="form-control" id="lwPosisi" value="${escHtml(p.posisi || '')}"></div>
+      <div class="form-group"><label>Departemen</label><input class="form-control" id="lwDept" value="${escHtml(p.departemen || '')}"></div>
+    </div>
+    <div class="form-group"><label>Deskripsi</label><textarea class="form-control" id="lwDesc" rows="5">${escHtml(p.deskripsi || '')}</textarea></div>
+    <div class="form-group"><label>Status</label><select class="form-control" id="lwStatus"><option value="open" ${p.status === 'open' ? 'selected' : ''}>Open</option><option value="closed" ${p.status === 'closed' ? 'selected' : ''}>Closed</option></select></div>
+    <button class="btn btn-primary" style="width:100%" onclick="simpanLowongan('${id || ''}')">💾 Simpan</button>`
+  );
+}
+
+async function simpanLowongan(id) {
+  const data = {
+    posisi: document.getElementById('lwPosisi').value.trim(),
+    departemen: document.getElementById('lwDept').value.trim(),
+    deskripsi: document.getElementById('lwDesc').value.trim(),
+    status: document.getElementById('lwStatus').value,
+    updatedAt: new Date().toISOString(),
+  };
+  if (!data.posisi) return toast('Posisi wajib diisi', 'warning');
+  if (id) await db.collection('hrd_lowongan').doc(id).update(data);
+  else await db.collection('hrd_lowongan').add({ ...data, createdAt: new Date().toISOString() });
+  closeModalDirect();
+  toast('Lowongan disimpan', 'success');
+  renderLowongan();
+}
+
+async function renderPipeline() {
+  const main = document.getElementById('mainContent');
+  if (!main) return;
+  const stages = ['applied', 'disc', 'interview', 'offering', 'hired'];
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🔄 Pipeline Kandidat</span></div><div id="pipelineWrap" style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>`;
+  const snap = await db.collection('hrd_kandidat').get();
+  const data = {};
+  stages.forEach((s) => (data[s] = []));
+  snap.forEach((d) => {
+    const p = { id: d.id, ...d.data() };
+    const st = stages.includes(p.stage) ? p.stage : 'applied';
+    data[st].push(p);
+  });
+  let h = '';
+  stages.forEach((st) => {
+    h += `<div class="card"><div class="card-title">${st.toUpperCase()} (${data[st].length})</div>`;
+    if (!data[st].length) h += '<p class="text-sm color-gray">Kosong</p>';
+    data[st].forEach((p) => {
+      h += `<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px"><div class="fw-700">${escHtml(p.nama || '-')}</div><div class="text-xs color-gray mb-8">${escHtml(p.posisi || '-')}</div><select class="form-control" onchange="updateKandidatStage('${p.id}', this.value)">${stages.map((s) => `<option value="${s}" ${s === st ? 'selected' : ''}>${s.toUpperCase()}</option>`).join('')}</select></div>`;
+    });
+    h += '</div>';
+  });
+  document.getElementById('pipelineWrap').innerHTML = h;
+}
+
+async function updateKandidatStage(id, stage) {
+  await db.collection('hrd_kandidat').doc(id).update({ stage, updatedAt: new Date().toISOString() });
+  toast('Stage diperbarui', 'success');
+  renderPipeline();
+}
+
+async function renderKandidat() {
+  const main = document.getElementById('mainContent');
+  if (!main) return;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🧑‍💼 Kandidat</span><button class="btn btn-primary btn-sm" onclick="modalKandidat()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Kontak</th><th>Stage</th><th>Aksi</th></tr></thead><tbody id="tblKandidat"></tbody></table></div></div>`;
+  const snap = await db.collection('hrd_kandidat').orderBy('createdAt', 'desc').get();
+  let h = '';
+  snap.forEach((d) => {
+    const p = d.data();
+    h += `<tr><td class="fw-700">${escHtml(p.nama || '-')}</td><td>${escHtml(p.posisi || '-')}</td><td>${escHtml(p.kontak || p.email || '-')}</td><td>${escHtml((p.stage || 'applied').toUpperCase())}</td><td><button class="btn btn-xs btn-info" onclick="modalKandidat('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kandidat','${d.id}','kandidat')">🗑️</button></td></tr>`;
+  });
+  document.getElementById('tblKandidat').innerHTML = h || '<tr><td colspan="5" class="text-center">Belum ada kandidat</td></tr>';
+}
+
+function modalKandidat(id) {
+  if (id) db.collection('hrd_kandidat').doc(id).get().then((d) => showKandidatForm(id, d.data() || {}));
+  else showKandidatForm(null, {});
+}
+
+function showKandidatForm(id, p) {
+  openModal(
+    `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Kandidat</div>
+    <div class="form-group"><label>Nama</label><input class="form-control" id="kdNama" value="${escHtml(p.nama || '')}"></div>
+    <div class="grid-2">
+      <div class="form-group"><label>Posisi</label><input class="form-control" id="kdPosisi" value="${escHtml(p.posisi || '')}"></div>
+      <div class="form-group"><label>Kontak/Email</label><input class="form-control" id="kdKontak" value="${escHtml(p.kontak || p.email || '')}"></div>
+    </div>
+    <div class="form-group"><label>Stage</label><select class="form-control" id="kdStage"><option value="applied" ${p.stage === 'applied' ? 'selected' : ''}>Applied</option><option value="disc" ${p.stage === 'disc' ? 'selected' : ''}>DISC</option><option value="interview" ${p.stage === 'interview' ? 'selected' : ''}>Interview</option><option value="offering" ${p.stage === 'offering' ? 'selected' : ''}>Offering</option><option value="hired" ${p.stage === 'hired' ? 'selected' : ''}>Hired</option></select></div>
+    <button class="btn btn-primary" style="width:100%" onclick="simpanKandidat('${id || ''}')">💾 Simpan</button>`
+  );
+}
+
+async function simpanKandidat(id) {
+  const data = {
+    nama: document.getElementById('kdNama').value.trim(),
+    posisi: document.getElementById('kdPosisi').value.trim(),
+    kontak: document.getElementById('kdKontak').value.trim(),
+    stage: document.getElementById('kdStage').value,
+    updatedAt: new Date().toISOString(),
+  };
+  if (!data.nama) return toast('Nama wajib diisi', 'warning');
+  if (id) await db.collection('hrd_kandidat').doc(id).update(data);
+  else await db.collection('hrd_kandidat').add({ ...data, createdAt: new Date().toISOString() });
+  closeModalDirect();
+  toast('Kandidat disimpan', 'success');
+  renderKandidat();
+}
+
+window.renderStrukturOrg = renderStrukturOrg;
+window.renderJobdeskMgmt = renderJobdeskMgmt;
+window.renderOnboarding = renderOnboarding;
+window.renderOffboarding = renderOffboarding;
+window.renderLowongan = renderLowongan;
+window.renderPipeline = renderPipeline;
+window.renderKandidat = renderKandidat;
+window.modalOnboarding = modalOnboarding;
+window.simpanOnboarding = simpanOnboarding;
+window.modalOffboarding = modalOffboarding;
+window.simpanOffboarding = simpanOffboarding;
+window.modalJobdesk = modalJobdesk;
+window.simpanJobdesk = simpanJobdesk;
+window.modalLowongan = modalLowongan;
+window.simpanLowongan = simpanLowongan;
+window.modalKandidat = modalKandidat;
+window.simpanKandidat = simpanKandidat;
+window.updateKandidatStage = updateKandidatStage;

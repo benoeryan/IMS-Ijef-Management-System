@@ -769,6 +769,84 @@ function toggleNavGroup(el) {
   if (arrow) arrow.classList.toggle('open', isHidden);
 }
 
+window._routeScriptPromises = window._routeScriptPromises || {};
+function getRouteScript(page) {
+  const routeScriptMap = {
+    karyawan: 'modules-karyawan.js',
+    'struktur-org': 'modules-karyawan.js',
+    onboarding: 'modules-karyawan.js',
+    offboarding: 'modules-karyawan.js',
+    'jobdesk-mgmt': 'modules-karyawan.js',
+    lowongan: 'modules-karyawan.js',
+    pipeline: 'modules-karyawan.js',
+    kandidat: 'modules-karyawan.js',
+  };
+  return routeScriptMap[page] || null;
+}
+function getScriptVersion(src) {
+  const tags = Array.from(document.querySelectorAll('script[src]'));
+  const found = tags.find((s) => {
+    const clean = (s.getAttribute('src') || '').split('?')[0];
+    return clean === src;
+  });
+  if (!found) return '';
+  try {
+    const u = new URL(found.src, window.location.origin);
+    return u.searchParams.get('v') || '';
+  } catch (e) {
+    return '';
+  }
+}
+function loadScriptOnce(src) {
+  if (!src) return Promise.resolve();
+  if (window._routeScriptPromises[src]) return window._routeScriptPromises[src];
+  window._routeScriptPromises[src] = new Promise((resolve, reject) => {
+    const staticScript = Array.from(document.querySelectorAll('script[src]')).find((el) => {
+      const clean = (el.getAttribute('src') || '').split('?')[0];
+      return clean === src && !el.hasAttribute('data-lazy-src');
+    });
+    if (staticScript) return resolve();
+
+    const existing = Array.from(document.querySelectorAll('script[data-lazy-src]')).find(
+      (el) => el.getAttribute('data-lazy-src') === src
+    );
+    if (existing) {
+      if (existing.getAttribute('data-error') === '1') {
+        delete window._routeScriptPromises[src];
+        return reject(new Error(`Gagal load ${src}`));
+      }
+      if (existing.getAttribute('data-loaded') === '1') return resolve();
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener(
+        'error',
+        () => {
+          existing.setAttribute('data-error', '1');
+          delete window._routeScriptPromises[src];
+          reject(new Error(`Gagal load ${src}`));
+        },
+        { once: true }
+      );
+      return;
+    }
+    const s = document.createElement('script');
+    const version = getScriptVersion(src);
+    s.src = version ? `${src}?v=${encodeURIComponent(version)}` : `${src}?v=${Date.now()}`;
+    s.charset = 'utf-8';
+    s.setAttribute('data-lazy-src', src);
+    s.onload = () => {
+      s.setAttribute('data-loaded', '1');
+      resolve();
+    };
+    s.onerror = () => {
+      s.setAttribute('data-error', '1');
+      delete window._routeScriptPromises[src];
+      reject(new Error(`Gagal load ${src}`));
+    };
+    document.body.appendChild(s);
+  });
+  return window._routeScriptPromises[src];
+}
+
 function navigateTo(page) {
   if (currentPage !== page) {
     lastPage = currentPage;
@@ -881,22 +959,36 @@ function navigateTo(page) {
   } else if (funcName) {
     // Retry with increasing delays (in case scripts are still loading on slow connections)
     main.innerHTML = `<div class="empty-state"><div class="icon">⌛</div><p>Memuat modul "${page}"...</p></div>`;
-    let attempt = 0;
-    const delays = [300, 700, 1500, 3000];
-    const tryRender = () => {
-      const retryFn = window[funcName];
-      if (typeof retryFn === 'function') {
-        try { retryFn(); } catch (e) {
-          console.error(`Error rendering "${page}":`, e);
-          main.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Gagal memuat halaman "${page}". Silakan refresh browser.</p></div>`;
+    const startRetry = () => {
+      let attempt = 0;
+      const delays = [300, 700, 1500, 3000];
+      const tryRender = () => {
+        const retryFn = window[funcName];
+        if (typeof retryFn === 'function') {
+          try { retryFn(); } catch (e) {
+            console.error(`Error rendering "${page}":`, e);
+            main.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Gagal memuat halaman "${page}". Silakan refresh browser.</p></div>`;
+          }
+        } else if (attempt < delays.length) {
+          setTimeout(tryRender, delays[attempt++]);
+        } else {
+          main.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Halaman "${page}" gagal dimuat. Periksa koneksi lalu refresh browser.</p></div>`;
         }
-      } else if (attempt < delays.length) {
-        setTimeout(tryRender, delays[attempt++]);
-      } else {
-        main.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Halaman "${page}" gagal dimuat. Periksa koneksi lalu refresh browser.</p></div>`;
-      }
+      };
+      setTimeout(tryRender, delays[attempt++]);
     };
-    setTimeout(tryRender, delays[attempt++]);
+
+    const routeScript = getRouteScript(page);
+    if (routeScript) {
+      loadScriptOnce(routeScript)
+        .then(startRetry)
+        .catch((e) => {
+          console.warn('Lazy-load route script failed:', e);
+          main.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Modul "${page}" gagal dimuat. Coba refresh browser.</p></div>`;
+        });
+    } else {
+      startRetry();
+    }
   } else {
     main.innerHTML = `<div class="empty-state"><div class="icon">🚧</div><p>Halaman "${page}" dalam pengembangan</p></div>`;
   }
