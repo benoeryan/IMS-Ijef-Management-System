@@ -676,7 +676,9 @@ async function simpanJobdesk(id) {
         if (!data.departemen) data.departemen = karyawanData.departemen || '';
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Gagal resolve relasi jobdesk:', e);
+  }
   if (resolvedKaryawanId) data.karyawanId = resolvedKaryawanId;
   if (id) await db.collection('hrd_jobdesk').doc(id).update(data);
   else await db.collection('hrd_jobdesk').add({ ...data, createdAt: new Date().toISOString() });

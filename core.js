@@ -847,14 +847,28 @@ function loadScriptOnce(src) {
   return window._routeScriptPromises[src];
 }
 
-function navigateTo(page) {
+function runPageResourceCleanup(reason) {
   if (typeof window.cleanupCurrentPageResources === 'function') {
     try {
-      window.cleanupCurrentPageResources('navigate');
+      window.cleanupCurrentPageResources(reason);
     } catch (e) {
       console.warn('cleanupCurrentPageResources failed:', e);
     }
   }
+  const handlers = Array.isArray(window._pageResourceCleanupHandlers)
+    ? window._pageResourceCleanupHandlers
+    : [];
+  handlers.forEach((handler) => {
+    try {
+      handler(reason);
+    } catch (e) {
+      console.warn('page resource cleanup handler failed:', e);
+    }
+  });
+}
+
+function navigateTo(page) {
+  runPageResourceCleanup('navigate');
   if (currentPage !== page) {
     lastPage = currentPage;
   }
@@ -1036,23 +1050,11 @@ function openModal(html, large) {
 }
 function closeModal(e) {
   if (e && e.target !== document.getElementById('modalOverlay')) return;
-  if (typeof window.cleanupCurrentPageResources === 'function') {
-    try {
-      window.cleanupCurrentPageResources('modal-close');
-    } catch (err) {
-      console.warn('cleanupCurrentPageResources failed:', err);
-    }
-  }
+  runPageResourceCleanup('modal-close');
   document.getElementById('modalOverlay').classList.remove('active');
 }
 function closeModalDirect() {
-  if (typeof window.cleanupCurrentPageResources === 'function') {
-    try {
-      window.cleanupCurrentPageResources('modal-close');
-    } catch (err) {
-      console.warn('cleanupCurrentPageResources failed:', err);
-    }
-  }
+  runPageResourceCleanup('modal-close');
   document.getElementById('modalOverlay').classList.remove('active');
   // Clean up zoom drag listeners
   if (typeof handleZoomDrag === 'function') {

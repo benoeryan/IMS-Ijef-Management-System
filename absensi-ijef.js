@@ -10,6 +10,11 @@ let absensiStream = null,
 let dinasStream = null,
   dinasPhoto = null,
   dinasGPS = null;
+let currentAbsensiRecordsCache = null;
+let absensiCameraRequestId = 0;
+let dinasCameraRequestId = 0;
+// Short-lived cache to collapse repeated Firestore reads triggered by one UI refresh cycle.
+const ABSENSI_CACHE_TTL_MS = 2000;
 
 function stopMediaStream(stream) {
   if (!stream) return null;
@@ -20,40 +25,43 @@ function stopMediaStream(stream) {
 }
 
 function stopAbsensiCamera() {
+  absensiCameraRequestId++;
   absensiStream = stopMediaStream(absensiStream);
   const video = document.getElementById('selfieVideo');
   if (video) video.srcObject = null;
 }
 
 function stopDinasCamera() {
+  dinasCameraRequestId++;
   dinasStream = stopMediaStream(dinasStream);
   const video = document.getElementById('dinasVideo');
   if (video) video.srcObject = null;
 }
 
-function cleanupAbsensiResources(reason) {
-  if (reason === 'modal-close') {
-    stopDinasCamera();
-    return;
-  }
+function cleanupAbsensiResources() {
   stopAbsensiCamera();
   stopDinasCamera();
 }
 
-window.cleanupCurrentPageResources = function (reason) {
+function handleAbsensiResourceCleanup(reason) {
   const isAbsensiPage =
     typeof currentPage !== 'undefined' &&
     (currentPage === 'absensi' || currentPage === 'portal-absensi');
-  if (!isAbsensiPage && reason !== 'modal-close') return;
-  cleanupAbsensiResources(reason);
-};
+  if (!isAbsensiPage) return;
+  cleanupAbsensiResources();
+}
+
+window._pageResourceCleanupHandlers = window._pageResourceCleanupHandlers || [];
+if (!window._pageResourceCleanupHandlers.includes(handleAbsensiResourceCleanup)) {
+  window._pageResourceCleanupHandlers.push(handleAbsensiResourceCleanup);
+}
 
 if (!window._absensiCleanupBound) {
   window._absensiCleanupBound = true;
-  window.addEventListener('pagehide', () => cleanupAbsensiResources('pagehide'));
-  window.addEventListener('beforeunload', () => cleanupAbsensiResources('beforeunload'));
+  window.addEventListener('pagehide', () => cleanupAbsensiResources());
+  window.addEventListener('beforeunload', () => cleanupAbsensiResources());
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) cleanupAbsensiResources('visibilitychange');
+    if (document.hidden) cleanupAbsensiResources();
   });
 }
 
@@ -73,8 +81,21 @@ async function getCurrentAbsensiIdentity() {
   return { ids: Array.from(ids), names: Array.from(names) };
 }
 
-async function getCurrentUserAbsensiRecords() {
+function resetCurrentAbsensiRecordsCache() {
+  currentAbsensiRecordsCache = null;
+}
+
+async function getCurrentUserAbsensiRecords(forceRefresh) {
   const identity = await getCurrentAbsensiIdentity();
+  const cacheKey = identity.ids.slice().sort().join('|');
+  if (
+    !forceRefresh &&
+    currentAbsensiRecordsCache &&
+    currentAbsensiRecordsCache.key === cacheKey &&
+    Date.now() - currentAbsensiRecordsCache.timestamp < ABSENSI_CACHE_TTL_MS
+  ) {
+    return currentAbsensiRecordsCache.records;
+  }
   const snaps = await Promise.all(
     identity.ids.map((id) => db.collection('hrd_absensi').where('userId', '==', id).get())
   );
@@ -87,6 +108,11 @@ async function getCurrentUserAbsensiRecords() {
       records.push({ id: doc.id, ...doc.data() });
     });
   });
+  currentAbsensiRecordsCache = {
+    key: cacheKey,
+    records,
+    timestamp: Date.now(),
+  };
   return records;
 }
 
@@ -641,7 +667,7 @@ async function hapusShift(idx) {
 // ==============================================================
 
 function renderClockInOut(container) {
-  cleanupAbsensiResources('render');
+  cleanupAbsensiResources();
   container.innerHTML = `<div class="card"><div class="card-title mb-16">📍 Absensi — Selfie + GPS</div>
     <div class="grid-2" style="gap:16px">
       <!-- KAMERA SELFIE (WAJIB) -->
@@ -893,11 +919,16 @@ async function loadShiftInfo() {
 function startCamera() {
   const v = document.getElementById('selfieVideo');
   stopAbsensiCamera();
+  const requestId = ++absensiCameraRequestId;
   navigator.mediaDevices
     .getUserMedia({ video: { facingMode: 'user' }, audio: false })
     .then((s) => {
+      if (requestId !== absensiCameraRequestId) {
+        stopMediaStream(s);
+        return;
+      }
       absensiStream = s;
-      v.srcObject = s;
+      if (v) v.srcObject = s;
     })
     .catch((e) => toast('Gagal kamera: ' + e.message, 'error'));
 }
@@ -1166,6 +1197,7 @@ async function doClockIn() {
   if (flexUser) clockInMsg += ' 📍 Lokasi tercatat (Flexible)';
   if (coreHoursViolation) clockInMsg += ` ⚠️ Melewati core hours (${flex.coreHoursStart})`;
   toast(clockInMsg, 'success');
+  resetCurrentAbsensiRecordsCache();
   capturedPhoto = null;
   currentGPS = null;
   loadTodayHistory();
@@ -1352,6 +1384,7 @@ async function doClockOut() {
     else msg = `(⚠️ Kurang jam - ${jamKerjaActual.toFixed(1)} jam)`;
   }
   if (flexUser) msg += ' 📍 Lokasi tercatat (Flexible)';
+  resetCurrentAbsensiRecordsCache();
   toast(`✅ Clock Out: ${now.toTimeString().slice(0, 5)} ${msg}`, 'success');
   capturedPhoto = null;
   currentGPS = null;
@@ -1380,14 +1413,30 @@ async function checkTodayStatus() {
 async function loadTodayHistory() {
   const todayDate = todayStr();
   const identity = await getCurrentAbsensiIdentity();
-  const snap = await db.collection('hrd_absensi').where('tanggal', '==', todayDate).get();
   let h = '';
   let found = false;
 
   const docs = [];
-  snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
+  if (hasAccess(3)) {
+    const snap = await db.collection('hrd_absensi').where('tanggal', '==', todayDate).get();
+    snap.forEach((d) => docs.push({ id: d.id, ...d.data() }));
+  } else {
+    const snaps = await Promise.all(
+      identity.ids.map((id) => db.collection('hrd_absensi').where('userId', '==', id).get())
+    );
+    const seen = new Set();
+    snaps.forEach((snap) => {
+      snap.forEach((d) => {
+        if (seen.has(d.id)) return;
+        const data = d.data();
+        if (data.tanggal !== todayDate) return;
+        seen.add(d.id);
+        docs.push({ id: d.id, ...data });
+      });
+    });
+  }
   // Sort by time desc
-  docs.sort((a, b) => (b.waktu || "").localeCompare(a.waktu || ""));
+  docs.sort((a, b) => (b.waktu || '').localeCompare(a.waktu || ''));
 
   docs.forEach((p) => {
     const userIdMatch = identity.ids.includes(p.userId);
@@ -1498,6 +1547,7 @@ async function doStartBreak() {
     tipe: 'istirahat_mulai',
     createdAt: now.toISOString(),
   });
+  resetCurrentAbsensiRecordsCache();
   toast('☕ Istirahat dimulai', 'info');
   loadBreakStatus();
   loadTodayHistory();
@@ -1514,6 +1564,7 @@ async function doEndBreak() {
     tipe: 'istirahat_selesai',
     createdAt: now.toISOString(),
   });
+  resetCurrentAbsensiRecordsCache();
   toast('🔙 Istirahat selesai', 'success');
   loadBreakStatus();
   loadTodayHistory();
@@ -2123,11 +2174,16 @@ function modalAbsenDinasLuar() {
 function startDinasCamera() {
   const v = document.getElementById('dinasVideo');
   stopDinasCamera();
+  const requestId = ++dinasCameraRequestId;
   navigator.mediaDevices
     .getUserMedia({ video: { facingMode: 'user' }, audio: false })
     .then((s) => {
+      if (requestId !== dinasCameraRequestId) {
+        stopMediaStream(s);
+        return;
+      }
       dinasStream = s;
-      v.srcObject = s;
+      if (v) v.srcObject = s;
     })
     .catch((e) => toast('Gagal kamera: ' + e.message, 'error'));
 }
@@ -2190,6 +2246,7 @@ async function submitAbsenDinas() {
     createdAt: now.toISOString(),
   });
 
+  resetCurrentAbsensiRecordsCache();
   dinasPhoto = null;
   dinasGPS = null;
   closeModalDirect();
