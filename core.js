@@ -848,6 +848,13 @@ function loadScriptOnce(src) {
 }
 
 function navigateTo(page) {
+  if (typeof window.cleanupCurrentPageResources === 'function') {
+    try {
+      window.cleanupCurrentPageResources('navigate');
+    } catch (e) {
+      console.warn('cleanupCurrentPageResources failed:', e);
+    }
+  }
   if (currentPage !== page) {
     lastPage = currentPage;
   }
@@ -1029,9 +1036,23 @@ function openModal(html, large) {
 }
 function closeModal(e) {
   if (e && e.target !== document.getElementById('modalOverlay')) return;
+  if (typeof window.cleanupCurrentPageResources === 'function') {
+    try {
+      window.cleanupCurrentPageResources('modal-close');
+    } catch (err) {
+      console.warn('cleanupCurrentPageResources failed:', err);
+    }
+  }
   document.getElementById('modalOverlay').classList.remove('active');
 }
 function closeModalDirect() {
+  if (typeof window.cleanupCurrentPageResources === 'function') {
+    try {
+      window.cleanupCurrentPageResources('modal-close');
+    } catch (err) {
+      console.warn('cleanupCurrentPageResources failed:', err);
+    }
+  }
   document.getElementById('modalOverlay').classList.remove('active');
   // Clean up zoom drag listeners
   if (typeof handleZoomDrag === 'function') {

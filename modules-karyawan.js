@@ -582,11 +582,42 @@ async function renderJobdeskMgmt() {
   const main = document.getElementById('mainContent');
   if (!main) return;
   main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📋 Kelola Jobdesk</span><button class="btn btn-primary btn-sm" onclick="modalJobdesk()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Departemen</th><th>Detail</th><th>Aksi</th></tr></thead><tbody id="tblJobdesk"></tbody></table></div></div>`;
-  const snap = await db.collection('hrd_jobdesk').orderBy('updatedAt', 'desc').get();
+  const [snap, karyawanSnap, usersSnap] = await Promise.all([
+    db.collection('hrd_jobdesk').orderBy('updatedAt', 'desc').get(),
+    db.collection('hrd_karyawan').get(),
+    db.collection('hrd_users').get(),
+  ]);
+  const karyawanById = {};
+  const karyawanByName = {};
+  const linkedKaryawanByUserId = {};
+  karyawanSnap.forEach((d) => {
+    const data = d.data() || {};
+    karyawanById[d.id] = data;
+    const namaKey = (data.nama || '').toLowerCase().trim();
+    if (namaKey && !karyawanByName[namaKey]) karyawanByName[namaKey] = data;
+  });
+  usersSnap.forEach((d) => {
+    const data = d.data() || {};
+    if (data.linkedKaryawan) linkedKaryawanByUserId[d.id] = data.linkedKaryawan;
+  });
   let h = '';
   snap.forEach((d) => {
     const p = d.data();
-    h += `<tr><td class="fw-700">${escHtml(p.nama || '-')}</td><td>${escHtml(p.posisi || '-')}</td><td>${escHtml(p.departemen || '-')}</td><td>${escHtml((p.rincian || p.jobdesk || '').toString().slice(0, 90) || '-')}</td><td><button class="btn btn-xs btn-info" onclick="modalJobdesk('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_jobdesk','${d.id}','jobdesk')">🗑️</button></td></tr>`;
+    const linkedKaryawanId = p.karyawanId || linkedKaryawanByUserId[p.userId] || p.userId;
+    const karyawan =
+      karyawanById[linkedKaryawanId] || karyawanByName[(p.nama || '').toLowerCase().trim()] || {};
+    const nama = p.nama || karyawan.nama || '-';
+    const posisi = p.posisi || karyawan.posisi || '-';
+    const departemen = p.departemen || karyawan.departemen || '-';
+    const detail =
+      p.rincian ||
+      p.jobdesk ||
+      p.deskripsi ||
+      [p.tanggungJawab, p.kualifikasi, p.kpi]
+        .flat()
+        .filter(Boolean)
+        .join(' • ');
+    h += `<tr><td class="fw-700">${escHtml(nama)}</td><td>${escHtml(posisi)}</td><td>${escHtml(departemen)}</td><td>${escHtml((detail || '').toString().slice(0, 90) || '-')}</td><td><button class="btn btn-xs btn-info" onclick="modalJobdesk('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_jobdesk','${d.id}','jobdesk')">🗑️</button></td></tr>`;
   });
   document.getElementById('tblJobdesk').innerHTML = h || '<tr><td colspan="5" class="text-center">Belum ada data</td></tr>';
 }
@@ -622,6 +653,31 @@ async function simpanJobdesk(id) {
     updatedAt: new Date().toISOString(),
   };
   if (!data.nama) return toast('Nama wajib diisi', 'warning');
+  let resolvedKaryawanId = '';
+  try {
+    if (data.userId) {
+      const userDoc = await db.collection('hrd_users').doc(data.userId).get();
+      if (userDoc.exists) resolvedKaryawanId = userDoc.data().linkedKaryawan || '';
+    }
+    if (!resolvedKaryawanId && data.userId) {
+      const karyawanById = await db.collection('hrd_karyawan').doc(data.userId).get();
+      if (karyawanById.exists) resolvedKaryawanId = karyawanById.id;
+    }
+    if (!resolvedKaryawanId && data.nama) {
+      const karyawanByName = await db
+        .collection('hrd_karyawan')
+        .where('nama', '==', data.nama)
+        .limit(1)
+        .get();
+      if (!karyawanByName.empty) {
+        resolvedKaryawanId = karyawanByName.docs[0].id;
+        const karyawanData = karyawanByName.docs[0].data() || {};
+        if (!data.posisi) data.posisi = karyawanData.posisi || '';
+        if (!data.departemen) data.departemen = karyawanData.departemen || '';
+      }
+    }
+  } catch (e) {}
+  if (resolvedKaryawanId) data.karyawanId = resolvedKaryawanId;
   if (id) await db.collection('hrd_jobdesk').doc(id).update(data);
   else await db.collection('hrd_jobdesk').add({ ...data, createdAt: new Date().toISOString() });
   closeModalDirect();
