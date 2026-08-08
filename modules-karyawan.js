@@ -440,38 +440,176 @@ async function renderStrukturOrg() {
   if (!main) return;
   main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🌳 Struktur Organisasi</span></div><div class="card" id="orgWrap">Memuat...</div>`;
   const snap = await db.collection('hrd_karyawan').get();
-  const groups = {};
+  const activeEmployees = [];
   snap.forEach((d) => {
-    const p = d.data();
-    if (p.status !== 'aktif') return;
-    if (!groups[p.departemen || '-']) groups[p.departemen || '-'] = [];
-    groups[p.departemen || '-'].push({ id: d.id, ...p });
+    const p = d.data() || {};
+    if ((p.status || 'aktif') !== 'aktif') return;
+    activeEmployees.push({ id: d.id, ...p });
   });
-  const deptNames = Object.keys(groups).sort();
-  let h = '';
-  deptNames.forEach((dept) => {
-    const members = groups[dept].sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
-    h += `<div class="card mb-16"><div class="card-title">🏢 ${escHtml(dept)}</div>`;
-    h += `<div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Grade</th><th>Status</th></tr></thead><tbody>`;
-    members.forEach((m) => {
-      h += `<tr><td class="fw-700">${escHtml(m.nama || '-')}</td><td>${escHtml(m.posisi || '-')}</td><td>${escHtml(m.gradeJabatan || m.grade || '-')}</td><td><span class="badge badge-success">Aktif</span></td></tr>`;
+  if (!activeEmployees.length) {
+    document.getElementById('orgWrap').innerHTML = '<div class="empty-state"><div class="icon">🌳</div><p>Belum ada data karyawan</p></div>';
+    return;
+  }
+  function normalizeText(v) {
+    return (v || '').toLowerCase().trim();
+  }
+  function orgLevel(person) {
+    const text = `${normalizeText(person.posisi)} ${normalizeText(person.gradeJabatan)} ${normalizeText(person.role)}`;
+    if (text.includes('bod') || text.includes('founder') || text.includes('komisaris') || text.includes('direktur') || text.includes('director')) return 0;
+    if (text.includes('general manager') || text === 'gm') return 1;
+    if (text.includes('head') || text.includes('manager') || text.includes('kepala')) return 2;
+    if (text.includes('leader') || text.includes('supervisor') || text.includes('spv') || text.includes('koordinator') || text.includes('coordinator')) return 3;
+    return 4;
+  }
+  function extractTokens(person) {
+    const raw = `${person.departemen || ''} ${person.posisi || ''}`
+      .toLowerCase()
+      .replace(/[^a-z0-9\s&/]/g, ' ');
+    return raw
+      .split(/[\s/&]+/)
+      .map((x) => x.trim())
+      .filter((x) => x && !['dan', 'divisi', 'dept', 'departemen', 'manager', 'head', 'general', 'direktur', 'director', 'komisaris', 'staff', 'senior'].includes(x));
+  }
+  function sortByName(list) {
+    return [...list].sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
+  }
+  function buildAvatar(person, borderColor) {
+    const encodedName = encodeURIComponent(person.nama || '-').replace(/'/g, '%27');
+    const encodedPosisi = encodeURIComponent(person.posisi || '-').replace(/'/g, '%27');
+    if (person.foto) {
+      const fotoUrl = escHtml(person.foto);
+      const encodedFoto = encodeURIComponent(person.foto).replace(/'/g, '%27');
+      return `<img src="${fotoUrl}" class="org-avatar" style="border-color:${borderColor}" onclick="lihatFotoKaryawan(decodeURIComponent('${encodedFoto}'),decodeURIComponent('${encodedName}'),decodeURIComponent('${encodedPosisi}'))" title="Klik untuk memperbesar">`;
+    }
+    return `<div class="org-avatar org-avatar-fallback" style="border-color:${borderColor}">${escHtml((person.nama || '?').charAt(0).toUpperCase())}</div>`;
+  }
+  function buildNode(person, tone, extraHtml) {
+    const tones = {
+      commissioner: { bg: '#b94d4d', border: '#9e3f3f', text: '#fff' },
+      director: { bg: '#9bbf4b', border: '#83a73b', text: '#17220f' },
+      gm: { bg: '#56b7d2', border: '#3da3bf', text: '#0f2230' },
+      manager: { bg: '#f4a14b', border: '#da8630', text: '#3a2108' },
+      staff: { bg: '#f6f8fb', border: '#d9dee7', text: '#1b2430' },
+    };
+    const style = tones[tone] || tones.staff;
+    const detail = extraHtml ? `<div class="org-node-extra">${extraHtml}</div>` : '';
+    return `<div class="org-node" style="background:${style.bg};border-color:${style.border};color:${style.text}">
+      ${buildAvatar(person, style.border)}
+      <div class="org-node-name">${escHtml(person.nama || '-')}</div>
+      <div class="org-node-role">${escHtml(person.posisi || person.gradeJabatan || '-')}</div>
+      <div class="org-node-dept">${escHtml(person.departemen || 'IJEF')}</div>
+      ${detail}
+    </div>`;
+  }
+  function buildRow(title, list, tone, emptyText) {
+    if (!list.length) {
+      return `<div class="org-section"><div class="org-section-title">${escHtml(title)}</div><div class="org-empty">${escHtml(emptyText)}</div></div>`;
+    }
+    return `<div class="org-section"><div class="org-section-title">${escHtml(title)}</div><div class="org-row">${list.map((p) => buildNode(p, tone)).join('')}</div></div>`;
+  }
+  function findBestParent(person, parents) {
+    if (!parents.length) return null;
+    const childTokens = extractTokens(person);
+    let best = parents[0];
+    let bestScore = -1;
+    parents.forEach((candidate) => {
+      const parentTokens = extractTokens(candidate);
+      const overlap = childTokens.filter((token) => parentTokens.includes(token)).length;
+      const deptMatch = normalizeText(candidate.departemen) && normalizeText(candidate.departemen) === normalizeText(person.departemen) ? 2 : 0;
+      const score = overlap + deptMatch;
+      if (score > bestScore) {
+        best = candidate;
+        bestScore = score;
+      }
     });
-    h += `</tbody></table></div>`;
-    h += `<div class="org-chart-wrap" style="overflow-x:auto;padding:20px 0"><div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center">`;
-    members.forEach((m) => {
-      const fotoUrl = m.foto ? escHtml(m.foto) : '';
-      const fotoEl = fotoUrl
-        ? `<img src="${fotoUrl}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid #4caf50;cursor:pointer" onclick="lihatFotoKaryawan('${fotoUrl}','${escHtml((m.nama || '').replace(/'/g, "\\'"))}','${escHtml((m.posisi || '').replace(/'/g, "\\'"))}')" title="Klik untuk memperbesar">`
-        : `<div style="width:72px;height:72px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center;font-size:2rem;border:2px solid #ccc">👤</div>`;
-      h += `<div style="display:flex;flex-direction:column;align-items:center;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:12px;padding:14px 12px;min-width:110px;max-width:130px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-        ${fotoEl}
-        <div style="margin-top:8px;font-weight:700;font-size:.8rem;line-height:1.2">${escHtml(m.nama || '-')}</div>
-        <div style="margin-top:4px;font-size:.72rem;color:#666;line-height:1.2">${escHtml(m.posisi || '-')}</div>
+    return best;
+  }
+  const sortedEmployees = sortByName(activeEmployees);
+  const bods = sortedEmployees.filter((p) => orgLevel(p) === 0);
+  const gms = sortedEmployees.filter((p) => orgLevel(p) === 1);
+  const managers = sortedEmployees.filter((p) => orgLevel(p) === 2);
+  const leaders = sortedEmployees.filter((p) => orgLevel(p) === 3);
+  const staffs = sortedEmployees.filter((p) => orgLevel(p) === 4);
+  const departmentGroups = {};
+  sortedEmployees.forEach((person) => {
+    const dept = person.departemen || 'Tanpa Departemen';
+    if (!departmentGroups[dept]) departmentGroups[dept] = [];
+    departmentGroups[dept].push(person);
+  });
+  const deptSummary = Object.keys(departmentGroups)
+    .sort((a, b) => a.localeCompare(b))
+    .map((dept) => {
+      const members = sortByName(departmentGroups[dept]);
+      const lead =
+        members.find((p) => orgLevel(p) === 2) ||
+        members.find((p) => orgLevel(p) === 1) ||
+        members.find((p) => orgLevel(p) === 0) ||
+        members.find((p) => orgLevel(p) === 3) ||
+        members[0];
+      return `<div class="org-dept-card">
+        <div class="org-dept-title">${escHtml(dept)}</div>
+        <div class="org-dept-meta">PIC: <b>${escHtml(lead?.nama || '-')}</b> • ${members.length} orang</div>
+        <div class="org-dept-members">${members.map((m) => `<span class="org-chip">${escHtml(m.nama || '-')}</span>`).join('')}</div>
       </div>`;
-    });
-    h += `</div></div></div>`;
-  });
-  document.getElementById('orgWrap').innerHTML = h || '<div class="empty-state"><div class="icon">🌳</div><p>Belum ada data karyawan</p></div>';
+    })
+    .join('');
+  const summaryHtml = `<div class="org-summary-grid">
+    <div class="org-summary-card"><div class="org-summary-value">${activeEmployees.length}</div><div class="org-summary-label">Karyawan Aktif</div></div>
+    <div class="org-summary-card"><div class="org-summary-value">${bods.length}</div><div class="org-summary-label">BOD</div></div>
+    <div class="org-summary-card"><div class="org-summary-value">${gms.length + managers.length + leaders.length}</div><div class="org-summary-label">GM / Manager / Leader</div></div>
+    <div class="org-summary-card"><div class="org-summary-value">${Object.keys(departmentGroups).length}</div><div class="org-summary-label">Departemen</div></div>
+  </div>`;
+  document.getElementById('orgWrap').innerHTML = `
+    <style>
+      .ijef-org-chart{display:flex;flex-direction:column;gap:20px}
+      .org-summary-grid,.org-row,.org-dept-grid{display:flex;gap:16px;flex-wrap:wrap}
+      .org-summary-card{flex:1;min-width:140px;background:#f7f9fc;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;text-align:center}
+      .org-summary-value{font-size:1.35rem;font-weight:700;color:var(--primary)}
+      .org-summary-label{font-size:.78rem;color:#5f6b7a}
+      .org-section{display:flex;flex-direction:column;gap:12px}
+      .org-section-title{font-weight:700;color:#334155;font-size:.82rem;text-transform:uppercase;letter-spacing:.06em;text-align:center}
+      .org-row{justify-content:center;align-items:stretch}
+      .org-row-manager{align-items:flex-start}
+      .org-node{width:210px;max-width:100%;border:1px solid;border-radius:18px;padding:14px 14px 12px;box-shadow:0 10px 24px rgba(15,23,42,.08);display:flex;flex-direction:column;align-items:center;text-align:center}
+      .org-avatar{width:68px;height:68px;border-radius:50%;object-fit:cover;border:3px solid;background:#fff;cursor:pointer}
+      .org-avatar-fallback{display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;color:#334155}
+      .org-node-name{margin-top:10px;font-weight:700;font-size:.9rem;line-height:1.25}
+      .org-node-role{margin-top:4px;font-size:.76rem;line-height:1.3;opacity:.95}
+      .org-node-dept{margin-top:6px;font-size:.72rem;line-height:1.3;opacity:.85}
+      .org-node-extra{margin-top:8px;font-size:.7rem;font-weight:700;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.28)}
+      .org-connector{width:2px;height:26px;background:#cbd5e1;margin:0 auto}
+      .org-branch-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+      .org-branch{background:#fbfcff;border:1px solid #dbe4f0;border-radius:18px;padding:18px 16px}
+      .org-branch-head{display:flex;justify-content:center}
+      .org-branch-line{width:2px;height:22px;background:#cbd5e1;margin:10px auto 12px}
+      .org-empty{padding:14px 16px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:14px;color:#64748b;text-align:center;font-size:.82rem}
+      .org-dept-grid{align-items:stretch}
+      .org-dept-card{flex:1;min-width:240px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px}
+      .org-dept-title{font-weight:700;color:#1e293b}
+      .org-dept-meta{margin-top:6px;font-size:.76rem;color:#64748b}
+      .org-dept-members{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+      .org-chip{padding:6px 10px;background:#eef2ff;border-radius:999px;font-size:.74rem;color:#334155}
+      @media (max-width:768px){
+        .org-node{width:100%}
+        .org-branch{padding:14px}
+      }
+    </style>
+    <div class="ijef-org-chart">
+      ${summaryHtml}
+      ${buildRow('BOD', bods, 'commissioner', 'Belum ada data BOD')}
+      ${bods.length && gms.length ? '<div class="org-connector"></div>' : ''}
+      ${buildRow('General Manager', gms, 'gm', 'Belum ada data General Manager')}
+      ${gms.length && managers.length ? '<div class="org-connector"></div>' : ''}
+      ${buildRow('Manager', managers, 'manager', 'Belum ada data Manager')}
+      ${managers.length && leaders.length ? '<div class="org-connector"></div>' : ''}
+      ${buildRow('Leader', leaders, 'manager', 'Belum ada data Leader')}
+      ${leaders.length && staffs.length ? '<div class="org-connector"></div>' : ''}
+      ${buildRow('Staff', staffs, 'staff', 'Belum ada data Staff')}
+      <div class="org-section">
+        <div class="org-section-title">Ringkasan Divisi</div>
+        <div class="org-dept-grid">${deptSummary}</div>
+      </div>
+    </div>`;
 }
 
 function parseChecklistText(raw) {
