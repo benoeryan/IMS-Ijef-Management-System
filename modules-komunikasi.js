@@ -3,7 +3,11 @@
 // Setiap meeting dikirim langsung ke inbox masing-masing user
 // Dipisah berdasarkan user head (pembuat meeting)
 // ══════════════════════════════════════════════════════════════
-const _GEMINI_KEY_KOM = ["AQ.Ab8RN6", "IT3OlxagKVizWxq", "T8N_di_bXkk-hjKxUWbPdmoaK0tjg"].join("");
+const _GEMINI_KEY_KOM = [
+  "AQ.Ab8RN6",
+  "IT3OlxagKVizWxq",
+  "T8N_di_bXkk-hjKxUWbPdmoaK0tjg",
+].join("");
 let _notulensiSpeechSession = null;
 
 function getNotulensiSpeechCtor() {
@@ -35,13 +39,16 @@ function stopNotulensiSpeech(message) {
     false,
     session.buttonId,
     session.statusId,
-    message || "Rekaman dihentikan. Anda bisa lanjut edit transkrip atau generate AI."
+    message ||
+      "Rekaman dihentikan. Anda bisa lanjut edit transkrip atau generate AI.",
   );
 }
 
 function toggleNotulensiSpeech(textareaId, buttonId, statusId) {
   if (_notulensiSpeechSession?.buttonId === buttonId) {
-    stopNotulensiSpeech("✅ Rekaman selesai. Transkrip siap dipakai untuk generate AI.");
+    stopNotulensiSpeech(
+      "✅ Rekaman selesai. Transkrip siap dipakai untuk generate AI.",
+    );
     return;
   }
   stopNotulensiSpeech();
@@ -49,7 +56,7 @@ function toggleNotulensiSpeech(textareaId, buttonId, statusId) {
   if (!SpeechCtor)
     return toast(
       "Browser ini belum mendukung rekam otomatis. Silakan isi transkrip manual.",
-      "warning"
+      "warning",
     );
   const textarea = document.getElementById(textareaId);
   if (!textarea) return toast("Kolom transkrip tidak ditemukan.", "warning");
@@ -70,7 +77,7 @@ function toggleNotulensiSpeech(textareaId, buttonId, statusId) {
       true,
       buttonId,
       statusId,
-      "🎙️ Rekaman aktif. Ucapan Anda akan otomatis ditambahkan ke kolom transkrip."
+      "🎙️ Rekaman aktif. Ucapan Anda akan otomatis ditambahkan ke kolom transkrip.",
     );
   };
   recognition.onresult = (event) => {
@@ -81,7 +88,9 @@ function toggleNotulensiSpeech(textareaId, buttonId, statusId) {
       if (!event.results[i].isFinal) continue;
       const text = String(event.results[i][0]?.transcript || "").trim();
       if (!text) continue;
-      target.value = target.value.trim() ? `${target.value.trim()}\n${text}` : text;
+      target.value = target.value.trim()
+        ? `${target.value.trim()}\n${text}`
+        : text;
       appended = true;
     }
     if (appended) {
@@ -90,16 +99,17 @@ function toggleNotulensiSpeech(textareaId, buttonId, statusId) {
         true,
         buttonId,
         statusId,
-        "🎙️ Rekaman berjalan. Transkrip baru sudah ditambahkan ke kolom di bawah."
+        "🎙️ Rekaman berjalan. Transkrip baru sudah ditambahkan ke kolom di bawah.",
       );
     }
   };
   recognition.onerror = (event) => {
-    const knownSilence = event.error === "aborted" || event.error === "no-speech";
+    const knownSilence =
+      event.error === "aborted" || event.error === "no-speech";
     stopNotulensiSpeech(
       session.hasCaptured
         ? "✅ Rekaman selesai. Transkrip siap dipakai untuk generate AI."
-        : "Rekaman berhenti. Anda bisa coba lagi atau isi transkrip manual."
+        : "Rekaman berhenti. Anda bisa coba lagi atau isi transkrip manual.",
     );
     if (!knownSilence) toast("Gagal rekam suara: " + event.error, "error");
   };
@@ -112,7 +122,7 @@ function toggleNotulensiSpeech(textareaId, buttonId, statusId) {
       statusId,
       session.hasCaptured
         ? "✅ Rekaman selesai. Transkrip siap dipakai untuk generate AI."
-        : "Rekaman selesai tanpa transkrip baru. Anda bisa rekam lagi atau isi manual."
+        : "Rekaman selesai tanpa transkrip baru. Anda bisa rekam lagi atau isi manual.",
     );
   };
   try {
@@ -544,14 +554,27 @@ async function doGenerateNotulensiOffline(meetingId) {
   const p = d.data();
   const tipe = document.getElementById("aiTipeRapat")?.value || "offline";
   const topik = document.getElementById("aiTopikOffline")?.value.trim() || "";
-  const keputusan = document.getElementById("aiKeputusanOffline")?.value.trim() || "";
-  const tambahan = document.getElementById("aiTambahanOffline")?.value.trim() || "";
-  const transkrip = document.getElementById("aiTranskripOffline")?.value.trim() || "";
-  const peserta = [(p.createdByName || ""), ...(p.pesertaNames || [])].filter(Boolean).join(", ");
-  const tipeLabel = tipe === "offline" ? "Rapat Offline (Tatap Muka)" : tipe === "video" ? "Online – Video Call" : "Online – Phone Call";
+  const keputusan =
+    document.getElementById("aiKeputusanOffline")?.value.trim() || "";
+  const tambahan =
+    document.getElementById("aiTambahanOffline")?.value.trim() || "";
+  const transkrip =
+    document.getElementById("aiTranskripOffline")?.value.trim() || "";
+  const peserta = [p.createdByName || "", ...(p.pesertaNames || [])]
+    .filter(Boolean)
+    .join(", ");
+  const tipeLabel =
+    tipe === "offline"
+      ? "Rapat Offline (Tatap Muka)"
+      : tipe === "video"
+        ? "Online – Video Call"
+        : "Online – Phone Call";
 
   const btn = document.getElementById("btnGenOfflineAI");
-  if (btn) { btn.disabled = true; btn.innerText = "⏳ Generating..."; }
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "⏳ Generating...";
+  }
 
   const prompt = `Kamu adalah sekretaris profesional. Buatkan notulensi rapat yang lengkap, terstruktur, dan formal dalam Bahasa Indonesia berdasarkan informasi berikut:
 
@@ -619,16 +642,23 @@ Jika transkrip rekaman tersedia, jadikan transkrip sebagai sumber utama untuk pe
 
   try {
     stopNotulensiSpeech();
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${_GEMINI_KEY_KOM}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    });
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${_GEMINI_KEY_KOM}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      },
+    );
     const data = await resp.json();
-    if (data.error) throw new Error(data.error.message || "Gagal terhubung ke AI");
+    if (data.error)
+      throw new Error(data.error.message || "Gagal terhubung ke AI");
     const notulensi = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     if (!notulensi) throw new Error("AI tidak menghasilkan teks");
-    await db.collection("hrd_meeting").doc(meetingId).update({ notulensi, updatedAt: new Date().toISOString() });
+    await db
+      .collection("hrd_meeting")
+      .doc(meetingId)
+      .update({ notulensi, updatedAt: new Date().toISOString() });
     closeModalDirect();
     openModal(
       `<div class="modal-title">📝 Notulensi AI — Edit & Simpan</div>
@@ -641,7 +671,10 @@ Jika transkrip rekaman tersedia, jadikan transkrip sebagai sumber utama untuk pe
       true,
     );
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.innerText = "🤖 Generate Notulensi"; }
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = "🤖 Generate Notulensi";
+    }
     toast("❌ Gagal: " + e.message, "error");
   }
 }
@@ -996,14 +1029,26 @@ async function doGenerateNotulensi(meetingId) {
   const p = d.data();
   const topik = document.getElementById("aiTopik")?.value.trim() || "";
   const keputusan = document.getElementById("aiKeputusan")?.value.trim() || "";
-  const transkrip = document.getElementById("aiTranskripOnline")?.value.trim() || "";
-  const peserta = [(p.createdByName || ""), ...(p.pesertaNames || [])].filter(Boolean).join(", ");
+  const transkrip =
+    document.getElementById("aiTranskripOnline")?.value.trim() || "";
+  const peserta = [p.createdByName || "", ...(p.pesertaNames || [])]
+    .filter(Boolean)
+    .join(", ");
   const tanggal = formatDateTime(p.createdAt);
-  const durasi = p.endedAt ? Math.round((new Date(p.endedAt) - new Date(p.createdAt)) / 60000) + " menit" : "-";
-  const tipeLabel = p.mode === "audio" ? "Online – Phone/Voice Call" : "Online – Video Call";
+  const durasi = p.endedAt
+    ? Math.round((new Date(p.endedAt) - new Date(p.createdAt)) / 60000) +
+      " menit"
+    : "-";
+  const tipeLabel =
+    p.mode === "audio" ? "Online – Phone/Voice Call" : "Online – Video Call";
 
-  const btn = document.getElementById("btnGenAI") || document.querySelector("[onclick*='doGenerateNotulensi']");
-  if (btn) { btn.disabled = true; btn.innerText = "⏳ Generating..."; }
+  const btn =
+    document.getElementById("btnGenAI") ||
+    document.querySelector("[onclick*='doGenerateNotulensi']");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "⏳ Generating...";
+  }
 
   const prompt = `Kamu adalah sekretaris profesional. Buatkan notulensi rapat yang lengkap, terstruktur, dan formal dalam Bahasa Indonesia berdasarkan informasi berikut:
 
@@ -1072,16 +1117,23 @@ Jika transkrip rekaman tersedia, jadikan transkrip sebagai sumber utama untuk pe
 
   try {
     stopNotulensiSpeech();
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${_GEMINI_KEY_KOM}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    });
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${_GEMINI_KEY_KOM}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      },
+    );
     const data = await resp.json();
-    if (data.error) throw new Error(data.error.message || "Gagal terhubung ke AI");
+    if (data.error)
+      throw new Error(data.error.message || "Gagal terhubung ke AI");
     const notulensi = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     if (!notulensi) throw new Error("AI tidak menghasilkan teks");
-    await db.collection("hrd_online_meeting").doc(meetingId).update({ notulensi, updatedAt: new Date().toISOString() });
+    await db
+      .collection("hrd_online_meeting")
+      .doc(meetingId)
+      .update({ notulensi, updatedAt: new Date().toISOString() });
     closeModalDirect();
     openModal(
       `<div class="modal-title">📝 Notulensi AI — Edit & Simpan</div>
@@ -1094,13 +1146,20 @@ Jika transkrip rekaman tersedia, jadikan transkrip sebagai sumber utama untuk pe
       true,
     );
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.innerText = "🤖 Generate Notulensi"; }
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = "🤖 Generate Notulensi";
+    }
     toast("❌ Gagal: " + e.message, "error");
   }
 }
 
 function cetakNotulensi() {
-  const content = (document.getElementById("notulOnlineIsi") || document.getElementById("notulIsi"))?.value || "";
+  const content =
+    (
+      document.getElementById("notulOnlineIsi") ||
+      document.getElementById("notulIsi")
+    )?.value || "";
   const win = window.open("", "_blank");
   win.document.write(
     "<html><head><title>Notulensi Meeting</title><style>body{font-family:monospace;padding:30px;font-size:12px;white-space:pre-wrap;line-height:1.6}</style></head><body>",
@@ -1542,7 +1601,8 @@ window.filterGrpMembers = function (q) {
 };
 
 async function sendGroupChat() {
-  const isCustom = document.getElementById("grpCustomSection").style.display === "block";
+  const isCustom =
+    document.getElementById("grpCustomSection").style.display === "block";
   const msg = document.getElementById("grpMsg").value.trim();
   let label = "";
   let members = [currentUser.id];
@@ -1551,8 +1611,11 @@ async function sendGroupChat() {
   if (isCustom) {
     label = document.getElementById("grpNameCustom").value.trim();
     if (!label) return toast("Nama group wajib diisi", "warning");
-    const selected = document.querySelectorAll('input[name="grpMembers"]:checked');
-    if (selected.length === 0) return toast("Pilih minimal 1 anggota", "warning");
+    const selected = document.querySelectorAll(
+      'input[name="grpMembers"]:checked',
+    );
+    if (selected.length === 0)
+      return toast("Pilih minimal 1 anggota", "warning");
     selected.forEach((cb) => members.push(cb.value));
   } else {
     const dept = document.getElementById("grpDept").value;
@@ -1663,7 +1726,6 @@ async function sendGroupChat() {
     btn.innerHTML = "🚀 Buat / Masuk Group";
   }
 }
-
 
 function openChatThread(threadId) {
   // Show chat area (mobile: switch view)
