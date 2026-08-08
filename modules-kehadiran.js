@@ -1396,8 +1396,8 @@ async function renderDailyTask() {
   // Build tabs based on role hierarchy
   let tabs = '<div class="tab active" onclick="filterDailyTasks(\'all\')">Semua</div>';
   tabs += '<div class="tab" onclick="filterDailyTasks(\'today\')">Hari Ini</div>';
-  if (!hasAccess(5)) {
-    // Staff to Head have tasks
+  if (!hasAccess(5) || hasAccess(6)) {
+    // Staff to Head and Admin have tasks
     tabs += '<div class="tab" onclick="filterDailyTasks(\'upcoming\')">Mendatang</div>';
     tabs += '<div class="tab" onclick="filterDailyTasks(\'done\')">Selesai</div>';
     tabs += '<div class="tab" onclick="filterDailyTasks(\'overdue\')">Terlambat</div>';
@@ -1415,12 +1415,12 @@ async function renderDailyTask() {
     // Manager/Head/BOD can access report summary
     tabs += '<div class="tab" onclick="navigateTo(\'report-summary\')">📋 Rangkuman Report</div>';
   }
-  if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5) || (hasAccess(5) && !hasAccess(6))) {
-    // Leader/Manager/Head and BOD can see tasks they assigned
+  if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5) || (hasAccess(5) && !hasAccess(6)) || hasAccess(6)) {
+    // Leader/Manager/Head, BOD, and Admin can see tasks they assigned
     tabs += '<div class="tab" onclick="filterDailyTasks(\'assigned\')">📋 Ditugaskan</div>';
   }
-  if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) {
-    // Leader/Manager/Head (including HEAD-posisi) can monitor assigned task history (not BOD)
+  if ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5) || hasAccess(6)) {
+    // Leader/Manager/Head (including HEAD-posisi) and Admin can monitor assigned task history (not BOD)
     tabs +=
       '<div class="tab" onclick="filterDailyTasks(\'history-assigned\')">📊 History Tugas</div>';
   }

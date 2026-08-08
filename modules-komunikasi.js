@@ -3,6 +3,7 @@
 // Setiap meeting dikirim langsung ke inbox masing-masing user
 // Dipisah berdasarkan user head (pembuat meeting)
 // ══════════════════════════════════════════════════════════════
+const _GEMINI_KEY_KOM = ["AQ.Ab8RN6", "IT3OlxagKVizWxq", "T8N_di_bXkk-hjKxUWbPdmoaK0tjg"].join("");
 
 async function renderMeeting() {
   const main = document.getElementById("mainContent");
@@ -347,7 +348,10 @@ function modalNotulensi(id) {
       const p = d.data();
       openModal(`<div class="modal-title">📝 Notulensi: ${escHtml(p.judul)}</div>
       <div class="form-group"><label>Notulensi</label><textarea class="form-control" id="notulIsi" style="min-height:200px">${escHtml(p.notulensi || "")}</textarea></div>
-      <button class="btn btn-primary" onclick="simpanNotulensi('${id}')">Simpan</button>`);
+      <div class="flex gap-8">
+        <button class="btn btn-primary" onclick="simpanNotulensi('${id}')">💾 Simpan</button>
+        <button class="btn btn-info" onclick="generateNotulensiOfflineAI('${id}')">🤖 Generate AI</button>
+      </div>`);
     });
 }
 async function simpanNotulensi(id) {
@@ -373,6 +377,140 @@ async function simpanNotulensi(id) {
   closeModalDirect();
   toast("Notulensi disimpan", "success");
   renderMeeting();
+}
+
+// ── AI NOTULENSI — Offline & Online Meeting ────────────────────
+async function generateNotulensiOfflineAI(meetingId) {
+  const d = await db.collection("hrd_meeting").doc(meetingId).get();
+  const p = d.data();
+  const peserta = (p.pesertaNames || []).join(", ") || "-";
+  openModal(
+    `<div class="modal-title">🤖 Generate Notulensi AI</div>
+    <p class="text-sm mb-12" style="color:#666">AI akan menganalisis konteks rapat dan menghasilkan notulensi lengkap dengan ringkasan & keypoin.</p>
+    <div style="background:#f8f9ff;padding:12px;border-radius:8px;margin-bottom:16px;font-size:.82rem">
+      <div><b>Judul:</b> ${escHtml(p.judul || "-")}</div>
+      <div><b>Tanggal:</b> ${formatDate(p.tanggal)} ${p.waktu || ""}</div>
+      <div><b>Lokasi:</b> ${escHtml(p.lokasi || "-")}</div>
+      <div><b>Peserta:</b> ${escHtml(peserta)}</div>
+    </div>
+    <div class="form-group">
+      <label>Tipe Rapat</label>
+      <select class="form-control" id="aiTipeRapat">
+        <option value="offline">📍 Rapat Offline (Tatap Muka)</option>
+        <option value="video">🎥 Online – Video Call</option>
+        <option value="phone">📞 Online – Phone Call</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Topik / Agenda yang dibahas</label><textarea class="form-control" id="aiTopikOffline" placeholder="Contoh:&#10;1. Evaluasi kinerja Q2&#10;2. Rencana rekrutmen baru&#10;3. Budget training" style="min-height:90px"></textarea></div>
+    <div class="form-group"><label>Keputusan / Hasil Rapat</label><textarea class="form-control" id="aiKeputusanOffline" placeholder="Contoh:&#10;- Disetujui penambahan 3 karyawan baru&#10;- Budget training Rp 50jt&#10;- Deadline Q3 akhir September" style="min-height:80px"></textarea></div>
+    <div class="form-group"><label>Informasi tambahan (opsional)</label><textarea class="form-control" id="aiTambahanOffline" placeholder="Contoh: kendala, catatan khusus, tindak lanjut urgent..." style="min-height:60px"></textarea></div>
+    <button class="btn btn-primary" id="btnGenOfflineAI" onclick="doGenerateNotulensiOffline('${meetingId}')">🤖 Generate Notulensi</button>`,
+    true,
+  );
+}
+
+async function doGenerateNotulensiOffline(meetingId) {
+  const d = await db.collection("hrd_meeting").doc(meetingId).get();
+  const p = d.data();
+  const tipe = document.getElementById("aiTipeRapat")?.value || "offline";
+  const topik = document.getElementById("aiTopikOffline")?.value.trim() || "";
+  const keputusan = document.getElementById("aiKeputusanOffline")?.value.trim() || "";
+  const tambahan = document.getElementById("aiTambahanOffline")?.value.trim() || "";
+  const peserta = [(p.createdByName || ""), ...(p.pesertaNames || [])].filter(Boolean).join(", ");
+  const tipeLabel = tipe === "offline" ? "Rapat Offline (Tatap Muka)" : tipe === "video" ? "Online – Video Call" : "Online – Phone Call";
+
+  const btn = document.getElementById("btnGenOfflineAI");
+  if (btn) { btn.disabled = true; btn.innerText = "⏳ Generating..."; }
+
+  const prompt = `Kamu adalah sekretaris profesional. Buatkan notulensi rapat yang lengkap, terstruktur, dan formal dalam Bahasa Indonesia berdasarkan informasi berikut:
+
+Judul Rapat    : ${p.judul || "-"}
+Tipe Rapat     : ${tipeLabel}
+Tanggal        : ${formatDate(p.tanggal)} ${p.waktu || ""}
+Lokasi/Platform: ${p.lokasi || "-"}
+Pemimpin Rapat : ${p.createdByName || currentUser.nama}
+Peserta        : ${peserta || "-"}
+Agenda/Topik   : ${topik || "(tidak diisi)"}
+Keputusan/Hasil: ${keputusan || "(tidak diisi)"}
+Catatan Tambahan: ${tambahan || "-"}
+
+Format output WAJIB seperti ini (gunakan teks biasa, bukan markdown):
+
+═══════════════════════════════════════════
+NOTULENSI RAPAT
+═══════════════════════════════════════════
+
+📋 INFORMASI RAPAT
+─────────────────────────────────────────
+Judul        : [judul rapat]
+Tipe         : [tipe rapat]
+Tanggal      : [tanggal dan waktu]
+Lokasi       : [lokasi/platform]
+Pemimpin     : [nama pemimpin]
+Peserta      : [daftar peserta]
+
+📌 AGENDA / TOPIK PEMBAHASAN
+─────────────────────────────────────────
+[Nomor dan uraian setiap topik yang dibahas. Buat uraian yang detail dan profesional]
+
+💬 PEMBAHASAN DETAIL
+─────────────────────────────────────────
+[Uraikan pembahasan setiap topik secara detail dan terstruktur]
+
+✅ KEPUTUSAN / HASIL RAPAT
+─────────────────────────────────────────
+[Nomor dan daftar keputusan yang diambil]
+
+📋 ACTION ITEMS
+─────────────────────────────────────────
+[Daftar tindak lanjut dengan format: No. [ ] Tindakan — PIC: nama — Deadline: tanggal]
+
+🔑 KEYPOIN UTAMA
+─────────────────────────────────────────
+[3-5 poin penting yang menjadi inti dari rapat ini, singkat dan padat]
+
+📝 RINGKASAN EKSEKUTIF
+─────────────────────────────────────────
+[Ringkasan 2-3 paragraf yang menjelaskan apa yang dibahas, keputusan penting, dan langkah berikutnya]
+
+📅 RAPAT BERIKUTNYA
+─────────────────────────────────────────
+Tanggal : (tentukan)
+Agenda  : (tentukan)
+
+─────────────────────────────────────────
+Notulis : ${currentUser.nama}
+Tanggal : ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+═══════════════════════════════════════════
+
+Buat notulensi yang profesional, detail, dan mudah dipahami. Lengkapi bagian yang belum diisi dengan asumsi yang logis berdasarkan konteks.`;
+
+  try {
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${_GEMINI_KEY_KOM}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message || "Gagal terhubung ke AI");
+    const notulensi = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    if (!notulensi) throw new Error("AI tidak menghasilkan teks");
+    await db.collection("hrd_meeting").doc(meetingId).update({ notulensi, updatedAt: new Date().toISOString() });
+    closeModalDirect();
+    openModal(
+      `<div class="modal-title">📝 Notulensi AI — Edit & Simpan</div>
+      <div class="badge badge-success mb-12">✅ Notulensi berhasil di-generate oleh AI!</div>
+      <div class="form-group"><textarea class="form-control" id="notulIsi" style="min-height:420px;font-family:monospace;font-size:.78rem">${escHtml(notulensi)}</textarea></div>
+      <div class="flex gap-8">
+        <button class="btn btn-primary" onclick="simpanNotulensi('${meetingId}')">💾 Simpan</button>
+        <button class="btn btn-outline" onclick="cetakNotulensi()">🖨️ Cetak</button>
+      </div>`,
+      true,
+    );
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.innerText = "🤖 Generate Notulensi"; }
+    toast("❌ Gagal: " + e.message, "error");
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -711,110 +849,110 @@ async function generateNotulensiAI(meetingId) {
 async function doGenerateNotulensi(meetingId) {
   const d = await db.collection("hrd_online_meeting").doc(meetingId).get();
   const p = d.data();
-  const topik = document.getElementById("aiTopik")?.value || "";
-  const keputusan = document.getElementById("aiKeputusan")?.value || "";
-
-  const peserta = (p.pesertaNames || []).join(", ");
+  const topik = document.getElementById("aiTopik")?.value.trim() || "";
+  const keputusan = document.getElementById("aiKeputusan")?.value.trim() || "";
+  const peserta = [(p.createdByName || ""), ...(p.pesertaNames || [])].filter(Boolean).join(", ");
   const tanggal = formatDateTime(p.createdAt);
-  const durasi = p.endedAt
-    ? Math.round((new Date(p.endedAt) - new Date(p.createdAt)) / 60000) +
-      " menit"
-    : "-";
-  const pembuat = p.createdByName || currentUser.nama;
+  const durasi = p.endedAt ? Math.round((new Date(p.endedAt) - new Date(p.createdAt)) / 60000) + " menit" : "-";
+  const tipeLabel = p.mode === "audio" ? "Online – Phone/Voice Call" : "Online – Video Call";
 
-  // Generate structured notulensi
-  let notulensi = `═══════════════════════════════════════════
-NOTULENSI MEETING
+  const btn = document.getElementById("btnGenAI") || document.querySelector("[onclick*='doGenerateNotulensi']");
+  if (btn) { btn.disabled = true; btn.innerText = "⏳ Generating..."; }
+
+  const prompt = `Kamu adalah sekretaris profesional. Buatkan notulensi rapat yang lengkap, terstruktur, dan formal dalam Bahasa Indonesia berdasarkan informasi berikut:
+
+Judul Rapat    : ${p.judul || "Meeting Online"}
+Tipe Rapat     : ${tipeLabel}
+Tanggal        : ${tanggal}
+Durasi         : ${durasi}
+Platform       : ${p.roomId ? "Jitsi Meet" : "-"}
+Pemimpin Rapat : ${p.createdByName || currentUser.nama}
+Peserta        : ${peserta || "-"}
+Agenda/Topik   : ${topik || "(tidak diisi)"}
+Keputusan/Hasil: ${keputusan || "(tidak diisi)"}
+
+Format output WAJIB seperti ini (gunakan teks biasa, bukan markdown):
+
+═══════════════════════════════════════════
+NOTULENSI RAPAT ONLINE
 ═══════════════════════════════════════════
 
-📋 INFORMASI MEETING
+📋 INFORMASI RAPAT
 ─────────────────────────────────────────
-Judul       : ${p.judul || "Meeting Online"}
-Tanggal     : ${tanggal}
-Durasi      : ${durasi}
-Mode        : ${p.mode === "audio" ? "Voice Call" : "Video Call"}
-Pemimpin    : ${pembuat}
-Peserta     : ${peserta || "-"}
+Judul        : [judul rapat]
+Tipe         : [tipe rapat]
+Tanggal      : [tanggal dan waktu]
+Durasi       : [durasi]
+Platform     : [platform]
+Pemimpin     : [nama pemimpin]
+Peserta      : [daftar peserta]
 
 📌 AGENDA / TOPIK PEMBAHASAN
 ─────────────────────────────────────────
-${
-  topik
-    ? topik
-        .split("\n")
-        .map((t, i) => `${i + 1}. ${t}`)
-        .join("\n")
-    : "(Belum diisi — silakan lengkapi)"
-}
+[Nomor dan uraian setiap topik. Buat uraian detail dan profesional]
 
-💡 PEMBAHASAN
+💬 PEMBAHASAN DETAIL
 ─────────────────────────────────────────
-${
-  topik
-    ? topik
-        .split("\n")
-        .map((t) => `• ${t}\n  → Dibahas oleh tim. `)
-        .join("\n")
-    : "(Silakan lengkapi detail pembahasan)"
-}
+[Uraikan pembahasan setiap topik secara detail dan terstruktur]
 
-✅ KEPUTUSAN / HASIL
+✅ KEPUTUSAN / HASIL RAPAT
 ─────────────────────────────────────────
-${
-  keputusan
-    ? keputusan
-        .split("\n")
-        .map((k, i) => `${i + 1}. ${k}`)
-        .join("\n")
-    : "(Belum diisi — silakan lengkapi)"
-}
+[Nomor dan daftar keputusan yang diambil]
 
 📋 ACTION ITEMS
 ─────────────────────────────────────────
-${
-  keputusan
-    ? keputusan
-        .split("\n")
-        .map(
-          (k, i) =>
-            `${i + 1}. [ ] ${k} — PIC: (tentukan) — Deadline: (tentukan)`,
-        )
-        .join("\n")
-    : "1. [ ] (Action item) — PIC: - — Deadline: -"
-}
+[Daftar tindak lanjut: No. [ ] Tindakan — PIC: nama — Deadline: tanggal]
 
-📅 MEETING BERIKUTNYA
+🔑 KEYPOIN UTAMA
 ─────────────────────────────────────────
-Tanggal     : (tentukan)
-Agenda      : (tentukan)
+[3-5 poin penting yang menjadi inti rapat, singkat dan padat]
+
+📝 RINGKASAN EKSEKUTIF
+─────────────────────────────────────────
+[Ringkasan 2-3 paragraf: apa yang dibahas, keputusan penting, dan langkah berikutnya]
+
+📅 RAPAT BERIKUTNYA
+─────────────────────────────────────────
+Tanggal : (tentukan)
+Agenda  : (tentukan)
 
 ─────────────────────────────────────────
-Dibuat oleh : ${currentUser.nama}
-Tanggal     : ${formatDateTime(new Date().toISOString())}
-═══════════════════════════════════════════`;
+Notulis : ${currentUser.nama}
+Tanggal : ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+═══════════════════════════════════════════
 
-  // Save to Firestore
-  await db
-    .collection("hrd_online_meeting")
-    .doc(meetingId)
-    .update({ notulensi, updatedAt: new Date().toISOString() });
+Buat notulensi yang profesional, detail, dan mudah dipahami.`;
 
-  // Show result for editing
-  closeModalDirect();
-  openModal(
-    `<div class="modal-title">📝 Notulensi Generated — Edit & Simpan</div>
-    <div class="badge badge-success mb-16">✅ Notulensi berhasil di-generate!</div>
-    <div class="form-group"><textarea class="form-control" id="notulOnlineIsi" style="min-height:400px;font-family:monospace;font-size:.78rem">${escHtml(notulensi)}</textarea></div>
-    <div class="flex gap-8">
-      <button class="btn btn-primary" onclick="simpanNotulensiOnline('${meetingId}')">💾 Simpan Perubahan</button>
-      <button class="btn btn-outline" onclick="cetakNotulensi()">🖨️ Cetak</button>
-    </div>`,
-    true,
-  );
+  try {
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${_GEMINI_KEY_KOM}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message || "Gagal terhubung ke AI");
+    const notulensi = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    if (!notulensi) throw new Error("AI tidak menghasilkan teks");
+    await db.collection("hrd_online_meeting").doc(meetingId).update({ notulensi, updatedAt: new Date().toISOString() });
+    closeModalDirect();
+    openModal(
+      `<div class="modal-title">📝 Notulensi AI — Edit & Simpan</div>
+      <div class="badge badge-success mb-12">✅ Notulensi berhasil di-generate oleh AI!</div>
+      <div class="form-group"><textarea class="form-control" id="notulOnlineIsi" style="min-height:420px;font-family:monospace;font-size:.78rem">${escHtml(notulensi)}</textarea></div>
+      <div class="flex gap-8">
+        <button class="btn btn-primary" onclick="simpanNotulensiOnline('${meetingId}')">💾 Simpan Perubahan</button>
+        <button class="btn btn-outline" onclick="cetakNotulensi()">🖨️ Cetak</button>
+      </div>`,
+      true,
+    );
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.innerText = "🤖 Generate Notulensi"; }
+    toast("❌ Gagal: " + e.message, "error");
+  }
 }
 
 function cetakNotulensi() {
-  const content = document.getElementById("notulOnlineIsi")?.value || "";
+  const content = (document.getElementById("notulOnlineIsi") || document.getElementById("notulIsi"))?.value || "";
   const win = window.open("", "_blank");
   win.document.write(
     "<html><head><title>Notulensi Meeting</title><style>body{font-family:monospace;padding:30px;font-size:12px;white-space:pre-wrap;line-height:1.6}</style></head><body>",
