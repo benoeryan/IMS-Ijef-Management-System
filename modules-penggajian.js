@@ -1405,8 +1405,7 @@ async function bayarAngsuran(id) {
   const newSudahBayar = (p.sudahBayar || 0) + angsuran;
   const sisa = Math.max(0, (p.jumlah || 0) - newSudahBayar);
   const paymentAt = new Date().toISOString();
-  const paymentHistory = p.paymentHistory || [];
-  paymentHistory.push({ jumlah: angsuran, tanggal: paymentAt, dicatatOleh: currentUser.nama });
+  const paymentHistory = [...(p.paymentHistory || []), { jumlah: angsuran, tanggal: paymentAt, dicatatOleh: currentUser.nama }];
   const update = { sudahBayar: newSudahBayar, lastPayment: paymentAt, paymentHistory };
   if (sisa <= 0) update.status = 'lunas';
   await db.collection('hrd_kasbon').doc(id).update(update);
