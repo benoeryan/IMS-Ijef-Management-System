@@ -443,6 +443,7 @@ async function renderStrukturOrg() {
   const groups = {};
   snap.forEach((d) => {
     const p = d.data();
+    if (p.status !== 'aktif') return;
     if (!groups[p.departemen || '-']) groups[p.departemen || '-'] = [];
     groups[p.departemen || '-'].push({ id: d.id, ...p });
   });
@@ -450,11 +451,22 @@ async function renderStrukturOrg() {
   let h = '';
   deptNames.forEach((dept) => {
     const members = groups[dept].sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
-    h += `<div class="card mb-16"><div class="card-title">🏢 ${escHtml(dept)}</div><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Grade</th><th>Status</th></tr></thead><tbody>`;
+    h += `<div class="card mb-16"><div class="card-title">🏢 ${escHtml(dept)}</div>`;
+    h += `<div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Grade</th><th>Status</th></tr></thead><tbody>`;
     members.forEach((m) => {
-      h += `<tr><td class="fw-700">${escHtml(m.nama || '-')}</td><td>${escHtml(m.posisi || '-')}</td><td>${escHtml(m.gradeJabatan || m.grade || '-')}</td><td>${m.status === 'aktif' ? '<span class="badge badge-success">Aktif</span>' : `<span class="badge badge-danger">${escHtml(m.status || 'Nonaktif')}</span>`}</td></tr>`;
+      h += `<tr><td class="fw-700">${escHtml(m.nama || '-')}</td><td>${escHtml(m.posisi || '-')}</td><td>${escHtml(m.gradeJabatan || m.grade || '-')}</td><td><span class="badge badge-success">Aktif</span></td></tr>`;
     });
-    h += '</tbody></table></div></div>';
+    h += `</tbody></table></div>`;
+    h += `<div class="org-chart-wrap" style="overflow-x:auto;padding:20px 0"><div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center">`;
+    members.forEach((m) => {
+      const foto = m.foto ? `<img src="${escHtml(m.foto)}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid #4caf50">` : `<div style="width:72px;height:72px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center;font-size:2rem;border:2px solid #ccc">👤</div>`;
+      h += `<div style="display:flex;flex-direction:column;align-items:center;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:12px;padding:14px 12px;min-width:110px;max-width:130px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        ${foto}
+        <div style="margin-top:8px;font-weight:700;font-size:.8rem;line-height:1.2">${escHtml(m.nama || '-')}</div>
+        <div style="margin-top:4px;font-size:.72rem;color:#666;line-height:1.2">${escHtml(m.posisi || '-')}</div>
+      </div>`;
+    });
+    h += `</div></div></div>`;
   });
   document.getElementById('orgWrap').innerHTML = h || '<div class="empty-state"><div class="icon">🌳</div><p>Belum ada data karyawan</p></div>';
 }
