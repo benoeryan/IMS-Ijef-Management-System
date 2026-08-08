@@ -455,10 +455,10 @@ async function renderStrukturOrg() {
   }
   function orgLevel(person) {
     const text = `${normalizeText(person.posisi)} ${normalizeText(person.gradeJabatan)} ${normalizeText(person.role)}`;
-    if (text.includes('komisaris')) return 0;
-    if (text.includes('direktur') || text.includes('director')) return 1;
-    if (text.includes('general manager') || text === 'gm') return 2;
-    if (text.includes('head') || text.includes('manager') || text.includes('kepala')) return 3;
+    if (text.includes('bod') || text.includes('founder') || text.includes('komisaris') || text.includes('direktur') || text.includes('director')) return 0;
+    if (text.includes('general manager') || text === 'gm') return 1;
+    if (text.includes('head') || text.includes('manager') || text.includes('kepala')) return 2;
+    if (text.includes('leader') || text.includes('supervisor') || text.includes('spv') || text.includes('koordinator') || text.includes('coordinator')) return 3;
     return 4;
   }
   function extractTokens(person) {
@@ -525,40 +525,26 @@ async function renderStrukturOrg() {
     return best;
   }
   const sortedEmployees = sortByName(activeEmployees);
-  const commissioners = sortedEmployees.filter((p) => orgLevel(p) === 0);
-  const directors = sortedEmployees.filter((p) => orgLevel(p) === 1);
-  const gms = sortedEmployees.filter((p) => orgLevel(p) === 2);
-  const managers = sortedEmployees.filter((p) => orgLevel(p) === 3);
+  const bods = sortedEmployees.filter((p) => orgLevel(p) === 0);
+  const gms = sortedEmployees.filter((p) => orgLevel(p) === 1);
+  const managers = sortedEmployees.filter((p) => orgLevel(p) === 2);
+  const leaders = sortedEmployees.filter((p) => orgLevel(p) === 3);
+  const staffs = sortedEmployees.filter((p) => orgLevel(p) === 4);
   const departmentGroups = {};
   sortedEmployees.forEach((person) => {
     const dept = person.departemen || 'Tanpa Departemen';
     if (!departmentGroups[dept]) departmentGroups[dept] = [];
     departmentGroups[dept].push(person);
   });
-  const managerGroups = {};
-  managers.forEach((manager) => {
-    const parent = findBestParent(manager, gms.length ? gms : directors);
-    const key = parent ? parent.id : 'unassigned';
-    if (!managerGroups[key]) managerGroups[key] = [];
-    managerGroups[key].push(manager);
-  });
-  const gmSections = (gms.length ? gms : directors).map((leader) => {
-    const childManagers = sortByName(managerGroups[leader.id] || []);
-    return `<div class="org-branch">
-      <div class="org-branch-head">${buildNode(leader, gms.length ? 'gm' : 'director', childManagers.length ? `${childManagers.length} unit` : 'Belum ada unit')}</div>
-      <div class="org-branch-line"></div>
-      <div class="org-row org-row-manager">${childManagers.length ? childManagers.map((p) => buildNode(p, 'manager')).join('') : '<div class="org-empty">Belum ada manager/head pada unit ini</div>'}</div>
-    </div>`;
-  });
-  const uncategorizedManagers = sortByName(managerGroups.unassigned || []);
   const deptSummary = Object.keys(departmentGroups)
     .sort((a, b) => a.localeCompare(b))
     .map((dept) => {
       const members = sortByName(departmentGroups[dept]);
       const lead =
-        members.find((p) => orgLevel(p) === 3) ||
         members.find((p) => orgLevel(p) === 2) ||
         members.find((p) => orgLevel(p) === 1) ||
+        members.find((p) => orgLevel(p) === 0) ||
+        members.find((p) => orgLevel(p) === 3) ||
         members[0];
       return `<div class="org-dept-card">
         <div class="org-dept-title">${escHtml(dept)}</div>
@@ -569,8 +555,8 @@ async function renderStrukturOrg() {
     .join('');
   const summaryHtml = `<div class="org-summary-grid">
     <div class="org-summary-card"><div class="org-summary-value">${activeEmployees.length}</div><div class="org-summary-label">Karyawan Aktif</div></div>
-    <div class="org-summary-card"><div class="org-summary-value">${commissioners.length + directors.length + gms.length}</div><div class="org-summary-label">Top Management</div></div>
-    <div class="org-summary-card"><div class="org-summary-value">${managers.length}</div><div class="org-summary-label">Manager / Head</div></div>
+    <div class="org-summary-card"><div class="org-summary-value">${bods.length}</div><div class="org-summary-label">BOD</div></div>
+    <div class="org-summary-card"><div class="org-summary-value">${gms.length + managers.length + leaders.length}</div><div class="org-summary-label">GM / Manager / Leader</div></div>
     <div class="org-summary-card"><div class="org-summary-value">${Object.keys(departmentGroups).length}</div><div class="org-summary-label">Departemen</div></div>
   </div>`;
   document.getElementById('orgWrap').innerHTML = `
@@ -610,13 +596,15 @@ async function renderStrukturOrg() {
     </style>
     <div class="ijef-org-chart">
       ${summaryHtml}
-      ${buildRow('Komisaris', commissioners, 'commissioner', 'Belum ada data posisi komisaris')}
-      ${commissioners.length ? '<div class="org-connector"></div>' : ''}
-      ${buildRow('Direktur', directors, 'director', 'Belum ada data posisi direktur')}
-      ${(commissioners.length || directors.length) && gms.length ? '<div class="org-connector"></div>' : ''}
-      ${gms.length ? buildRow('General Manager', gms, 'gm', '') : ''}
-      ${gmSections.length ? `<div class="org-section"><div class="org-section-title">Unit & Manager IJEF</div><div class="org-branch-grid">${gmSections.join('')}</div></div>` : ''}
-      ${uncategorizedManagers.length ? `<div class="org-section"><div class="org-section-title">Manager / Head Lainnya</div><div class="org-row">${uncategorizedManagers.map((p) => buildNode(p, 'manager')).join('')}</div></div>` : ''}
+      ${buildRow('BOD', bods, 'commissioner', 'Belum ada data BOD')}
+      ${bods.length && gms.length ? '<div class="org-connector"></div>' : ''}
+      ${buildRow('General Manager', gms, 'gm', 'Belum ada data General Manager')}
+      ${gms.length && managers.length ? '<div class="org-connector"></div>' : ''}
+      ${buildRow('Manager', managers, 'manager', 'Belum ada data Manager')}
+      ${managers.length && leaders.length ? '<div class="org-connector"></div>' : ''}
+      ${buildRow('Leader', leaders, 'manager', 'Belum ada data Leader')}
+      ${leaders.length && staffs.length ? '<div class="org-connector"></div>' : ''}
+      ${buildRow('Staff', staffs, 'staff', 'Belum ada data Staff')}
       <div class="org-section">
         <div class="org-section-title">Ringkasan Divisi</div>
         <div class="org-dept-grid">${deptSummary}</div>
