@@ -459,9 +459,12 @@ async function renderStrukturOrg() {
     h += `</tbody></table></div>`;
     h += `<div class="org-chart-wrap" style="overflow-x:auto;padding:20px 0"><div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center">`;
     members.forEach((m) => {
-      const foto = m.foto ? `<img src="${escHtml(m.foto)}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid #4caf50">` : `<div style="width:72px;height:72px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center;font-size:2rem;border:2px solid #ccc">👤</div>`;
+      const fotoUrl = m.foto ? escHtml(m.foto) : '';
+      const fotoEl = fotoUrl
+        ? `<img src="${fotoUrl}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid #4caf50;cursor:pointer" onclick="lihatFotoKaryawan('${fotoUrl}','${escHtml((m.nama || '').replace(/'/g, "\\'"))}','${escHtml((m.posisi || '').replace(/'/g, "\\'"))}')" title="Klik untuk memperbesar">`
+        : `<div style="width:72px;height:72px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center;font-size:2rem;border:2px solid #ccc">👤</div>`;
       h += `<div style="display:flex;flex-direction:column;align-items:center;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:12px;padding:14px 12px;min-width:110px;max-width:130px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-        ${foto}
+        ${fotoEl}
         <div style="margin-top:8px;font-weight:700;font-size:.8rem;line-height:1.2">${escHtml(m.nama || '-')}</div>
         <div style="margin-top:4px;font-size:.72rem;color:#666;line-height:1.2">${escHtml(m.posisi || '-')}</div>
       </div>`;
@@ -842,3 +845,15 @@ window.simpanLowongan = simpanLowongan;
 window.modalKandidat = modalKandidat;
 window.simpanKandidat = simpanKandidat;
 window.updateKandidatStage = updateKandidatStage;
+
+function lihatFotoKaryawan(url, nama, posisi) {
+  openModal(
+    `<div style="text-align:center">
+      <img src="${url}" style="max-width:100%;max-height:60vh;border-radius:12px;object-fit:contain">
+      <div style="margin-top:12px;font-weight:700;font-size:1rem">${escHtml(nama)}</div>
+      <div style="margin-top:4px;font-size:.85rem;color:#666">${escHtml(posisi)}</div>
+      <button class="btn btn-outline mt-16" onclick="closeModalDirect()">Tutup</button>
+    </div>`
+  );
+}
+window.lihatFotoKaryawan = lihatFotoKaryawan;
