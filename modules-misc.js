@@ -2583,6 +2583,21 @@ async function renderApprovalMgmt() {
   document.getElementById('tblApprFlow').innerHTML = h;
 }
 
+function isApprovalFlowEligibleKaryawan(k) {
+  const status = (k?.status || 'aktif').toLowerCase().trim();
+  return !status || ['aktif', 'tetap', 'probation', 'kontrak'].includes(status);
+}
+
+async function loadApprovalFlowEligibleKaryawan() {
+  const snap = await db.collection('hrd_karyawan').get();
+  const items = [];
+  snap.forEach((d) => {
+    const data = { id: d.id, ...d.data() };
+    if (isApprovalFlowEligibleKaryawan(data)) items.push(data);
+  });
+  return items;
+}
+
 async function generateAllApprovalFlows() {
   if (
     !confirm(
@@ -2590,147 +2605,152 @@ async function generateAllApprovalFlows() {
     )
   )
     return;
-  // Delete existing flows
-  const existSnap = await db.collection('hrd_approval_flow').get();
-  if (!existSnap.empty) {
-    const batch = db.batch();
-    existSnap.forEach((d) => batch.delete(d.ref));
-    await batch.commit();
-  }
-  // Load karyawan
-  const kSnap = await db.collection('hrd_karyawan').where('status', '!=', 'nonaktif').get();
-  const karyawan = [];
-  kSnap.forEach((d) => karyawan.push({ id: d.id, ...d.data() }));
-  // Jenis pengajuan
-  const jenisArr = [
-    'Cuti/Izin',
-    'WFH',
-    'Dinas Luar',
-    'Overtime',
-    'SPPD',
-    'Reimbursement',
-    'Kasbon',
-    'Insentif',
-    'Penggajian',
-    'Onboarding',
-    'Offboarding',
-    'Perpanjangan Kontrak',
-    'Pelatihan',
-  ];
-  const financialJenis = new Set(['SPPD', 'Reimbursement', 'Kasbon']);
-  const hrApprover =
-    karyawan.find((a) => (a.nama || '').toLowerCase().includes('maharani')) ||
-    karyawan.find(
-      (a) =>
-        (a.posisi || '').toLowerCase().includes('hr') ||
-        (a.departemen || '').toLowerCase().includes('hr')
-    );
-  const financeApprover =
-    karyawan.find((a) => (a.nama || '').toLowerCase().includes('siti sofuroh')) ||
-    karyawan.find(
-      (a) =>
-        (a.posisi || '').toLowerCase().includes('finance') ||
-        (a.departemen || '').toLowerCase().includes('finance')
-    );
-  function pushUniqueStep(steps, candidate, pemohonNama) {
-    if (!candidate || !candidate.nama) return;
-    if (isSameName(candidate.nama, pemohonNama)) return;
-    if (steps.find((s) => isSameName(s.nama, candidate.nama))) return;
-    steps.push({
-      nama: candidate.nama,
-      role: candidate.posisi || candidate.role || '',
-      userId: candidate.id || candidate.userId || '',
-    });
-  }
-  function findDirectLeader(k) {
-    if (!k.atasan || (k.atasan || '').toLowerCase() === 'founder') return null;
-    return karyawan.find((a) => isSameName(a.nama, k.atasan));
-  }
-  function findDepartmentManager(k) {
-    const deptLow = (k.departemen || '').toLowerCase();
-    const sameDeptManager = karyawan.find(
-      (a) =>
-        (a.posisi || '').toLowerCase().includes('manager') &&
-        !(a.posisi || '').toLowerCase().includes('general manager') &&
-        (a.departemen || '').toLowerCase() === deptLow
-    );
-    if (sameDeptManager) return sameDeptManager;
-    return karyawan.find(
-      (a) =>
-        (a.posisi || '').toLowerCase().includes('manager') &&
-        !(a.posisi || '').toLowerCase().includes('general manager')
-    );
-  }
-  function findGM() {
-    return karyawan.find((a) => (a.posisi || '').toLowerCase().includes('general manager'));
-  }
-  function buildDefaultFlowSteps(k) {
-    const steps = [];
-    const leader = findDirectLeader(k);
-    pushUniqueStep(steps, leader, k.nama);
-    if (steps.length && steps[0].role) {
-      const step1Pos = (steps[0].role || '').toLowerCase();
-      if (!step1Pos.includes('head') && !step1Pos.includes('general')) {
-        const head = karyawan.find(
-          (a) =>
-            (a.posisi || '').toLowerCase().includes('head') &&
-            (a.departemen || '').toLowerCase() === (k.departemen || '').toLowerCase()
-        );
-        pushUniqueStep(steps, head, k.nama);
-      }
-    }
-    const gm = findGM();
-    pushUniqueStep(steps, gm, k.nama);
-    if ((k.posisi || '').toLowerCase().includes('general manager')) {
-      const founder = karyawan.find((a) => (a.posisi || '').toLowerCase().includes('founder'));
-      pushUniqueStep(steps, founder, k.nama);
-    }
-    if (!steps.length) steps.push({ nama: 'Admin', role: 'admin' });
-    return steps;
-  }
-  function buildFinancialFlowSteps(k) {
-    const steps = [];
-    const leader = findDirectLeader(k);
-    const manager = findDepartmentManager(k);
-    const gm = findGM();
-    pushUniqueStep(steps, leader, k.nama);
-    pushUniqueStep(
-      steps,
-      hrApprover ? { ...hrApprover, role: hrApprover.posisi || 'HR' } : null,
-      k.nama
-    );
-    pushUniqueStep(
-      steps,
-      financeApprover ? { ...financeApprover, role: financeApprover.posisi || 'Finance' } : null,
-      k.nama
-    );
-    pushUniqueStep(steps, manager, k.nama);
-    pushUniqueStep(steps, gm, k.nama);
-    if (!steps.length) steps.push({ nama: 'Admin', role: 'admin' });
-    return steps;
-  }
-  // For each staff/leader, create approval flow based on atasan hierarchy
-  const staffAndLeaders = karyawan.filter((k) => {
-    const pos = (k.posisi || '').toLowerCase();
-    return !pos.includes('founder');
-  });
-  let count = 0;
-  for (const k of staffAndLeaders) {
-    // Create flow for each jenis
-    for (const jenis of jenisArr) {
-      const steps = financialJenis.has(jenis) ? buildFinancialFlowSteps(k) : buildDefaultFlowSteps(k);
-      await db.collection('hrd_approval_flow').add({
-        jenis,
-        pengaju: k.nama,
-        departemen: k.departemen || '',
-        steps,
-        createdAt: new Date().toISOString(),
+  try {
+    const karyawan = await loadApprovalFlowEligibleKaryawan();
+    if (!karyawan.length)
+      return toast('Tidak ada data karyawan aktif yang bisa dibuatkan flow.', 'warning');
+    const jenisArr = [
+      'Cuti/Izin',
+      'WFH',
+      'Dinas Luar',
+      'Overtime',
+      'SPPD',
+      'Reimbursement',
+      'Kasbon',
+      'Insentif',
+      'Penggajian',
+      'Onboarding',
+      'Offboarding',
+      'Perpanjangan Kontrak',
+      'Pelatihan',
+    ];
+    const financialJenis = new Set(['SPPD', 'Reimbursement', 'Kasbon']);
+    const hrApprover =
+      karyawan.find((a) => (a.nama || '').toLowerCase().includes('maharani')) ||
+      karyawan.find(
+        (a) =>
+          (a.posisi || '').toLowerCase().includes('hr') ||
+          (a.departemen || '').toLowerCase().includes('hr')
+      );
+    const financeApprover =
+      karyawan.find((a) => (a.nama || '').toLowerCase().includes('siti sofuroh')) ||
+      karyawan.find(
+        (a) =>
+          (a.posisi || '').toLowerCase().includes('finance') ||
+          (a.departemen || '').toLowerCase().includes('finance')
+      );
+    function pushUniqueStep(steps, candidate, pemohonNama) {
+      if (!candidate || !candidate.nama) return;
+      if (isSameName(candidate.nama, pemohonNama)) return;
+      if (steps.find((s) => isSameName(s.nama, candidate.nama))) return;
+      steps.push({
+        nama: candidate.nama,
+        role: candidate.posisi || candidate.role || '',
+        userId: candidate.id || candidate.userId || '',
       });
-      count++;
     }
+    function findDirectLeader(k) {
+      if (!k.atasan || (k.atasan || '').toLowerCase() === 'founder') return null;
+      return karyawan.find((a) => isSameName(a.nama, k.atasan));
+    }
+    function findDepartmentManager(k) {
+      const deptLow = (k.departemen || '').toLowerCase();
+      const sameDeptManager = karyawan.find(
+        (a) =>
+          (a.posisi || '').toLowerCase().includes('manager') &&
+          !(a.posisi || '').toLowerCase().includes('general manager') &&
+          (a.departemen || '').toLowerCase() === deptLow
+      );
+      if (sameDeptManager) return sameDeptManager;
+      return karyawan.find(
+        (a) =>
+          (a.posisi || '').toLowerCase().includes('manager') &&
+          !(a.posisi || '').toLowerCase().includes('general manager')
+      );
+    }
+    function findGM() {
+      return karyawan.find((a) => (a.posisi || '').toLowerCase().includes('general manager'));
+    }
+    function buildDefaultFlowSteps(k) {
+      const steps = [];
+      const leader = findDirectLeader(k);
+      pushUniqueStep(steps, leader, k.nama);
+      if (steps.length && steps[0].role) {
+        const step1Pos = (steps[0].role || '').toLowerCase();
+        if (!step1Pos.includes('head') && !step1Pos.includes('general')) {
+          const head = karyawan.find(
+            (a) =>
+              (a.posisi || '').toLowerCase().includes('head') &&
+              (a.departemen || '').toLowerCase() === (k.departemen || '').toLowerCase()
+          );
+          pushUniqueStep(steps, head, k.nama);
+        }
+      }
+      const gm = findGM();
+      pushUniqueStep(steps, gm, k.nama);
+      if ((k.posisi || '').toLowerCase().includes('general manager')) {
+        const founder = karyawan.find((a) => (a.posisi || '').toLowerCase().includes('founder'));
+        pushUniqueStep(steps, founder, k.nama);
+      }
+      if (!steps.length) steps.push({ nama: 'Admin', role: 'admin' });
+      return steps;
+    }
+    function buildFinancialFlowSteps(k) {
+      const steps = [];
+      const leader = findDirectLeader(k);
+      const manager = findDepartmentManager(k);
+      const gm = findGM();
+      pushUniqueStep(steps, leader, k.nama);
+      pushUniqueStep(
+        steps,
+        hrApprover ? { ...hrApprover, role: hrApprover.posisi || 'HR' } : null,
+        k.nama
+      );
+      pushUniqueStep(
+        steps,
+        financeApprover
+          ? { ...financeApprover, role: financeApprover.posisi || 'Finance' }
+          : null,
+        k.nama
+      );
+      pushUniqueStep(steps, manager, k.nama);
+      pushUniqueStep(steps, gm, k.nama);
+      if (!steps.length) steps.push({ nama: 'Admin', role: 'admin' });
+      return steps;
+    }
+    const staffAndLeaders = karyawan.filter((k) => {
+      const pos = (k.posisi || '').toLowerCase();
+      return !pos.includes('founder');
+    });
+    if (!staffAndLeaders.length)
+      return toast('Tidak ada data atasan/staf yang valid untuk generate flow.', 'warning');
+    const flowPayloads = [];
+    staffAndLeaders.forEach((k) => {
+      jenisArr.forEach((jenis) => {
+        flowPayloads.push({
+          jenis,
+          pengaju: k.nama,
+          departemen: k.departemen || '',
+          steps: financialJenis.has(jenis) ? buildFinancialFlowSteps(k) : buildDefaultFlowSteps(k),
+          createdAt: new Date().toISOString(),
+        });
+      });
+    });
+    const existSnap = await db.collection('hrd_approval_flow').get();
+    if (!existSnap.empty) {
+      const batch = db.batch();
+      existSnap.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+    for (const payload of flowPayloads) {
+      await db.collection('hrd_approval_flow').add(payload);
+    }
+    invalidateApprovalFlowCache();
+    toast(`${flowPayloads.length} approval flow di-generate untuk ${staffAndLeaders.length} karyawan`, 'success');
+    renderApprovalMgmt();
+  } catch (e) {
+    toast('Gagal generate approval flow: ' + e.message, 'error');
   }
-  toast(`${count} approval flow di-generate untuk ${staffAndLeaders.length} karyawan`, 'success');
-  renderApprovalMgmt();
 }
 
 function viewApprovalFlow(id) {
@@ -2753,9 +2773,9 @@ function viewApprovalFlow(id) {
 async function editApprovalFlow(id) {
   const d = await db.collection('hrd_approval_flow').doc(id).get();
   const p = d.data();
-  const kSnap = await db.collection('hrd_karyawan').where('status', '!=', 'nonaktif').get();
+  const karyawan = await loadApprovalFlowEligibleKaryawan();
   let approverOpts = '<option value="">-- Tidak ada --</option>';
-  for (const doc of kSnap) { const k = doc.data();
+  for (const k of karyawan) {
     approverOpts += `<option value="${escHtml(k.nama)}">${escHtml(k.nama)} — ${escHtml(k.posisi || '')} (${escHtml(k.departemen || '')})</option>`;
   }
   const steps = p.steps || [];
@@ -2797,16 +2817,17 @@ async function simpanEditApprovalFlow(id) {
     .collection('hrd_approval_flow')
     .doc(id)
     .update({ steps, updatedAt: new Date().toISOString() });
+  invalidateApprovalFlowCache();
   closeModalDirect();
   toast('Flow diupdate', 'success');
   renderApprovalMgmt();
 }
 async function modalApprovalFlow() {
-  const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
+  const karyawan = await loadApprovalFlowEligibleKaryawan();
   let karyOpts = '<option value="Semua">Semua Karyawan</option>';
   let approverOpts = '';
   const depts = new Set();
-  for (const d of kSnap) { const k = d.data();
+  for (const k of karyawan) {
     karyOpts += `<option value="${escHtml(k.nama)}">${escHtml(k.nama)} — ${escHtml(k.departemen || '')} (${escHtml(k.posisi || '')})</option>`;
     depts.add(k.departemen || '');
     const pos = (k.posisi || '').toUpperCase();
@@ -2836,7 +2857,7 @@ async function modalApprovalFlow() {
     true
   );
   window._afAllKary = [];
-  kSnap.forEach((d) => window._afAllKary.push(d.data()));
+  karyawan.forEach((k) => window._afAllKary.push(k));
 }
 function filterApprovalByDept() {
   const dept = document.getElementById('afDept').value;
@@ -2868,6 +2889,7 @@ async function simpanApprovalFlow() {
     steps,
     createdAt: new Date().toISOString(),
   });
+  invalidateApprovalFlowCache();
   closeModalDirect();
   toast('Flow disimpan', 'success');
   renderApprovalMgmt();
@@ -3196,6 +3218,7 @@ async function updateKasbonDoc(id) {
 async function hapusDoc(col, id, page) {
   if (!confirm('Yakin hapus?')) return;
   await db.collection(col).doc(id).delete();
+  if (col === 'hrd_approval_flow') invalidateApprovalFlowCache();
   toast('Dihapus', 'success');
   navigateTo(page);
 }

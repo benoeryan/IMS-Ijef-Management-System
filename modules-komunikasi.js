@@ -4,6 +4,124 @@
 // Dipisah berdasarkan user head (pembuat meeting)
 // ══════════════════════════════════════════════════════════════
 const _GEMINI_KEY_KOM = ["AQ.Ab8RN6", "IT3OlxagKVizWxq", "T8N_di_bXkk-hjKxUWbPdmoaK0tjg"].join("");
+let _notulensiSpeechSession = null;
+
+function getNotulensiSpeechCtor() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function updateNotulensiSpeechUi(isRecording, buttonId, statusId, message) {
+  const btn = buttonId ? document.getElementById(buttonId) : null;
+  if (btn) {
+    btn.innerText = isRecording ? "⏹️ Hentikan Rekam" : "🎙️ Rekam Suara";
+    btn.classList.remove(isRecording ? "btn-info" : "btn-danger");
+    btn.classList.add(isRecording ? "btn-danger" : "btn-info");
+  }
+  const status = statusId ? document.getElementById(statusId) : null;
+  if (status) status.innerHTML = message || "";
+}
+
+function stopNotulensiSpeech(message) {
+  if (!_notulensiSpeechSession) return;
+  const session = _notulensiSpeechSession;
+  _notulensiSpeechSession = null;
+  try {
+    session.recognition.onend = null;
+    session.recognition.stop();
+  } catch (e) {
+    /* noop */
+  }
+  updateNotulensiSpeechUi(
+    false,
+    session.buttonId,
+    session.statusId,
+    message || "Rekaman dihentikan. Anda bisa lanjut edit transkrip atau generate AI."
+  );
+}
+
+function toggleNotulensiSpeech(textareaId, buttonId, statusId) {
+  if (_notulensiSpeechSession?.buttonId === buttonId) {
+    stopNotulensiSpeech("✅ Rekaman selesai. Transkrip siap dipakai untuk generate AI.");
+    return;
+  }
+  stopNotulensiSpeech();
+  const SpeechCtor = getNotulensiSpeechCtor();
+  if (!SpeechCtor)
+    return toast(
+      "Browser ini belum mendukung rekam otomatis. Silakan isi transkrip manual.",
+      "warning"
+    );
+  const textarea = document.getElementById(textareaId);
+  if (!textarea) return toast("Kolom transkrip tidak ditemukan.", "warning");
+  const recognition = new SpeechCtor();
+  const session = {
+    recognition,
+    textareaId,
+    buttonId,
+    statusId,
+    hasCaptured: false,
+  };
+  _notulensiSpeechSession = session;
+  recognition.lang = "id-ID";
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.onstart = () => {
+    updateNotulensiSpeechUi(
+      true,
+      buttonId,
+      statusId,
+      "🎙️ Rekaman aktif. Ucapan Anda akan otomatis ditambahkan ke kolom transkrip."
+    );
+  };
+  recognition.onresult = (event) => {
+    const target = document.getElementById(textareaId);
+    if (!target) return;
+    let appended = false;
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (!event.results[i].isFinal) continue;
+      const text = String(event.results[i][0]?.transcript || "").trim();
+      if (!text) continue;
+      target.value = target.value.trim() ? `${target.value.trim()}\n${text}` : text;
+      appended = true;
+    }
+    if (appended) {
+      session.hasCaptured = true;
+      updateNotulensiSpeechUi(
+        true,
+        buttonId,
+        statusId,
+        "🎙️ Rekaman berjalan. Transkrip baru sudah ditambahkan ke kolom di bawah."
+      );
+    }
+  };
+  recognition.onerror = (event) => {
+    const knownSilence = event.error === "aborted" || event.error === "no-speech";
+    stopNotulensiSpeech(
+      session.hasCaptured
+        ? "✅ Rekaman selesai. Transkrip siap dipakai untuk generate AI."
+        : "Rekaman berhenti. Anda bisa coba lagi atau isi transkrip manual."
+    );
+    if (!knownSilence) toast("Gagal rekam suara: " + event.error, "error");
+  };
+  recognition.onend = () => {
+    if (_notulensiSpeechSession?.recognition !== recognition) return;
+    _notulensiSpeechSession = null;
+    updateNotulensiSpeechUi(
+      false,
+      buttonId,
+      statusId,
+      session.hasCaptured
+        ? "✅ Rekaman selesai. Transkrip siap dipakai untuk generate AI."
+        : "Rekaman selesai tanpa transkrip baru. Anda bisa rekam lagi atau isi manual."
+    );
+  };
+  try {
+    recognition.start();
+  } catch (e) {
+    _notulensiSpeechSession = null;
+    toast("Gagal memulai rekam suara: " + e.message, "error");
+  }
+}
 
 async function renderMeeting() {
   const main = document.getElementById("mainContent");
@@ -341,6 +459,7 @@ async function hapusMeeting(id) {
 }
 
 function modalNotulensi(id) {
+  stopNotulensiSpeech();
   db.collection("hrd_meeting")
     .doc(id)
     .get()
@@ -350,11 +469,12 @@ function modalNotulensi(id) {
       <div class="form-group"><label>Notulensi</label><textarea class="form-control" id="notulIsi" style="min-height:200px">${escHtml(p.notulensi || "")}</textarea></div>
       <div class="flex gap-8">
         <button class="btn btn-primary" onclick="simpanNotulensi('${id}')">💾 Simpan</button>
-        <button class="btn btn-info" onclick="generateNotulensiOfflineAI('${id}')">🤖 Generate AI</button>
+        <button class="btn btn-info" onclick="generateNotulensiOfflineAI('${id}')">🤖 / 🎙️ Generate AI</button>
       </div>`);
     });
 }
 async function simpanNotulensi(id) {
+  stopNotulensiSpeech();
   await db
     .collection("hrd_meeting")
     .doc(id)
@@ -381,6 +501,7 @@ async function simpanNotulensi(id) {
 
 // ── AI NOTULENSI — Offline & Online Meeting ────────────────────
 async function generateNotulensiOfflineAI(meetingId) {
+  stopNotulensiSpeech();
   const d = await db.collection("hrd_meeting").doc(meetingId).get();
   const p = d.data();
   const peserta = (p.pesertaNames || []).join(", ") || "-";
@@ -404,6 +525,15 @@ async function generateNotulensiOfflineAI(meetingId) {
     <div class="form-group"><label>Topik / Agenda yang dibahas</label><textarea class="form-control" id="aiTopikOffline" placeholder="Contoh:&#10;1. Evaluasi kinerja Q2&#10;2. Rencana rekrutmen baru&#10;3. Budget training" style="min-height:90px"></textarea></div>
     <div class="form-group"><label>Keputusan / Hasil Rapat</label><textarea class="form-control" id="aiKeputusanOffline" placeholder="Contoh:&#10;- Disetujui penambahan 3 karyawan baru&#10;- Budget training Rp 50jt&#10;- Deadline Q3 akhir September" style="min-height:80px"></textarea></div>
     <div class="form-group"><label>Informasi tambahan (opsional)</label><textarea class="form-control" id="aiTambahanOffline" placeholder="Contoh: kendala, catatan khusus, tindak lanjut urgent..." style="min-height:60px"></textarea></div>
+    <div class="form-group">
+      <label>Transkrip rekaman / catatan rapat (opsional)</label>
+      <textarea class="form-control" id="aiTranskripOffline" placeholder="Klik rekam suara untuk mengubah ucapan menjadi teks, atau tempel hasil diskusi di sini..." style="min-height:120px"></textarea>
+      <div class="flex gap-8 mt-8">
+        <button class="btn btn-info" id="btnRecordOfflineAI" onclick="toggleNotulensiSpeech('aiTranskripOffline','btnRecordOfflineAI','aiStatusOffline')">🎙️ Rekam Suara</button>
+        <button class="btn btn-outline" onclick="document.getElementById('aiTranskripOffline').value=''">🧹 Kosongkan</button>
+      </div>
+      <div class="text-xs mt-8" id="aiStatusOffline" style="color:#666">Opsional: gunakan rekaman suara atau transkrip agar notulensi AI lebih akurat.</div>
+    </div>
     <button class="btn btn-primary" id="btnGenOfflineAI" onclick="doGenerateNotulensiOffline('${meetingId}')">🤖 Generate Notulensi</button>`,
     true,
   );
@@ -416,6 +546,7 @@ async function doGenerateNotulensiOffline(meetingId) {
   const topik = document.getElementById("aiTopikOffline")?.value.trim() || "";
   const keputusan = document.getElementById("aiKeputusanOffline")?.value.trim() || "";
   const tambahan = document.getElementById("aiTambahanOffline")?.value.trim() || "";
+  const transkrip = document.getElementById("aiTranskripOffline")?.value.trim() || "";
   const peserta = [(p.createdByName || ""), ...(p.pesertaNames || [])].filter(Boolean).join(", ");
   const tipeLabel = tipe === "offline" ? "Rapat Offline (Tatap Muka)" : tipe === "video" ? "Online – Video Call" : "Online – Phone Call";
 
@@ -433,6 +564,7 @@ Peserta        : ${peserta || "-"}
 Agenda/Topik   : ${topik || "(tidak diisi)"}
 Keputusan/Hasil: ${keputusan || "(tidak diisi)"}
 Catatan Tambahan: ${tambahan || "-"}
+Transkrip Rekaman: ${transkrip || "(tidak ada transkrip)"}
 
 Format output WAJIB seperti ini (gunakan teks biasa, bukan markdown):
 
@@ -483,9 +615,10 @@ Notulis : ${currentUser.nama}
 Tanggal : ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
 ═══════════════════════════════════════════
 
-Buat notulensi yang profesional, detail, dan mudah dipahami. Lengkapi bagian yang belum diisi dengan asumsi yang logis berdasarkan konteks.`;
+Jika transkrip rekaman tersedia, jadikan transkrip sebagai sumber utama untuk pembahasan, keputusan, dan action items. Buat notulensi yang profesional, detail, dan mudah dipahami. Lengkapi bagian yang belum diisi dengan asumsi yang logis berdasarkan konteks tanpa bertentangan dengan transkrip.`;
 
   try {
+    stopNotulensiSpeech();
     const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${_GEMINI_KEY_KOM}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -790,6 +923,7 @@ async function hapusOnlineMeeting(id) {
 }
 
 function modalNotulensiOnline(id) {
+  stopNotulensiSpeech();
   db.collection("hrd_online_meeting")
     .doc(id)
     .get()
@@ -799,12 +933,13 @@ function modalNotulensiOnline(id) {
       <div class="form-group"><label>Notulensi</label><textarea class="form-control" id="notulOnlineIsi" style="min-height:200px">${escHtml(p.notulensi || "")}</textarea></div>
       <div class="flex gap-8">
         <button class="btn btn-primary" onclick="simpanNotulensiOnline('${id}')">💾 Simpan</button>
-        <button class="btn btn-info" onclick="generateNotulensiAI('${id}')">🤖 Generate dengan AI</button>
+        <button class="btn btn-info" onclick="generateNotulensiAI('${id}')">🤖 / 🎙️ Generate dengan AI</button>
       </div>`);
     });
 }
 
 async function simpanNotulensiOnline(id) {
+  stopNotulensiSpeech();
   await db
     .collection("hrd_online_meeting")
     .doc(id)
@@ -819,6 +954,7 @@ async function simpanNotulensiOnline(id) {
 
 // ── GENERATE NOTULENSI DENGAN AI ──────────────────────────────
 async function generateNotulensiAI(meetingId) {
+  stopNotulensiSpeech();
   const d = await db.collection("hrd_online_meeting").doc(meetingId).get();
   const p = d.data();
 
@@ -841,7 +977,16 @@ async function generateNotulensiAI(meetingId) {
     </div>
     <div class="form-group"><label>Topik/Agenda yang dibahas (opsional, untuk hasil lebih akurat)</label><textarea class="form-control" id="aiTopik" placeholder="Contoh: Evaluasi kinerja Q1, rencana rekrutmen, budget training..." style="min-height:80px"></textarea></div>
     <div class="form-group"><label>Keputusan/Hasil Meeting (opsional)</label><textarea class="form-control" id="aiKeputusan" placeholder="Contoh: Disetujui budget 50jt untuk training, deadline rekrutmen 2 minggu..." style="min-height:80px"></textarea></div>
-    <button class="btn btn-primary" onclick="doGenerateNotulensi('${meetingId}')">🤖 Generate Notulensi</button>`,
+    <div class="form-group">
+      <label>Transkrip rekaman / catatan meeting (opsional)</label>
+      <textarea class="form-control" id="aiTranskripOnline" placeholder="Klik rekam suara untuk mengubah percakapan menjadi teks, atau tempel transkrip meeting di sini..." style="min-height:120px"></textarea>
+      <div class="flex gap-8 mt-8">
+        <button class="btn btn-info" id="btnRecordOnlineAI" onclick="toggleNotulensiSpeech('aiTranskripOnline','btnRecordOnlineAI','aiStatusOnline')">🎙️ Rekam Suara</button>
+        <button class="btn btn-outline" onclick="document.getElementById('aiTranskripOnline').value=''">🧹 Kosongkan</button>
+      </div>
+      <div class="text-xs mt-8" id="aiStatusOnline" style="color:#666">Opsional: rekam ringkasan meeting atau tempel transkrip agar notulensi AI lebih lengkap.</div>
+    </div>
+    <button class="btn btn-primary" id="btnGenAI" onclick="doGenerateNotulensi('${meetingId}')">🤖 Generate Notulensi</button>`,
     true,
   );
 }
@@ -851,6 +996,7 @@ async function doGenerateNotulensi(meetingId) {
   const p = d.data();
   const topik = document.getElementById("aiTopik")?.value.trim() || "";
   const keputusan = document.getElementById("aiKeputusan")?.value.trim() || "";
+  const transkrip = document.getElementById("aiTranskripOnline")?.value.trim() || "";
   const peserta = [(p.createdByName || ""), ...(p.pesertaNames || [])].filter(Boolean).join(", ");
   const tanggal = formatDateTime(p.createdAt);
   const durasi = p.endedAt ? Math.round((new Date(p.endedAt) - new Date(p.createdAt)) / 60000) + " menit" : "-";
@@ -870,6 +1016,7 @@ Pemimpin Rapat : ${p.createdByName || currentUser.nama}
 Peserta        : ${peserta || "-"}
 Agenda/Topik   : ${topik || "(tidak diisi)"}
 Keputusan/Hasil: ${keputusan || "(tidak diisi)"}
+Transkrip Rekaman: ${transkrip || "(tidak ada transkrip)"}
 
 Format output WAJIB seperti ini (gunakan teks biasa, bukan markdown):
 
@@ -921,9 +1068,10 @@ Notulis : ${currentUser.nama}
 Tanggal : ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
 ═══════════════════════════════════════════
 
-Buat notulensi yang profesional, detail, dan mudah dipahami.`;
+Jika transkrip rekaman tersedia, jadikan transkrip sebagai sumber utama untuk pembahasan, keputusan, dan action items. Buat notulensi yang profesional, detail, dan mudah dipahami.`;
 
   try {
+    stopNotulensiSpeech();
     const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${_GEMINI_KEY_KOM}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
