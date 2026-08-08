@@ -1807,7 +1807,7 @@ async function renderApprovalCenter(tab = 'pending') {
     try {
       let q = db.collection(col);
       if (tab === 'pending') {
-        q = q.where('status', 'in', ['pending', 'step1', 'step2', 'step3']);
+        q = q.where('status', 'in', ['pending', 'step1', 'step2', 'step3', 'step4', 'step5']);
       } else {
         // Fetch last 100 for history to keep it snappy
         q = q.orderBy('createdAt', 'desc').limit(100);
@@ -1840,7 +1840,7 @@ async function renderApprovalCenter(tab = 'pending') {
 
   // Filter history tab for non-pending items (or show all if you prefer)
   if (tab === 'history') {
-      items = items.filter(x => !['pending', 'step1', 'step2', 'step3'].includes(x.status));
+      items = items.filter(x => !['pending', 'step1', 'step2', 'step3', 'step4', 'step5'].includes(x.status));
   }
 
   items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
@@ -2617,6 +2617,98 @@ async function generateAllApprovalFlows() {
     'Perpanjangan Kontrak',
     'Pelatihan',
   ];
+  const financialJenis = new Set(['SPPD', 'Reimbursement', 'Kasbon']);
+  const hrApprover =
+    karyawan.find((a) => (a.nama || '').toLowerCase().includes('maharani')) ||
+    karyawan.find(
+      (a) =>
+        (a.posisi || '').toLowerCase().includes('hr') ||
+        (a.departemen || '').toLowerCase().includes('hr')
+    );
+  const financeApprover =
+    karyawan.find((a) => (a.nama || '').toLowerCase().includes('siti sofuroh')) ||
+    karyawan.find(
+      (a) =>
+        (a.posisi || '').toLowerCase().includes('finance') ||
+        (a.departemen || '').toLowerCase().includes('finance')
+    );
+  function pushUniqueStep(steps, candidate, pemohonNama) {
+    if (!candidate || !candidate.nama) return;
+    if (isSameName(candidate.nama, pemohonNama)) return;
+    if (steps.find((s) => isSameName(s.nama, candidate.nama))) return;
+    steps.push({
+      nama: candidate.nama,
+      role: candidate.posisi || candidate.role || '',
+      userId: candidate.id || candidate.userId || '',
+    });
+  }
+  function findDirectLeader(k) {
+    if (!k.atasan || (k.atasan || '').toLowerCase() === 'founder') return null;
+    return karyawan.find((a) => isSameName(a.nama, k.atasan));
+  }
+  function findDepartmentManager(k) {
+    const deptLow = (k.departemen || '').toLowerCase();
+    const sameDeptManager = karyawan.find(
+      (a) =>
+        (a.posisi || '').toLowerCase().includes('manager') &&
+        !(a.posisi || '').toLowerCase().includes('general manager') &&
+        (a.departemen || '').toLowerCase() === deptLow
+    );
+    if (sameDeptManager) return sameDeptManager;
+    return karyawan.find(
+      (a) =>
+        (a.posisi || '').toLowerCase().includes('manager') &&
+        !(a.posisi || '').toLowerCase().includes('general manager')
+    );
+  }
+  function findGM() {
+    return karyawan.find((a) => (a.posisi || '').toLowerCase().includes('general manager'));
+  }
+  function buildDefaultFlowSteps(k) {
+    const steps = [];
+    const leader = findDirectLeader(k);
+    pushUniqueStep(steps, leader, k.nama);
+    if (steps.length && steps[0].role) {
+      const step1Pos = (steps[0].role || '').toLowerCase();
+      if (!step1Pos.includes('head') && !step1Pos.includes('general')) {
+        const head = karyawan.find(
+          (a) =>
+            (a.posisi || '').toLowerCase().includes('head') &&
+            (a.departemen || '').toLowerCase() === (k.departemen || '').toLowerCase()
+        );
+        pushUniqueStep(steps, head, k.nama);
+      }
+    }
+    const gm = findGM();
+    pushUniqueStep(steps, gm, k.nama);
+    if ((k.posisi || '').toLowerCase().includes('general manager')) {
+      const founder = karyawan.find((a) => (a.posisi || '').toLowerCase().includes('founder'));
+      pushUniqueStep(steps, founder, k.nama);
+    }
+    if (!steps.length) steps.push({ nama: 'Admin', role: 'admin' });
+    return steps;
+  }
+  function buildFinancialFlowSteps(k) {
+    const steps = [];
+    const leader = findDirectLeader(k);
+    const manager = findDepartmentManager(k);
+    const gm = findGM();
+    pushUniqueStep(steps, leader, k.nama);
+    pushUniqueStep(
+      steps,
+      hrApprover ? { ...hrApprover, role: hrApprover.posisi || 'HR' } : null,
+      k.nama
+    );
+    pushUniqueStep(
+      steps,
+      financeApprover ? { ...financeApprover, role: financeApprover.posisi || 'Finance' } : null,
+      k.nama
+    );
+    pushUniqueStep(steps, manager, k.nama);
+    pushUniqueStep(steps, gm, k.nama);
+    if (!steps.length) steps.push({ nama: 'Admin', role: 'admin' });
+    return steps;
+  }
   // For each staff/leader, create approval flow based on atasan hierarchy
   const staffAndLeaders = karyawan.filter((k) => {
     const pos = (k.posisi || '').toLowerCase();
@@ -2624,40 +2716,9 @@ async function generateAllApprovalFlows() {
   });
   let count = 0;
   for (const k of staffAndLeaders) {
-    // Build approval chain: atasan → atasan's atasan → admin
-    const steps = [];
-    // Step 1: Direct atasan
-    if (k.atasan && k.atasan.toLowerCase() !== 'founder') {
-      const atasan = karyawan.find((a) => a.nama?.toLowerCase() === k.atasan?.toLowerCase());
-      if (atasan) steps.push({ nama: atasan.nama, role: atasan.posisi || '', userId: atasan.id });
-    }
-    // Step 2: Head (if atasan is not head)
-    if (steps.length && steps[0].role) {
-      const step1Pos = (steps[0].role || '').toLowerCase();
-      if (!step1Pos.includes('head') && !step1Pos.includes('general')) {
-        // Find head of department
-        const head = karyawan.find(
-          (a) =>
-            (a.posisi || '').toLowerCase().includes('head') &&
-            (a.departemen || '').toLowerCase() === (k.departemen || '').toLowerCase()
-        );
-        if (head && head.nama !== steps[0].nama)
-          steps.push({ nama: head.nama, role: head.posisi || '', userId: head.id });
-      }
-    }
-    // Step 3: GM (for important items) — skip if the person IS the GM
-    const gm = karyawan.find((a) => (a.posisi || '').toLowerCase().includes('general manager'));
-    if (gm && gm.nama !== k.nama && !steps.find((s) => s.nama === gm.nama))
-      steps.push({ nama: gm.nama, role: 'General Manager', userId: gm.id });
-    // For GM: approver is Founder/BOD
-    if ((k.posisi || '').toLowerCase().includes('general manager')) {
-      const founder = karyawan.find((a) => (a.posisi || '').toLowerCase().includes('founder'));
-      if (founder) steps.push({ nama: founder.nama, role: 'Founder/BOD', userId: founder.id });
-    }
-    // If no steps found, default to admin
-    if (!steps.length) steps.push({ nama: 'Admin', role: 'admin' });
     // Create flow for each jenis
     for (const jenis of jenisArr) {
+      const steps = financialJenis.has(jenis) ? buildFinancialFlowSteps(k) : buildDefaultFlowSteps(k);
       await db.collection('hrd_approval_flow').add({
         jenis,
         pengaju: k.nama,
@@ -2704,6 +2765,8 @@ async function editApprovalFlow(id) {
     <div class="form-group"><label>Approver Step 1</label><select class="form-control" id="eafStep1">${approverOpts.replace(`value="${escHtml(steps[0]?.nama || '')}"`, `value="${escHtml(steps[0]?.nama || '')}" selected`)}</select></div>
     <div class="form-group"><label>Approver Step 2</label><select class="form-control" id="eafStep2">${approverOpts.replace(`value="${escHtml(steps[1]?.nama || '')}"`, `value="${escHtml(steps[1]?.nama || '')}" selected`)}</select></div>
     <div class="form-group"><label>Approver Step 3</label><select class="form-control" id="eafStep3">${approverOpts.replace(`value="${escHtml(steps[2]?.nama || '')}"`, `value="${escHtml(steps[2]?.nama || '')}" selected`)}</select></div>
+    <div class="form-group"><label>Approver Step 4 (opsional)</label><select class="form-control" id="eafStep4">${approverOpts.replace(`value="${escHtml(steps[3]?.nama || '')}"`, `value="${escHtml(steps[3]?.nama || '')}" selected`)}</select></div>
+    <div class="form-group"><label>Approver Step 5 (opsional)</label><select class="form-control" id="eafStep5">${approverOpts.replace(`value="${escHtml(steps[4]?.nama || '')}"`, `value="${escHtml(steps[4]?.nama || '')}" selected`)}</select></div>
     <button class="btn btn-primary" onclick="simpanEditApprovalFlow('${id}')">💾 Simpan</button>`,
     true
   );
@@ -2712,6 +2775,8 @@ async function editApprovalFlow(id) {
     if (steps[0]) document.getElementById('eafStep1').value = steps[0].nama || '';
     if (steps[1]) document.getElementById('eafStep2').value = steps[1].nama || '';
     if (steps[2]) document.getElementById('eafStep3').value = steps[2].nama || '';
+    if (steps[3]) document.getElementById('eafStep4').value = steps[3].nama || '';
+    if (steps[4]) document.getElementById('eafStep5').value = steps[4].nama || '';
   }, 100);
 }
 
@@ -2720,9 +2785,13 @@ async function simpanEditApprovalFlow(id) {
   const s1 = document.getElementById('eafStep1').value;
   const s2 = document.getElementById('eafStep2').value;
   const s3 = document.getElementById('eafStep3').value;
+  const s4 = document.getElementById('eafStep4').value;
+  const s5 = document.getElementById('eafStep5').value;
   if (s1) steps.push({ nama: s1, role: s1 });
   if (s2) steps.push({ nama: s2, role: s2 });
   if (s3) steps.push({ nama: s3, role: s3 });
+  if (s4) steps.push({ nama: s4, role: s4 });
+  if (s5) steps.push({ nama: s5, role: s5 });
   if (!steps.length) return toast('Minimal 1 approver', 'warning');
   await db
     .collection('hrd_approval_flow')
@@ -2761,6 +2830,8 @@ async function modalApprovalFlow() {
     <div class="form-group"><label>Approver Step 1</label><select class="form-control" id="afStep1"><option value="">-- Pilih --</option>${approverOpts}<option value="hr">HR (Role)</option><option value="admin">Admin (Role)</option><option value="superadmin">Super Admin (Role)</option></select></div>
     <div class="form-group"><label>Approver Step 2 (opsional)</label><select class="form-control" id="afStep2"><option value="">-- Tidak ada --</option>${approverOpts}<option value="hr">HR (Role)</option><option value="admin">Admin (Role)</option><option value="superadmin">Super Admin (Role)</option></select></div>
     <div class="form-group"><label>Approver Step 3 (opsional)</label><select class="form-control" id="afStep3"><option value="">-- Tidak ada --</option>${approverOpts}<option value="hr">HR (Role)</option><option value="admin">Admin (Role)</option><option value="superadmin">Super Admin (Role)</option></select></div>
+    <div class="form-group"><label>Approver Step 4 (opsional)</label><select class="form-control" id="afStep4"><option value="">-- Tidak ada --</option>${approverOpts}<option value="hr">HR (Role)</option><option value="admin">Admin (Role)</option><option value="superadmin">Super Admin (Role)</option></select></div>
+    <div class="form-group"><label>Approver Step 5 (opsional)</label><select class="form-control" id="afStep5"><option value="">-- Tidak ada --</option>${approverOpts}<option value="hr">HR (Role)</option><option value="admin">Admin (Role)</option><option value="superadmin">Super Admin (Role)</option></select></div>
     <button class="btn btn-primary" onclick="simpanApprovalFlow()">Simpan</button>`,
     true
   );
@@ -2782,9 +2853,13 @@ async function simpanApprovalFlow() {
   const s1 = document.getElementById('afStep1').value;
   const s2 = document.getElementById('afStep2').value;
   const s3 = document.getElementById('afStep3').value;
+  const s4 = document.getElementById('afStep4').value;
+  const s5 = document.getElementById('afStep5').value;
   if (s1) steps.push({ role: s1, nama: s1 });
   if (s2) steps.push({ role: s2, nama: s2 });
   if (s3) steps.push({ role: s3, nama: s3 });
+  if (s4) steps.push({ role: s4, nama: s4 });
+  if (s5) steps.push({ role: s5, nama: s5 });
   if (!steps.length) return toast('Minimal 1 approver', 'warning');
   await db.collection('hrd_approval_flow').add({
     jenis: document.getElementById('afJenis').value,
