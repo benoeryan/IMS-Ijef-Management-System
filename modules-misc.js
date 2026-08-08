@@ -2837,7 +2837,7 @@ async function renderApprovalMgmt() {
 
 function isApprovalFlowEligibleKaryawan(k) {
   const status = (k?.status || "aktif").toLowerCase().trim();
-  return !status || ["aktif", "tetap", "probation", "kontrak"].includes(status);
+  return ["aktif", "tetap", "probation", "kontrak"].includes(status);
 }
 
 async function loadApprovalFlowEligibleKaryawan() {
