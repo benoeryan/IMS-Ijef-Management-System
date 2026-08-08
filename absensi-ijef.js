@@ -10,6 +10,124 @@ let absensiStream = null,
 let dinasStream = null,
   dinasPhoto = null,
   dinasGPS = null;
+let currentAbsensiRecordsCache = null;
+let absensiCameraRequestId = 0;
+let dinasCameraRequestId = 0;
+// Short-lived cache to collapse repeated Firestore reads triggered by one UI refresh cycle.
+const ABSENSI_CACHE_TTL_MS = 2000;
+
+function stopMediaStream(stream) {
+  if (!stream) return null;
+  try {
+    stream.getTracks().forEach((track) => track.stop());
+  } catch (e) {}
+  return null;
+}
+
+function stopAbsensiCamera() {
+  absensiCameraRequestId++;
+  absensiStream = stopMediaStream(absensiStream);
+  const video = document.getElementById('selfieVideo');
+  if (video) video.srcObject = null;
+}
+
+function stopDinasCamera() {
+  dinasCameraRequestId++;
+  dinasStream = stopMediaStream(dinasStream);
+  const video = document.getElementById('dinasVideo');
+  if (video) video.srcObject = null;
+}
+
+function cleanupAbsensiResources() {
+  stopAbsensiCamera();
+  stopDinasCamera();
+}
+
+function handleAbsensiResourceCleanup(reason) {
+  const isAbsensiPage =
+    typeof currentPage !== 'undefined' &&
+    (currentPage === 'absensi' || currentPage === 'portal-absensi');
+  if (!isAbsensiPage) return;
+  cleanupAbsensiResources();
+}
+
+window._pageResourceCleanupHandlers = window._pageResourceCleanupHandlers || [];
+if (!window._pageResourceCleanupHandlers.includes(handleAbsensiResourceCleanup)) {
+  window._pageResourceCleanupHandlers.push(handleAbsensiResourceCleanup);
+}
+
+if (!window._absensiCleanupBound) {
+  window._absensiCleanupBound = true;
+  window.addEventListener('pagehide', () => cleanupAbsensiResources());
+  window.addEventListener('beforeunload', () => cleanupAbsensiResources());
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) cleanupAbsensiResources();
+  });
+}
+
+async function getCurrentAbsensiIdentity() {
+  const ids = new Set([currentUser.id, currentUser.linkedKaryawan].filter(Boolean));
+  const names = new Set([(currentUser.nama || '').toLowerCase().trim()].filter(Boolean));
+  try {
+    if (!currentUser.linkedKaryawan && currentUser.nama) {
+      const kSnap = await db
+        .collection('hrd_karyawan')
+        .where('nama', '==', currentUser.nama)
+        .limit(1)
+        .get();
+      if (!kSnap.empty) ids.add(kSnap.docs[0].id);
+    }
+  } catch (e) {}
+  return { ids: Array.from(ids), names: Array.from(names) };
+}
+
+function resetCurrentAbsensiRecordsCache() {
+  currentAbsensiRecordsCache = null;
+}
+
+async function getCurrentUserAbsensiRecords(forceRefresh) {
+  const identity = await getCurrentAbsensiIdentity();
+  const cacheKey = identity.ids.slice().sort().join('|');
+  if (
+    !forceRefresh &&
+    currentAbsensiRecordsCache &&
+    currentAbsensiRecordsCache.key === cacheKey &&
+    Date.now() - currentAbsensiRecordsCache.timestamp < ABSENSI_CACHE_TTL_MS
+  ) {
+    return currentAbsensiRecordsCache.records;
+  }
+  const snaps = await Promise.all(
+    identity.ids.map((id) => db.collection('hrd_absensi').where('userId', '==', id).get())
+  );
+  const seen = new Set();
+  const records = [];
+  snaps.forEach((snap) => {
+    snap.forEach((doc) => {
+      if (seen.has(doc.id)) return;
+      seen.add(doc.id);
+      records.push({ id: doc.id, ...doc.data() });
+    });
+  });
+  currentAbsensiRecordsCache = {
+    key: cacheKey,
+    records,
+    timestamp: Date.now(),
+  };
+  return records;
+}
+
+async function getTodayAttendanceState() {
+  const records = await getCurrentUserAbsensiRecords();
+  const todayDate = todayStr();
+  let masuk = false;
+  let pulang = false;
+  records.forEach((record) => {
+    if (record.tanggal !== todayDate) return;
+    if (record.tipe === 'masuk') masuk = true;
+    if (record.tipe === 'pulang') pulang = true;
+  });
+  return { masuk, pulang, records };
+}
 
 // == FLEXIBLE ATTENDANCE HELPER ================================
 // Checks if current user is whitelisted for flexible (no geofence) attendance
@@ -549,6 +667,7 @@ async function hapusShift(idx) {
 // ==============================================================
 
 function renderClockInOut(container) {
+  cleanupAbsensiResources();
   container.innerHTML = `<div class="card"><div class="card-title mb-16">📍 Absensi — Selfie + GPS</div>
     <div class="grid-2" style="gap:16px">
       <!-- KAMERA SELFIE (WAJIB) -->
@@ -632,20 +751,7 @@ async function autoDetectLocation() {
           }
           // Determine: clock in or clock out
           try {
-            const todaySnap = await db
-              .collection('hrd_absensi')
-              .where('userId', '==', currentUser.id)
-              .get();
-            let hasMasuk = false,
-              hasPulang = false;
-            const todayDate = todayStr();
-            todaySnap.forEach((d) => {
-              const data = d.data();
-              if (data.tanggal === todayDate) {
-                if (data.tipe === 'masuk') hasMasuk = true;
-                if (data.tipe === 'pulang') hasPulang = true;
-              }
-            });
+            const { masuk: hasMasuk, pulang: hasPulang } = await getTodayAttendanceState();
             if (!hasMasuk) {
               btn.textContent = '⏰ ABSEN MASUK (Selfie + GPS)';
               btn.style.background = 'var(--success)';
@@ -686,20 +792,7 @@ async function autoDetectLocation() {
             : 'Lokasi GPS tercatat otomatis';
           // Determine: clock in or clock out
           try {
-            const todaySnap = await db
-              .collection('hrd_absensi')
-              .where('userId', '==', currentUser.id)
-              .get();
-            let hasMasuk = false,
-              hasPulang = false;
-            const todayDate = todayStr();
-            todaySnap.forEach((d) => {
-              const data = d.data();
-              if (data.tanggal === todayDate) {
-                if (data.tipe === 'masuk') hasMasuk = true;
-                if (data.tipe === 'pulang') hasPulang = true;
-              }
-            });
+            const { masuk: hasMasuk, pulang: hasPulang } = await getTodayAttendanceState();
             if (!hasMasuk) {
               btn.textContent = '⏰ ABSEN MASUK (Flexible + GPS)';
               btn.style.background = 'var(--success)';
@@ -776,17 +869,7 @@ async function doAbsenWithSelfie() {
     return toast('📸 Ambil foto selfie dulu! Foto wajib sebagai validasi kehadiran.', 'warning');
   if (!currentGPS) return toast('📍 Lokasi GPS belum terdeteksi. Tunggu sebentar...', 'warning');
   // Determine action: clock in or clock out
-  const todaySnap = await db.collection('hrd_absensi').where('userId', '==', currentUser.id).get();
-  let hasMasuk = false,
-    hasPulang = false;
-  const todayDate = todayStr();
-  todaySnap.forEach((d) => {
-    const data = d.data();
-    if (data.tanggal === todayDate) {
-      if (data.tipe === 'masuk') hasMasuk = true;
-      if (data.tipe === 'pulang') hasPulang = true;
-    }
-  });
+  const { masuk: hasMasuk, pulang: hasPulang } = await getTodayAttendanceState();
   if (!hasMasuk) {
     await doClockIn();
   } else if (!hasPulang) {
@@ -835,14 +918,17 @@ async function loadShiftInfo() {
 
 function startCamera() {
   const v = document.getElementById('selfieVideo');
-  if (absensiStream) {
-    absensiStream.getTracks().forEach((t) => t.stop());
-  }
+  stopAbsensiCamera();
+  const requestId = ++absensiCameraRequestId;
   navigator.mediaDevices
     .getUserMedia({ video: { facingMode: 'user' }, audio: false })
     .then((s) => {
+      if (requestId !== absensiCameraRequestId) {
+        stopMediaStream(s);
+        return;
+      }
       absensiStream = s;
-      v.srcObject = s;
+      if (v) v.srcObject = s;
     })
     .catch((e) => toast('Gagal kamera: ' + e.message, 'error'));
 }
@@ -858,11 +944,7 @@ function captureMainPhoto() {
   document.getElementById('selfiePreview').innerHTML =
     `<img src="${capturedPhoto}" style="width:100px;border-radius:8px;border:2px solid var(--success)"><div class="text-xs color-success">✅ Foto diambil</div>`;
   // Matikan kamera setelah foto diambil
-  if (absensiStream) {
-    absensiStream.getTracks().forEach((t) => t.stop());
-    absensiStream = null;
-  }
-  v.srcObject = null;
+  stopAbsensiCamera();
   // Langsung deteksi status absen setelah foto diambil
   autoDetectAndReady();
 }
@@ -877,20 +959,7 @@ async function autoDetectAndReady() {
     try {
       const locStatus = await getNearestOfficeLocation(currentGPS.lat, currentGPS.lng);
       if (locStatus.allowed) {
-        const todaySnap = await db
-          .collection('hrd_absensi')
-          .where('userId', '==', currentUser.id)
-          .get();
-        let hasMasuk = false,
-          hasPulang = false;
-        const todayDate = todayStr();
-        todaySnap.forEach((d) => {
-          const data = d.data();
-          if (data.tanggal === todayDate) {
-            if (data.tipe === 'masuk') hasMasuk = true;
-            if (data.tipe === 'pulang') hasPulang = true;
-          }
-        });
+        const { masuk: hasMasuk, pulang: hasPulang } = await getTodayAttendanceState();
         if (!hasMasuk) {
           btn.textContent = '⏰ ABSEN MASUK (Selfie + GPS)';
           btn.style.background = 'var(--success)';
@@ -1042,11 +1111,10 @@ async function doClockIn() {
       `Lokasi di luar radius "${locationStatus.nearest.nama}". Absen hanya boleh dari lokasi kantor terdaftar.`,
       'warning'
     );
-  const existing = await db.collection('hrd_absensi').where('userId', '==', currentUser.id).get();
+  const existing = await getCurrentUserAbsensiRecords();
   let alreadyClockedIn = false;
   const todayDate2 = todayStr();
-  existing.forEach((d) => {
-    const data = d.data();
+  existing.forEach((data) => {
     if (data.tanggal === todayDate2 && data.tipe === 'masuk') alreadyClockedIn = true;
   });
   if (alreadyClockedIn) return toast('Sudah clock in hari ini', 'warning');
@@ -1129,6 +1197,7 @@ async function doClockIn() {
   if (flexUser) clockInMsg += ' 📍 Lokasi tercatat (Flexible)';
   if (coreHoursViolation) clockInMsg += ` ⚠️ Melewati core hours (${flex.coreHoursStart})`;
   toast(clockInMsg, 'success');
+  resetCurrentAbsensiRecordsCache();
   capturedPhoto = null;
   currentGPS = null;
   loadTodayHistory();
@@ -1147,11 +1216,10 @@ async function doClockOut() {
       `Lokasi di luar radius "${locationStatus.nearest.nama}". Absen hanya boleh dari lokasi kantor terdaftar.`,
       'warning'
     );
-  const existing = await db.collection('hrd_absensi').where('userId', '==', currentUser.id).get();
+  const existing = await getCurrentUserAbsensiRecords();
   let alreadyClockedOut = false;
   const todayDate2 = todayStr();
-  existing.forEach((d) => {
-    const data = d.data();
+  existing.forEach((data) => {
     if (data.tanggal === todayDate2 && data.tipe === 'pulang') alreadyClockedOut = true;
   });
   if (alreadyClockedOut) return toast('Sudah clock out hari ini', 'warning');
@@ -1176,16 +1244,12 @@ async function doClockOut() {
 
   if (flex.enabled) {
     // Get today's records for this user (single query, client-side filter)
-    const todayRecordsSnap = await db
-      .collection('hrd_absensi')
-      .where('userId', '==', currentUser.id)
-      .get();
+    const todayRecordsSnap = await getCurrentUserAbsensiRecords();
     const todayDate = todayStr();
     let clockInData = null;
     const breakStarts = [];
     const breakEnds = [];
-    todayRecordsSnap.forEach((d) => {
-      const p = d.data();
+    todayRecordsSnap.forEach((p) => {
       if (p.tanggal !== todayDate) return;
       if (p.tipe === 'masuk' && !clockInData) clockInData = p;
       if (p.tipe === 'istirahat_mulai') breakStarts.push(p);
@@ -1320,6 +1384,7 @@ async function doClockOut() {
     else msg = `(⚠️ Kurang jam - ${jamKerjaActual.toFixed(1)} jam)`;
   }
   if (flexUser) msg += ' 📍 Lokasi tercatat (Flexible)';
+  resetCurrentAbsensiRecordsCache();
   toast(`✅ Clock Out: ${now.toTimeString().slice(0, 5)} ${msg}`, 'success');
   capturedPhoto = null;
   currentGPS = null;
@@ -1330,17 +1395,7 @@ async function doClockOut() {
 }
 
 async function checkTodayStatus() {
-  const snap = await db.collection('hrd_absensi').where('userId', '==', currentUser.id).get();
-  const todayDate = todayStr();
-  let masuk = false,
-    pulang = false;
-  snap.forEach((d) => {
-    const data = d.data();
-    if (data.tanggal === todayDate) {
-      if (data.tipe === 'masuk') masuk = true;
-      if (data.tipe === 'pulang') pulang = true;
-    }
-  });
+  const { masuk, pulang } = await getTodayAttendanceState();
   const el = document.getElementById('clockStatus');
   if (el) {
     if (masuk && pulang)
@@ -1357,17 +1412,36 @@ async function checkTodayStatus() {
 
 async function loadTodayHistory() {
   const todayDate = todayStr();
-  const snap = await db.collection('hrd_absensi').where('tanggal', '==', todayDate).get();
+  const identity = await getCurrentAbsensiIdentity();
   let h = '';
   let found = false;
 
   const docs = [];
-  snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
+  if (hasAccess(3)) {
+    const snap = await db.collection('hrd_absensi').where('tanggal', '==', todayDate).get();
+    snap.forEach((d) => docs.push({ id: d.id, ...d.data() }));
+  } else {
+    const snaps = await Promise.all(
+      identity.ids.map((id) => db.collection('hrd_absensi').where('userId', '==', id).get())
+    );
+    const seen = new Set();
+    snaps.forEach((snap) => {
+      snap.forEach((d) => {
+        if (seen.has(d.id)) return;
+        const data = d.data();
+        if (data.tanggal !== todayDate) return;
+        seen.add(d.id);
+        docs.push({ id: d.id, ...data });
+      });
+    });
+  }
   // Sort by time desc
-  docs.sort((a, b) => (b.waktu || "").localeCompare(a.waktu || ""));
+  docs.sort((a, b) => (b.waktu || '').localeCompare(a.waktu || ''));
 
   docs.forEach((p) => {
-    if (!hasAccess(3) && p.userId !== currentUser.id) return;
+    const userIdMatch = identity.ids.includes(p.userId);
+    const nameMatch = identity.names.includes((p.nama || '').toLowerCase().trim());
+    if (!hasAccess(3) && !userIdMatch && !nameMatch) return;
     found = true;
     const tipeLabel =
       p.tipe === 'masuk'
@@ -1414,17 +1488,13 @@ async function loadBreakStatus() {
   if (!breakActionsEl || !breakStatusEl) return;
 
   // Check if clocked in today (single query + client-side filter)
-  const todayRecords = await db
-    .collection('hrd_absensi')
-    .where('userId', '==', currentUser.id)
-    .get();
+  const todayRecords = await getCurrentUserAbsensiRecords();
   const todayDate = todayStr();
   let hasMasuk = false,
     hasPulang = false;
   const breakStartsList = [];
   const breakEndsList = [];
-  todayRecords.forEach((d) => {
-    const data = d.data();
+  todayRecords.forEach((data) => {
     if (data.tanggal !== todayDate) return;
     if (data.tipe === 'masuk') hasMasuk = true;
     if (data.tipe === 'pulang') hasPulang = true;
@@ -1477,6 +1547,7 @@ async function doStartBreak() {
     tipe: 'istirahat_mulai',
     createdAt: now.toISOString(),
   });
+  resetCurrentAbsensiRecordsCache();
   toast('☕ Istirahat dimulai', 'info');
   loadBreakStatus();
   loadTodayHistory();
@@ -1493,6 +1564,7 @@ async function doEndBreak() {
     tipe: 'istirahat_selesai',
     createdAt: now.toISOString(),
   });
+  resetCurrentAbsensiRecordsCache();
   toast('🔙 Istirahat selesai', 'success');
   loadBreakStatus();
   loadTodayHistory();
@@ -1526,10 +1598,9 @@ async function loadWeeklyAccumulation() {
   const target = flex.weeklyTarget || 40;
   const { start, end } = getWeekDates();
 
-  const snap = await db.collection('hrd_absensi').where('userId', '==', currentUser.id).get();
+  const snap = await getCurrentUserAbsensiRecords();
   let totalHours = 0;
-  snap.forEach((d) => {
-    const p = d.data();
+  snap.forEach((p) => {
     if (p.tanggal >= start && p.tanggal <= end && p.tipe === 'pulang' && p.jamKerjaActual)
       totalHours += p.jamKerjaActual;
   });
@@ -1574,11 +1645,10 @@ async function loadCoreHoursStatus() {
     return;
   }
 
-  const masukSnap = await db.collection('hrd_absensi').where('userId', '==', currentUser.id).get();
+  const masukSnap = await getCurrentUserAbsensiRecords();
   const todayDate = todayStr();
   let clockInData = null;
-  masukSnap.forEach((d) => {
-    const data = d.data();
+  masukSnap.forEach((data) => {
     if (data.tanggal === todayDate && data.tipe === 'masuk' && !clockInData) clockInData = data;
   });
   if (!clockInData) {
@@ -2103,14 +2173,17 @@ function modalAbsenDinasLuar() {
 
 function startDinasCamera() {
   const v = document.getElementById('dinasVideo');
-  if (dinasStream) {
-    dinasStream.getTracks().forEach((t) => t.stop());
-  }
+  stopDinasCamera();
+  const requestId = ++dinasCameraRequestId;
   navigator.mediaDevices
     .getUserMedia({ video: { facingMode: 'user' }, audio: false })
     .then((s) => {
+      if (requestId !== dinasCameraRequestId) {
+        stopMediaStream(s);
+        return;
+      }
       dinasStream = s;
-      v.srcObject = s;
+      if (v) v.srcObject = s;
     })
     .catch((e) => toast('Gagal kamera: ' + e.message, 'error'));
 }
@@ -2125,10 +2198,7 @@ function captureDinasPhoto() {
   dinasPhoto = c.toDataURL('image/jpeg', 0.6);
   document.getElementById('dinasPhotoPreview').innerHTML =
     `<img src="${dinasPhoto}" style="width:80px;border-radius:8px;border:2px solid var(--success)"><span class="text-xs color-success ml-8">✅</span>`;
-  if (dinasStream) {
-    dinasStream.getTracks().forEach((t) => t.stop());
-    dinasStream = null;
-  }
+  stopDinasCamera();
 }
 
 function getDinasGPS() {
@@ -2176,6 +2246,7 @@ async function submitAbsenDinas() {
     createdAt: now.toISOString(),
   });
 
+  resetCurrentAbsensiRecordsCache();
   dinasPhoto = null;
   dinasGPS = null;
   closeModalDirect();
