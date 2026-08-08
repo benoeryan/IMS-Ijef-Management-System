@@ -803,6 +803,10 @@ function loadScriptOnce(src) {
   window._routeScriptPromises[src] = new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[data-lazy-src="${src}"]`);
     if (existing) {
+      if (existing.getAttribute('data-error') === '1') {
+        delete window._routeScriptPromises[src];
+        return reject(new Error(`Gagal load ${src}`));
+      }
       if (existing.getAttribute('data-loaded') === '1') return resolve();
       existing.addEventListener('load', () => resolve(), { once: true });
       existing.addEventListener('error', () => reject(new Error(`Gagal load ${src}`)), {
@@ -814,13 +818,16 @@ function loadScriptOnce(src) {
     const version = getScriptVersion(src);
     s.src = version ? `${src}?v=${encodeURIComponent(version)}` : `${src}?v=${Date.now()}`;
     s.charset = 'utf-8';
-    s.defer = true;
     s.setAttribute('data-lazy-src', src);
     s.onload = () => {
       s.setAttribute('data-loaded', '1');
       resolve();
     };
-    s.onerror = () => reject(new Error(`Gagal load ${src}`));
+    s.onerror = () => {
+      s.setAttribute('data-error', '1');
+      delete window._routeScriptPromises[src];
+      reject(new Error(`Gagal load ${src}`));
+    };
     document.body.appendChild(s);
   });
   return window._routeScriptPromises[src];
