@@ -3776,12 +3776,13 @@ async function submitWeeklyImport() {
 var _weeklyReportFilter = 'all';
 var _wrDateFrom = '';
 var _wrDateTo = '';
+var _wrSummaryFilter = '';
 var _weeklyReportLookup = {};
 var WEEKLY_REPORT_DEFAULT_COL = 'hrd_daily_tasks';
 var WEEKLY_REPORT_PREVIEW_MAX_LENGTH = 140;
 
 async function loadWeeklyReports(divFilter) {
-  if (divFilter !== undefined) _weeklyReportFilter = divFilter;
+  if (divFilter !== undefined) { _weeklyReportFilter = divFilter; _wrSummaryFilter = ''; }
   document.querySelectorAll('#taskTabs .tab').forEach(function (t) {
     t.classList.remove('active');
   });
@@ -3861,21 +3862,45 @@ async function loadWeeklyReports(divFilter) {
     const avgProgressSummary = totalReportsSummary > 0 ? Math.round(filtered.reduce((acc, cur) => acc + (parseInt(cur.progress) || 0), 0) / totalReportsSummary) : 0;
     const totalObstaclesSummary = filtered.filter(it => (it.kendala || it.case_desc || '').trim().length > 0).length;
 
+    // Apply summary filter (set by clicking on summary boxes)
+    var filteredForList = filtered;
+    if (_wrSummaryFilter === 'low_progress') {
+      filteredForList = filtered.filter(function (r) { return (parseInt(r.progress) || 0) < 70; });
+    } else if (_wrSummaryFilter === 'kendala') {
+      filteredForList = filtered.filter(function (r) { return (r.kendala || r.case_desc || '').trim().length > 0; });
+    }
+    filtered = filteredForList;
+
+    var _sfTotal = _wrSummaryFilter === '' || _wrSummaryFilter === 'total';
+    var _sfProgress = _wrSummaryFilter === 'low_progress';
+    var _sfKendala = _wrSummaryFilter === 'kendala';
+
     html += `
     <div id="weeklySummaryBox" style="background:#f9f9f9; border:1px solid #d0d9ff; border-radius:12px; padding:16px; margin-bottom:20px; display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:16px">
-        <div style="text-align:center">
+        <div onclick="filterWeeklySummary('')" style="text-align:center;cursor:pointer;border-radius:8px;padding:8px;transition:background .2s${_sfTotal ? ';background:#e8eaf6;outline:2px solid var(--primary)' : ''}" title="Klik untuk lihat semua data">
             <div style="font-size:0.75rem; color:#666; margin-bottom:4px">📊 Total Laporan</div>
             <div style="font-size:1.5rem; font-weight:800; color:var(--primary)">${totalReportsSummary}</div>
+            <div style="font-size:0.65rem; color:#999; margin-top:2px">Klik untuk lihat semua</div>
         </div>
-        <div style="text-align:center">
+        <div onclick="filterWeeklySummary('low_progress')" style="text-align:center;cursor:pointer;border-radius:8px;padding:8px;transition:background .2s${_sfProgress ? ';background:#e8f5e9;outline:2px solid #2e7d32' : ''}" title="Klik untuk lihat data progress rendah (<70%)">
             <div style="font-size:0.75rem; color:#666; margin-bottom:4px">📈 Rata-rata Progres</div>
             <div style="font-size:1.5rem; font-weight:800; color:#2e7d32">${avgProgressSummary}%</div>
+            <div style="font-size:0.65rem; color:#999; margin-top:2px">Klik untuk lihat progress &lt;70%</div>
         </div>
-        <div style="text-align:center">
+        <div onclick="filterWeeklySummary('kendala')" style="text-align:center;cursor:pointer;border-radius:8px;padding:8px;transition:background .2s${_sfKendala ? ';background:#ffebee;outline:2px solid #c62828' : ''}" title="Klik untuk lihat data yang memiliki kendala">
             <div style="font-size:0.75rem; color:#666; margin-bottom:4px">⚠️ Total Kendala</div>
             <div style="font-size:1.5rem; font-weight:800; color:#c62828">${totalObstaclesSummary}</div>
+            <div style="font-size:0.65rem; color:#999; margin-top:2px">Klik untuk lihat kendala</div>
         </div>
     </div>`;
+
+    if (_wrSummaryFilter) {
+      var _sfLabel = _wrSummaryFilter === 'low_progress' ? '📈 Menampilkan: Progress &lt;70%' : '⚠️ Menampilkan: Data Berkendala';
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#fff3e0;border:1px solid #ff9800;border-radius:8px;margin-bottom:10px;font-size:.82rem;font-weight:700;color:#e65100">
+        <span>${_sfLabel}</span>
+        <button class="btn btn-xs btn-outline" style="margin-left:auto" onclick="filterWeeklySummary('')">✕ Hapus Filter</button>
+      </div>`;
+    }
 
     html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">';
     html += '<button class="btn btn-xs ' + (_weeklyReportFilter === 'all' ? 'btn-primary' : 'btn-outline') + '" onclick="loadWeeklyReports(\'all\')">Semua</button>';
@@ -3973,6 +3998,15 @@ async function loadWeeklyReports(divFilter) {
  * Modal Rangkuman Laporan Mingguan
  * Menampilkan statistik berdasarkan data yang sedang difilter
  */
+function filterWeeklySummary(type) {
+  _wrSummaryFilter = type;
+  loadWeeklyReports();
+  setTimeout(function () {
+    var listEl = document.getElementById('taskList');
+    if (listEl) listEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 400);
+}
+
 function showWeeklyReportSummaryModal() {
     const summaryBox = document.getElementById('weeklySummaryBox');
     if (!summaryBox) return toast('Data rangkuman belum siap', 'warning');
