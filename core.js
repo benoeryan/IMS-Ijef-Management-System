@@ -783,6 +783,20 @@ function getRouteScript(page) {
   };
   return routeScriptMap[page] || null;
 }
+function getScriptVersion(src) {
+  const tags = Array.from(document.querySelectorAll('script[src]'));
+  const found = tags.find((s) => {
+    const clean = (s.getAttribute('src') || '').split('?')[0];
+    return clean === src;
+  });
+  if (!found) return '';
+  try {
+    const u = new URL(found.src, window.location.origin);
+    return u.searchParams.get('v') || '';
+  } catch (e) {
+    return '';
+  }
+}
 function loadScriptOnce(src) {
   if (!src) return Promise.resolve();
   if (window._routeScriptPromises[src]) return window._routeScriptPromises[src];
@@ -797,7 +811,8 @@ function loadScriptOnce(src) {
       return;
     }
     const s = document.createElement('script');
-    s.src = `${src}?v=15.3`;
+    const version = getScriptVersion(src);
+    s.src = version ? `${src}?v=${encodeURIComponent(version)}` : `${src}?v=${Date.now()}`;
     s.charset = 'utf-8';
     s.defer = true;
     s.setAttribute('data-lazy-src', src);
@@ -923,26 +938,33 @@ function navigateTo(page) {
   } else if (funcName) {
     // Retry with increasing delays (in case scripts are still loading on slow connections)
     main.innerHTML = `<div class="empty-state"><div class="icon">⌛</div><p>Memuat modul "${page}"...</p></div>`;
+    const startRetry = () => {
+      let attempt = 0;
+      const delays = [300, 700, 1500, 3000];
+      const tryRender = () => {
+        const retryFn = window[funcName];
+        if (typeof retryFn === 'function') {
+          try { retryFn(); } catch (e) {
+            console.error(`Error rendering "${page}":`, e);
+            main.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Gagal memuat halaman "${page}". Silakan refresh browser.</p></div>`;
+          }
+        } else if (attempt < delays.length) {
+          setTimeout(tryRender, delays[attempt++]);
+        } else {
+          main.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Halaman "${page}" gagal dimuat. Periksa koneksi lalu refresh browser.</p></div>`;
+        }
+      };
+      setTimeout(tryRender, delays[attempt++]);
+    };
+
     const routeScript = getRouteScript(page);
     if (routeScript) {
-      loadScriptOnce(routeScript).catch((e) => console.warn('Lazy-load route script failed:', e));
+      loadScriptOnce(routeScript)
+        .catch((e) => console.warn('Lazy-load route script failed:', e))
+        .finally(startRetry);
+    } else {
+      startRetry();
     }
-    let attempt = 0;
-    const delays = [300, 700, 1500, 3000];
-    const tryRender = () => {
-      const retryFn = window[funcName];
-      if (typeof retryFn === 'function') {
-        try { retryFn(); } catch (e) {
-          console.error(`Error rendering "${page}":`, e);
-          main.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Gagal memuat halaman "${page}". Silakan refresh browser.</p></div>`;
-        }
-      } else if (attempt < delays.length) {
-        setTimeout(tryRender, delays[attempt++]);
-      } else {
-        main.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Halaman "${page}" gagal dimuat. Periksa koneksi lalu refresh browser.</p></div>`;
-      }
-    };
-    setTimeout(tryRender, delays[attempt++]);
   } else {
     main.innerHTML = `<div class="empty-state"><div class="icon">🚧</div><p>Halaman "${page}" dalam pengembangan</p></div>`;
   }
