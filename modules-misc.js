@@ -3010,9 +3010,17 @@ async function generateAllApprovalFlows() {
       existSnap.forEach((d) => batch.delete(d.ref));
       await batch.commit();
     }
+    let batch = db.batch();
+    let opCount = 0;
     for (const payload of flowPayloads) {
-      await db.collection("hrd_approval_flow").add(payload);
+      batch.set(db.collection("hrd_approval_flow").doc(), payload);
+      opCount++;
+      if (opCount % 400 === 0) {
+        await batch.commit();
+        batch = db.batch();
+      }
     }
+    if (opCount % 400 !== 0) await batch.commit();
     invalidateApprovalFlowCache();
     toast(
       `${flowPayloads.length} approval flow di-generate untuk ${staffAndLeaders.length} karyawan`,
