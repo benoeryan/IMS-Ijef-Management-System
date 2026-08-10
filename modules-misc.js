@@ -2013,20 +2013,7 @@ async function renderApprovalCenter(tab = "pending") {
 
   items.forEach((item) => {
     const cat = getApprovalCategory(item.collection, item);
-    const flow =
-      flows.find(
-        (f) =>
-          isSameName(f.pengaju, item.nama) &&
-          f.jenis === cat &&
-          f.steps &&
-          f.steps.length > 0,
-      ) ||
-      flows.find(
-        (f) =>
-          isSameName(f.pengaju, item.nama) && f.steps && f.steps.length > 0,
-      );
-
-    const steps = flow?.steps || [];
+    const steps = getApprovalStepsForItem(flows, item, cat);
     const currentStep = item.approvalStep || 0;
     const currentApprover = (steps[currentStep]?.nama || "")
       .toLowerCase()
