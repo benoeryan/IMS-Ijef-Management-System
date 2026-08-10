@@ -661,11 +661,13 @@ async function handleLogin() {
 function renderApp() {
   const adminRoles = ["admin", "bod", "head", "manager"];
   const isPortalUser = !adminRoles.includes(currentUser.role);
+  const safeCurrentUserName = escHtml(currentUser.nama || "");
+  const safeCurrentUserAvatar = escAttr(currentUser.profilePic || "");
   document.getElementById("app").innerHTML = `
   <div class="sidebar" id="sidebar">
     <div class="logo">🏛️ <span>IMS</span></div>
     <nav>${buildNavItems(isPortalUser)}</nav>
-    <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,.1)"><div style="font-size:.75rem;color:rgba(255,255,255,.5)">v${APP_VERSION} (LATEST) — ${currentUser.nama}</div></div>
+    <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,.1)"><div style="font-size:.75rem;color:rgba(255,255,255,.5)">v${APP_VERSION} (LATEST) — ${safeCurrentUserName}</div></div>
   </div>
   <div class="header">
     <button class="menu-btn" onclick="toggleSidebar()">☰</button>
@@ -673,12 +675,19 @@ function renderApp() {
     <div class="title">${isPortalUser ? "IMS Karyawan" : "IMS (IJEF Management System)"}</div>
     <div class="notif-badge" onclick="navigateTo('notifikasi')" title="Notifikasi">🔔<span class="count" id="notifCount" style="display:none">0</span></div>
     <div class="user-info">
-      <div class="avatar" style="cursor:pointer" onclick="viewUserProfile('${escHtml(currentUser.nama)}')">${currentUser.profilePic ? `<img src="${currentUser.profilePic}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : currentUser.nama.charAt(0)}</div>
-      <span style="cursor:pointer" onclick="viewUserProfile('${escHtml(currentUser.nama)}')">${currentUser.nama}</span>
+      <div class="avatar" id="headerProfileAvatar" style="cursor:pointer">${currentUser.profilePic ? `<img src="${safeCurrentUserAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : escHtml(currentUser.nama.charAt(0))}</div>
+      <span id="headerProfileName" style="cursor:pointer">${safeCurrentUserName}</span>
       <button class="btn btn-xs" style="background:rgba(255,255,255,.15);color:#fff" onclick="doLogout()">Keluar</button>
     </div>
   </div>
   <div class="main" id="mainContent"></div>`;
+  const openCurrentUserProfile = () => viewUserProfile(currentUser.nama || "");
+  document
+    .getElementById("headerProfileAvatar")
+    ?.addEventListener("click", openCurrentUserProfile);
+  document
+    .getElementById("headerProfileName")
+    ?.addEventListener("click", openCurrentUserProfile);
   navigateTo(currentPage);
   listenNotifications();
   initFCM();
@@ -1226,6 +1235,10 @@ function escHtml(str) {
   const d = document.createElement("div");
   d.textContent = str || "";
   return d.innerHTML;
+}
+
+function escAttr(str) {
+  return escHtml(str).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 // == APPROVAL FLOW CACHE — Pending approver visibility ========-

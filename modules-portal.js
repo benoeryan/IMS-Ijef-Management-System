@@ -512,7 +512,7 @@ async function loadPortalInfoSections() {
     // Fallback: show error message in first section
     const pgBody = document.getElementById("portalPengumumanBody");
     if (pgBody)
-      pgBody.innerHTML = `<p class="text-sm" style="color:var(--accent)">⚠️ Gagal memuat data: ${e.message || "Unknown error"}</p>`;
+      pgBody.innerHTML = `<p class="text-sm" style="color:var(--accent)">⚠️ Gagal memuat data: ${escHtml(e.message || "Unknown error")}</p>`;
   }
 }
 
