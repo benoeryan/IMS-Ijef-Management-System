@@ -73,7 +73,7 @@ async function renderDashboard() {
   }
   widgetLeft += '</div>';
 
-  // 2. Aksi Cepat
+  // Aksi Cepat
   widgetLeft += `<div class="card"><div class="card-title mb-12">⚡ Aksi Cepat</div><div style="display:flex;gap:8px;flex-wrap:wrap">`;
   const actions = [
     { label: 'Daily Task', page: 'daily-task', icon: '📝', color: '#1565c0' },
@@ -94,7 +94,7 @@ async function renderDashboard() {
   });
   widgetLeft += `</div></div>`;
 
-  // 3. Pengumuman
+  // Pengumuman
   widgetLeft += '<div class="card"><div class="card-title mb-8">📢 Pengumuman Terbaru</div>';
   if (pengumuman.empty) {
     widgetLeft += '<p class="text-sm" style="color:#999">Belum ada</p>';
@@ -111,7 +111,7 @@ async function renderDashboard() {
   // --- RIGHT WIDGETS ---
   let widgetRight = '';
 
-  // 1. User Info Card (Profil Administrator)
+  // User Info Card (Profil Administrator)
   const u = currentUser;
   widgetRight += `
   <div class="card" style="border-left:4px solid var(--primary)">
@@ -124,7 +124,7 @@ async function renderDashboard() {
     </div>
   </div>`;
 
-  // 2. Financial Portal Link
+  // Financial Portal Link
   const _lkDashUsers = ['muhammad agus ryanda', 'siti sofuroh', 'irsan janwar wibawa', 'misriana'];
   if (_lkDashUsers.includes((currentUser.nama || "").toLowerCase())) {
     widgetRight += `<div class="card" style="border-left:4px solid #2e7d32">
@@ -134,7 +134,7 @@ async function renderDashboard() {
     </div>`;
   }
 
-  // 3. Team Report Widget (HEAD+)
+  // Team Report Widget (HEAD+)
   if (hasHeadLevelAccess()) {
     widgetRight += `
     <div class="card" id="dashTeamReportSection">

@@ -1133,15 +1133,19 @@ function getApprovalStepsForItem(flows, itemOrName, category) {
   const item = itemOrName && typeof itemOrName === 'object' ? itemOrName : { nama: itemOrName };
   const namaLow = (item.nama || '').toLowerCase().trim();
   if (!namaLow) return [];
+  const itemCategory = category || (item.collection ? getApprovalCategory(item.collection, item) : '');
   if (Array.isArray(item.approvalFlow) && item.approvalFlow.length) {
-    if (Array.isArray(item.approvalFlow[0]?.steps)) return item.approvalFlow[0].steps;
+    if (Array.isArray(item.approvalFlow[0]?.steps)) {
+      const embeddedFlow =
+        (itemCategory && item.approvalFlow.find((flow) => flow?.jenis === itemCategory)) || item.approvalFlow[0];
+      return embeddedFlow?.steps || [];
+    }
     const looksLikeStepArray = item.approvalFlow.every(
       (step) => step && typeof step === 'object' && 'nama' in step && !('steps' in step) && !('pengaju' in step) && !('jenis' in step)
     );
     if (looksLikeStepArray) return item.approvalFlow;
   }
   if (!flows || !flows.length) return [];
-  const itemCategory = category || (item.collection ? getApprovalCategory(item.collection, item) : '');
   const personFlows = flows.filter(f => isSameName(f.pengaju, namaLow) && f.steps && f.steps.length > 0);
   if (!personFlows.length) return [];
   if (itemCategory) {
