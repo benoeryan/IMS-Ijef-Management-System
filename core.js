@@ -1310,7 +1310,6 @@ function getApprovalStepsForItem(flows, itemOrName, category) {
 
   const itemCategory =
     category ||
-    item.category ||
     (item.collection ? getApprovalCategory(item.collection, item) : "");
   const personFlows = flows.filter(
     (f) => isSameName(f.pengaju, namaLow) && f.steps && f.steps.length > 0,
