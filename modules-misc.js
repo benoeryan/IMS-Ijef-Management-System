@@ -2660,7 +2660,7 @@ async function approveItem(col, id, status, catatan) {
       const cat = getApprovalCategory(col, data);
 
       const matchingFlows = [];
-      for (const d of flowSnap) {
+      for (const d of flowSnap.docs) {
         const f = d.data();
         if (isSameName(f.pengaju, data.nama)) {
           matchingFlows.push(f);
