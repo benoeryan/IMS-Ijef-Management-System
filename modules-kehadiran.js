@@ -2874,7 +2874,7 @@ async function _loadReportSummaryForDate(dateVal) {
           if (prog >= 70) { totalOnTrack++; deptOnTrack++; }
           else { totalNeedAttention++; deptNeedAttention++; }
         }
-        if (kendala) { totalKendala++; deptKendala++; deptKendalaNotes.push(nama + ': ' + kendala.split('\n')[0].substring(0, 50)); }
+        if (kendala && prog < 100) { totalKendala++; deptKendala++; deptKendalaNotes.push(nama + ': ' + kendala.split('\n')[0].substring(0, 50)); }
         else { totalTanpaKendala++; deptTanpaKendala++; }
       });
       htmlContent += '</div>';
@@ -3860,14 +3860,14 @@ async function loadWeeklyReports(divFilter) {
     // --- RANGKUMAN DATA LAPORAN MINGGUAN (DASHBOARD BOX) ---
     const totalReportsSummary = filtered.length;
     const avgProgressSummary = totalReportsSummary > 0 ? Math.round(filtered.reduce((acc, cur) => acc + (parseInt(cur.progress) || 0), 0) / totalReportsSummary) : 0;
-    const totalObstaclesSummary = filtered.filter(it => (it.kendala || it.case_desc || '').trim().length > 0).length;
+    const totalObstaclesSummary = filtered.filter(it => (it.kendala || it.case_desc || '').trim().length > 0 && (parseInt(it.progress) || 0) < 100).length;
 
     // Apply summary filter (set by clicking on summary boxes)
     var filteredForList = filtered;
     if (_wrSummaryFilter === 'low_progress') {
       filteredForList = filtered.filter(function (r) { return (parseInt(r.progress) || 0) < 70; });
     } else if (_wrSummaryFilter === 'kendala') {
-      filteredForList = filtered.filter(function (r) { return (r.kendala || r.case_desc || '').trim().length > 0; });
+      filteredForList = filtered.filter(function (r) { return (r.kendala || r.case_desc || '').trim().length > 0 && (parseInt(r.progress) || 0) < 100; });
     }
     filtered = filteredForList;
 
@@ -4287,7 +4287,7 @@ function _buildReportTrackerStats(items) {
       if (p >= 70) onTrack++;
       else needAttention++;
     }
-    if ((r.kendala || r.case_desc || '').trim()) kendala++;
+    if ((r.kendala || r.case_desc || '').trim() && p < 100) kendala++;
     else tanpaKendala++;
    });
   var total = items.length;
