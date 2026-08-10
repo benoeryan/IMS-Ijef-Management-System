@@ -1108,11 +1108,40 @@ function getDeviceType() {
     return "desktop";
 }
 
+function normalizePersonName(name) {
+  return String(name || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 function isSameName(name1, name2) {
   if (!name1 || !name2) return false;
-  const n1 = String(name1).toLowerCase().trim();
-  const n2 = String(name2).toLowerCase().trim();
-  return n1 === n2;
+  return normalizePersonName(name1) === normalizePersonName(name2);
+}
+
+function getTaskOwnerDisplayName(task) {
+  return task?.targetUserName || task?.nama || task?.pic || '';
+}
+
+function doesTaskBelongToUser(task, user) {
+  const targetUser = user || currentUser;
+  if (!task || !targetUser) return false;
+  const userId = targetUser.id || '';
+  if (userId && (task.userId === userId || task.karyawanId === userId)) return true;
+  return isSameName(getTaskOwnerDisplayName(task), targetUser.nama || '');
+}
+
+function wasTaskAssignedByUser(task, user) {
+  const targetUser = user || currentUser;
+  if (!task || !targetUser) return false;
+  const userId = targetUser.id || '';
+  if (userId && task.assignedBy === userId) return true;
+  return isSameName(task.assignedByName || '', targetUser.nama || '');
+}
+
+function isDailyReportEntry(task) {
+  return task?.type === 'report' || String(task?.title || '').includes('Daily Report');
 }
 
 function getApprovalCategory(col, data) {

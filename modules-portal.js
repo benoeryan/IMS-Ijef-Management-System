@@ -80,11 +80,13 @@ async function renderPortal() {
     cutiUsed = 0,
     inboxCount = 0;
   const monthStart = monthStr() + '-01';
-  const [absenSnap, cutiSnap, inboxSnap, taskSnap] = await Promise.all([
+  const [absenSnap, cutiSnap, inboxSnap, taskSnapById, taskSnapByTargetName, taskSnapByNama] = await Promise.all([
     db.collection('hrd_absensi').where('userId', '==', u.id).get(),
     db.collection('hrd_cuti').where('userId', '==', u.id).get(),
     db.collection('hrd_meeting_invites').where('targetUser', '==', u.id).get(),
     db.collection('hrd_daily_tasks').where('userId', '==', u.id).get(),
+    db.collection('hrd_daily_tasks').where('targetUserName', '==', u.nama).get(),
+    db.collection('hrd_daily_tasks').where('nama', '==', u.nama).get(),
   ]);
   absenSnap.forEach((d) => {
     const data = d.data();
@@ -122,9 +124,15 @@ async function renderPortal() {
   // Daily task today
   const today = todayStr();
   const myTasks = [];
-  taskSnap.forEach((d) => {
-    const t = d.data();
-    myTasks.push({ id: d.id, ...t });
+  const seenTaskIds = new Set();
+  [taskSnapById, taskSnapByTargetName, taskSnapByNama].forEach((snap) => {
+    snap.forEach((d) => {
+      if (seenTaskIds.has(d.id)) return;
+      const t = d.data();
+      if (!doesTaskBelongToUser(t, u)) return;
+      seenTaskIds.add(d.id);
+      myTasks.push({ id: d.id, ...t });
+    });
   });
   const todayTasks = myTasks.filter((t) => t.tanggal === today && !t.done);
   const overdueTasks = myTasks.filter((t) => t.tanggal < today && !t.done);

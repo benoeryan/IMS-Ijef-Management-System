@@ -759,13 +759,13 @@ async function renderMyCalendarView(container) {
         holidays.push({ id: d.id, ...data });
     });
     for (const d of taskSnap) { const t = d.data();
-      if (t.userId === currentUser.id && t.tanggal >= startDate && t.tanggal <= endDate) {
+      if (doesTaskBelongToUser(t) && t.tanggal >= startDate && t.tanggal <= endDate) {
         tasks.push({ id: d.id, ...t });
       }
       if (
         hasAccess(3) &&
-        t.assignedBy === currentUser.id &&
-        t.userId !== currentUser.id &&
+        wasTaskAssignedByUser(t) &&
+        !doesTaskBelongToUser(t) &&
         t.tanggal >= startDate &&
         t.tanggal <= endDate
       ) {
@@ -1496,14 +1496,14 @@ async function loadDailyTasks(filter) {
   const myId = currentUser.id;
   const myLevel = ROLES[currentUser.role] || 0;
   const myDept = (currentUser.departemen || '').toLowerCase().trim();
-  const myName = (currentUser.nama || '').toLowerCase().trim();
+  const myName = normalizePersonName(currentUser.nama || '');
 
   try {
     let directSubNames = [];
     if (myLevel === 2) {
       const kSnap = await db.collection('hrd_karyawan').where('atasan', '==', currentUser.nama).get();
       for (const sk of kSnap) { const n = sk.data().nama;
-        if (n) directSubNames.push(n.toLowerCase().trim());
+        if (n) directSubNames.push(normalizePersonName(n));
       }
     }
     window._directSubNamesCache = directSubNames;
@@ -1513,19 +1513,20 @@ async function loadDailyTasks(filter) {
     snap.forEach((d) => {
       const t = d.data();
       const taskDept = (t.departemen || '').toLowerCase().trim();
-      const ownerName = (t.targetUserName || t.nama || '').toLowerCase().trim();
-      const ownerId = t.userId;
-      const isReport = t.type === 'report' || (t.title && t.title.includes('Daily Report'));
+      const ownerName = normalizePersonName(getTaskOwnerDisplayName(t));
+      const ownerMatchesMe = doesTaskBelongToUser(t);
+      const assignedByMe = wasTaskAssignedByUser(t);
+      const isReport = isDailyReportEntry(t);
 
       let isVisible = false;
       if (hasHeadLevelAccess() || currentUser.id === 'admin' || currentUser.role === 'admin') {
         isVisible = true;
       } else if (hasAccess(3)) {
-        if (ownerId === myId || t.assignedBy === myId || taskDept === myDept || !taskDept) isVisible = true;
+        if (ownerMatchesMe || assignedByMe || taskDept === myDept || !taskDept) isVisible = true;
       } else if (hasAccess(2)) {
-        if (ownerId === myId || t.assignedBy === myId || (isReport && directSubNames.includes(ownerName)) || (!isReport && taskDept === myDept)) isVisible = true;
+        if (ownerMatchesMe || assignedByMe || (isReport && directSubNames.includes(ownerName)) || (!isReport && taskDept === myDept)) isVisible = true;
       } else {
-        if (ownerId === myId || t.assignedBy === myId) isVisible = true;
+        if (ownerMatchesMe || assignedByMe) isVisible = true;
       }
 
       if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
@@ -1541,14 +1542,14 @@ async function loadDailyTasks(filter) {
   else if (filter === 'upcoming') filtered = _dailyTaskData.filter((t) => t.tanggal > today && !t.done);
   else if (filter === 'done') filtered = _dailyTaskData.filter((t) => t.done);
   else if (filter === 'overdue') filtered = _dailyTaskData.filter((t) => t.tanggal < today && !t.done);
-  else if (filter === 'assigned') filtered = _dailyTaskData.filter((t) => t.assignedBy === myId && t.userId !== myId);
+  else if (filter === 'assigned') filtered = _dailyTaskData.filter((t) => wasTaskAssignedByUser(t) && !doesTaskBelongToUser(t));
   else if (filter === 'history-assigned') {
     const canSeeAllTaskHistory = hasAccess(4) || hasHeadLevelAccess() || hasAccess(6);
     filtered = _dailyTaskData.filter((t) => {
-      const isReport = t.type === 'report' || t.title?.includes('Daily Report');
+      const isReport = isDailyReportEntry(t);
       if (isReport) return false;
       if (canSeeAllTaskHistory) return true;
-      return t.assignedBy === myId && t.userId !== myId;
+      return wasTaskAssignedByUser(t) && !doesTaskBelongToUser(t);
     });
     const haFrom = document.getElementById('historyAssignedFrom')?.value;
     const haTo = document.getElementById('historyAssignedTo')?.value;
@@ -1556,14 +1557,14 @@ async function loadDailyTasks(filter) {
     if (haTo) filtered = filtered.filter(t => t.tanggal <= haTo);
     filtered.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
   } else if (filter === 'report') {
-    filtered = _dailyTaskData.filter(t => (t.type === 'report' || t.title?.includes('Daily Report')) && (t.userId === myId || (t.targetUserName || '').toLowerCase().trim() === myName));
+    filtered = _dailyTaskData.filter(t => isDailyReportEntry(t) && doesTaskBelongToUser(t));
   } else if (filter === 'team-report' || filter === 'all-report') {
-    filtered = _dailyTaskData.filter(t => t.type === 'report' || t.title?.includes('Daily Report'));
+    filtered = _dailyTaskData.filter(t => isDailyReportEntry(t));
     if (filter === 'team-report' && !hasAccess(4)) {
       if (hasAccess(3)) filtered = filtered.filter(t => (t.departemen || '').toLowerCase().trim() === myDept);
       else if (hasAccess(2)) {
         const subs = window._directSubNamesCache || [];
-        filtered = filtered.filter(t => subs.includes((t.targetUserName || '').toLowerCase().trim()) || t.userId === myId);
+        filtered = filtered.filter(t => subs.includes(normalizePersonName(getTaskOwnerDisplayName(t))) || doesTaskBelongToUser(t));
       }
     }
     const drFrom = document.getElementById('reportDateFrom')?.value;
@@ -1634,7 +1635,7 @@ async function loadDailyTasks(filter) {
     return;
   }
 
-  for (const t of filtered) { if (t.type === 'report' || t.title?.includes('Daily Report')) {
+  for (const t of filtered) { if (isDailyReportEntry(t)) {
       const progressColor = (t.progress || 0) >= 80 ? '#2e7d32' : (t.progress || 0) >= 50 ? '#f57f17' : '#c62828';
       html += `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border-left:4px solid #7b1fa2;margin-bottom:8px;background:#faf5ff;border-radius:0 8px 8px 0;cursor:pointer" onclick="viewDailyReport('${t.id}')">
         <div style="font-size:1.5rem">📝</div>
@@ -1643,7 +1644,7 @@ async function loadDailyTasks(filter) {
         <div style="font-size:.7rem;color:#999;margin-top:4px">👤 ${escHtml(t.targetUserName || '')} | 📅 ${formatDate(t.tanggal)} | Progress: <span style="color:${progressColor};font-weight:600">${t.progress || 0}%</span></div>
         </div>
         <div style="display:flex;gap:4px"><button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewDailyReport('${t.id}')">👁️</button>
-        ${(t.userId === myId || hasAccess(3)) ? `<button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyReport('${t.id}')">✏️</button>` : ''}
+        ${(doesTaskBelongToUser(t) || hasAccess(3)) ? `<button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyReport('${t.id}')">✏️</button>` : ''}
         </div></div>`;
     } else {
       const isOverdue = t.tanggal < today && !t.done;
@@ -1800,7 +1801,7 @@ function _showDailyTaskDetail(task) {
     ${commentInput}
 
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-      ${(hasAccess(6) || (task.userId === currentUser.id && !isGA) || task.assignedBy === currentUser.id) ? `<button class="btn btn-sm btn-warning" onclick="closeModalDirect();editDailyTask('${task.id}')">✏️ Edit</button>` : ''}
+      ${(hasAccess(6) || (doesTaskBelongToUser(task) && !isGA) || wasTaskAssignedByUser(task)) ? `<button class="btn btn-sm btn-warning" onclick="closeModalDirect();editDailyTask('${task.id}')">✏️ Edit</button>` : ''}
       <a href="${buildGCalUrl(task)}" target="_blank" class="btn btn-sm btn-info" style="text-decoration:none">📅 Google Calendar</a>
       <button class="btn btn-sm btn-outline" onclick="closeModalDirect()">Tutup</button>
     </div>`);
@@ -2048,7 +2049,7 @@ async function editDailyTask(id) {
   if (hasAccess(3)) {
     try {
       const usersSnap = await db.collection('hrd_users').get();
-      let opts = `<option value="self" ${task.userId === currentUser.id ? 'selected' : ''}>\u{1F4DD} Untuk Diri Sendiri (Catatan Pribadi)</option><option disabled>\u2500\u2500 Tugaskan ke Karyawan \u2500\u2500</option>`;
+      let opts = `<option value="self" ${doesTaskBelongToUser(task) ? 'selected' : ''}>\u{1F4DD} Untuk Diri Sendiri (Catatan Pribadi)</option><option disabled>\u2500\u2500 Tugaskan ke Karyawan \u2500\u2500</option>`;
       for (const d of usersSnap) { const u = d.data();
         if (u.status !== 'nonaktif')
           opts += `<option value="${d.id}" data-nama="${escHtml(u.nama)}" ${d.id === task.userId && d.id !== currentUser.id ? 'selected' : ''}>${escHtml(u.nama)} (${u.role})</option>`;
@@ -2154,7 +2155,7 @@ async function checkTaskReminders() {
     const today = todayStr();
     const tasks = [];
     for (const d of snap) { const t = d.data();
-      if (t.userId === currentUser.id && !t.done) tasks.push({ id: d.id, ...t });
+      if (doesTaskBelongToUser(t) && !t.done) tasks.push({ id: d.id, ...t });
     }
 
     for (const task of tasks) {
@@ -3823,7 +3824,7 @@ async function loadWeeklyReports(divFilter) {
       if (myDept) {
         items = items.filter(function (r) {
           var d = (r.departemen || r.divisi || '').toUpperCase().trim();
-          const isOwn = r.userId === currentUser.id || (r.targetUserName || '').toUpperCase().trim() === (currentUser.nama || '').toUpperCase().trim();
+          const isOwn = doesTaskBelongToUser(r);
           return isOwn || d === myDept || d.includes(myDept) || myDept.includes(d) || !d;
         });
       }
@@ -4342,7 +4343,7 @@ function _buildReportTrackerRow(r) {
   var statusIcon = prog >= 100 ? '\u2705' : prog >= 70 ? '\ud83d\udfe1' : '\ud83d\udd34';
   var aktivitasDisplay = (r.aktivitas || r.description || '-').substring(0, 200);
   var canEditReport =
-    r.userId === currentUser.id || hasAccess(3) || r.assignedBy === currentUser.id || r.source === 'spreadsheet-import';
+    doesTaskBelongToUser(r) || hasAccess(3) || wasTaskAssignedByUser(r) || r.source === 'spreadsheet-import';
   var editBtns = canEditReport
     ? ' <button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyReport(\'' +
       r.id +
@@ -4640,7 +4641,7 @@ async function loadKaizenRecords(roles) {
 
     // Filter by visibility: Level 3+ and GA see all, others see only their assigned/owned
     if (!hasAccess(3) && !isGA) {
-        items = items.filter(it => it.assignedBy === currentUser.id || it.userId === currentUser.id);
+        items = items.filter(it => wasTaskAssignedByUser(it) || doesTaskBelongToUser(it));
     }
 
     const filterPriority = document.getElementById('kzFilterPriority')?.value || 'all';
@@ -4681,7 +4682,7 @@ async function loadKaizenRecords(roles) {
             aksiBtns += ` <button class="btn btn-xs btn-warning" onclick="editDailyTask('${it.id}')" title="Edit Form Kaizen">✏️</button>`;
         }
 
-        if (it.assignedBy === currentUser.id || isAdmin) {
+        if (wasTaskAssignedByUser(it) || isAdmin) {
             aksiBtns += ` <button class="btn btn-xs btn-danger" onclick="hapusDailyTask('${it.id}')" title="Hapus">🗑️</button>`;
         }
 
