@@ -595,14 +595,11 @@ async function renderOvertime() {
       // Multi-step turn check
       const isPending =
         p.status === "pending" || (p.status && p.status.indexOf("step") === 0);
-      const flow = flows.find(
-        (f) =>
-          (f.pengaju || "").toLowerCase().trim() ===
-            (p.nama || "").toLowerCase().trim() &&
-          f.steps &&
-          f.steps.length > 0,
+      const steps = getApprovalStepsForItem(
+        flows,
+        p,
+        getApprovalCategory("hrd_overtime", p),
       );
-      const steps = flow?.steps || [];
       const currentStep = p.approvalStep || 0;
       const currentApprover = (steps[currentStep]?.nama || "")
         .toLowerCase()
@@ -613,9 +610,10 @@ async function renderOvertime() {
       const canApprove = isPending && hasAccess(3) && isMyTurn;
       const pendingInfo = pendingApproverHtml(
         flows,
-        p.nama,
+        p,
         p.status,
         p.approvalStep,
+        getApprovalCategory("hrd_overtime", p),
       );
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${formatDate(p.tanggal)}</td><td>${p.jamMulai || "-"}-${p.jamSelesai || "-"}</td><td>${p.durasi || 0}j</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewOvertimeDetail('${d.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_overtime','${d.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_overtime','${d.id}','rejected')">❌</button>` : ""} ${hasAccess(6) ? `<button class="btn btn-xs btn-warning" onclick="editOTDoc('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_overtime','${d.id}','overtime')">🗑️</button>` : ""}</td></tr>`;
     });
