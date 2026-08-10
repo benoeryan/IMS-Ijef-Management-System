@@ -958,22 +958,26 @@ async function autoDetectAndReady() {
   if (currentGPS) {
     try {
       const locStatus = await getNearestOfficeLocation(currentGPS.lat, currentGPS.lng);
-      if (locStatus.allowed) {
+      const flexUser = await isFlexibleUser();
+      if (locStatus.allowed || flexUser) {
         const { masuk: hasMasuk, pulang: hasPulang } = await getTodayAttendanceState();
+        const isFlexMode = !locStatus.allowed && flexUser;
         if (!hasMasuk) {
-          btn.textContent = '⏰ ABSEN MASUK (Selfie + GPS)';
+          btn.textContent = isFlexMode ? '⏰ ABSEN MASUK (Flexible + GPS)' : '⏰ ABSEN MASUK (Selfie + GPS)';
           btn.style.background = 'var(--success)';
           btn.disabled = false;
           if (autoEl)
-            autoEl.innerHTML =
-              '<span class="badge badge-success">✅ Foto & lokasi siap — Klik untuk Clock In</span>';
+            autoEl.innerHTML = isFlexMode
+              ? '<span class="badge badge-info" style="background:#e3f2fd;color:#1565c0">🚗 Mode Flexible — Foto siap, klik untuk Clock In</span>'
+              : '<span class="badge badge-success">✅ Foto & lokasi siap — Klik untuk Clock In</span>';
         } else if (!hasPulang) {
-          btn.textContent = '🏠 ABSEN PULANG (Selfie + GPS)';
+          btn.textContent = isFlexMode ? '🏠 ABSEN PULANG (Flexible + GPS)' : '🏠 ABSEN PULANG (Selfie + GPS)';
           btn.style.background = 'var(--warning)';
           btn.disabled = false;
           if (autoEl)
-            autoEl.innerHTML =
-              '<span class="badge badge-success">✅ Foto & lokasi siap — Klik untuk Clock Out</span>';
+            autoEl.innerHTML = isFlexMode
+              ? '<span class="badge badge-info" style="background:#e3f2fd;color:#1565c0">🚗 Mode Flexible — Foto siap, klik untuk Clock Out</span>'
+              : '<span class="badge badge-success">✅ Foto & lokasi siap — Klik untuk Clock Out</span>';
         } else {
           btn.textContent = '✅ Sudah Lengkap';
           btn.disabled = true;
