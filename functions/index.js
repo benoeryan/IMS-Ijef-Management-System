@@ -109,7 +109,7 @@ function buildDailyReportSummaryMessage(reportDate, reports) {
       else totalNeedAttention++;
     }
 
-    if ((r.kendala || '').trim()) totalKendala++;
+    if ((r.kendala || '').trim() && prog < 100) totalKendala++;
     else totalTanpaKendala++;
   });
 
@@ -160,7 +160,7 @@ function buildDailyReportSummaryMessage(reportDate, reports) {
           else deptNeedAttention++;
         }
 
-        if (kendala) {
+        if (kendala && prog < 100) {
           deptKendala++;
           deptKendalaNotes.push(`• ${nama}: ${kendala.split('\n')[0].substring(0, 80)}`);
         } else {
