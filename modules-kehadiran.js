@@ -1860,9 +1860,9 @@ async function loadDailyTasks(filter) {
     const curTo = document.getElementById("reportDateTo")?.value || "";
     html = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px;background:#f9f9f9;border-radius:8px">
       <span class="text-sm fw-700">📅 Periode:</span>
-      <input type="date" class="form-control" id="reportDateFrom" value="${curFrom}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('${filter}')">
+      <input type="date" class="form-control" id="reportDateFrom" value="${escAttr(curFrom)}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('${filter}')">
       <span class="text-sm">s/d</span>
-      <input type="date" class="form-control" id="reportDateTo" value="${curTo}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('${filter}')">
+      <input type="date" class="form-control" id="reportDateTo" value="${escAttr(curTo)}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('${filter}')">
       <button class="btn btn-xs btn-outline" onclick="document.getElementById('reportDateFrom').value='';document.getElementById('reportDateTo').value='';loadDailyTasks('${filter}')">Reset</button>
     </div>`;
 
@@ -3352,16 +3352,16 @@ async function _loadReportSummaryForDate(dateVal) {
   ]
     .map((div) => {
       const active = _reportSummaryDivisionFilter === div;
-      return `<button class="btn btn-sm ${active ? "btn-primary" : "btn-outline"}" onclick="filterReportSummaryByDivision('${div}')">${div.toUpperCase()}</button>`;
+      return `<button class="btn btn-sm ${active ? "btn-primary" : "btn-outline"}" onclick="filterReportSummaryByDivision('${div}')">${escHtml(div.toUpperCase())}</button>`;
     })
     .join("")}</div>`;
 
   container.innerHTML = `
     <div class="card mb-16">
       <div class="flex" style="justify-content:space-between;align-items:center">
-        <div class="fw-700">\ud83d\udccb Rangkuman Report - ${dateStr}</div>
+        <div class="fw-700">\ud83d\udccb Rangkuman Report - ${escHtml(dateStr)}</div>
         <div class="flex gap-8">
-          <input type="date" class="form-control" id="summaryDate" value="${dateVal}" onchange="loadReportSummaryByDate(this.value)" style="width:150px">
+          <input type="date" class="form-control" id="summaryDate" value="${escAttr(dateVal)}" onchange="loadReportSummaryByDate(this.value)" style="width:150px">
           <button class="btn btn-sm btn-success" onclick="shareReportWA()">\ud83d\udce4 Share WA Admin</button>
         </div>
       </div>
@@ -4677,14 +4677,14 @@ async function loadWeeklyReports(divFilter) {
                     : "#c62828"
                 : "#1565c0";
 
-              html += `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;cursor:pointer" onclick="viewWeeklyReportItem('${encodeURIComponent(wrKey)}')">
+              html += `<div class="wr-item" data-report-key="${escAttr(encodeURIComponent(wrKey))}" style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;cursor:pointer">
             <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
-              ${currentUser.role !== "bod" ? `<input type="checkbox" class="wr-check" value="${r.id}" data-col="${r.col || WEEKLY_REPORT_DEFAULT_COL}" onclick="event.stopPropagation()">` : ""}
+              ${currentUser.role !== "bod" ? `<input type="checkbox" class="wr-check" value="${escAttr(r.id)}" data-col="${escAttr(r.col || WEEKLY_REPORT_DEFAULT_COL)}">` : ""}
               <div style="flex:1"><div class="fw-700">${escHtml(pic)}</div>
               <div class="text-xs" style="color:#666">📅 ${escHtml(tgl)} | 🏢 ${escHtml(div)} | 🏷️ ${escHtml(kat)}</div></div></div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
               <div style="font-size:.8rem;font-weight:700;color:${progressColor}">📈 Progress: ${escHtml(r.progress || "-")}${!isNaN(progressNum) && String(r.progress).indexOf("%") === -1 ? "%" : ""}</div>
-              <button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem('${encodeURIComponent(wrKey)}')">👁️ View</button>
+              <button class="btn btn-xs btn-info wr-view-btn" data-report-key="${escAttr(encodeURIComponent(wrKey))}">👁️ View</button>
             </div>
             <div style="font-size:.82rem;color:#333;line-height:1.5;background:#f9f9f9;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ${escHtml(previewText)}</div>
           </div>`;
@@ -4699,6 +4699,22 @@ async function loadWeeklyReports(divFilter) {
       html += _buildReportTrackerStats(filtered);
     }
     listEl.innerHTML = html;
+    listEl.querySelectorAll(".wr-item").forEach((itemEl) => {
+      itemEl.addEventListener("click", function () {
+        viewWeeklyReportItem(this.dataset.reportKey || "");
+      });
+    });
+    listEl.querySelectorAll(".wr-view-btn").forEach((btn) => {
+      btn.addEventListener("click", function (event) {
+        event.stopPropagation();
+        viewWeeklyReportItem(this.dataset.reportKey || "");
+      });
+    });
+    listEl.querySelectorAll(".wr-check").forEach((checkbox) => {
+      checkbox.addEventListener("click", function (event) {
+        event.stopPropagation();
+      });
+    });
   } catch (e) {
     listEl.innerHTML =
       '<p class="text-sm" style="color:#c62828">Gagal memuat: ' +
