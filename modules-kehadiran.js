@@ -557,7 +557,7 @@ async function renderOvertime() {
   let gradeMapOT = {};
   if (hasAccess(3) && !isAdmin) {
     const kSnap = await db.collection("hrd_karyawan").get();
-    for (const d of kSnap) {
+    for (const d of kSnap.docs) {
       const k = d.data();
       const namaLow = (k.nama || "").toLowerCase();
       deptMapOT[namaLow] = (k.departemen || "").toLowerCase().trim();
@@ -736,7 +736,7 @@ async function loadHariLiburView() {
     let holidays = [];
     try {
       const snap = await db.collection("hrd_hari_libur").get();
-      for (const d of snap) {
+      for (const d of snap.docs) {
         const data = d.data();
         if (data.tanggal >= startDate && data.tanggal <= endDate)
           holidays.push({ id: d.id, ...data });
@@ -853,7 +853,7 @@ async function renderMyCalendarView(container) {
       if (data.tanggal >= startDate && data.tanggal <= endDate)
         holidays.push({ id: d.id, ...data });
     });
-    for (const d of taskSnap) {
+    for (const d of taskSnap.docs) {
       const t = d.data();
       if (
         doesTaskBelongToUser(t) &&
@@ -1431,7 +1431,7 @@ async function modalPenalty(prefillNama) {
     .get();
   const myDept = (currentUser.departemen || "").toLowerCase().trim();
   let opts = '<option value="">-- Pilih Karyawan --</option>';
-  for (const d of kSnap) {
+  for (const d of kSnap.docs) {
     const k = d.data();
     // Non-admin/head: only show karyawan from same department
     if (!hasAccess(4)) {
@@ -1698,7 +1698,7 @@ async function loadDailyTasks(filter) {
         .collection("hrd_karyawan")
         .where("atasan", "==", currentUser.nama)
         .get();
-      for (const sk of kSnap) {
+      for (const sk of kSnap.docs) {
         const n = sk.data().nama;
         if (n) directSubNames.push(normalizePersonName(n));
       }
@@ -2515,7 +2515,7 @@ async function checkTaskReminders() {
     const now = new Date();
     const today = todayStr();
     const tasks = [];
-    for (const d of snap) {
+    for (const d of snap.docs) {
       const t = d.data();
       if (doesTaskBelongToUser(t) && !t.done) tasks.push({ id: d.id, ...t });
     }
@@ -3173,7 +3173,7 @@ async function _loadReportSummaryForDate(dateVal) {
   // Build cache and collect reports for selected date
   _reportSummaryCache = {};
   const allReports = [];
-  for (const d of snap) {
+  for (const d of snap.docs) {
     var t = d.data();
     if (t.type === "report" && t.tanggal === dateVal) {
       var rep = Object.assign({ id: d.id }, t);

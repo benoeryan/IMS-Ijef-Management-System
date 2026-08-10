@@ -473,7 +473,7 @@ async function modalKPI() {
     .where("status", "==", "aktif")
     .get();
   let opts = '<option value="">-- Pilih Karyawan --</option>';
-  for (const d of kSnap) {
+  for (const d of kSnap.docs) {
     const k = d.data();
     opts += `<option value="${escHtml(k.nama)}">${escHtml(k.nama)} — ${escHtml(k.departemen || "-")}</option>`;
   }
@@ -647,7 +647,7 @@ async function renderPelatihan() {
   if (snap.empty)
     h = '<tr><td colspan="6" class="text-center">Belum ada</td></tr>';
   else
-    for (const d of snap) {
+    for (const d of snap.docs) {
       const p = d.data();
       h += `<tr><td class="fw-700">${escHtml(p.judul)}</td><td>${escHtml(p.jenis)}</td><td>${formatDate(p.tanggal)}</td><td>${(p.peserta || []).length}</td><td><span class="badge badge-${p.status === "selesai" ? "success" : "info"}">${p.status || "terjadwal"}</span></td><td><button class="btn btn-xs btn-info" onclick="viewPelatihan('${d.id}')" title="Lihat Detail">👁️</button> <button class="btn btn-xs btn-warning" onclick="modalPelatihan('${d.id}')" title="Edit">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusPelatihan('${d.id}')" title="Hapus">🗑️</button></td></tr>`;
     }
@@ -1262,7 +1262,7 @@ window.renderAsset = async function () {
   if (snap.empty)
     h = '<tr><td colspan="6" class="text-center">Belum ada</td></tr>';
   else
-    for (const d of snap) {
+    for (const d of snap.docs) {
       const p = d.data();
       h += `<tr><td>${escHtml(p.kode || "-")}</td><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.kategori || "-")}</td><td>${escHtml(p.pengguna || "-")}</td><td><span class="badge badge-${p.kondisi === "baik" ? "success" : p.kondisi === "rusak" ? "danger" : "warning"}">${p.kondisi || "baik"}</span></td><td><button class="btn btn-xs btn-info" onclick="modalAsset('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_asset','${d.id}','asset')">🗑️</button></td></tr>`;
     }
@@ -1363,7 +1363,7 @@ async function renderAkun() {
   loadCompanyData();
   const snap = await db.collection("hrd_users").get();
   let h = "";
-  for (const d of snap) {
+  for (const d of snap.docs) {
     const p = d.data();
     h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(d.id)}</td><td><span class="badge badge-primary">${p.role}</span></td><td>${escHtml(p.departemen || "-")}</td><td><span class="badge badge-${p.status === "aktif" ? "success" : "danger"}">${p.status || "aktif"}</span></td><td><button class="btn btn-xs btn-info" onclick="modalAkun('${d.id}')" title="Edit Akun">✏️</button> <button class="btn btn-xs btn-warning" onclick="modalMigrateWorkflow('${d.id}','${escHtml(p.nama)}')" title="Ganti Alur Kerja / Divisi">🔄</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_users','${d.id}','akun')" title="Hapus">🗑️</button></td></tr>`;
   }
@@ -1983,7 +1983,7 @@ async function renderApprovalCenter(tab = "pending") {
       console.warn(`Error fetching ${col}:`, e);
       // Fallback for collections without composite index
       const snap = await db.collection(col).get();
-      for (const d of snap) {
+      for (const d of snap.docs) {
         const data = { id: d.id, collection: col, ...d.data() };
         data._dept = (
           data.departemen ||
@@ -3551,7 +3551,7 @@ async function modalDiscEvalKaryawan() {
     .where("status", "==", "aktif")
     .get();
   let opts = '<option value="">-- Pilih Karyawan --</option>';
-  for (const d of snap) {
+  for (const d of snap.docs) {
     const p = d.data();
     opts += `<option value="${d.id}" data-nama="${escHtml(p.nama)}" data-nip="${escHtml(p.nip || "")}" data-dept="${escHtml(p.departemen || "")}" data-pos="${escHtml(p.posisi || "")}">${escHtml(p.nama)} — ${escHtml(p.departemen || "")} (${escHtml(p.nip || "")})</option>`;
   }
@@ -4121,7 +4121,7 @@ async function resetCollection(col, label) {
   const batchSize = 400;
   let count = 0;
   let batch = db.batch();
-  for (const d of snap) {
+  for (const d of snap.docs) {
     batch.delete(d.ref);
     count++;
     if (count % batchSize === 0) {
