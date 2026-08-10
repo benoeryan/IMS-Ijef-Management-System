@@ -1292,13 +1292,19 @@ function getApprovalStepsForItem(flows, itemOrName, category) {
   const namaLow = (item.nama || "").toLowerCase().trim();
   if (!namaLow) return [];
   if (Array.isArray(item.approvalFlow) && item.approvalFlow.length) {
-    if (
-      item.approvalFlow[0]?.nama &&
-      !Array.isArray(item.approvalFlow[0]?.steps)
-    )
-      return item.approvalFlow;
-    if (Array.isArray(item.approvalFlow[0]?.steps))
+    if (Array.isArray(item.approvalFlow[0]?.steps)) {
       return item.approvalFlow[0].steps;
+    }
+    const looksLikeStepArray = item.approvalFlow.every(
+      (step) =>
+        step &&
+        typeof step === "object" &&
+        "nama" in step &&
+        !("steps" in step) &&
+        !("pengaju" in step) &&
+        !("jenis" in step),
+    );
+    if (looksLikeStepArray) return item.approvalFlow;
   }
   if (!flows || !flows.length) return [];
 
