@@ -1741,6 +1741,9 @@ async function loadDailyTasks(filter) {
     });
   } catch (e) {
     _dailyTaskData = [];
+    const errEl = document.getElementById("taskList");
+    if (errEl) errEl.innerHTML = `<p style="color:#c62828;padding:20px;text-align:center">⚠️ Gagal memuat data: ${escHtml(e.message || String(e))}</p>`;
+    return;
   }
 
   const today = todayStr();
@@ -1759,7 +1762,7 @@ async function loadDailyTasks(filter) {
     );
   else if (filter === "history-assigned") {
     const canSeeAllTaskHistory =
-      hasAccess(4) || hasHeadLevelAccess() || hasAccess(6);
+      hasAccess(2) || hasHeadLevelAccess() || hasAccess(6);
     filtered = _dailyTaskData.filter((t) => {
       const isReport = isDailyReportEntry(t);
       if (isReport) return false;
@@ -1855,6 +1858,17 @@ async function loadDailyTasks(filter) {
   if (!listEl) return;
 
   let html = "";
+  if (filter === "history-assigned") {
+    const curHaFrom = document.getElementById("historyAssignedFrom")?.value || "";
+    const curHaTo = document.getElementById("historyAssignedTo")?.value || "";
+    html = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px;background:#f9f9f9;border-radius:8px">
+      <span class="text-sm fw-700">📅 Periode:</span>
+      <input type="date" class="form-control" id="historyAssignedFrom" value="${escAttr(curHaFrom)}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('history-assigned')">
+      <span class="text-sm">s/d</span>
+      <input type="date" class="form-control" id="historyAssignedTo" value="${escAttr(curHaTo)}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('history-assigned')">
+      <button class="btn btn-xs btn-outline" onclick="document.getElementById('historyAssignedFrom').value='';document.getElementById('historyAssignedTo').value='';loadDailyTasks('history-assigned')">Reset</button>
+    </div>`;
+  }
   if (filter === "team-report" || filter === "all-report") {
     const curFrom = document.getElementById("reportDateFrom")?.value || "";
     const curTo = document.getElementById("reportDateTo")?.value || "";
@@ -1936,10 +1950,11 @@ async function loadDailyTasks(filter) {
         <input type="checkbox" ${t.done ? "checked" : ""} onchange="event.stopPropagation();toggleDailyTask('${t.id}')" style="margin-top:4px;width:18px;height:18px;accent-color:#2e7d32;cursor:pointer">
         <div style="flex:1"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:700;font-size:.9rem;${t.done ? "text-decoration:line-through;color:#999" : ""}">${escHtml(t.title)}</span></div>
         <div style="font-size:.8rem;color:#666;margin-top:4px">${escHtml(t.description || "")}</div>
-        <div style="font-size:.7rem;color:#999;margin-top:4px">📅 ${formatDate(t.tanggal)} | ${t.priority}</div></div>
+        <div style="font-size:.7rem;color:#999;margin-top:4px">📅 ${formatDate(t.tanggal)} | ${t.priority}${t.targetUserName ? ` | 👤 ${escHtml(t.targetUserName)}` : ""}</div></div>
         <div style="display:flex;gap:4px"><button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyTask('${t.id}')">✏️</button></div></div>`;
     }
   }
+  if (filtered.length === 0) html += '<p style="color:#999;padding:20px;text-align:center">Tidak ada data</p>';
   listEl.innerHTML = html;
 }
 
