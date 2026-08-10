@@ -89,8 +89,9 @@ async function renderDashboard() {
     </div>
   </div>`;
 
-  // 2. Financial Portal Link (GM Only)
-  if ((currentUser.nama || "").toLowerCase() === "muhammad agus ryanda") {
+  // 2. Financial Portal Link
+  const _lkDashUsers = ['muhammad agus ryanda', 'siti sofuroh', 'irsan janwar wibawa', 'misriana'];
+  if (_lkDashUsers.includes((currentUser.nama || "").toLowerCase())) {
     widgetRight += `<div class="card" style="border-left:4px solid #2e7d32">
       <div class="card-title mb-8">💰 Portal Keuangan</div>
       <p class="text-xs color-gray mb-12">Akses cepat ke Sistem Laporan Keuangan IJEF Corp.</p>
