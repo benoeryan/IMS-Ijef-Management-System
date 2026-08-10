@@ -155,18 +155,18 @@ window.draftState = {
     editMode: false,
     activeTab: 'parameter',
     siswaData: {
-        id: 'budi_sitorus',
-        nama: 'Budi Pratama Sitorus',
-        nik: '3271041508980001',
+        id: (window.currentUser && currentUser.id) || '',
+        nama: (window.currentUser && currentUser.nama) || 'Peserta',
+        nik: (window.currentUser && currentUser.nik) || '-',
         status: 'Diterima',
-        medis: 'FIT',
-        disc: 'Dominance',
-        psikotes: '84% (LULUS)',
-        dana: 'DT 100%',
-        kontrak: 'SAH',
-        alamat: 'Jl. Pemuda No. 45, RT 02/RW 05, Kel. Kayu Putih, Jakarta Timur',
-        contact: '081234567890 / budi.pratama@gmail.com',
-        penjamin: 'Suharto Sitorus (NIK: 3271040101700003)'
+        medis: '-',
+        disc: '-',
+        psikotes: '-',
+        dana: '-',
+        kontrak: '-',
+        alamat: (window.currentUser && currentUser.alamat) || '-',
+        contact: (window.currentUser && (currentUser.noHp || currentUser.email)) || '-',
+        penjamin: '-'
     },
     params: {
         noSurat: '088/SPKP/IJEF-CORP/VII/2026',
@@ -190,11 +190,11 @@ window.draftState = {
         instansi: 'LPK IJEF CORP INDONESIA'
     },
     p2: {
-        nama: 'Budi Pratama Sitorus',
-        nik: '3271041508980001',
-        alamat: 'Jl. Pemuda No. 45, RT 02/RW 05, Kel. Kayu Putih, Jakarta Timur',
-        contact: '081234567890 / budi.pratama@gmail.com',
-        penjamin: 'Suharto Sitorus (NIK: 3271040101700003)'
+        nama: (window.currentUser && currentUser.nama) || 'Peserta',
+        nik: (window.currentUser && currentUser.nik) || '-',
+        alamat: (window.currentUser && currentUser.alamat) || '-',
+        contact: (window.currentUser && (currentUser.noHp || currentUser.email)) || '-',
+        penjamin: '-'
     },
     pasalList: [
         {
@@ -459,7 +459,7 @@ function renderDraftTabContent(tab) {
             <div class="form-group mb-16">
                 <label class="form-label fw-700 text-xs text-primary">🔄 Sync Data dari Master Siswa / Kandidat:</label>
                 <select class="form-control" id="draftSelectSiswa" onchange="syncDraftSiswa(this.value)">
-                    <option value="budi_sitorus" ${st.siswaData.id === 'budi_sitorus' ? 'selected' : ''}>Budi Pratama Sitorus (NIK: 3271041508980001)</option>
+                    <option value="__current_user__" ${!st.siswaData.id || st.siswaData.id === '__current_user__' ? 'selected' : ''}>${escHtml((window.currentUser && currentUser.nama) || 'User Saat Ini')} (NIK: ${escHtml((window.currentUser && currentUser.nik) || '-')})</option>
                 </select>
             </div>
 
@@ -955,11 +955,13 @@ async function loadStudentsToDraftSelect() {
 
     try {
         const kandidatSnap = await db.collection('hrd_kandidat').get();
-        let opts = `<option value="budi_sitorus">Budi Pratama Sitorus (NIK: 3271041508980001)</option>`;
+        const cu = window.currentUser;
+        const cuLabel = cu ? `${escHtml(cu.nama)} (NIK: ${escHtml(cu.nik || '-')})` : 'User Saat Ini';
+        let opts = `<option value="__current_user__">${cuLabel}</option>`;
 
         kandidatSnap.forEach(d => {
             const k = d.data();
-            if (k.nama && k.id !== 'budi_sitorus') {
+            if (k.nama && (!cu || d.id !== cu.id)) {
                 opts += `<option value="${d.id}">${escHtml(k.nama)} (NIK: ${escHtml(k.nik || '-')})</option>`;
             }
         });
@@ -971,16 +973,17 @@ async function loadStudentsToDraftSelect() {
 }
 
 window.syncDraftSiswa = async function(val) {
-    if (val === 'budi_sitorus') {
+    if (val === '__current_user__') {
+        const cu = window.currentUser || {};
         window.draftState.p2 = {
-            nama: 'Budi Pratama Sitorus',
-            nik: '3271041508980001',
-            alamat: 'Jl. Pemuda No. 45, RT 02/RW 05, Kel. Kayu Putih, Jakarta Timur',
-            contact: '081234567890 / budi.pratama@gmail.com',
-            penjamin: 'Suharto Sitorus (NIK: 3271040101700003)'
+            nama: cu.nama || 'Peserta',
+            nik: cu.nik || '-',
+            alamat: cu.alamat || '-',
+            contact: (cu.noHp || '') + (cu.email ? ' / ' + cu.email : ''),
+            penjamin: '-'
         };
-        window.draftState.siswaData.nama = 'Budi Pratama Sitorus';
-        window.draftState.siswaData.nik = '3271041508980001';
+        window.draftState.siswaData.nama = cu.nama || 'Peserta';
+        window.draftState.siswaData.nik = cu.nik || '-';
     } else if (val) {
         try {
             const doc = await db.collection('hrd_kandidat').doc(val).get();
