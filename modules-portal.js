@@ -1331,14 +1331,11 @@ function detailLamaran(id) {
 }
 
 async function updateLamaran(id, status) {
-  await db
-    .collection("hrd_lamaran")
-    .doc(id)
-    .update({
-      status,
-      updatedBy: currentUser.nama,
-      updatedAt: new Date().toISOString(),
-    });
+  await db.collection("hrd_lamaran").doc(id).update({
+    status,
+    updatedBy: currentUser.nama,
+    updatedAt: new Date().toISOString(),
+  });
   toast(`Lamaran ${status}`, "success");
   loadLamaranMasuk();
 }
