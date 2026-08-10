@@ -1543,7 +1543,13 @@ async function loadDailyTasks(filter) {
   else if (filter === 'overdue') filtered = _dailyTaskData.filter((t) => t.tanggal < today && !t.done);
   else if (filter === 'assigned') filtered = _dailyTaskData.filter((t) => t.assignedBy === myId && t.userId !== myId);
   else if (filter === 'history-assigned') {
-    filtered = _dailyTaskData.filter(t => (hasAccess(4) ? (t.assignedBy && t.assignedBy !== t.userId) : (t.assignedBy === myId && t.userId !== myId)));
+    const canSeeAllTaskHistory = hasAccess(4) || hasHeadLevelAccess() || hasAccess(6);
+    filtered = _dailyTaskData.filter((t) => {
+      const isReport = t.type === 'report' || t.title?.includes('Daily Report');
+      if (isReport) return false;
+      if (canSeeAllTaskHistory) return true;
+      return t.assignedBy === myId && t.userId !== myId;
+    });
     const haFrom = document.getElementById('historyAssignedFrom')?.value;
     const haTo = document.getElementById('historyAssignedTo')?.value;
     if (haFrom) filtered = filtered.filter(t => t.tanggal >= haFrom);
