@@ -1088,7 +1088,7 @@ async function renderReimbursement() {
             ? 'badge-danger'
             : 'badge-warning';
       const canApprove = p.status === 'pending' && hasAccess(3) && !isBOD;
-      const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
+      const pendingInfo = pendingApproverHtml(flows, p, p.status, p.approvalStep, getApprovalCategory('hrd_reimbursement', p));
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.kategori)}</td><td>${formatCurrency(p.jumlah)}</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewReimb('${d.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveReimb('${d.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveReimb('${d.id}','rejected')">❌</button>` : ''} <button class="btn btn-xs btn-warning" onclick="editReimb('${d.id}')">✏️</button> ${hasAccess(6) ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_reimbursement','${d.id}','reimbursement')">🗑️</button>` : ''}</td></tr>`;
     });
   document.getElementById('tblReimb').innerHTML = h;

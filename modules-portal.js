@@ -732,7 +732,7 @@ async function renderPortalOvertime() {
             ? 'badge-danger'
             : 'badge-warning';
       const canEdit = p.status !== 'approved' && p.status !== 'rejected';
-      const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
+      const pendingInfo = pendingApproverHtml(flows, p, p.status, p.approvalStep, getApprovalCategory('hrd_overtime', p));
       h += `<tr><td>${formatDate(p.tanggal)}</td><td>${p.jamMulai || '-'} - ${p.jamSelesai || '-'}</td><td class="fw-700">${p.durasi || 0} jam</td><td class="text-sm">${escHtml((p.alasan || '').substring(0, 50))}</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewOvertimeDetail('${p.id}')">👁️</button>${canEdit ? ' <button class="btn btn-xs btn-primary" onclick="editOvertimePortal(\'' + p.id + '\')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc(\'hrd_overtime\',\'' + p.id + "','portal-overtime')\">🗑️</button>" : ''}</td></tr>`;
     });
   document.getElementById('tblPortalOT').innerHTML = h;
@@ -942,7 +942,7 @@ async function renderPortalCuti() {
     snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
     items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     items.forEach((p) => {
-      const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
+      const pendingInfo = pendingApproverHtml(flows, p, p.status, p.approvalStep, getApprovalCategory('hrd_cuti', p));
       h += `<tr><td>${escHtml(p.jenis)}</td><td>${formatDate(p.mulai)}-${formatDate(p.selesai)}</td><td>${p.durasi || 1} hari</td><td><span class="badge badge-${p.status === 'approved' ? 'success' : p.status === 'rejected' ? 'danger' : 'warning'}">${p.status}</span>${pendingInfo}</td></tr>`;
     });
   }
@@ -1438,7 +1438,7 @@ async function renderPortalReimburse() {
   if (!items.length) h = '<tr><td colspan="5" class="text-center">Belum ada</td></tr>';
   else
     items.forEach((p) => {
-      const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
+      const pendingInfo = pendingApproverHtml(flows, p, p.status, p.approvalStep, getApprovalCategory('hrd_reimbursement', p));
       h += `<tr><td>${escHtml(p.kategori || '-')}</td><td>${formatCurrency(p.jumlah)}</td><td><span class="badge badge-${p.status === 'approved' ? 'success' : p.status === 'rejected' ? 'danger' : 'warning'}">${p.status}</span>${pendingInfo}</td><td>${formatDate(p.createdAt)}</td><td><button class="btn btn-xs btn-info" onclick="viewReimb('${p.id}')">👁️ Lihat</button></td></tr>`;
     });
   document.getElementById('tblMyReimb').innerHTML = h;

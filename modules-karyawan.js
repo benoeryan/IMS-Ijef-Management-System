@@ -73,49 +73,8 @@ async function renderDashboard() {
   }
   widgetLeft += '</div>';
 
-  // --- RIGHT WIDGETS ---
-  let widgetRight = '';
-
-  // 1. User Info Card (Profil Administrator)
-  const u = currentUser;
-  widgetRight += `
-  <div class="card" style="border-left:4px solid var(--primary)">
-    <div class="flex gap-16" style="align-items:center">
-      <div style="width:50px;height:50px;font-size:1.5rem;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center">${u.nama.charAt(0)}</div>
-      <div>
-        <div class="fw-700" style="font-size:1rem">${escHtml(u.nama)}</div>
-        <div class="text-sm" style="color:#999">${escHtml(u.id)} • ${escHtml(u.departemen || '-')}</div>
-      </div>
-    </div>
-  </div>`;
-
-  // 2. Financial Portal Link
-  const _lkDashUsers = ['muhammad agus ryanda', 'siti sofuroh', 'irsan janwar wibawa', 'misriana'];
-  if (_lkDashUsers.includes((currentUser.nama || "").toLowerCase())) {
-    widgetRight += `<div class="card" style="border-left:4px solid #2e7d32">
-      <div class="card-title mb-8">💰 Portal Keuangan</div>
-      <p class="text-xs color-gray mb-12">Akses cepat ke Sistem Laporan Keuangan IJEF Corp.</p>
-      <a href="https://laporankeuanganijef.netlify.app/" target="_blank" class="btn btn-sm" style="background:#2e7d32;color:#fff;width:100%;text-align:center;display:block">📊 Buka Laporan Keuangan</a>
-    </div>`;
-  }
-
-  // 3. Team Report Widget (HEAD+)
-  if (hasHeadLevelAccess()) {
-    widgetRight += `
-    <div class="card" id="dashTeamReportSection">
-      <div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center">
-        <span>📊 Report Tim Hari Ini</span>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-xs btn-outline" onclick="loadPortalTeamReport('dashTeamReportList', '_dashTeamDivFilter')">🔄</button>
-          <button class="btn btn-xs btn-primary" onclick="navigateTo('daily-task')">Lihat Semua</button>
-        </div>
-      </div>
-      <div id="dashTeamReportList"><p class="text-sm" style="color:#999">Memuat...</p></div>
-    </div>`;
-  }
-
-  // 3. Aksi Cepat
-  widgetRight += `<div class="card"><div class="card-title mb-12">⚡ Aksi Cepat</div><div style="display:flex;gap:8px;flex-wrap:wrap">`;
+  // Aksi Cepat
+  widgetLeft += `<div class="card"><div class="card-title mb-12">⚡ Aksi Cepat</div><div style="display:flex;gap:8px;flex-wrap:wrap">`;
   const actions = [
     { label: 'Daily Task', page: 'daily-task', icon: '📝', color: '#1565c0' },
     { label: 'Absensi', page: 'absensi', icon: '📍', color: '#000' },
@@ -131,23 +90,64 @@ async function renderDashboard() {
     { label: 'Broadcast', page: 'broadcast', icon: '📡', color: '#37474f' },
   ];
   actions.forEach((a) => {
-    widgetRight += `<button class="btn btn-xs" style="background:${a.color};color:#fff" onclick="navigateTo('${a.page}')">${a.icon} ${a.label}</button>`;
+    widgetLeft += `<button class="btn btn-xs" style="background:${a.color};color:#fff" onclick="navigateTo('${a.page}')">${a.icon} ${a.label}</button>`;
   });
-  widgetRight += `</div></div>`;
+  widgetLeft += `</div></div>`;
 
-  // 4. Pengumuman
-  widgetRight += '<div class="card"><div class="card-title mb-8">📢 Pengumuman Terbaru</div>';
+  // Pengumuman
+  widgetLeft += '<div class="card"><div class="card-title mb-8">📢 Pengumuman Terbaru</div>';
   if (pengumuman.empty) {
-    widgetRight += '<p class="text-sm" style="color:#999">Belum ada</p>';
+    widgetLeft += '<p class="text-sm" style="color:#999">Belum ada</p>';
   } else {
     const items = [];
     pengumuman.forEach((d) => items.push({ id: d.id, ...d.data() }));
     items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     items.slice(0, 5).forEach((p) => {
-      widgetRight += `<div style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="viewPengumuman('${p.id}')"><div class="fw-700 text-sm">${escHtml(p.judul)}</div><div class="text-xs" style="color:#999">${formatDate(p.createdAt)}</div></div>`;
+      widgetLeft += `<div style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="viewPengumuman('${p.id}')"><div class="fw-700 text-sm">${escHtml(p.judul)}</div><div class="text-xs" style="color:#999">${formatDate(p.createdAt)}</div></div>`;
     });
   }
-  widgetRight += '</div>';
+  widgetLeft += '</div>';
+
+  // --- RIGHT WIDGETS ---
+  let widgetRight = '';
+
+  // User Info Card (Profil Administrator)
+  const u = currentUser;
+  widgetRight += `
+  <div class="card" style="border-left:4px solid var(--primary)">
+    <div class="flex gap-16" style="align-items:center">
+      <div style="width:50px;height:50px;font-size:1.5rem;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center">${u.nama.charAt(0)}</div>
+      <div>
+        <div class="fw-700" style="font-size:1rem">${escHtml(u.nama)}</div>
+        <div class="text-sm" style="color:#999">${escHtml(u.id)} • ${escHtml(u.departemen || '-')}</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Financial Portal Link
+  const _lkDashUsers = ['muhammad agus ryanda', 'siti sofuroh', 'irsan janwar wibawa', 'misriana'];
+  if (_lkDashUsers.includes((currentUser.nama || "").toLowerCase())) {
+    widgetRight += `<div class="card" style="border-left:4px solid #2e7d32">
+      <div class="card-title mb-8">💰 Portal Keuangan</div>
+      <p class="text-xs color-gray mb-12">Akses cepat ke Sistem Laporan Keuangan IJEF Corp.</p>
+      <a href="https://laporankeuanganijef.netlify.app/" target="_blank" class="btn btn-sm" style="background:#2e7d32;color:#fff;width:100%;text-align:center;display:block">📊 Buka Laporan Keuangan</a>
+    </div>`;
+  }
+
+  // Team Report Widget (HEAD+)
+  if (hasHeadLevelAccess()) {
+    widgetRight += `
+    <div class="card" id="dashTeamReportSection">
+      <div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center">
+        <span>📊 Report Tim Hari Ini</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-xs btn-outline" onclick="loadPortalTeamReport('dashTeamReportList', '_dashTeamDivFilter')">🔄</button>
+          <button class="btn btn-xs btn-primary" onclick="navigateTo('daily-task')">Lihat Semua</button>
+        </div>
+      </div>
+      <div id="dashTeamReportList"><p class="text-sm" style="color:#999">Memuat...</p></div>
+    </div>`;
+  }
 
   if (isBOD) {
     widgetRight += '<div class="card" style="border-left:4px solid #0d47a1"><div class="card-title mb-12" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span>📋 Tugaskan Daily Task</span><div style="display:flex;gap:6px"><button class="btn btn-xs btn-primary" onclick="modalAddTask()">+ Tugaskan Task</button><button class="btn btn-xs btn-outline" onclick="navigateTo(\'daily-task\')">Lihat Semua</button></div></div><div id="dashBodTaskList"><p class="text-sm" style="color:#999">Memuat...</p></div></div>';

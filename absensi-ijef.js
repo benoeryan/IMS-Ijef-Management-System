@@ -1762,15 +1762,14 @@ async function loadDinasTab(tab) {
 
       // Multi-step turn check
       const isPending = p.status === 'pending' || (p.status && p.status.indexOf('step') === 0);
-      const flow = flows.find((f) => f.pengaju?.toLowerCase() === p.nama?.toLowerCase());
-      const steps = flow?.steps || [];
+      const steps = getApprovalStepsForItem(flows, p, getApprovalCategory('hrd_dinas_luar', p));
       const currentStep = p.approvalStep || 0;
       const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
       const myName = (currentUser.nama || '').toLowerCase().trim();
       const isAdmin = hasAccess(6);
       const isMyTurn = isAdmin || currentApprover === myName;
       const canApprove = isPending && hasAccess(3) && currentUser.role !== 'bod' && isMyTurn;
-      const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
+      const pendingInfo = pendingApproverHtml(flows, p, p.status, p.approvalStep, getApprovalCategory('hrd_dinas_luar', p));
 
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${formatDate(p.tanggal)}</td><td>${escHtml(p.tujuan)}</td><td>${p.gradeJabatan ? `<span class="badge badge-info">${escHtml(p.gradeJabatan)}</span>` : '-'}</td><td>${rincian}</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewDinasLuar('${d.id}')">👁️</button>${currentUser.role !== 'bod' && (!isPortal || p.userId === currentUser.id) ? ` <button class="btn btn-xs btn-primary" onclick="editDinasLuar('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_dinas_luar','${d.id}','dinas')">🗑️</button>` : ''} ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_dinas_luar','${d.id}','approved')">✅</button>` : ''}</td></tr>`;
     });

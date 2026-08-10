@@ -1129,28 +1129,42 @@ function getApprovalCategory(col, data) {
   return '';
 }
 
-function getApproverForItem(flows, nama, approvalStep, category) {
-  if (!flows || !nama) return null;
-  const namaLow = nama.toLowerCase().trim();
-
-  // Try to find exact match for name + category
-  let flow = flows.find(f => isSameName(f.pengaju, namaLow) && f.jenis === category && f.steps && f.steps.length > 0);
-
-  // Fallback: any flow for this person with steps
-  if (!flow) {
-    const personFlows = flows.filter(f => isSameName(f.pengaju, namaLow) && f.steps && f.steps.length > 0);
-    flow = personFlows.sort((a, b) => (b.steps?.length || 0) - (a.steps?.length || 0))[0];
+function getApprovalStepsForItem(flows, itemOrName, category) {
+  const item = itemOrName && typeof itemOrName === 'object' ? itemOrName : { nama: itemOrName };
+  const namaLow = (item.nama || '').toLowerCase().trim();
+  if (!namaLow) return [];
+  const itemCategory = category || (item.collection ? getApprovalCategory(item.collection, item) : '');
+  if (Array.isArray(item.approvalFlow) && item.approvalFlow.length) {
+    if (Array.isArray(item.approvalFlow[0]?.steps)) {
+      const embeddedFlow =
+        (itemCategory && item.approvalFlow.find((flow) => flow?.jenis === itemCategory)) || item.approvalFlow[0];
+      return embeddedFlow?.steps || [];
+    }
+    const looksLikeStepArray = item.approvalFlow.every(
+      (step) => step && typeof step === 'object' && 'nama' in step && !('steps' in step) && !('pengaju' in step) && !('jenis' in step)
+    );
+    if (looksLikeStepArray) return item.approvalFlow;
   }
-
-  if (!flow) return null;
-  var step = approvalStep || 0;
-  return (flow.steps[step] && flow.steps[step].nama) || null;
+  if (!flows || !flows.length) return [];
+  const personFlows = flows.filter(f => isSameName(f.pengaju, namaLow) && f.steps && f.steps.length > 0);
+  if (!personFlows.length) return [];
+  if (itemCategory) {
+    const exactFlow = personFlows.find((f) => f.jenis === itemCategory);
+    if (exactFlow) return exactFlow.steps || [];
+  }
+  return personFlows.sort((a, b) => (b.steps?.length || 0) - (a.steps?.length || 0))[0]?.steps || [];
 }
 
-function pendingApproverHtml(flows, nama, status, approvalStep, category) {
+function getApproverForItem(flows, itemOrName, approvalStep, category) {
+  const steps = getApprovalStepsForItem(flows, itemOrName, category);
+  var step = approvalStep || 0;
+  return (steps[step] && steps[step].nama) || null;
+}
+
+function pendingApproverHtml(flows, itemOrName, status, approvalStep, category) {
   var isPending = status === 'pending' || (status && status.indexOf('step') === 0);
   if (!isPending) return '';
-  var approver = getApproverForItem(flows, nama, approvalStep, category);
+  var approver = getApproverForItem(flows, itemOrName, approvalStep, category);
   if (!approver) return '';
   return (
     '<div class="text-xs" style="color:#1565c0;margin-top:2px">\u23F3 Menunggu: <b>' +

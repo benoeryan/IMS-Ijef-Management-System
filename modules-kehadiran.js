@@ -11,7 +11,7 @@ async function renderCuti() {
       `;
   }
 
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🏖️ Cuti / Izin / WFH</span><div class="flex gap-8">${adminBtns}<button class="btn btn-primary btn-sm" onclick="modalCuti()">+ Pengajuan pribadi</button></div></div>
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🏖️ Cuti / Izin / WFH</span><div class="flex gap-8 flex-wrap" style="justify-content:flex-end">${adminBtns}<button class="btn btn-primary btn-sm" onclick="modalCuti()">+ Pengajuan pribadi</button></div></div>
     ${hasAccess(3) ? '<div class="card mb-16"><div class="card-title mb-8">📊 Sisa Jatah Cuti Karyawan</div><div id="cutiQuotaList">Loading...</div></div>' : ''}
     <div class="card"><div class="card-title mb-8">📋 Daftar Pengajuan</div><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Keterangan</th><th>Tanggal</th><th>Durasi</th><th>Sisa Cuti</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblCuti"></tbody></table></div></div>`;
   // Load data
@@ -108,18 +108,15 @@ async function renderCuti() {
       const isPending = p.status === 'pending' || (p.status && p.status.indexOf('step') === 0);
 
       // IMPROVED FLOW LOOKUP: Sort by steps count to pick the most complete flow
-      const flow = flows
-        .filter(f => (f.pengaju || '').toLowerCase().trim() === (p.nama || '').toLowerCase().trim())
-        .sort((a, b) => (b.steps?.length || 0) - (a.steps?.length || 0))[0];
-
-      const steps = flow?.steps || [];
+      const category = getApprovalCategory('hrd_cuti', p);
+      const steps = getApprovalStepsForItem(flows, p, category);
       const currentStep = p.approvalStep || 0;
       const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
       const myName = (currentUser.nama || '').toLowerCase().trim();
       const isMyTurn = isAdmin || currentApprover === myName;
 
       const canApprove = isPending && hasAccess(3) && isMyTurn;
-      const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
+      const pendingInfo = pendingApproverHtml(flows, p, p.status, p.approvalStep, category);
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td><b>${escHtml(p.jenis)}</b><br><small style="color:#666">${escHtml(p.keterangan || '-')}</small></td><td>${formatDate(p.mulai)}-${formatDate(p.selesai)}</td><td>${p.durasi || 1}h</td><td><span class="badge badge-${sisa <= 2 ? 'danger' : sisa <= 5 ? 'warning' : 'success'}">${sisa}/${quota}</span></td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewCutiDetail('${p.id}')" title="Lihat Detail">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_cuti','${p.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_cuti','${p.id}','rejected')">❌</button>` : ''} ${hasAccess(6) || (p.userId === currentUser.id && p.status === 'pending') ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_cuti','${p.id}','cuti')">🗑️</button>` : ''}</td></tr>`;
     });
   }
@@ -420,8 +417,8 @@ async function viewCutiDetail(id) {
 
   let approveBtns = '';
   if (isPending) {
-    const flow = flows.find((f) => (f.pengaju || '').toLowerCase().trim() === (p.nama || '').toLowerCase().trim());
-    const steps = flow?.steps || [];
+    const category = getApprovalCategory('hrd_cuti', p);
+    const steps = getApprovalStepsForItem(flows, p, category);
     const currentStep = p.approvalStep || 0;
     const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
     const myName = (currentUser.nama || '').toLowerCase().trim();
@@ -437,7 +434,7 @@ async function viewCutiDetail(id) {
   }
 
   if (isPending) {
-    const approver = getApproverForItem(flows, p.nama, p.approvalStep);
+    const approver = getApproverForItem(flows, p, p.approvalStep, getApprovalCategory('hrd_cuti', p));
     if (approver) {
       pendingRow =
         '<tr><td class="fw-700" style="padding:6px 8px;color:#1565c0">\u23F3 Pending di</td><td style="padding:6px 8px;color:#1565c0;font-weight:700">' +
@@ -518,15 +515,14 @@ async function renderOvertime() {
 
       // Multi-step turn check
       const isPending = p.status === 'pending' || (p.status && p.status.indexOf('step') === 0);
-      const flow = flows.find((f) => (f.pengaju || '').toLowerCase().trim() === (p.nama || '').toLowerCase().trim() && f.steps && f.steps.length > 0);
-      const steps = flow?.steps || [];
+      const steps = getApprovalStepsForItem(flows, p, getApprovalCategory('hrd_overtime', p));
       const currentStep = p.approvalStep || 0;
       const currentApprover = (steps[currentStep]?.nama || '').toLowerCase().trim();
       const myName = (currentUser.nama || '').toLowerCase().trim();
       const isMyTurn = isAdmin || currentApprover === myName;
 
       const canApprove = isPending && hasAccess(3) && isMyTurn;
-      const pendingInfo = pendingApproverHtml(flows, p.nama, p.status, p.approvalStep);
+      const pendingInfo = pendingApproverHtml(flows, p, p.status, p.approvalStep, getApprovalCategory('hrd_overtime', p));
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${formatDate(p.tanggal)}</td><td>${p.jamMulai || '-'}-${p.jamSelesai || '-'}</td><td>${p.durasi || 0}j</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewOvertimeDetail('${d.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_overtime','${d.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_overtime','${d.id}','rejected')">❌</button>` : ''} ${hasAccess(6) ? `<button class="btn btn-xs btn-warning" onclick="editOTDoc('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_overtime','${d.id}','overtime')">🗑️</button>` : ''}</td></tr>`;
     });
   document.getElementById('tblOT').innerHTML = h;
