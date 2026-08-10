@@ -25,7 +25,7 @@ async function renderCuti() {
   // Calculate quota per karyawan
   // Index by both userId AND nama (lowercased) so admin table can match by name
   const cutiUsed = {}; // key -> total hari cuti approved (Tahunan & Bersama)
-  for (const d of cutiSnap) { const p = d.data();
+  for (const d of cutiSnap.docs) { const p = d.data();
     if (p.status === 'approved' && (p.jenis === 'Cuti Tahunan' || p.jenis === 'Cuti Bersama')) {
       const durasi = p.durasi || 1;
       if (p.userId) {
