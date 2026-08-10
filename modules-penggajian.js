@@ -539,7 +539,7 @@ function modalGaji() {
 async function loadKaryawanDropdownGaji() {
   const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
   let opts = '<option value="">-- Pilih Karyawan --</option>';
-  for (const d of kSnap) { const k = d.data();
+  for (const d of kSnap.docs) { const k = d.data();
     opts += `<option value="${escHtml(k.nama)}">${escHtml(k.nama)} — ${escHtml(k.departemen || '')} (${escHtml(k.posisi || '')})</option>`;
   }
   openModal(
@@ -811,7 +811,7 @@ async function processImportPenggajianFromText(text) {
     };
     const snap = await db.collection('hrd_penggajian').where('nama', '==', nama).get();
     let existDoc = null;
-    for (const d of snap) { if (d.data().periode === periode) existDoc = d;
+    for (const d of snap.docs) { if (d.data().periode === periode) existDoc = d;
     }
     if (existDoc) {
       await db.collection('hrd_penggajian').doc(existDoc.id).update(payload);
@@ -1064,7 +1064,7 @@ async function renderReimbursement() {
   let gradeMapReimb = {};
   if (isBOD) {
     const kSnap = await db.collection('hrd_karyawan').get();
-    for (const d of kSnap) { const k = d.data();
+    for (const d of kSnap.docs) { const k = d.data();
       gradeMapReimb[(k.nama || '').toLowerCase()] = (
         k.gradeJabatan ||
         k.posisi ||
@@ -1227,7 +1227,7 @@ async function renderKasbon() {
      });
   }
   const items = [];
-  for (const d of snap) { const data = { id: d.id, ...d.data() };
+  for (const d of snap.docs) { const data = { id: d.id, ...d.data() };
     if (isBOD) {
       const grade = gradeMapKasbon[(data.nama || '').toLowerCase()] || '';
       if (!grade.includes('head')) return;
@@ -1529,7 +1529,7 @@ async function modalInsentif() {
 async function modalInsentifSiswa() {
   const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
   let opts = '<option value="">-- Pilih --</option>';
-  for (const d of kSnap) { const k = d.data();
+  for (const d of kSnap.docs) { const k = d.data();
     opts += `<option value="${escHtml(k.nama)}" data-dept="${escHtml(k.departemen || '')}">${escHtml(k.nama)} — ${escHtml(k.departemen || '')}</option>`;
   }
   openModal(`<div class="modal-title">🎓 Insentif Target Siswa</div>
@@ -1687,7 +1687,7 @@ async function renderTaxCalc() {
   const main = document.getElementById('mainContent');
   const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
   let karyOpts = '<option value="">-- Input Manual --</option>';
-  for (const d of kSnap) { const k = d.data();
+  for (const d of kSnap.docs) { const k = d.data();
     karyOpts += `<option value="${k.gajiPokok || 0}" data-nama="${escHtml(k.nama)}">${escHtml(k.nama)} — ${formatCurrency(k.gajiPokok || 0)}</option>`;
   }
   main.innerHTML = `<div class="page-title"><span>🧮 Tax & BPJS Calculator</span></div>
