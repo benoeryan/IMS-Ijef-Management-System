@@ -1291,7 +1291,11 @@ function getApprovalStepsForItem(flows, itemOrName, category) {
       : { nama: itemOrName };
   const namaLow = (item.nama || "").toLowerCase().trim();
   if (!namaLow) return [];
-  if (item.approvalFlow && item.approvalFlow.length) return item.approvalFlow;
+  if (Array.isArray(item.approvalFlow) && item.approvalFlow.length) {
+    if (item.approvalFlow[0]?.nama) return item.approvalFlow;
+    if (Array.isArray(item.approvalFlow[0]?.steps))
+      return item.approvalFlow[0].steps;
+  }
   if (!flows || !flows.length) return [];
 
   const itemCategory =
