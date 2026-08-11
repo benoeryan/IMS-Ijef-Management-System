@@ -115,15 +115,20 @@ function toggleNotulensiSpeech(textareaId, buttonId, statusId) {
   };
   recognition.onend = () => {
     if (_notulensiSpeechSession?.recognition !== recognition) return;
-    _notulensiSpeechSession = null;
-    updateNotulensiSpeechUi(
-      false,
-      buttonId,
-      statusId,
-      session.hasCaptured
-        ? "✅ Rekaman selesai. Transkrip siap dipakai untuk generate AI."
-        : "Rekaman selesai tanpa transkrip baru. Anda bisa rekam lagi atau isi manual.",
-    );
+    // Auto-restart to maintain continuous recording (Web Speech API stops after silence)
+    try {
+      recognition.start();
+    } catch (e) {
+      _notulensiSpeechSession = null;
+      updateNotulensiSpeechUi(
+        false,
+        buttonId,
+        statusId,
+        session.hasCaptured
+          ? "✅ Rekaman selesai. Transkrip siap dipakai untuk generate AI."
+          : "Rekaman selesai tanpa transkrip baru. Anda bisa rekam lagi atau isi manual.",
+      );
+    }
   };
   try {
     recognition.start();
@@ -171,8 +176,10 @@ async function loadMeetingTab(tab) {
         '<div class="table-wrap"><table><thead><tr><th>Judul</th><th>Pembuat</th><th>Tanggal</th><th>Peserta</th><th>Status</th><th>Aksi</th></tr></thead><tbody>';
       items.forEach((m) => {
         const isActive = m.status === "active";
+        const isPeserta = (m.pesertaIds || []).includes(currentUser.id);
         const canManage = m.createdBy === currentUser.id || hasAccess(4);
-        html += `<tr><td class="fw-700">${escHtml(m.judul || "Meeting Online")}</td><td>${escHtml(m.createdByName || "-")}</td><td>${formatDateTime(m.createdAt)}</td><td>${(m.pesertaNames || []).length + 1} orang</td><td><span class="badge badge-${isActive ? "success" : "default"}">${isActive ? "🟢 Aktif" : "Selesai"}</span></td><td><button class="btn btn-xs btn-info" onclick="viewOnlineMeeting('${m.id}')">👁️</button>${isActive ? ` <button class="btn btn-xs btn-success" onclick="joinOnlineMeeting('${m.roomId}')">🎥</button>` : ""}${canManage && isActive ? ` <button class="btn btn-xs btn-primary" onclick="editOnlineMeeting('${m.id}')">✏️</button> <button class="btn btn-xs btn-warning" onclick="modalNotulensiOnline('${m.id}')">📝</button> <button class="btn btn-xs btn-danger" onclick="hapusOnlineMeeting('${m.id}')">🗑️</button>` : ""}</td></tr>`;
+        const canNotulensi = canManage || isPeserta || hasAccess(3);
+        html += `<tr><td class="fw-700">${escHtml(m.judul || "Meeting Online")}</td><td>${escHtml(m.createdByName || "-")}</td><td>${formatDateTime(m.createdAt)}</td><td>${(m.pesertaNames || []).length + 1} orang</td><td><span class="badge badge-${isActive ? "success" : "default"}">${isActive ? "🟢 Aktif" : "Selesai"}</span></td><td><button class="btn btn-xs btn-info" onclick="viewOnlineMeeting('${m.id}')">👁️</button>${isActive ? ` <button class="btn btn-xs btn-success" onclick="joinOnlineMeeting('${m.roomId}')">🎥</button>` : ""}${canManage && isActive ? ` <button class="btn btn-xs btn-primary" onclick="editOnlineMeeting('${m.id}')">✏️</button>` : ""}${canNotulensi ? ` <button class="btn btn-xs btn-warning" onclick="modalNotulensiOnline('${m.id}')">📝</button>` : ""}${canManage && isActive ? ` <button class="btn btn-xs btn-danger" onclick="hapusOnlineMeeting('${m.id}')">🗑️</button>` : ""}</td></tr>`;
       });
       html += "</tbody></table></div>";
     }
@@ -643,7 +650,7 @@ Jika transkrip rekaman tersedia, jadikan transkrip sebagai sumber utama untuk pe
   try {
     stopNotulensiSpeech();
     const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${_GEMINI_KEY_KOM}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${_GEMINI_KEY_KOM}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1118,7 +1125,7 @@ Jika transkrip rekaman tersedia, jadikan transkrip sebagai sumber utama untuk pe
   try {
     stopNotulensiSpeech();
     const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${_GEMINI_KEY_KOM}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${_GEMINI_KEY_KOM}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

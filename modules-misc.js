@@ -1747,7 +1747,7 @@ function loadCompanyBranding() {
 }
 function modalAkun(id) {
   if (id)
-    db.collection("akun_rekening")
+    db.collection("hrd_users")
       .doc(id)
       .get()
       .then((d) => showAkunForm(id, d.data() || {}));
