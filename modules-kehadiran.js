@@ -2145,13 +2145,16 @@ async function modalAddTask() {
     try {
       const usersSnap = await db.collection("hrd_users").get();
       const myDept = (currentUser.departemen || "").toLowerCase().trim();
+      const isManager = (currentUser.role || "") === "manager";
       let checkboxes = "";
       for (const d of usersSnap) {
         var u = d.data();
         if (u.status !== "nonaktif" && d.id !== currentUser.id) {
           // Only show same division members
           if (myDept && (u.departemen || "").toLowerCase().trim() !== myDept)
-            return;
+            continue;
+          const uRole = u.role || "-";
+          const uDept = u.departemen || "-";
           checkboxes +=
             '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">';
           checkboxes +=
@@ -2164,20 +2167,32 @@ async function modalAddTask() {
             "<span>" +
             escHtml(u.nama) +
             ' <span style="color:#999;font-size:.75rem">(' +
-            escHtml(u.departemen || "-") +
+            escHtml(uRole) +
+            " \u2022 " +
+            escHtml(uDept) +
             ")</span></span></label>";
         }
       }
-      assignHtml = '<div class="form-group"><label>Tugaskan Ke</label>';
+      const labelTitle = isManager
+        ? "Tugaskan Ke (Staff / Leader)"
+        : "Tugaskan Ke (Anggota Tim)";
+      const noteText = isManager
+        ? "Hanya menampilkan anggota divisi yang sama"
+        : "Centang satu atau lebih anggota tim";
+      assignHtml = '<div class="form-group"><label>' + labelTitle + "</label>";
       assignHtml +=
         '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:4px;background:#f9f9f9;border-radius:6px;cursor:pointer"><input type="checkbox" id="dtAssignSelf" checked> <span class="fw-700">📝 Untuk Diri Sendiri</span></label>';
       assignHtml +=
-        '<div style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
+        '<div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
       assignHtml +=
         '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #eee;cursor:pointer"><input type="checkbox" id="dtAssignAll" onchange="document.querySelectorAll(\'.dt-assign-cb\').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="fw-700 text-sm">Pilih Semua</span></label>';
-      assignHtml += checkboxes;
       assignHtml +=
-        '</div><div class="text-xs" style="color:#999;margin-top:4px">Centang satu atau lebih anggota tim</div></div>';
+        checkboxes ||
+        '<p class="text-sm" style="color:#999;padding:8px">Tidak ada anggota tim di divisi ini</p>';
+      assignHtml +=
+        '</div><div class="text-xs" style="color:#999;margin-top:4px">' +
+        noteText +
+        "</div></div>";
     } catch (_e) {
       assignHtml = "";
     }
