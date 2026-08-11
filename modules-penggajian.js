@@ -117,7 +117,7 @@ async function loadGaji() {
   const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
   const allSnap = await db.collection('hrd_penggajian').get();
   window._gajiData = [];
-  for (const d of allSnap) { const data = d.data();
+  for (const d of allSnap.docs) { const data = d.data();
     if (data.periode === bulan) window._gajiData.push({ id: d.id, ...data });
   }
   // Populate dept filter from karyawan data
@@ -609,7 +609,7 @@ async function autoFillGajiFromKaryawan() {
   // Auto-load tunjangan from hrd_tunjangan
   const tunjSnap = await db.collection('hrd_tunjangan').get();
   let tunjTotal = 0;
-  for (const d of tunjSnap) { const t = d.data();
+  for (const d of tunjSnap.docs) { const t = d.data();
     const penerima = (t.penerima || 'Semua').toLowerCase();
     if (penerima === 'semua' || penerima.includes(nama.toLowerCase())) tunjTotal += t.nominal || 0;
   }
@@ -628,7 +628,7 @@ async function autoFillGajiFromKaryawan() {
   // Auto-load kasbon/loan (aktif)
   const kasbonSnap = await db.collection('hrd_kasbon').get();
   let totalLoan = 0;
-  for (const d of kasbonSnap) { const r = d.data();
+  for (const d of kasbonSnap.docs) { const r = d.data();
     if (
       (r.nama || '').toLowerCase() === nama.toLowerCase() &&
       (r.status === 'aktif' || r.status === 'approved')
@@ -664,9 +664,9 @@ async function autoFillGajiFromKaryawan() {
   const pEnd = `${pYear}-${String(pMonth).padStart(2, '0')}-20`;
   const otSnap = await db.collection('hrd_overtime').get();
   let totalOTJam = 0;
-  for (const d of otSnap) { const o = d.data();
-    if (o.status !== 'approved') return;
-    if (!o.tanggal || o.tanggal < pStart || o.tanggal > pEnd) return;
+  for (const d of otSnap.docs) { const o = d.data();
+    if (o.status !== 'approved') continue;
+    if (!o.tanggal || o.tanggal < pStart || o.tanggal > pEnd) continue;
     if ((o.nama || '').toLowerCase() === nama.toLowerCase())
       totalOTJam += parseFloat(o.durasi) || 0;
   }
@@ -1610,7 +1610,7 @@ async function generateInsentifFromKPI() {
   const kSnap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
   const kpiSnap = await db.collection('hrd_kpi').get();
   const kpiMap = {};
-  for (const d of kpiSnap) { const r = d.data();
+  for (const d of kpiSnap.docs) { const r = d.data();
     const n = (r.nama || '').trim().toLowerCase();
     if (!kpiMap[n] || r.skor > kpiMap[n]) kpiMap[n] = r.skor || 0;
   }
