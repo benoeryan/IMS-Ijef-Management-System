@@ -185,7 +185,7 @@ async function hitungKPIIntegrasi(nama, periode) {
       db.collection("hrd_daily_tasks").get(),
     ]);
   let karyawanId = "";
-  for (const d of karySnap) {
+  for (const d of karySnap.docs) {
     const k = d.data() || {};
     if ((k.nama || "").toLowerCase().trim() === namaLower && !karyawanId)
       karyawanId = d.id;
@@ -351,7 +351,7 @@ async function renderKPI() {
   });
   // Build set of active karyawan names (exclude calon/kandidat)
   const karyawanNames = new Set();
-  for (const d of karySnap) {
+  for (const d of karySnap.docs) {
     const k = d.data();
     karyawanNames.add((k.nama || "").toLowerCase().trim());
   }
@@ -1044,7 +1044,7 @@ async function renderDokumenKaryawan(container) {
   // Also load karyawan list for names/photos
   const karySnap = await db.collection("hrd_karyawan").get();
   window._karyawanMap = {};
-  for (const d of karySnap) {
+  for (const d of karySnap.docs) {
     window._karyawanMap[d.id] = { id: d.id, ...d.data() };
   }
   renderDokFolders();
@@ -1760,7 +1760,7 @@ async function showAkunForm(id, p) {
     .where("status", "==", "aktif")
     .get();
   let karyData = [];
-  for (const d of karySnap) {
+  for (const d of karySnap.docs) {
     const k = d.data();
     karyData.push({
       id: d.id,
@@ -2197,7 +2197,7 @@ async function _buildCutiDetail(p, karyawan) {
     if (p.mulai && p.selesai) {
       const hSnap = await db.collection("hrd_hari_libur").get();
       const holidays = [];
-      for (const d of hSnap) {
+      for (const d of hSnap.docs) {
         const hd = d.data();
         if (hd.tanggal) holidays.push(hd);
       }

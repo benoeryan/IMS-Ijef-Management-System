@@ -1039,7 +1039,7 @@ async function syncHariLiburNasional() {
     endYear = `${year}-12-31`;
   const existingSnap = await db.collection("hrd_hari_libur").get();
   const batch1 = [];
-  for (const d of existingSnap) {
+  for (const d of existingSnap.docs) {
     const data = d.data();
     const tgl = data.tanggal || "";
     const tipe = data.tipe || "";
@@ -1131,7 +1131,7 @@ async function renderPenalty() {
   // Admin (level 6): sees all — no filter
   // Build summary grouped by employee name
   const summary = {};
-  for (const d of karyawanSnap) {
+  for (const d of karyawanSnap.docs) {
     const k = d.data();
     // Only include karyawan visible to current user
     if (!hasAccess(6)) {
@@ -2147,7 +2147,7 @@ async function modalAddTask() {
       const myDept = (currentUser.departemen || "").toLowerCase().trim();
       const isManager = (currentUser.role || "") === "manager";
       let checkboxes = "";
-      for (const d of usersSnap) {
+      for (const d of usersSnap.docs) {
         var u = d.data();
         if (u.status !== "nonaktif" && d.id !== currentUser.id) {
           // Only show same division members
@@ -2248,7 +2248,7 @@ async function modalAddTask() {
     try {
       const usersSnap = await db.collection("hrd_users").get();
       let checkboxes = "";
-      for (const d of usersSnap) {
+      for (const d of usersSnap.docs) {
         var u = d.data();
         if (u.status !== "nonaktif" && d.id !== currentUser.id) {
           checkboxes +=
@@ -2418,7 +2418,7 @@ async function editDailyTask(id) {
     try {
       const usersSnap = await db.collection("hrd_users").get();
       let opts = `<option value="self" ${doesTaskBelongToUser(task) ? "selected" : ""}>\u{1F4DD} Untuk Diri Sendiri (Catatan Pribadi)</option><option disabled>\u2500\u2500 Tugaskan ke Karyawan \u2500\u2500</option>`;
-      for (const d of usersSnap) {
+      for (const d of usersSnap.docs) {
         const u = d.data();
         if (u.status !== "nonaktif")
           opts += `<option value="${d.id}" data-nama="${escHtml(u.nama)}" ${d.id === task.userId && d.id !== currentUser.id ? "selected" : ""}>${escHtml(u.nama)} (${u.role})</option>`;
