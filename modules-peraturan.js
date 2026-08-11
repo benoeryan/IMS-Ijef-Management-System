@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '15.5',
+            version: '15.6',
             updatedAt: new Date().toISOString(),
-            note: 'Fix leave quota (proportional first year) and restore missing data (v15.5)'
+            note: 'Fix Form Kaizen submission and Cuti validation'
         }, { merge: true });
 
     } catch (e) {

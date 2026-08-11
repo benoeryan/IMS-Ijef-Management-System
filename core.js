@@ -287,7 +287,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "15.5";
+const APP_VERSION = "15.6";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -1484,8 +1484,9 @@ function getMonthDays(ym) {
  */
 function countWorkDays(startDate, endDate) {
   if (!startDate || !endDate) return 0;
-  let start = new Date(startDate);
-  let end = new Date(endDate);
+  // Use T00:00:00 to ensure local time interpretation
+  let start = new Date(startDate + "T00:00:00");
+  let end = new Date(endDate + "T00:00:00");
   if (start > end) return 0;
 
   let count = 0;

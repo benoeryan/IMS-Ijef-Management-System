@@ -171,11 +171,11 @@ function hitungJatahCuti(karyawan) {
     (now.getMonth() - masuk.getMonth());
   if (now.getDate() < masuk.getDate()) bulanKerja--;
 
-  if (karyawan.status === "probation") return 0;
+  // Probation: Jika sudah > 3 bulan, anggap berhak jatah proporsional
+  if (karyawan.status === "probation" && bulanKerja < 3) return 0;
   if ((karyawan.status || "").toLowerCase().includes("resign")) return 0;
 
   // Jatah Proporsional untuk Karyawan Baru (< 1 Tahun): 1 hari per bulan kerja
-  // Ini membantu agar data tidak "hilang" bagi karyawan baru
   if (bulanKerja < 12) {
     return Math.max(0, bulanKerja);
   }
@@ -408,11 +408,11 @@ async function simpanCuti() {
           }
         });
 
-        const remaining = totalQuota - used;
+        const remaining = Math.max(0, totalQuota - used);
         if (durasi > remaining) {
           return toast(
             `Gagal: Sisa jatah cuti Anda (${remaining} hari) tidak mencukupi untuk pengajuan ${durasi} hari.`,
-            "danger",
+            "warning",
           );
         }
       }
@@ -5603,14 +5603,22 @@ async function modalAddKaizen() {
     const uSnap = await db.collection("hrd_users").get();
     uSnap.forEach((d) => {
       const u = d.data();
-      if ((u.nama || "").toLowerCase().includes("rizky"))
+      const n = (u.nama || "").toLowerCase();
+      // Muhammad Rizky Nur Fadilah is GA
+      if (n.includes("rizky") && n.includes("fadilah")) {
         gaUser = { id: d.id, ...u };
+      }
     });
-  } catch (e) {}
+  } catch (e) {
+    console.warn("Error finding GA user:", e);
+  }
+
+  const gaNameDisplay = gaUser ? gaUser.nama : "Muhammad Rizky Nur Fadilah";
+  const gaIdValue = gaUser ? gaUser.id : ""; // Empty ID will warn later
 
   openModal(`
     <div class="modal-title">⚡ Buat FORM KAIZEN (General Affair)</div>
-    <p class="text-sm mb-16" style="color:#666">Gunakan form ini untuk memberikan tugas perbaikan fasilitas atau GA kepada <b>${escHtml(gaNama)}</b>.</p>
+    <p class="text-sm mb-16" style="color:#666">Gunakan form ini untuk memberikan tugas perbaikan fasilitas atau GA kepada <b>${escHtml(gaNameDisplay)}</b>.</p>
     
     <div class="form-group">
       <label>Judul Permintaan / Tugas *</label>
@@ -5629,12 +5637,12 @@ async function modalAddKaizen() {
 
     <div class="form-group">
       <label>📎 Lampiran Dokumen / Foto (Eviden)</label>
-      <input type="file" id="kzFiles" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" class="form-control">
-      <div class="text-xs mt-4" style="color:#999">Maks 3 file. Format: Gambar, PDF, Word, Excel.</div>
+      <input type="file" id="kzFiles" multiple accept="image/*,.pdf,.doc,.docx" class="form-control">
+      <div class="text-xs mt-4" style="color:#999">Maks 3 file. Format: Gambar, PDF, Word.</div>
     </div>
 
-    <input type="hidden" id="targetGAId" value="${gaUser ? gaUser.id : "rizky"}">
-    <input type="hidden" id="targetGANama" value="${gaUser ? gaUser.nama : "Muhammad Rizky Nur Fadilah"}">
+    <input type="hidden" id="targetGAId" value="${gaIdValue}">
+    <input type="hidden" id="targetGANama" value="${gaNameDisplay}">
 
     <button class="btn btn-primary" style="width:100%" onclick="simpanKaizen()">📤 Kirim Form Kaizen</button>
   `);
@@ -5648,6 +5656,9 @@ async function simpanKaizen() {
 
   if (!title || !desc)
     return toast("Judul dan deskripsi wajib diisi", "warning");
+
+  if (!targetId)
+    return toast("Gagal: User GA tidak ditemukan di sistem. Hubungi Admin.", "danger");
 
   const data = {
     type: "daily-task",
