@@ -370,7 +370,10 @@ async function simpanCuti() {
   if (jenis === "Cuti Melahirkan" || jenis === "Cuti Keguguran") {
     durasi = Math.max(
       1,
-      Math.ceil((new Date(selesai) - new Date(mulai)) / 86400000) + 1,
+      Math.ceil(
+        (new Date(selesai + "T00:00:00") - new Date(mulai + "T00:00:00")) /
+          86400000,
+      ) + 1,
     );
   } else {
     durasi = countWorkDays(mulai, selesai);
@@ -750,7 +753,10 @@ async function updateCuti(id) {
   if (jenis === "Cuti Melahirkan" || jenis === "Cuti Keguguran") {
     durasi = Math.max(
       1,
-      Math.ceil((new Date(selesai) - new Date(mulai)) / 86400000) + 1,
+      Math.ceil(
+        (new Date(selesai + "T00:00:00") - new Date(mulai + "T00:00:00")) /
+          86400000,
+      ) + 1,
     );
   } else {
     durasi = countWorkDays(mulai, selesai);
