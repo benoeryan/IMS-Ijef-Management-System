@@ -1053,7 +1053,7 @@ async function renderPortalCuti() {
     <div class="card mb-8" style="background:#f0f4ff;border-left:4px solid var(--info);padding:12px">
       <div class="text-xs" style="line-height:1.6"><b>Ketentuan Cuti:</b><br>• Cuti tahunan: ${jatah} hari (berdasarkan masa kerja ${masaKerja})<br>• Minimal 1 tahun kerja untuk jatah penuh 12 hari<br>• Bonus +1 hari per 2 tahun kerja (max 18 hari)<br>• Cuti sakit & melahirkan tidak mengurangi jatah cuti tahunan</div>
     </div>
-    <div class="card"><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Tanggal</th><th>Durasi</th><th>Status</th></tr></thead><tbody id="tblPortalCuti"></tbody></table></div></div>`;
+    <div class="card"><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Tanggal</th><th>Durasi</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblPortalCuti"></tbody></table></div></div>`;
   }
 
   const flows = await loadApprovalFlows();
@@ -1072,7 +1072,8 @@ async function renderPortalCuti() {
         p.approvalStep,
         getApprovalCategory("hrd_cuti", p),
       );
-      h += `<tr><td>${escHtml(p.jenis)}</td><td>${formatDate(p.mulai)}-${formatDate(p.selesai)}</td><td>${p.durasi || 1} hari</td><td><span class="badge badge-${p.status === "approved" ? "success" : p.status === "rejected" ? "danger" : "warning"}">${p.status}</span>${pendingInfo}</td></tr>`;
+      const canEdit = p.status === "pending" || (p.status && p.status.indexOf("step") === 0);
+      h += `<tr><td>${escHtml(p.jenis)}</td><td>${formatDate(p.mulai)}-${formatDate(p.selesai)}</td><td>${p.durasi || 1} hari</td><td><span class="badge badge-${p.status === "approved" ? "success" : p.status === "rejected" ? "danger" : "warning"}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewCutiDetail('${p.id}')" title="Lihat Detail">👁️</button> ${canEdit ? `<button class="btn btn-xs btn-warning" onclick="modalEditCuti('${p.id}')" title="Edit">✏️</button>` : ""}</td></tr>`;
     });
   }
   const tblEl = document.getElementById("tblPortalCuti");
