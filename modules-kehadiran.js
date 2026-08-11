@@ -4,7 +4,7 @@ async function renderCuti() {
   const main = document.getElementById("mainContent");
   // Tombol Admin/Manager
   let adminBtns = "";
-  if (hasAccess(3)) {
+  if (hasAccess(6)) {
     adminBtns = `
         <button class="btn btn-info btn-sm" onclick="modalCutiBersamaMassal()">⚡ Cuti Bersama Massal</button>
         <button id="btnFixCuti" class="btn btn-warning btn-sm" onclick="fixExistingCutiDurasi()">🛠️ Perbaiki Data</button>
@@ -152,8 +152,9 @@ async function renderCuti() {
 
 // Hitung jatah cuti berdasarkan masa kerja, status, dan ketentuan
 function hitungJatahCuti(karyawan) {
-  // Standar Pemerintah (UU Cipta Kerja): minimal 12 hari/tahun setelah 1 tahun kerja
-  if (!karyawan.tanggalMasuk) return 12;
+  // Sesuai Peraturan Pemerintah (UU Cipta Kerja & PP 35/2021):
+  // Jatah cuti tahunan (minimal 12 hari) diberikan SETELAH bekerja selama 12 bulan secara terus menerus.
+  if (!karyawan.tanggalMasuk) return 0;
   const masuk = new Date(karyawan.tanggalMasuk);
   const now = new Date();
 
@@ -163,12 +164,12 @@ function hitungJatahCuti(karyawan) {
     (now.getMonth() - masuk.getMonth());
   if (now.getDate() < masuk.getDate()) bulanKerja--;
 
-  if (karyawan.status === "probation") return 0;
+  if (karyawan.status === "probation" || (karyawan.status || "").toLowerCase().includes("resign")) return 0;
 
-  // < 1 tahun: Proporsional (1 hari per bulan kerja)
-  if (bulanKerja < 12) return Math.max(0, bulanKerja);
+  // Jika masa kerja belum mencapai 12 bulan, jatah cuti tahunan adalah 0 (secara legal)
+  if (bulanKerja < 12) return 0;
 
-  // >= 1 tahun: Tetap 12 hari sesuai standar pemerintah (menghapus bonus masa kerja)
+  // Jika sudah >= 12 bulan, berikan jatah standar 12 hari
   return 12;
 }
 
@@ -364,8 +365,53 @@ async function simpanCuti() {
   }
 
   const attachments = await getFilesAsBase64("ctFiles");
+  const nama = document.getElementById("ctNama").value;
+
+  if (!nama) return toast("Nama wajib", "warning");
+
+  // --- VALIDASI JATAH CUTI (v14.8) ---
+  if (jenis === "Cuti Tahunan") {
+    try {
+      const kSnapForQuota = await db
+        .collection("hrd_karyawan")
+        .where("nama", "==", currentUser.nama)
+        .limit(1)
+        .get();
+      if (!kSnapForQuota.empty) {
+        const kData = kSnapForQuota.docs[0].data();
+        const totalQuota = hitungJatahCuti(kData);
+
+        // Get already used leave
+        const cSnap = await db
+          .collection("hrd_cuti")
+          .where("userId", "==", currentUser.id)
+          .get();
+        let used = 0;
+        cSnap.forEach((doc) => {
+          const d = doc.data();
+          if (
+            d.status === "approved" &&
+            (d.jenis === "Cuti Tahunan" || d.jenis === "Cuti Bersama")
+          ) {
+            used += d.durasi || 1;
+          }
+        });
+
+        const remaining = totalQuota - used;
+        if (durasi > remaining) {
+          return toast(
+            `Gagal: Sisa jatah cuti Anda (${remaining} hari) tidak mencukupi untuk pengajuan ${durasi} hari.`,
+            "danger",
+          );
+        }
+      }
+    } catch (e) {
+      console.warn("Quota validation failed, continuing...", e);
+    }
+  }
+
   const data = {
-    nama: document.getElementById("ctNama").value,
+    nama: nama,
     jenis: jenis,
     mulai,
     selesai,
