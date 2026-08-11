@@ -152,9 +152,16 @@ async function renderCuti() {
 
 // Hitung jatah cuti berdasarkan masa kerja, status, dan ketentuan
 function hitungJatahCuti(karyawan) {
-  // Sesuai Peraturan Pemerintah (UU Cipta Kerja & PP 35/2021):
-  // Jatah cuti tahunan (minimal 12 hari) diberikan SETELAH bekerja selama 12 bulan secara terus menerus.
-  if (!karyawan.tanggalMasuk) return 0;
+  // Sesuai Kebijakan Umum & Peraturan Pemerintah:
+  // Karyawan berhak atas jatah cuti tahunan minimal 12 hari per tahun.
+
+  // Kasus Khusus: Jika BOD atau join date tidak diisi, berikan jatah full 12 hari (kebijakan internal)
+  const posLow = (karyawan.posisi || "").toLowerCase();
+  const deptLow = (karyawan.departemen || "").toLowerCase();
+  if (deptLow.includes("bod") || posLow.includes("founder") || !karyawan.tanggalMasuk) {
+    return 12;
+  }
+
   const masuk = new Date(karyawan.tanggalMasuk);
   const now = new Date();
 
@@ -164,10 +171,14 @@ function hitungJatahCuti(karyawan) {
     (now.getMonth() - masuk.getMonth());
   if (now.getDate() < masuk.getDate()) bulanKerja--;
 
-  if (karyawan.status === "probation" || (karyawan.status || "").toLowerCase().includes("resign")) return 0;
+  if (karyawan.status === "probation") return 0;
+  if ((karyawan.status || "").toLowerCase().includes("resign")) return 0;
 
-  // Jika masa kerja belum mencapai 12 bulan, jatah cuti tahunan adalah 0 (secara legal)
-  if (bulanKerja < 12) return 0;
+  // Jatah Proporsional untuk Karyawan Baru (< 1 Tahun): 1 hari per bulan kerja
+  // Ini membantu agar data tidak "hilang" bagi karyawan baru
+  if (bulanKerja < 12) {
+    return Math.max(0, bulanKerja);
+  }
 
   // Jika sudah >= 12 bulan, berikan jatah standar 12 hari
   return 12;
