@@ -137,6 +137,7 @@ async function renderCuti() {
       const isMyTurn = isAdmin || currentApprover === myName;
 
       const canApprove = isPending && hasAccess(3) && isMyTurn;
+      const canEdit = p.userId === currentUser.id && isPending;
       const pendingInfo = pendingApproverHtml(
         flows,
         p,
@@ -144,7 +145,7 @@ async function renderCuti() {
         p.approvalStep,
         category,
       );
-      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td><b>${escHtml(p.jenis)}</b><br><small style="color:#666">${escHtml(p.keterangan || "-")}</small></td><td>${formatDate(p.mulai)}-${formatDate(p.selesai)}</td><td>${p.durasi || 1}h</td><td><span class="badge badge-${sisa <= 2 ? "danger" : sisa <= 5 ? "warning" : "success"}">${sisa}/${quota}</span></td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewCutiDetail('${p.id}')" title="Lihat Detail">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_cuti','${p.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_cuti','${p.id}','rejected')">❌</button>` : ""} ${hasAccess(6) || (p.userId === currentUser.id && p.status === "pending") ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_cuti','${p.id}','cuti')">🗑️</button>` : ""}</td></tr>`;
+      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td><b>${escHtml(p.jenis)}</b><br><small style="color:#666">${escHtml(p.keterangan || "-")}</small></td><td>${formatDate(p.mulai)}-${formatDate(p.selesai)}</td><td>${p.durasi || 1}h</td><td><span class="badge badge-${sisa <= 2 ? "danger" : sisa <= 5 ? "warning" : "success"}">${sisa}/${quota}</span></td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewCutiDetail('${p.id}')" title="Lihat Detail">👁️</button> ${canEdit ? `<button class="btn btn-xs btn-warning" onclick="modalEditCuti('${p.id}')" title="Edit Pengajuan">✏️</button>` : ""} ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveItem('hrd_cuti','${p.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveItem('hrd_cuti','${p.id}','rejected')">❌</button>` : ""} ${hasAccess(6) || (p.userId === currentUser.id && p.status === "pending") ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_cuti','${p.id}','cuti')">🗑️</button>` : ""}</td></tr>`;
     });
   }
   document.getElementById("tblCuti").innerHTML = h;
@@ -539,6 +540,7 @@ async function viewCutiDetail(id) {
   }
 
   let approveBtns = "";
+  let editBtn = "";
   if (isPending) {
     const category = getApprovalCategory("hrd_cuti", p);
     const steps = getApprovalStepsForItem(flows, p, category);
@@ -551,10 +553,12 @@ async function viewCutiDetail(id) {
 
     if (isMyTurn && hasAccess(3)) {
       approveBtns = `
-        <div class="flex gap-8 mt-16" style="justify-content:flex-end; border-top:1px solid #eee; pt-16">
           <button class="btn btn-danger" onclick="approveItem('hrd_cuti','${id}','rejected')">❌ Tolak</button>
-          <button class="btn btn-success" onclick="approveItem('hrd_cuti','${id}','approved')">✅ Setujui</button>
-        </div>`;
+          <button class="btn btn-success" onclick="approveItem('hrd_cuti','${id}','approved')">✅ Setujui</button>`;
+    }
+
+    if (p.userId === currentUser.id) {
+        editBtn = `<button class="btn btn-warning" onclick="modalEditCuti('${id}')">✏️ Edit Pengajuan</button>`;
     }
   }
 
@@ -572,7 +576,8 @@ async function viewCutiDetail(id) {
         "</td></tr>";
     }
   }
-  openModal(`<div class="modal-title">Detail Cuti/Izin</div>
+  openModal(
+    `<div class="modal-title">Detail Cuti/Izin</div>
     <table style="width:100%;border-collapse:collapse">
       <tr><td class="fw-700" style="padding:6px 8px;width:120px">Nama</td><td style="padding:6px 8px">${escHtml(p.nama || "-")}</td></tr>
       <tr><td class="fw-700" style="padding:6px 8px">Jenis</td><td style="padding:6px 8px">${escHtml(p.jenis || "-")}</td></tr>
@@ -580,15 +585,200 @@ async function viewCutiDetail(id) {
       <tr><td class="fw-700" style="padding:6px 8px">Selesai</td><td style="padding:6px 8px">${formatDate(p.selesai)}</td></tr>
       <tr><td class="fw-700" style="padding:6px 8px">Durasi</td><td style="padding:6px 8px">${p.durasi || 1} hari</td></tr>
       <tr><td class="fw-700" style="padding:6px 8px">Keterangan</td><td style="padding:6px 8px">${escHtml(p.keterangan || "-")}</td></tr>
-      ${attachHtml}
       <tr><td class="fw-700" style="padding:6px 8px">Status</td><td style="padding:6px 8px"><span class="badge badge-${p.status === "approved" ? "success" : p.status === "rejected" ? "danger" : "warning"}">${p.status || "pending"}</span></td></tr>
       ${pendingRow}
+      ${attachHtml}
       <tr><td class="fw-700" style="padding:6px 8px">Approved By</td><td style="padding:6px 8px">${escHtml(p.approvedBy || "-")}</td></tr>
       <tr><td class="fw-700" style="padding:6px 8px">Created At</td><td style="padding:6px 8px">${p.createdAt ? formatDate(p.createdAt.split("T")[0]) : "-"}</td></tr>
     </table>
     ${historyHtml}
-    ${approveBtns}
-    <div class="mt-16"><button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button></div>`);
+    <div class="flex gap-8 mt-16" style="justify-content:flex-end; border-top:1px solid #eee; padding-top:16px">
+      <button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>
+      ${editBtn}
+      ${approveBtns}
+    </div>`,
+    true,
+  );
+}
+
+async function modalEditCuti(id) {
+  const doc = await db.collection("hrd_cuti").doc(id).get();
+  if (!doc.exists) return toast("Data tidak ditemukan", "warning");
+  const p = doc.data();
+
+  window._existingCutiAttachments = p.attachments || [];
+
+  const renderExistingAttachments = () => {
+    let html = "";
+    window._existingCutiAttachments.forEach((a, idx) => {
+      html += `
+        <div style="position:relative; display:inline-block">
+          ${(a.type || "").startsWith("image/") ? `<img src="${a.data}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid #ddd">` : `<div style="width:60px;height:60px;display:flex;align-items:center;justify-content:center;background:#eee;border-radius:4px;font-size:1.5rem">📄</div>`}
+          <button onclick="removeExistingCutiAttachment(${idx})" style="position:absolute;top:-5px;right:-5px;background:red;color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:12px;cursor:pointer;line-height:1">×</button>
+        </div>`;
+    });
+    const el = document.getElementById("existingCutiAttachments");
+    if (el) el.innerHTML = html;
+  };
+
+  window.removeExistingCutiAttachment = (idx) => {
+    window._existingCutiAttachments.splice(idx, 1);
+    renderExistingAttachments();
+  };
+
+  openModal(`
+    <div class="modal-title">Edit Pengajuan Cuti / Izin</div>
+    <div class="grid-2">
+      <div class="form-group"><label>Nama</label><input class="form-control" id="editCtNama" value="${escHtml(p.nama)}" readonly></div>
+      <div class="form-group"><label>Jenis Cuti</label>
+        <select class="form-control" id="editCtJenis" onchange="onCutiTypeChangeEdit()">
+          <optgroup label="Cuti Quota (Potong 12 Hari)">
+            <option value="Cuti Tahunan" ${p.jenis === "Cuti Tahunan" ? "selected" : ""}>Cuti Tahunan</option>
+            <option value="Cuti Bersama" ${p.jenis === "Cuti Bersama" ? "selected" : ""}>Cuti Bersama</option>
+          </optgroup>
+          <optgroup label="Cuti Khusus (Izin Berbayar)">
+            <option value="Pernikahan Sendiri" ${p.jenis === "Pernikahan Sendiri" ? "selected" : ""}>Pernikahan Sendiri (3 Hari)</option>
+            <option value="Pernikahan Anak" ${p.jenis === "Pernikahan Anak" ? "selected" : ""}>Pernikahan Anak (2 Hari)</option>
+            <option value="Khitanan/Baptis Anak" ${p.jenis === "Khitanan/Baptis Anak" ? "selected" : ""}>Khitanan/Baptis Anak (2 Hari)</option>
+            <option value="Istri Melahirkan/Keguguran" ${p.jenis === "Istri Melahirkan/Keguguran" ? "selected" : ""}>Istri Melahirkan/Keguguran (2 Hari)</option>
+            <option value="Kematian Keluarga Inti" ${p.jenis === "Kematian Keluarga Inti" ? "selected" : ""}>Kematian (Suami/Istri/Anak/Ortu/Mertua) (2 Hari)</option>
+            <option value="Kematian Anggota Serumah" ${p.jenis === "Kematian Anggota Serumah" ? "selected" : ""}>Kematian Anggota Serumah (1 Hari)</option>
+          </optgroup>
+          <optgroup label="Kesehatan & Lainnya">
+            <option value="Cuti Sakit" ${p.jenis === "Cuti Sakit" ? "selected" : ""}>Cuti Sakit (Dgn Surat Dokter)</option>
+            <option value="Cuti Melahirkan" ${p.jenis === "Cuti Melahirkan" ? "selected" : ""}>Cuti Melahirkan (3 Bulan)</option>
+            <option value="Cuti Keguguran" ${p.jenis === "Cuti Keguguran" ? "selected" : ""}>Cuti Keguguran (1.5 Bulan)</option>
+            <option value="WFH" ${p.jenis === "WFH" ? "selected" : ""}>WFH (Work From Home)</option>
+          </optgroup>
+        </select>
+      </div>
+    </div>
+    <div id="cutiInfoBoxEdit" class="mb-16 p-12 text-xs" style="background:#f9f9f9; border-radius:8px; border-left:4px solid var(--primary); display:none"></div>
+    <div class="grid-2">
+      <div class="form-group"><label>Mulai</label><input class="form-control" type="date" id="editCtMulai" value="${p.mulai}" onchange="autoCalculateCutiEndEdit()"></div>
+      <div class="form-group"><label>Selesai</label><input class="form-control" type="date" id="editCtSelesai" value="${p.selesai}"></div>
+    </div>
+    <div class="form-group"><label>Keterangan</label><textarea class="form-control" id="editCtKet" placeholder="Contoh: Acara keluarga, sakit demam, dll">${escHtml(p.keterangan || "")}</textarea></div>
+
+    <div class="form-group">
+      <label>Lampiran Saat Ini</label>
+      <div id="existingCutiAttachments" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px"></div>
+    </div>
+
+    <div class="form-group"><label>Tambah Lampiran Baru</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('editCtFiles').click()">📁 Pilih File</button>
+        <button type="button" class="btn btn-sm btn-info" onclick="openCamera('editCtFilePreview','editCtCameraData')">📷 Kamera</button>
+      </div>
+      <input type="file" id="editCtFiles" multiple accept="image/*,.pdf,.doc,.docx" onchange="previewTaskFiles(this,'editCtFilePreview')" style="display:none">
+      <input type="hidden" id="editCtCameraData">
+      <div id="editCtFilePreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+    </div>
+    <div class="flex gap-8">
+        <button class="btn btn-primary" style="flex:1; padding:12px" onclick="updateCuti('${id}')">💾 Simpan Perubahan</button>
+        <button class="btn btn-outline" style="padding:12px" onclick="closeModalDirect()">Batal</button>
+    </div>
+  `);
+
+  renderExistingAttachments();
+  window.onCutiTypeChangeEdit = () => {
+    const type = document.getElementById("editCtJenis").value;
+    const info = document.getElementById("cutiInfoBoxEdit");
+    const configs = {
+      "Cuti Tahunan": "Memotong jatah cuti tahunan (Saldo 12 hari).",
+      "Cuti Bersama": "Memotong jatah cuti tahunan sesuai kalender pemerintah.",
+      "Pernikahan Sendiri": "<b>Jatah: 3 Hari Kerja.</b>",
+      "Pernikahan Anak": "<b>Jatah: 2 Hari Kerja.</b>",
+      "Khitanan/Baptis Anak": "<b>Jatah: 2 Hari Kerja.</b>",
+      "Istri Melahirkan/Keguguran": "<b>Jatah: 2 Hari Kerja.</b>",
+      "Kematian Keluarga Inti": "<b>Jatah: 2 Hari Kerja.</b>",
+      "Kematian Anggota Serumah": "<b>Jatah: 1 Hari Kerja.</b>",
+      "Cuti Melahirkan": "<b>Jatah: 3 Bulan.</b>",
+      "Cuti Keguguran": "<b>Jatah: 1.5 Bulan.</b>",
+      "Cuti Sakit": "Wajib melampirkan Surat Keterangan Dokter.",
+      WFH: "Bekerja dari rumah.",
+    };
+    if (configs[type]) {
+      info.style.display = "block";
+      info.innerHTML = configs[type];
+    } else {
+      info.style.display = "none";
+    }
+    window.autoCalculateCutiEndEdit();
+  };
+
+  window.autoCalculateCutiEndEdit = () => {
+    const type = document.getElementById("editCtJenis").value;
+    const startVal = document.getElementById("editCtMulai").value;
+    if (!startVal) return;
+    const start = new Date(startVal + "T00:00:00");
+    const endInput = document.getElementById("editCtSelesai");
+    const durations = {
+      "Pernikahan Sendiri": [3, false],
+      "Pernikahan Anak": [2, false],
+      "Khitanan/Baptis Anak": [2, false],
+      "Istri Melahirkan/Keguguran": [2, false],
+      "Kematian Keluarga Inti": [2, false],
+      "Kematian Anggota Serumah": [1, false],
+      "Cuti Melahirkan": [90, true],
+      "Cuti Keguguran": [45, true],
+    };
+    if (durations[type]) {
+      const [days, isCalendar] = durations[type];
+      let end = new Date(start);
+      if (isCalendar) {
+        end.setDate(start.getDate() + (days - 1));
+      } else {
+        let added = 1;
+        while (added < days) {
+          end.setDate(end.getDate() + 1);
+          if (end.getDay() !== 0 && end.getDay() !== 6) added++;
+        }
+      }
+      endInput.value = end.toISOString().split("T")[0];
+    }
+  };
+  window.onCutiTypeChangeEdit();
+}
+
+async function updateCuti(id) {
+  const mulai = document.getElementById("editCtMulai").value,
+    selesai = document.getElementById("editCtSelesai").value;
+  const jenis = document.getElementById("editCtJenis").value;
+
+  let durasi = 0;
+  if (jenis === "Cuti Melahirkan" || jenis === "Cuti Keguguran") {
+    durasi = Math.max(
+      1,
+      Math.ceil((new Date(selesai) - new Date(mulai)) / 86400000) + 1,
+    );
+  } else {
+    durasi = countWorkDays(mulai, selesai);
+  }
+
+  const newAttachments = await getFilesAsBase64("editCtFiles");
+  const allAttachments = [
+    ...(window._existingCutiAttachments || []),
+    ...newAttachments,
+  ];
+
+  try {
+    toast("⏳ Menyimpan perubahan...", "info");
+    await db.collection("hrd_cuti").doc(id).update({
+      jenis,
+      mulai,
+      selesai,
+      durasi,
+      keterangan: document.getElementById("editCtKet").value,
+      attachments: allAttachments,
+      updatedAt: new Date().toISOString(),
+    });
+    toast("Pengajuan cuti berhasil diperbarui", "success");
+    closeModalDirect();
+    renderCuti();
+  } catch (e) {
+    toast("Gagal update: " + e.message, "error");
+  }
 }
 
 // == OVERTIME ==================================================
