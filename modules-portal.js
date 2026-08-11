@@ -1059,7 +1059,7 @@ async function renderPortalCuti() {
   const flows = await loadApprovalFlows();
   let h = "";
   if (snap.empty)
-    h = '<tr><td colspan="4" class="text-center">Belum ada</td></tr>';
+    h = '<tr><td colspan="5" class="text-center">Belum ada</td></tr>';
   else {
     const items = [];
     snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
