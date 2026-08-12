@@ -776,7 +776,12 @@ async function updateCuti(id) {
       selesai,
       durasi,
       keterangan: document.getElementById("editCtKet").value,
-      attachments: JSON.parse(JSON.stringify(allAttachments)),
+      attachments: allAttachments.map(a => ({
+          name: a.name || "File",
+          type: a.type || "application/octet-stream",
+          size: a.size || 0,
+          data: a.data || ""
+      })),
       updatedAt: new Date().toISOString(),
     });
     toast("Pengajuan cuti berhasil diperbarui", "success");
@@ -1812,61 +1817,48 @@ function buildGCalUrl(t) {
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${encodeURIComponent(details)}&trp=false`;
 }
 
+function getDailyTaskTabs(activeFilter) {
+  let tabs = `<div class="tab ${activeFilter === 'all' ? 'active' : ''}" onclick="renderDailyTask()">Semua</div>`;
+  tabs += `<div class="tab ${activeFilter === 'today' ? 'active' : ''}" onclick="filterDailyTasks('today')">Hari Ini</div>`;
+
+  if (!hasAccess(5) || hasAccess(6)) {
+    tabs += `<div class="tab ${activeFilter === 'upcoming' ? 'active' : ''}" onclick="filterDailyTasks('upcoming')">Mendatang</div>`;
+    tabs += `<div class="tab ${activeFilter === 'done' ? 'active' : ''}" onclick="filterDailyTasks('done')">Selesai</div>`;
+    tabs += `<div class="tab ${activeFilter === 'overdue' ? 'active' : ''}" onclick="filterDailyTasks('overdue')">Terlambat</div>`;
+  }
+
+  tabs += `<div class="tab ${activeFilter === 'report' ? 'active' : ''}" onclick="filterDailyTasks('report')">📝 Daily Report</div>`;
+
+  if (hasAccess(2) || hasHeadLevelAccess()) {
+    tabs += `<div class="tab ${activeFilter === 'team-report' ? 'active' : ''}" onclick="filterDailyTasks('team-report')">📊 Report Tim</div>`;
+  }
+
+  if (hasHeadLevelAccess()) {
+    tabs += `<div class="tab ${activeFilter === 'all-report' ? 'active' : ''}" onclick="filterDailyTasks('all-report')">🏢 Semua Divisi</div>`;
+  }
+
+  if (hasAccess(3) || hasHeadLevelAccess()) {
+    tabs += `<div class="tab ${activeFilter === 'report-summary' ? 'active' : ''}" onclick="navigateTo('report-summary')">📋 Rangkuman Report</div>`;
+  }
+
+  if (((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) || (hasAccess(5) && !hasAccess(6)) || hasAccess(6)) {
+    tabs += `<div class="tab ${activeFilter === 'assigned' ? 'active' : ''}" onclick="filterDailyTasks('assigned')">📋 Ditugaskan</div>`;
+  }
+
+  if (((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) || hasAccess(6)) {
+    tabs += `<div class="tab ${activeFilter === 'history-assigned' ? 'active' : ''}" onclick="filterDailyTasks('history-assigned')">📊 History Tugas</div>`;
+  }
+
+  if (hasAccess(2) || hasHeadLevelAccess()) {
+    tabs += `<div class="tab ${activeFilter === 'weekly' ? 'active' : ''}" onclick="loadWeeklyReports()">📈 Laporan Mingguan</div>`;
+  }
+
+  return tabs;
+}
+
 async function renderDailyTask() {
   const main = document.getElementById("mainContent");
-  // Build tabs based on role hierarchy
-  let tabs =
-    '<div class="tab active" onclick="filterDailyTasks(\'all\')">Semua</div>';
-  tabs +=
-    '<div class="tab" onclick="filterDailyTasks(\'today\')">Hari Ini</div>';
-  if (!hasAccess(5) || hasAccess(6)) {
-    // Staff to Head and Admin have tasks
-    tabs +=
-      '<div class="tab" onclick="filterDailyTasks(\'upcoming\')">Mendatang</div>';
-    tabs +=
-      '<div class="tab" onclick="filterDailyTasks(\'done\')">Selesai</div>';
-    tabs +=
-      '<div class="tab" onclick="filterDailyTasks(\'overdue\')">Terlambat</div>';
-  }
-  tabs +=
-    '<div class="tab" onclick="filterDailyTasks(\'report\')">📝 Daily Report</div>';
-  if (hasAccess(2) || hasHeadLevelAccess()) {
-    // Leader+ can see team reports
-    tabs +=
-      '<div class="tab" onclick="filterDailyTasks(\'team-report\')">📊 Report Tim</div>';
-  }
-  if (hasHeadLevelAccess()) {
-    // Head+ sees all divisions
-    tabs +=
-      '<div class="tab" onclick="filterDailyTasks(\'all-report\')">🏢 Semua Divisi</div>';
-  }
-  if (hasAccess(3) || hasHeadLevelAccess()) {
-    // Manager/Head/BOD can access report summary
-    tabs +=
-      '<div class="tab" onclick="navigateTo(\'report-summary\')">📋 Rangkuman Report</div>';
-  }
-  if (
-    ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) ||
-    (hasAccess(5) && !hasAccess(6)) ||
-    hasAccess(6)
-  ) {
-    // Leader/Manager/Head, BOD, and Admin can see tasks they assigned
-    tabs +=
-      '<div class="tab" onclick="filterDailyTasks(\'assigned\')">📋 Ditugaskan</div>';
-  }
-  if (
-    ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) ||
-    hasAccess(6)
-  ) {
-    // Leader/Manager/Head (including HEAD-posisi) and Admin can monitor assigned task history (not BOD)
-    tabs +=
-      '<div class="tab" onclick="filterDailyTasks(\'history-assigned\')">📊 History Tugas</div>';
-  }
-  if (hasAccess(2) || hasHeadLevelAccess()) {
-    // Leader/Manager/Head/BOD can view weekly reports
-    tabs +=
-      '<div class="tab" onclick="loadWeeklyReports()">📈 Laporan Mingguan</div>';
-  }
+  const tabs = getDailyTaskTabs('all');
 
   // Button: Staff only sees report, Leader+ sees both
   let addBtn = "";
@@ -3411,10 +3403,71 @@ async function generateAndNotifyReportSummary() {
 
 async function renderReportSummary() {
   const main = document.getElementById("mainContent");
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📋 Rangkuman Daily Report</span><div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="navigateTo('daily-task')">📋 Daily Task</button></div></div><div id="reportSummaryContent"><div class="loading-spinner"></div> Loading...</div>`;
+
+  let addBtn = "";
+  if (hasAccess(6)) {
+    addBtn = '<button class="btn btn-primary btn-sm" onclick="modalAddTaskChoice()">+ Tambah</button> <button class="btn btn-success btn-sm" onclick="modalImportWeeklyReport()">⬆️ Import Laporan</button>';
+  } else if (hasAccess(5)) {
+    addBtn = '<button class="btn btn-primary btn-sm" onclick="modalAddTask()">+ Tambah Task</button>';
+  } else if (hasAccess(2) || hasHeadLevelAccess()) {
+    addBtn = '<button class="btn btn-primary btn-sm" onclick="modalAddTaskChoice()">+ Tambah</button> <button class="btn btn-success btn-sm" onclick="modalImportWeeklyReport()">⬆️ Import Laporan</button>';
+  } else {
+    addBtn = '<button class="btn btn-primary btn-sm" onclick="modalAddDailyReport()">+ Daily Report</button>';
+  }
+
+  const tabs = getDailyTaskTabs('report-summary');
+
+  main.innerHTML = `
+    <div class="page-title"><span>📋 Daily Task & Report</span>${addBtn}</div>
+    <div class="stats-grid mb-16" id="taskStats"></div>
+    <div class="card">
+      <div class="tabs mb-16" id="taskTabs" style="flex-wrap:wrap">${tabs}</div>
+      <div id="reportSummaryContent"><div class="loading-spinner"></div> Loading...</div>
+    </div>`;
+
+  // Load stats separately since we're in report summary view but want to keep the header consistent
+  _loadTaskStatsForHeader();
 
   const today = todayStr();
   await _loadReportSummaryForDate(today);
+}
+
+async function _loadTaskStatsForHeader() {
+  const statsEl = document.getElementById("taskStats");
+  if (!statsEl) return;
+
+  try {
+    const snap = await db.collection("hrd_daily_tasks").get();
+    let total = 0, todayCount = 0, overdue = 0, done = 0;
+    const today = todayStr();
+
+    snap.forEach(d => {
+      const t = d.data();
+      if (!doesTaskBelongToUser(t)) return;
+      total++;
+      if (t.tanggal === today) todayCount++;
+      if (t.status === "selesai") done++;
+      else if (t.deadline && t.deadline < today) overdue++;
+    });
+
+    statsEl.innerHTML = `
+      <div class="stat-card" onclick="filterDailyTasks('all')" style="border-left-color:var(--primary); cursor:pointer">
+        <div class="stat-value" style="color:var(--primary)">${total}</div>
+        <div class="stat-label">Total Task</div>
+      </div>
+      <div class="stat-card" onclick="filterDailyTasks('today')" style="border-left-color:var(--warning); cursor:pointer">
+        <div class="stat-value" style="color:var(--warning)">${todayCount}</div>
+        <div class="stat-label">Hari Ini</div>
+      </div>
+      <div class="stat-card" onclick="filterDailyTasks('overdue')" style="border-left-color:var(--danger); cursor:pointer">
+        <div class="stat-value" style="color:var(--danger)">${overdue}</div>
+        <div class="stat-label">Terlambat</div>
+      </div>
+      <div class="stat-card" onclick="filterDailyTasks('done')" style="border-left-color:var(--success); cursor:pointer">
+        <div class="stat-value" style="color:var(--success)">${done}</div>
+        <div class="stat-label">Selesai</div>
+      </div>`;
+  } catch (e) {}
 }
 
 async function _loadReportSummaryForDate(dateVal) {

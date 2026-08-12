@@ -1677,7 +1677,7 @@ async function simpanDataPerusahaan() {
       waApiUrl = "https://api.fonnte.com/send";
   }
 
-  var waApiToken = document.getElementById("cpWaApiToken").value.trim();
+  var waApiToken = document.getElementById("cpWaApiToken").value.trim() || "X6VcDqV3QWzVvwZHWzzf";
   const data = {
     nama: document.getElementById("cpNama").value,
     npwp: document.getElementById("cpNpwp").value,

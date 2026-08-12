@@ -1411,15 +1411,17 @@ function formatDate(d) {
 }
 function formatDateTime(d) {
   if (!d) return "-";
-  const dt =
-    typeof d === "string" ? new Date(d) : d.toDate ? d.toDate() : new Date(d);
-  return dt.toLocaleDateString("id-ID", {
+  const dt = typeof d === "string" ? new Date(d) : d.toDate ? d.toDate() : new Date(d);
+  if (isNaN(dt)) return "-";
+  return dt.toLocaleString("id-ID", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  });
+    hour12: true,
+    timeZone: "Asia/Jakarta"
+  }).replace(/\./g, ':');
 }
 function formatCurrency(n) {
   return "Rp " + (Number(n) || 0).toLocaleString("id-ID");
