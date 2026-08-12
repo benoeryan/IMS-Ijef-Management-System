@@ -274,6 +274,18 @@ async function sendToTokens(tokens, notification, data) {
       body: notification.body || '',
       image: notification.icon || APP_ICON,
     },
+    android: {
+      notification: {
+        sound: 'default',
+      },
+    },
+    apns: {
+      payload: {
+        aps: {
+          sound: 'default',
+        },
+      },
+    },
     data: {
       click_action: data.click_action || APP_URL,
       type: data.type || 'general',

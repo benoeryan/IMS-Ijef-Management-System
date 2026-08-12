@@ -776,12 +776,15 @@ async function updateCuti(id) {
       selesai,
       durasi,
       keterangan: document.getElementById("editCtKet").value,
-      attachments: allAttachments.map(a => ({
-          name: a.name || "File",
-          type: a.type || "application/octet-stream",
-          size: a.size || 0,
-          data: a.data || ""
-      })),
+      attachments: allAttachments.map(a => {
+          // Explicitly map properties to avoid circular references or invalid types
+          return {
+              name: String(a.name || "File"),
+              type: String(a.type || ""),
+              size: Number(a.size || 0),
+              data: String(a.data || "")
+          };
+      }),
       updatedAt: new Date().toISOString(),
     });
     toast("Pengajuan cuti berhasil diperbarui", "success");
@@ -1967,19 +1970,19 @@ async function loadDailyTasks(filter) {
         currentUser.role === "admin"
       ) {
         isVisible = true;
-      } else if (hasAccess(3)) {
-        if (ownerMatchesMe || assignedByMe || taskDept === myDept || !taskDept)
-          isVisible = true;
-      } else if (hasAccess(2)) {
-        if (
-          ownerMatchesMe ||
-          assignedByMe ||
-          (isReport && directSubNames.includes(ownerName)) ||
-          (!isReport && taskDept === myDept)
-        )
-          isVisible = true;
       } else {
-        if (ownerMatchesMe || assignedByMe) isVisible = true;
+        // Strict Privacy: Tasks are only visible to owner and assigner
+        if (ownerMatchesMe || assignedByMe) {
+          isVisible = true;
+        } else if (isReport) {
+          // Reports follow hierarchy: visible to supervisors
+          if (hasAccess(3)) {
+            if (taskDept === myDept || !taskDept) isVisible = true;
+          } else if (hasAccess(2)) {
+            if (directSubNames.includes(ownerName) || taskDept === myDept)
+              isVisible = true;
+          }
+        }
       }
 
       if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
