@@ -287,7 +287,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "14.9.2";
+const APP_VERSION = "14.9.3";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
