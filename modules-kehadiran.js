@@ -776,7 +776,7 @@ async function updateCuti(id) {
       selesai,
       durasi,
       keterangan: document.getElementById("editCtKet").value,
-      attachments: allAttachments,
+      attachments: JSON.parse(JSON.stringify(allAttachments)),
       updatedAt: new Date().toISOString(),
     });
     toast("Pengajuan cuti berhasil diperbarui", "success");
@@ -3411,8 +3411,7 @@ async function generateAndNotifyReportSummary() {
 
 async function renderReportSummary() {
   const main = document.getElementById("mainContent");
-  main.innerHTML =
-    '<div class="page-title"><span>\ud83d\udccb Rangkuman Daily Report</span></div><div id="reportSummaryContent"><div class="loading-spinner"></div> Loading...</div>';
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📋 Rangkuman Daily Report</span><div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="navigateTo('daily-task')">📋 Daily Task</button></div></div><div id="reportSummaryContent"><div class="loading-spinner"></div> Loading...</div>`;
 
   const today = todayStr();
   await _loadReportSummaryForDate(today);
@@ -3811,19 +3810,21 @@ async function shareReportWA() {
     return;
   }
   try {
-    await Promise.all(
-      waNumbers.map(function (waNumber) {
-        return db.collection("hrd_wa_outbox").add({
-          targetNumber: waNumber,
-          message: text,
-          type: "daily_report_summary",
-          requestedBy: currentUser?.nama || "system",
-          requestedById: currentUser?.id || "",
-          createdAt: new Date().toISOString(),
-          status: "queued",
-        });
-      }),
-    );
+    const batch = db.batch();
+    waNumbers.forEach(function (waNumber) {
+      const ref = db.collection("hrd_wa_outbox").doc();
+      batch.set(ref, {
+        targetNumber: waNumber,
+        message: text,
+        type: "daily_report_summary",
+        requestedBy: currentUser?.nama || "system",
+        requestedById: currentUser?.id || "",
+        createdAt: new Date().toISOString(),
+        status: "queued",
+      });
+    });
+    await batch.commit();
+
     toast(
       "Report masuk antrian kirim WA ke " + waNumbers.length + " nomor admin.",
       "success",

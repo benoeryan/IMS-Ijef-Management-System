@@ -62,12 +62,23 @@ function getJakartaDateParts(date = new Date()) {
 }
 
 function parseTimeToMinuteOfDay(timeStr) {
-  const m = String(timeStr || '').match(/^(\d{2}):(\d{2})$/);
-  if (!m) return 18 * 60;
-  const hh = Number(m[1]);
-  const mm = Number(m[2]);
-  if (Number.isNaN(hh) || Number.isNaN(mm)) return 18 * 60;
-  return Math.max(0, Math.min(23, hh)) * 60 + Math.max(0, Math.min(59, mm));
+  if (!timeStr) return 18 * 60;
+  // Handle HH:mm format (24h)
+  let m = String(timeStr).match(/^(\d{1,2}):(\d{2})$/);
+  if (m) {
+    return Number(m[1]) * 60 + Number(m[2]);
+  }
+  // Handle hh:mm A format (12h)
+  m = String(timeStr).match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (m) {
+    let hh = Number(m[1]);
+    const mm = Number(m[2]);
+    const ampm = m[3].toUpperCase();
+    if (ampm === 'PM' && hh < 12) hh += 12;
+    if (ampm === 'AM' && hh === 12) hh = 0;
+    return hh * 60 + mm;
+  }
+  return 18 * 60;
 }
 
 function buildDailyReportSummaryMessage(reportDate, reports) {
@@ -546,6 +557,8 @@ exports.autoQueueDailyReportWa = functions.pubsub
     const nowParts = getJakartaDateParts(new Date());
     const targetMinute = parseTimeToMinuteOfDay(cfg.waAutoReportTime || '18:00');
     const nowMinute = nowParts.minuteOfDay;
+
+    functions.logger.info(`Daily Report Scheduler Check: ${nowParts.date} ${nowParts.time} (min: ${nowMinute}) vs Target: ${targetMinute}`);
 
     if (nowMinute < targetMinute) return null;
 

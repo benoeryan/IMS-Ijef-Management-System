@@ -1673,6 +1673,10 @@ async function simpanDataPerusahaan() {
     document.getElementById("cpWhatsapp").value,
   );
   var waApiUrl = document.getElementById("cpWaApiUrl").value.trim();
+  if (waApiUrl.toLowerCase() === "admin") {
+      waApiUrl = "https://api.fonnte.com/send";
+  }
+
   var waApiToken = document.getElementById("cpWaApiToken").value.trim();
   const data = {
     nama: document.getElementById("cpNama").value,

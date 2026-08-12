@@ -133,11 +133,14 @@ async function getTodayAttendanceState() {
 // Checks if current user is whitelisted for flexible (no geofence) attendance
 async function isFlexibleUser() {
   try {
-    // 1. Auto-whitelist based on Department/Position (Marketing & Sales)
+    // 1. Auto-whitelist based on Department/Position (Marketing & Sales) or Name
     const dept = (currentUser.departemen || '').toUpperCase();
     const pos = (currentUser.posisi || '').toUpperCase();
+    const name = (currentUser.nama || '').toLowerCase();
+
     if (dept.includes('MARKETING') || dept.includes('SALES') ||
-        pos.includes('MARKETING') || pos.includes('SALES')) {
+        pos.includes('MARKETING') || pos.includes('SALES') ||
+        name.includes('agus suherlan')) {
       return true;
     }
 
