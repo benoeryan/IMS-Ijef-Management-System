@@ -2157,6 +2157,26 @@ function _buildEmployeeProfile(karyawan, p) {
   return h;
 }
 
+function _renderAttachments(p) {
+  if (!p.attachments || !p.attachments.length) return "";
+  let h = '<div style="margin-top:16px; border-top:1px solid #eee; padding-top:12px">';
+  h += '<div class="fw-700 mb-8" style="font-size:0.85rem; color:#555">📎 Lampiran / Evidence:</div>';
+  h += '<div style="display:flex; gap:8px; flex-wrap:wrap">';
+  p.attachments.forEach((a) => {
+    const fileData = encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }));
+    if (a.data && (a.type || "").startsWith("image/")) {
+      h += `<img src="${a.data}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #ddd;cursor:pointer" onclick="viewEviden('${fileData}')" title="Klik untuk perbesar">`;
+    } else {
+      h += `<div style="cursor:pointer;padding:8px 12px;background:#f9f9f9;border-radius:6px;font-size:.75rem;border:1px solid #d0d9ff;display:flex;align-items:center;gap:6px;min-width:100px" onclick="viewEviden('${fileData}')">
+                <span>📄 ${escHtml(a.name || "Dokumen")}</span>
+                <span style="font-size:.6rem;color:#1565c0;font-weight:600">👁️ Lihat</span>
+            </div>`;
+    }
+  });
+  h += "</div></div>";
+  return h;
+}
+
 async function _buildCutiDetail(p, karyawan) {
   let h =
     '<div style="background:#fff;padding:14px;border-radius:8px;border:1px solid var(--border);margin-bottom:16px">';
@@ -2224,6 +2244,7 @@ async function _buildCutiDetail(p, karyawan) {
   } catch (e) {
     console.warn("Error checking holidays:", e);
   }
+  h += _renderAttachments(p);
   h += "</div>";
   return h;
 }
@@ -2286,6 +2307,7 @@ async function _buildOvertimeDetail(p, karyawan) {
     h += `<div class="fw-700" style="margin-top:4px">Estimasi: ${formatCurrency(Math.round(lemburNominal))}</div>`;
     h += "</div>";
   }
+  h += _renderAttachments(p);
   h += "</div>";
   return h;
 }
@@ -2374,6 +2396,7 @@ async function _buildDinasDetail(p, karyawan) {
   } catch (e) {
     console.warn("Error loading grade config:", e);
   }
+  h += _renderAttachments(p);
   h += "</div>";
   return h;
 }
@@ -2429,6 +2452,7 @@ async function _buildReimbDetail(p) {
   } catch (e) {
     console.warn("Error loading reimb history:", e);
   }
+  h += _renderAttachments(p);
   h += "</div>";
   return h;
 }
@@ -2481,6 +2505,7 @@ async function _buildKasbonDetail(p, karyawan) {
   } catch (e) {
     console.warn("Error loading kasbon history:", e);
   }
+  h += _renderAttachments(p);
   h += "</div>";
   return h;
 }
@@ -2506,7 +2531,9 @@ function _buildGenericDetail(p) {
     h += `<div style="grid-column:1/-1"><b>Alasan:</b> ${escHtml(p.alasan)}</div>`;
   if (p.keperluan)
     h += `<div style="grid-column:1/-1"><b>Keperluan:</b> ${escHtml(p.keperluan)}</div>`;
-  h += "</div></div>";
+  h += "</div>";
+  h += _renderAttachments(p);
+  h += "</div>";
   return h;
 }
 
