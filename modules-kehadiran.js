@@ -770,27 +770,37 @@ async function updateCuti(id) {
 
   try {
     toast("⏳ Menyimpan perubahan...", "info");
-    await db.collection("hrd_cuti").doc(id).update({
-      jenis,
-      mulai,
-      selesai,
-      durasi,
-      keterangan: document.getElementById("editCtKet").value,
-      attachments: allAttachments.map(a => {
-          // Explicitly map properties to avoid circular references or invalid types
-          return {
-              name: String(a.name || "File"),
-              type: String(a.type || ""),
-              size: Number(a.size || 0),
-              data: String(a.data || "")
-          };
-      }),
-      updatedAt: new Date().toISOString(),
+
+    // Clean and sanitize the payload to avoid "invalid nested entity" error
+    const cleanAttachments = allAttachments.filter(a => !!a).map(a => {
+        return {
+            name: String(a.name || "File"),
+            type: String(a.type || ""),
+            size: Number(a.size || 0),
+            data: String(a.data || "")
+        };
     });
+
+    const payload = {
+        jenis: String(jenis || ""),
+        mulai: String(mulai || ""),
+        selesai: String(selesai || ""),
+        durasi: Number(durasi) || 0,
+        keterangan: String(document.getElementById("editCtKet")?.value || ""),
+        attachments: cleanAttachments,
+        updatedAt: new Date().toISOString(),
+    };
+
+    // Final brute-force check to ensure only plain objects/primitives are sent
+    const finalizedPayload = JSON.parse(JSON.stringify(payload));
+
+    await db.collection("hrd_cuti").doc(id).update(finalizedPayload);
+
     toast("Pengajuan cuti berhasil diperbarui", "success");
     closeModalDirect();
     renderCuti();
   } catch (e) {
+    console.error("[Cuti Update Error]", e);
     toast("Gagal update: " + e.message, "error");
   }
 }

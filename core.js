@@ -287,7 +287,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "14.9.4";
+const APP_VERSION = "14.9.5";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -1877,15 +1877,6 @@ function showInAppNotification(title, message, link) {
   }, 6000);
 }
 
-function playNotificationSound() {
-  try {
-    // Standard subtle notification sound
-    const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
-    audio.volume = 0.5;
-    audio.play().catch((e) => console.warn("Audio play blocked by browser:", e.message));
-  } catch (e) {}
-}
-
 let _notifUnsubscribe = [];
 async function updateNotifBadge() {
   if (!currentUser) return;
@@ -1896,7 +1887,6 @@ async function updateNotifBadge() {
     const q2 = db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.role);
 
     const handleSnapshot = (snap) => {
-      let unreadCount = 0;
       let hasNewAdded = false;
 
       snap.docChanges().forEach(change => {
@@ -1905,10 +1895,11 @@ async function updateNotifBadge() {
           }
       });
 
-      if (hasNewAdded) playNotificationSound();
+      if (hasNewAdded) {
+          console.log("[Notif] New notification detected, playing sound...");
+          playNotificationSound();
+      }
 
-      // We still need to calculate the total unread across both queries,
-      // so we call a simplified counter.
       _calculateTotalUnread();
     };
 
@@ -1918,6 +1909,18 @@ async function updateNotifBadge() {
 }
 
 async function _calculateTotalUnread() {
+  const [s1, s2] = await Promise.all([
+    db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.id).where("read", "==", false).get(),
+    db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.role).where("read", "==", false).get(),
+  ]);
+
+  const count = s1.size + s2.size;
+  const badge = document.getElementById("notifCount");
+  if (badge) {
+    badge.textContent = count;
+    badge.style.display = count > 0 ? "block" : "none";
+  }
+}
   const [s1, s2] = await Promise.all([
     db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.id).where("read", "==", false).get(),
     db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.role).where("read", "==", false).get(),
