@@ -763,22 +763,26 @@ async function updateCuti(id) {
   }
 
   const newAttachments = await getFilesAsBase64("editCtFiles");
+  // Ensure we don't have any hidden complexity in existing attachments
+  const existingAttachments = Array.isArray(window._existingCutiAttachments) ? window._existingCutiAttachments : [];
   const allAttachments = [
-    ...(window._existingCutiAttachments || []),
+    ...existingAttachments,
     ...newAttachments,
   ];
 
   try {
     toast("⏳ Menyimpan perubahan...", "info");
 
-    // Clean and sanitize the payload to avoid "invalid nested entity" error
-    const cleanAttachments = allAttachments.filter(a => !!a).map(a => {
-        return {
+    // EXTREME CLEANING: Re-create every object to ensure NO prototype or hidden properties
+    const cleanAttachments = [];
+    allAttachments.forEach(a => {
+        if (!a || typeof a !== 'object') return;
+        cleanAttachments.push({
             name: String(a.name || "File"),
             type: String(a.type || ""),
             size: Number(a.size || 0),
             data: String(a.data || "")
-        };
+        });
     });
 
     const payload = {
@@ -791,16 +795,14 @@ async function updateCuti(id) {
         updatedAt: new Date().toISOString(),
     };
 
-    // Final brute-force check to ensure only plain objects/primitives are sent
-    const finalizedPayload = JSON.parse(JSON.stringify(payload));
-
-    await db.collection("hrd_cuti").doc(id).update(finalizedPayload);
+    // Use .set with merge:true as it's often more reliable for complex updates in some SDKs
+    await db.collection("hrd_cuti").doc(id).set(payload, { merge: true });
 
     toast("Pengajuan cuti berhasil diperbarui", "success");
     closeModalDirect();
     renderCuti();
   } catch (e) {
-    console.error("[Cuti Update Error]", e);
+    console.error("[Cuti Update Error Detailed]", e);
     toast("Gagal update: " + e.message, "error");
   }
 }

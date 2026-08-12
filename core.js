@@ -287,7 +287,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "14.9.5";
+const APP_VERSION = "14.9.6";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -1909,18 +1909,6 @@ async function updateNotifBadge() {
 }
 
 async function _calculateTotalUnread() {
-  const [s1, s2] = await Promise.all([
-    db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.id).where("read", "==", false).get(),
-    db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.role).where("read", "==", false).get(),
-  ]);
-
-  const count = s1.size + s2.size;
-  const badge = document.getElementById("notifCount");
-  if (badge) {
-    badge.textContent = count;
-    badge.style.display = count > 0 ? "block" : "none";
-  }
-}
   const [s1, s2] = await Promise.all([
     db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.id).where("read", "==", false).get(),
     db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.role).where("read", "==", false).get(),
