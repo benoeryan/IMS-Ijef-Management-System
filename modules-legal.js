@@ -1150,6 +1150,20 @@ window.viewLegalTicket = async function(id) {
             }
         }
 
+        let lampiranHtml = '<p class="text-secondary italic">Tidak ada lampiran file.</p>';
+        if (t.lampiran && t.lampiran.length > 0) {
+            lampiranHtml = t.lampiran.map(file => `
+                <div class="flex items-center gap-8 mb-4 p-8" style="background:#f1f5f9; border-radius:6px">
+                    <span style="font-size:1.5rem">📄</span>
+                    <div style="flex:1">
+                        <div class="fw-700 text-sm">${escHtml(file.name)}</div>
+                        <div class="text-xs text-secondary">File Pendukung / Evidence</div>
+                    </div>
+                    <a href="${file.url}" target="_blank" class="btn btn-xs btn-primary">Buka</a>
+                </div>
+            `).join('');
+        }
+
         openModal(`
             <div class="modal-title">📑 Detail Tiket & Draf Dokumen Legal</div>
             <table class="table-detail">
@@ -1160,6 +1174,12 @@ window.viewLegalTicket = async function(id) {
                 <tr><td>Status</td><td><span class="badge badge-info">${t.status}</span></td></tr>
                 <tr><td>Tanggal Dibuat</td><td>${formatDate(t.createdAt)}</td></tr>
             </table>
+
+            <div class="mt-16">
+                <div class="fw-700 text-xs text-secondary mb-4 uppercase">Dokumen Lampiran / Evidence:</div>
+                ${lampiranHtml}
+            </div>
+
             ${draftDetailHtml}
             <div class="mt-16 flex gap-8 justify-end flex-wrap">
                 <button class="btn btn-warning" onclick="closeModalDirect(); editLegalTicket('${id}')">✏️ Edit Dokumen</button>
@@ -1212,6 +1232,22 @@ window.editLegalTicket = async function(id) {
                     <option value="Ditolak" ${t.status === 'Ditolak' ? 'selected' : ''}>Ditolak</option>
                 </select>
             </div>
+            <div class="form-group mb-12">
+                <label class="form-label fw-700 text-xs text-secondary">📁 Upload Lampiran (PDF, Word, Excel)</label>
+                <input type="file" class="form-control" id="editTicketFile" accept=".pdf,.doc,.docx,.xls,.xlsx">
+                <p class="text-xs text-secondary mt-4">Pilih file untuk menambah atau mengganti lampiran utama.</p>
+            </div>
+            ${t.lampiran && t.lampiran.length > 0 ? `
+                <div class="mb-12 p-8" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px">
+                    <div class="fw-700 text-xs mb-4">Lampiran Tersimpan:</div>
+                    ${t.lampiran.map((file, idx) => `
+                        <div class="flex justify-between items-center text-sm py-2">
+                            <span>📄 ${escHtml(file.name)}</span>
+                            <a href="${file.url}" target="_blank" class="color-primary fw-600 text-xs">Lihat</a>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
             ${extraContent}
             <div class="mt-16 flex gap-8 justify-end">
                 <button class="btn btn-primary" onclick="simpanEditLegalTicket('${id}', '${t.draftId || ''}')">💾 Simpan Perubahan</button>
@@ -1228,17 +1264,35 @@ window.simpanEditLegalTicket = async function(id, draftId) {
     const noSurat = document.getElementById("editTicketNoSurat")?.value.trim();
     const dept = document.getElementById("editTicketDept")?.value.trim();
     const status = document.getElementById("editTicketStatus")?.value;
+    const fileInput = document.getElementById("editTicketFile");
 
     if (!judul) return toast("Judul dokumen tidak boleh kosong", "warning");
 
     try {
-        await db.collection("hrd_legal_tickets").doc(id).update({
+        toast("⏳ Sedang menyimpan perubahan...", "info");
+
+        let lampiran = [];
+        const oldDoc = await db.collection("hrd_legal_tickets").doc(id).get();
+        if (oldDoc.exists) lampiran = oldDoc.data().lampiran || [];
+
+        // Handle File Upload
+        if (fileInput && fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const path = `legal/tickets/${Date.now()}_${file.name}`;
+            const url = await uploadFileToStorage(file, path);
+            lampiran.push({ name: file.name, url: url, path: path });
+        }
+
+        const updateData = {
             judul,
             noSurat: noSurat || "-",
             dept: dept || "Legal & HRD",
             status: status || "Draf Dokumen",
+            lampiran,
             updatedAt: new Date().toISOString()
-        });
+        };
+
+        await db.collection("hrd_legal_tickets").doc(id).update(updateData);
 
         if (draftId) {
             await db.collection("hrd_legal_drafts").doc(draftId).update({
@@ -1534,19 +1588,47 @@ window.loadLegalSengketa = async function() {
 window.modalKajianHukum = function() {
     openModal(`
         <div class="modal-title">Buat Tiket Kajian Hukum</div>
-        <div class="form-group"><label>Judul Kajian</label><input class="form-control" id="lgJudul"></div>
-        <button class="btn btn-primary" onclick="simpanKajianHukum()">Simpan</button>`, true);
+        <div class="form-group mb-12">
+            <label class="form-label fw-700 text-xs text-secondary">JUDUL KAJIAN *</label>
+            <input class="form-control" id="lgJudul" placeholder="Masukkan Judul Kajian...">
+        </div>
+        <div class="form-group mb-12">
+            <label class="form-label fw-700 text-xs text-secondary">📁 Upload Lampiran / Evidence (PDF, Word, Excel)</label>
+            <input type="file" class="form-control" id="lgFile" accept=".pdf,.doc,.docx,.xls,.xlsx">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="simpanKajianHukum()">Simpan Tiket</button>`, true);
 };
 window.simpanKajianHukum = async function() {
-    const judul = document.getElementById("lgJudul").value;
+    const judul = document.getElementById("lgJudul").value.trim();
+    const fileInput = document.getElementById("lgFile");
+
     if(!judul) return toast("Judul wajib diisi", "warning");
-    await db.collection("hrd_legal_tickets").add({
-        ticket_id: "LGL-" + Date.now().toString().slice(-6),
-        judul,
-        status:"pending",
-        createdAt: new Date().toISOString()
-    });
-    closeModalDirect(); renderKajianHukum();
+
+    try {
+        toast("⏳ Sedang menyimpan...", "info");
+
+        let lampiran = [];
+        if (fileInput && fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const path = `legal/tickets/${Date.now()}_${file.name}`;
+            const url = await uploadFileToStorage(file, path);
+            lampiran.push({ name: file.name, url: url, path: path });
+        }
+
+        await db.collection("hrd_legal_tickets").add({
+            ticket_id: "LGL-" + Date.now().toString().slice(-6),
+            judul,
+            status: "pending",
+            lampiran,
+            createdAt: new Date().toISOString()
+        });
+
+        toast("✅ Tiket kajian berhasil dibuat!", "success");
+        closeModalDirect();
+        loadLegalTickets();
+    } catch (e) {
+        toast("Gagal menyimpan: " + e.message, "error");
+    }
 };
 window.modalPerizinan = function() {
     openModal(`
