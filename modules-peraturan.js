@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '15.7',
+            version: '15.8',
             updatedAt: new Date().toISOString(),
-            note: 'Add edit functionality for leave requests'
+            note: 'Enhance Sengketa Hukum: Added drafting, file uploads, and edit functionality'
         }, { merge: true });
 
     } catch (e) {

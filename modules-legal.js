@@ -64,13 +64,16 @@ window.renderLegalSengketa = async function() {
     main.innerHTML = `
     <div class="page-title">
         <span>${renderBackButton()}⚠️ Sengketa & Kasus Hukum</span>
-        <button class="btn btn-primary btn-sm" onclick="modalSengketa()">+ Tambah Kasus</button>
+        <div class="flex gap-8">
+            <button class="btn btn-info btn-sm" onclick="modalLegalDrafting()">✍️ Buat Draft Dokumen</button>
+            <button class="btn btn-primary btn-sm" onclick="modalSengketa()">+ Tambah Kasus</button>
+        </div>
     </div>
     <div class="card">
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>ID</th><th>Judul</th><th>Kategori</th><th>Status</th><th>Pihak</th><th>Tanggal</th><th>Aksi</th></tr>
+                    <tr><th>ID Kasus</th><th>Judul Kasus</th><th>Kategori</th><th>Status</th><th>Pihak Terlibat</th><th>Tanggal</th><th>Aksi</th></tr>
                 </thead>
                 <tbody id="tblLegalSengketa">
                     <tr><td colspan="7" class="text-center">Memuat data...</td></tr>
@@ -1489,13 +1492,42 @@ window.viewLegalPerizinan = async function(id) {
 window.loadLegalSengketa = async function() {
     const tbody = document.getElementById("tblLegalSengketa");
     if(!tbody) return;
-    const snap = await db.collection("hrd_legal_sengketa").get();
-    let h = "";
-    snap.forEach(d => {
-        const p = d.data();
-        h += `<tr><td>-</td><td>${escHtml(p.judul)}</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>`;
-    });
-    if (tbody) tbody.innerHTML = h || '<tr><td colspan="7" class="text-center">Kosong</td></tr>';
+    try {
+        const snap = await db.collection("hrd_legal_sengketa").get();
+        let items = [];
+        snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+
+        items.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+
+        let h = "";
+        items.forEach(p => {
+            const status = p.status || "Proses";
+            let stClass = "badge-warning";
+            if (status === "Selesai" || status === "Win") stClass = "badge-success";
+            else if (status === "Kalah" || status === "Batal") stClass = "badge-danger";
+            else if (status === "Mediasi") stClass = "badge-info";
+
+            h += `<tr>
+                <td class="fw-700">${p.kasus_id || "-"}</td>
+                <td class="fw-600">${escHtml(p.judul)}</td>
+                <td>${escHtml(p.kategori || "-")}</td>
+                <td><span class="badge ${stClass}">${status}</span></td>
+                <td>${escHtml(p.pihak || "-")}</td>
+                <td>${formatDate(p.tanggal)}</td>
+                <td>
+                    <div style="display:flex; gap:4px; flex-wrap:nowrap">
+                        <button class="btn btn-xs btn-info" onclick="viewLegalSengketa('${p.id}')">👁️ Detail</button>
+                        <button class="btn btn-xs btn-warning" onclick="modalSengketa('${p.id}')">✏️ Edit</button>
+                        <button class="btn btn-xs btn-danger" onclick="deleteLegalSengketa('${p.id}')">🗑️ Hapus</button>
+                    </div>
+                </td>
+            </tr>`;
+        });
+        tbody.innerHTML = h || '<tr><td colspan="7" class="text-center">Belum ada data sengketa hukum</td></tr>';
+    } catch (e) {
+        console.error("loadLegalSengketa error:", e);
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center color-danger">Gagal memuat data: ${e.message}</td></tr>`;
+    }
 };
 
 // ── 6. ACTIONS ───────────────────────────────────────────────────────────────
@@ -1616,15 +1648,227 @@ window.simpanPerizinan = async function() {
         toast("Gagal simpan: " + e.message, "error");
     }
 };
-window.modalSengketa = function() {
+window.modalSengketa = async function(id) {
+    let p = {
+        judul: "",
+        kategori: "Litigasi",
+        pihak: "",
+        tanggal: todayStr(),
+        status: "Proses",
+        deskripsi: "",
+        noPerkara: "",
+        lampiran: []
+    };
+
+    if (id) {
+        try {
+            const doc = await db.collection("hrd_legal_sengketa").doc(id).get();
+            if (doc.exists) p = doc.data();
+        } catch (e) {
+            return toast("Gagal memuat data: " + e.message, "error");
+        }
+    }
+
     openModal(`
-        <div class="modal-title">Tambah Kasus Sengketa</div>
-        <div class="form-group"><label>Judul Kasus</label><input class="form-control" id="skJudul"></div>
-        <button class="btn btn-primary" onclick="simpanSengketa()">Simpan</button>`, true);
+        <div class="modal-title">${id ? 'Edit' : 'Tambah'} Kasus Sengketa Hukum</div>
+        <div class="form-group mb-12">
+            <label class="form-label fw-700 text-xs text-secondary">JUDUL KASUS / SENGKETA *</label>
+            <input class="form-control" id="skJudul" value="${escHtml(p.judul)}" placeholder="Masukkan Judul Kasus...">
+        </div>
+        <div class="grid-2 mb-12">
+            <div class="form-group">
+                <label class="form-label fw-700 text-xs text-secondary">Kategori Kasus</label>
+                <select class="form-control" id="skKategori">
+                    <option value="Litigasi" ${p.kategori === 'Litigasi' ? 'selected' : ''}>Litigasi</option>
+                    <option value="Non-Litigasi" ${p.kategori === 'Non-Litigasi' ? 'selected' : ''}>Non-Litigasi</option>
+                    <option value="Ketenagakerjaan" ${p.kategori === 'Ketenagakerjaan' ? 'selected' : ''}>Ketenagakerjaan</option>
+                    <option value="Perdata" ${p.kategori === 'Perdata' ? 'selected' : ''}>Perdata</option>
+                    <option value="Pidana" ${p.kategori === 'Pidana' ? 'selected' : ''}>Pidana</option>
+                    <option value="Lainnya" ${p.kategori === 'Lainnya' ? 'selected' : ''}>Lainnya</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label fw-700 text-xs text-secondary">Status</label>
+                <select class="form-control" id="skStatus">
+                    <option value="Proses" ${p.status === 'Proses' ? 'selected' : ''}>Proses</option>
+                    <option value="Mediasi" ${p.status === 'Mediasi' ? 'selected' : ''}>Mediasi</option>
+                    <option value="Selesai" ${p.status === 'Selesai' ? 'selected' : ''}>Selesai</option>
+                    <option value="Win" ${p.status === 'Win' ? 'selected' : ''}>Win (Menang)</option>
+                    <option value="Kalah" ${p.status === 'Kalah' ? 'selected' : ''}>Kalah</option>
+                    <option value="Batal" ${p.status === 'Batal' ? 'selected' : ''}>Batal</option>
+                </select>
+            </div>
+        </div>
+        <div class="grid-2 mb-12">
+            <div class="form-group">
+                <label class="form-label fw-700 text-xs text-secondary">Pihak Terlibat</label>
+                <input class="form-control" id="skPihak" value="${escHtml(p.pihak)}" placeholder="Nama Pihak Lawan/Terkait">
+            </div>
+            <div class="form-group">
+                <label class="form-label fw-700 text-xs text-secondary">Tanggal Kejadian / Lapor</label>
+                <input class="form-control" type="date" id="skTanggal" value="${p.tanggal}">
+            </div>
+        </div>
+        <div class="form-group mb-12">
+            <label class="form-label fw-700 text-xs text-secondary">Nomor Perkara (Jika ada)</label>
+            <input class="form-control" id="skNoPerkara" value="${escHtml(p.noPerkara)}" placeholder="Contoh: 123/Pdt.G/2026/PN JKT">
+        </div>
+        <div class="form-group mb-12">
+            <label class="form-label fw-700 text-xs text-secondary">Deskripsi Singkat & Kronologi</label>
+            <textarea class="form-control" id="skDeskripsi" rows="3" placeholder="Jelaskan ringkasan kasus...">${escHtml(p.deskripsi)}</textarea>
+        </div>
+        <div class="form-group mb-12">
+            <label class="form-label fw-700 text-xs text-secondary">📁 Upload Lampiran (PDF, Word, Excel)</label>
+            <input type="file" class="form-control" id="skFile" accept=".pdf,.doc,.docx,.xls,.xlsx">
+            <p class="text-xs text-secondary mt-4">Pilih file untuk menambah atau mengganti lampiran utama.</p>
+        </div>
+        ${p.lampiran && p.lampiran.length > 0 ? `
+            <div class="mb-12 p-8" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px">
+                <div class="fw-700 text-xs mb-4">Lampiran Tersimpan:</div>
+                ${p.lampiran.map((file, idx) => `
+                    <div class="flex justify-between items-center text-sm py-2">
+                        <span>📄 ${escHtml(file.name)}</span>
+                        <a href="${file.url}" target="_blank" class="color-primary fw-600 text-xs">Lihat</a>
+                    </div>
+                `).join('')}
+            </div>
+        ` : ''}
+        <div class="mt-16 flex gap-8 justify-end">
+            <button class="btn btn-primary" onclick="simpanSengketa('${id || ''}')">💾 ${id ? 'Update' : 'Simpan'} Kasus</button>
+            <button class="btn btn-outline" onclick="closeModalDirect()">Batal</button>
+        </div>
+    `, true);
 };
-window.simpanSengketa = async function() {
-    const judul = document.getElementById("skJudul").value;
-    if(!judul) return toast("Judul wajib", "warning");
-    await db.collection("hrd_legal_sengketa").add({judul, createdAt: new Date().toISOString()});
-    closeModalDirect(); renderLegalSengketa();
+
+window.simpanSengketa = async function(id) {
+    const judul = document.getElementById("skJudul").value.trim();
+    const kategori = document.getElementById("skKategori").value;
+    const status = document.getElementById("skStatus").value;
+    const pihak = document.getElementById("skPihak").value.trim();
+    const tanggal = document.getElementById("skTanggal").value;
+    const noPerkara = document.getElementById("skNoPerkara").value.trim();
+    const deskripsi = document.getElementById("skDeskripsi").value.trim();
+    const fileInput = document.getElementById("skFile");
+
+    if (!judul) return toast("Judul wajib diisi", "warning");
+
+    try {
+        toast("⏳ Sedang menyimpan...", "info");
+
+        let lampiran = [];
+        // If editing, keep old attachments for now (simple implementation)
+        if (id) {
+            const oldDoc = await db.collection("hrd_legal_sengketa").doc(id).get();
+            if (oldDoc.exists) lampiran = oldDoc.data().lampiran || [];
+        }
+
+        // Handle File Upload
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const path = `legal/sengketa/${Date.now()}_${file.name}`;
+            const url = await uploadFileToStorage(file, path);
+            lampiran.push({ name: file.name, url: url, path: path });
+        }
+
+        const data = {
+            judul,
+            kategori,
+            status,
+            pihak,
+            tanggal,
+            noPerkara,
+            deskripsi,
+            lampiran,
+            updatedAt: new Date().toISOString()
+        };
+
+        if (id) {
+            await db.collection("hrd_legal_sengketa").doc(id).update(data);
+            toast("✅ Kasus sengketa berhasil diperbarui!", "success");
+        } else {
+            data.kasus_id = "SK-" + Date.now().toString().slice(-6);
+            data.createdAt = new Date().toISOString();
+            await db.collection("hrd_legal_sengketa").add(data);
+            toast("✅ Kasus sengketa berhasil ditambahkan!", "success");
+        }
+
+        closeModalDirect();
+        renderLegalSengketa();
+    } catch (e) {
+        console.error("simpanSengketa error:", e);
+        toast("❌ Gagal menyimpan: " + e.message, "error");
+    }
+};
+
+window.viewLegalSengketa = async function(id) {
+    try {
+        const doc = await db.collection("hrd_legal_sengketa").doc(id).get();
+        if (!doc.exists) return toast("Data tidak ditemukan", "warning");
+        const p = doc.data();
+
+        let lampiranHtml = '<p class="text-secondary italic">Tidak ada lampiran.</p>';
+        if (p.lampiran && p.lampiran.length > 0) {
+            lampiranHtml = p.lampiran.map(file => `
+                <div class="flex items-center gap-8 mb-4 p-8" style="background:#f1f5f9; border-radius:6px">
+                    <span style="font-size:1.5rem">📄</span>
+                    <div style="flex:1">
+                        <div class="fw-700 text-sm">${escHtml(file.name)}</div>
+                        <div class="text-xs text-secondary">Dokumen Lampiran Kasus</div>
+                    </div>
+                    <a href="${file.url}" target="_blank" class="btn btn-xs btn-primary">Buka</a>
+                </div>
+            `).join('');
+        }
+
+        openModal(`
+            <div class="modal-title">👁️ Detail Kasus Sengketa Hukum</div>
+            <div style="background:#f9f9f9; padding:16px; border-radius:8px; border-left:4px solid var(--primary); margin-bottom:16px">
+                <h3 class="mb-4">${escHtml(p.judul)}</h3>
+                <div class="flex gap-8">
+                    <span class="badge badge-info">${escHtml(p.kategori)}</span>
+                    <span class="badge badge-warning">${escHtml(p.status)}</span>
+                </div>
+            </div>
+
+            <div class="grid-2 mb-16" style="font-size:0.85rem; gap:12px">
+                <div><b>ID Kasus:</b> ${escHtml(p.kasus_id || '-')}</div>
+                <div><b>Tanggal:</b> ${formatDate(p.tanggal)}</div>
+                <div><b>Pihak Terlibat:</b> ${escHtml(p.pihak || '-')}</div>
+                <div><b>No. Perkara:</b> ${escHtml(p.noPerkara || '-')}</div>
+            </div>
+
+            <div class="mb-16">
+                <div class="fw-700 text-xs text-secondary mb-4 uppercase">Deskripsi & Kronologi:</div>
+                <div class="p-12" style="background:#fff; border:1px solid #eee; border-radius:8px; font-size:0.9rem; line-height:1.6; white-space:pre-wrap">
+                    ${escHtml(p.deskripsi || 'Tidak ada deskripsi.')}
+                </div>
+            </div>
+
+            <div class="mb-16">
+                <div class="fw-700 text-xs text-secondary mb-4 uppercase">Dokumen Lampiran:</div>
+                ${lampiranHtml}
+            </div>
+
+            <div class="mt-20 pt-16 border-top flex justify-between items-center">
+                <div class="text-xs text-secondary italic">Terakhir diupdate: ${formatDateTime(p.updatedAt || p.createdAt)}</div>
+                <div class="flex gap-8">
+                    <button class="btn btn-warning btn-sm" onclick="closeModalDirect(); modalSengketa('${id}')">✏️ Edit</button>
+                    <button class="btn btn-outline btn-sm" onclick="closeModalDirect()">Tutup</button>
+                </div>
+            </div>
+        `, true);
+    } catch (e) {
+        toast("Gagal memuat detail: " + e.message, "error");
+    }
+};
+
+window.deleteLegalSengketa = async function(id) {
+    if (!confirm("Apakah Anda yakin ingin menghapus data kasus ini? Tindakan ini tidak dapat dibatalkan.")) return;
+    try {
+        await db.collection("hrd_legal_sengketa").doc(id).delete();
+        toast("✅ Data berhasil dihapus", "success");
+        renderLegalSengketa();
+    } catch (e) {
+        toast("Gagal menghapus: " + e.message, "error");
+    }
 };
