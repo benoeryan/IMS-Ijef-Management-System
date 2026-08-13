@@ -207,15 +207,21 @@ function buildDailyReportSummaryMessage(reportDate, reports) {
 }
 
 async function loadDailyReportsForDate(reportDate) {
-  const snap = await db.collection('hrd_daily_tasks').get();
-  const reports = [];
-  snap.forEach((d) => {
-    const data = d.data() || {};
-    if (data.type === 'report' && String(data.tanggal || '') === reportDate) {
-      reports.push(data);
-    }
-  });
-  return reports;
+  try {
+    const snap = await db
+      .collection('hrd_daily_tasks')
+      .where('type', '==', 'report')
+      .where('tanggal', '==', reportDate)
+      .get();
+    const reports = [];
+    snap.forEach((d) => {
+      reports.push({ id: d.id, ...d.data() });
+    });
+    return reports;
+  } catch (e) {
+    functions.logger.error(`Error loading reports for ${reportDate}:`, e);
+    return [];
+  }
 }
 
 /**
@@ -502,6 +508,7 @@ exports.onWaOutboxCreated = functions.firestore
     }
 
     try {
+      functions.logger.info(`[WA] Sending to ${targetNumber} via ${provider}...`);
       const resp = await fetch(apiUrl, {
         method: 'POST',
         headers,
@@ -509,16 +516,17 @@ exports.onWaOutboxCreated = functions.firestore
       });
 
       const raw = await resp.text();
-      const responseSnippet = raw ? raw.slice(0, 500) : '';
+      const responseSnippet = raw ? raw.slice(0, 1000) : '';
 
       if (!resp.ok) {
+        functions.logger.error(`[WA] Gateway error ${resp.status}: ${responseSnippet}`);
         await docRef.set(
           {
             status: 'failed',
             failedAt: new Date().toISOString(),
             provider,
             httpStatus: resp.status,
-            error: `Gateway error ${resp.status}`,
+            error: `Gateway returned status ${resp.status}`,
             responseSnippet,
           },
           { merge: true }
@@ -526,6 +534,7 @@ exports.onWaOutboxCreated = functions.firestore
         return;
       }
 
+      functions.logger.info(`[WA] Successfully sent to ${targetNumber}`);
       await docRef.set(
         {
           status: 'sent',
@@ -537,12 +546,13 @@ exports.onWaOutboxCreated = functions.firestore
         { merge: true }
       );
     } catch (e) {
+      functions.logger.error(`[WA] Unexpected error sending to ${targetNumber}:`, e);
       await docRef.set(
         {
           status: 'failed',
           failedAt: new Date().toISOString(),
           provider,
-          error: e.message || 'Unknown WA gateway error',
+          error: e.message || 'Unknown network/fetch error',
         },
         { merge: true }
       );
@@ -566,13 +576,26 @@ exports.autoQueueDailyReportWa = functions.pubsub
     const targetNumbers = getConfiguredWaRecipients(cfg);
     if (!targetNumbers.length) return null;
 
-    const nowParts = getJakartaDateParts(new Date());
-    const targetMinute = parseTimeToMinuteOfDay(cfg.waAutoReportTime || '18:00');
+    const now = new Date();
+    const nowParts = getJakartaDateParts(now);
+
+    // Day check: Skip Sunday (0) unless specifically enabled in future
+    const jakartaDay = new Intl.DateTimeFormat('en-US', { weekday: 'numeric', timeZone: 'Asia/Jakarta' }).format(now);
+    if (jakartaDay == "0") {
+        functions.logger.info(`[Scheduler] It is Sunday in Jakarta. Skipping daily report.`);
+        return null;
+    }
+
+    const targetTimeStr = cfg.waAutoReportTime || '18:00';
+    const targetMinute = parseTimeToMinuteOfDay(targetTimeStr);
     const nowMinute = nowParts.minuteOfDay;
 
-    functions.logger.info(`Daily Report Scheduler Check: ${nowParts.date} ${nowParts.time} (min: ${nowMinute}) vs Target: ${targetMinute}`);
+    functions.logger.info(`[Scheduler] Checking Daily Report at ${nowParts.date} ${nowParts.time} (min: ${nowMinute}) vs Target: ${targetTimeStr} (min: ${targetMinute})`);
 
-    if (nowMinute < targetMinute) return null;
+    if (nowMinute < targetMinute) {
+        functions.logger.info(`[Scheduler] Too early. Skipping.`);
+        return null;
+    }
 
     const reportDate = nowParts.date;
     const schedulerRef = db.collection('hrd_scheduler_state').doc('daily_report');

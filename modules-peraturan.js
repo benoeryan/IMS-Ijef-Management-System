@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '15.9',
+            version: '16.0',
             updatedAt: new Date().toISOString(),
-            note: 'Enhance Kajian Hukum: Added file upload support for tickets'
+            note: 'Fix Daily Report WA share and schedule reliability (v16.0)'
         }, { merge: true });
 
     } catch (e) {

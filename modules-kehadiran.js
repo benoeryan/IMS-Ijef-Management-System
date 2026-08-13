@@ -3712,7 +3712,8 @@ async function _loadReportSummaryForDate(dateVal) {
         <div class="fw-700">\ud83d\udccb Rangkuman Report - ${escHtml(dateStr)}</div>
         <div class="flex gap-8">
           <input type="date" class="form-control" id="summaryDate" value="${escAttr(dateVal)}" onchange="loadReportSummaryByDate(this.value)" style="width:150px">
-          <button class="btn btn-sm btn-success" onclick="shareReportWA()">\ud83d\udce4 Share WA Admin</button>
+          <button class="btn btn-sm btn-success" onclick="shareReportWAManual()" style="background:#25D366; border-color:#25D366; color:#fff" title="Share langsung ke WhatsApp">📱 Share WA</button>
+          <button class="btn btn-sm btn-success" onclick="shareReportWA()" title="Kirim otomatis ke grup admin via Gateway">📡 Gateway WA</button>
         </div>
       </div>
     </div>
@@ -3862,30 +3863,47 @@ function viewReportFromSummary(id) {
   );
 }
 
+async function shareReportWAManual() {
+  var container = document.getElementById("reportSummaryContent");
+  var text = container ? container.getAttribute("data-wa-text") : "";
+  if (!text) {
+    return toast("Tidak ada data untuk di-share", "warning");
+  }
+  var waNumbers = await getRegisteredWhatsAppNumbers();
+  var target = waNumbers[0] || "";
+
+  // Use a temporary textarea to copy text to clipboard for better sharing experience
+  try {
+      await navigator.clipboard.writeText(text);
+      toast("Teks laporan disalin ke clipboard", "info");
+  } catch (err) {}
+
+  window.open(buildWhatsAppShareUrl(text, target), "_blank");
+}
+
 async function shareReportWA() {
   var container = document.getElementById("reportSummaryContent");
   var text = container ? container.getAttribute("data-wa-text") : "";
   if (!text) {
-    toast("Tidak ada data untuk di-share", "warning");
-    return;
+    return toast("Tidak ada data untuk di-share", "warning");
   }
   var waNumbers = await getRegisteredWhatsAppNumbers();
   if (!waNumbers.length) {
-    toast(
+    return toast(
       "Nomor WhatsApp admin belum terdaftar di Data Perusahaan.",
       "warning",
     );
-    return;
   }
   try {
+    toast("⏳ Mengirim ke antrian gateway...", "info");
     const batch = db.batch();
     waNumbers.forEach(function (waNumber) {
       const ref = db.collection("hrd_wa_outbox").doc();
       batch.set(ref, {
         targetNumber: waNumber,
         message: text,
-        type: "daily_report_summary",
-        requestedBy: currentUser?.nama || "system",
+        type: "daily_report_summary_manual",
+        requestedBy: currentUser?.nama || "user",
         requestedById: currentUser?.id || "",
         createdAt: new Date().toISOString(),
         status: "queued",
@@ -3894,16 +3912,13 @@ async function shareReportWA() {
     await batch.commit();
 
     toast(
-      "Report masuk antrian kirim WA ke " + waNumbers.length + " nomor admin.",
+      "✅ Berhasil! Report masuk antrian gateway ke " + waNumbers.length + " nomor.",
       "success",
     );
   } catch (e) {
-    console.warn("[WA Outbox] Queue failed, fallback to wa.me:", e.message);
-    toast(
-      "Gagal enqueue WA. Membuka share manual sebagai fallback.",
-      "warning",
-    );
-    window.open(buildWhatsAppShareUrl(text, waNumbers[0] || ""), "_blank");
+    console.warn("[WA Outbox] Queue failed:", e.message);
+    toast("Gateway bermasalah. Menggunakan share manual...", "warning");
+    shareReportWAManual();
   }
 }
 
