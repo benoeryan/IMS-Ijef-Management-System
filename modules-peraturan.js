@@ -133,7 +133,7 @@ async function seedPeraturanIfEmpty() {
         await docRef.set({
             dataJson: JSON.stringify(PERATURAN_PERUSAHAAN),
             updatedAt: new Date().toISOString(),
-            updatedBy: 'System Sync (v10.3)'
+            updatedBy: 'System Sync (v16.1.2)'
         }, { merge: true });
 
         // Normalization Migration: Standardize contract nomenclature and sync employee status
@@ -199,7 +199,7 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '16.1',
+            version: '16.1.2',
             updatedAt: new Date().toISOString(),
             note: 'Fix Report Summary UI: Persistent header/buttons even when empty'
         }, { merge: true });
