@@ -3554,152 +3554,105 @@ async function _loadReportSummaryForDate(dateVal) {
     );
   }
 
-  if (!reports.length) {
-    waText += "\u26a0\ufe0f 0 report masuk untuk hari ini.\n";
-    container.innerHTML = `<div class="card"><p>\u26a0\ufe0f Tidak ada report masuk pada tanggal ${dateStr}.</p></div>`;
-    container.setAttribute("data-wa-text", waText);
-    return;
-  }
-
-  // Group by department then by category
-  var byDept = {};
-  reports.forEach(function (r) {
-    var dept = (r.departemen || "LAINNYA").toUpperCase();
-    var kat = (r.kategori || "UMUM").toUpperCase();
-    if (!byDept[dept]) byDept[dept] = {};
-    if (!byDept[dept][kat]) byDept[dept][kat] = [];
-    byDept[dept][kat].push(r);
-  });
-
   var htmlContent = "";
   var totalDone = 0,
-    totalProgress = 0,
+    totalProgressValue = 0,
     totalOnTrack = 0,
-    totalNeedAttention = 0;
-  var totalKendala = 0,
-    totalTanpaKendala = 0,
-    totalProgressValue = 0;
+    totalNeedAttention = 0,
+    totalKendala = 0;
 
-  Object.keys(byDept)
-    .sort()
-    .forEach(function (dept) {
-      var katMap = byDept[dept];
-      var deptItems = Object.values(katMap).flat();
-      var icon = dept.includes("ACADEMIC") ? "\ud83d\udcda" : "\ud83c\udfe2";
-      var deptDone = 0,
-        deptOnTrack = 0,
-        deptNeedAttention = 0,
-        deptKendala = 0,
-        deptTanpaKendala = 0;
-      var deptProgress = 0;
-      var deptKendalaNotes = [];
-
-      waText +=
-        "*" + icon + " " + dept + " (" + deptItems.length + " report)*\n";
-      htmlContent += `<div class="card mb-8"><div class="fw-700 mb-8">${icon} ${escHtml(dept)} (${deptItems.length})</div>`;
-
-      Object.keys(katMap)
-        .sort()
-        .forEach(function (kat) {
-          var items = katMap[kat];
-          waText += "  \ud83d\udcc2 " + kat + " (" + items.length + ")\n";
-          htmlContent += `<div style="margin-bottom:12px;background:#f9f9f9;border-radius:8px;padding:10px 12px">
-        <div style="font-weight:600;font-size:.82rem;color:#1565c0;margin-bottom:6px;border-bottom:1px solid #d0d9ff;padding-bottom:4px">\ud83d\udcc2 ${escHtml(kat)} (${items.length})</div>`;
-
-          items.forEach(function (r) {
-            var nama = (r.targetUserName || r.nama || "-").toUpperCase();
-            var aktivitasRaw = (r.aktivitas || r.description || "-").trim();
-            var prog = parseInt(r.progress, 10) || 0;
-            prog = Math.max(0, Math.min(100, prog));
-
-            var hasil = (r.hasil || "").trim();
-            var kendala = (r.kendala || "").trim();
-            var solusi = (r.solusi || "").trim();
-
-            // Build WA Detail
-            waText += "    \u2022 " + nama + " (" + prog + "%)\n";
-            waText +=
-              "      \ud83d\udccb " +
-              aktivitasRaw.split("\n")[0].substring(0, 100) +
-              "\n";
-            if (hasil)
-              waText +=
-                "      \u2714 Hasil: " +
-                hasil.split("\n")[0].substring(0, 100) +
-                "\n";
-            if (kendala)
-              waText +=
-                "      \u26a0\ufe0f Kendala: " +
-                kendala.split("\n")[0].substring(0, 100) +
-                "\n";
-
-            // Build HTML Detail
-            var progressColor =
-              prog >= 100 ? "#2e7d32" : prog >= 70 ? "#f57f17" : "#c62828";
-            htmlContent += `<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:.85rem;cursor:pointer" onclick="viewReportFromSummary('${r.id}')">
-          <div style="display:flex;justify-content:space-between">
-            <b>\u2022 ${escHtml(nama)}</b>
-            <span style="font-weight:700;color:${progressColor}">${prog}%</span>
-          </div>
-          <div class="text-xs color-light mt-4">${escHtml(aktivitasRaw.substring(0, 120))}...</div>
-        </div>`;
-
-            // Totals
-            totalProgressValue += prog;
-            if (prog >= 100) {
-              totalDone++;
-              deptDone++;
-            } else {
-              totalProgress++;
-              deptProgress++;
-              if (prog >= 70) {
-                totalOnTrack++;
-                deptOnTrack++;
-              } else {
-                totalNeedAttention++;
-                deptNeedAttention++;
-              }
-            }
-            if (kendala && prog < 100) {
-              totalKendala++;
-              deptKendala++;
-              deptKendalaNotes.push(
-                nama + ": " + kendala.split("\n")[0].substring(0, 50),
-              );
-            } else {
-              totalTanpaKendala++;
-              deptTanpaKendala++;
-            }
-          });
-          htmlContent += "</div>";
-        });
-
-      var deptAvg = Math.round(
-        deptItems.reduce((a, b) => a + (parseInt(b.progress) || 0), 0) /
-          deptItems.length,
-      );
-      waText +=
-        "  \ud83d\udcca Dept Summary: \u2705 " +
-        deptDone +
-        " | \ud83d\udfe1 " +
-        deptOnTrack +
-        " | \ud83d\udd34 " +
-        deptNeedAttention +
-        " | \ud83d\udcc8 " +
-        deptAvg +
-        "%\n\n";
-      htmlContent += `</div>`;
+  if (!reports.length) {
+    waText += "\u26a0\ufe0f 0 report masuk untuk hari ini.\n";
+    htmlContent = `<div class="card"><p>\u26a0\ufe0f Tidak ada report masuk pada tanggal ${dateStr}.</p></div>`;
+  } else {
+    // Group by department then by category
+    var byDept = {};
+    reports.forEach(function (r) {
+      var dept = (r.departemen || "LAINNYA").toUpperCase();
+      var kat = (r.kategori || "UMUM").toUpperCase();
+      if (!byDept[dept]) byDept[dept] = {};
+      if (!byDept[dept][kat]) byDept[dept][kat] = [];
+      byDept[dept][kat].push(r);
     });
 
-  var avgOverall = Math.round(totalProgressValue / reports.length);
-  waText += `\ud83d\udcca *OVERALL SUMMARY*\nTotal: ${reports.length} | \u2705 Done: ${totalDone} | \ud83d\udfe1 On Track: ${totalOnTrack} | \ud83d\udd34 Perlu Atensi: ${totalNeedAttention} | \u26a0 Kendala: ${totalKendala} | \ud83d\udcc8 Avg: ${avgOverall}%`;
+    Object.keys(byDept)
+      .sort()
+      .forEach(function (dept) {
+        var katMap = byDept[dept];
+        var deptItems = Object.values(katMap).flat();
+        var icon = dept.includes("ACADEMIC") ? "\ud83d\udcda" : "\ud83c\udfe2";
+        var deptDone = 0,
+          deptOnTrack = 0,
+          deptNeedAttention = 0;
+
+        waText += "*" + icon + " " + dept + " (" + deptItems.length + " report)*\n";
+        htmlContent += `<div class="card mb-8"><div class="fw-700 mb-8">${icon} ${escHtml(dept)} (${deptItems.length})</div>`;
+
+        Object.keys(katMap)
+          .sort()
+          .forEach(function (kat) {
+            var items = katMap[kat];
+            waText += "  \ud83d\udcc2 " + kat + " (" + items.length + ")\n";
+            htmlContent += `<div style="margin-bottom:12px;background:#f9f9f9;border-radius:8px;padding:10px 12px">
+              <div style="font-weight:600;font-size:.82rem;color:#1565c0;margin-bottom:6px;border-bottom:1px solid #d0d9ff;padding-bottom:4px">\ud83d\udcc2 ${escHtml(kat)} (${items.length})</div>`;
+
+            items.forEach(function (r) {
+              var nama = (r.targetUserName || r.nama || "-").toUpperCase();
+              var aktivitasRaw = (r.aktivitas || r.description || "-").trim();
+              var prog = parseInt(r.progress, 10) || 0;
+              prog = Math.max(0, Math.min(100, prog));
+
+              var hasil = (r.hasil || "").trim();
+              var kendala = (r.kendala || "").trim();
+
+              // Build WA Detail
+              waText += "    \u2022 " + nama + " (" + prog + "%)\n";
+              waText += "      \ud83d\udccb " + aktivitasRaw.split("\n")[0].substring(0, 100) + "\n";
+              if (hasil) waText += "      \u2714 Hasil: " + hasil.split("\n")[0].substring(0, 100) + "\n";
+              if (kendala) waText += "      \u26a0\ufe0f Kendala: " + kendala.split("\n")[0].substring(0, 100) + "\n";
+
+              // Build HTML Detail
+              var progressColor = prog >= 100 ? "#2e7d32" : prog >= 70 ? "#f57f17" : "#c62828";
+              htmlContent += `<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:.85rem;cursor:pointer" onclick="viewReportFromSummary('${r.id}')">
+                <div style="display:flex;justify-content:space-between">
+                  <b>\u2022 ${escHtml(nama)}</b>
+                  <span style="font-weight:700;color:${progressColor}">${prog}%</span>
+                </div>
+                <div class="text-xs color-light mt-4">${escHtml(aktivitasRaw.substring(0, 120))}...</div>
+              </div>`;
+
+              totalProgressValue += prog;
+              if (prog >= 100) {
+                totalDone++;
+                deptDone++;
+              } else {
+                if (prog >= 70) {
+                  totalOnTrack++;
+                  deptOnTrack++;
+                } else {
+                  totalNeedAttention++;
+                  deptNeedAttention++;
+                }
+              }
+              if (kendala && prog < 100) totalKendala++;
+            });
+            htmlContent += `</div>`;
+          });
+
+        var deptAvg = Math.round(
+          deptItems.reduce((acc, it) => acc + (parseInt(it.progress) || 0), 0) /
+            deptItems.length,
+        );
+        waText += `  \ud83d\udcca Dept Summary: \u2705 ${deptDone} | \ud83d\udfe1 ${deptOnTrack} | \ud83d\udd34 ${deptNeedAttention} | \ud83d\udcc8 ${deptAvg}%\n\n`;
+        htmlContent += `</div>`;
+      });
+
+    var avgOverall = Math.round(totalProgressValue / reports.length);
+    waText += `\ud83d\udcca *OVERALL SUMMARY*\nTotal: ${reports.length} | \u2705 Done: ${totalDone} | \ud83d\udfe1 On Track: ${totalOnTrack} | \ud83d\udd34 Perlu Atensi: ${totalNeedAttention} | \u26a0 Kendala: ${totalKendala} | \ud83d\udcc8 Avg: ${avgOverall}%`;
+  }
 
   // UI Setup
-  var filterTabs = `<div class="flex gap-8 mb-12">${[
-    "all",
-    "academic",
-    "office",
-  ]
+  var filterTabs = `<div class="flex gap-8 mb-12">${["all", "academic", "office"]
     .map((div) => {
       const active = _reportSummaryDivisionFilter === div;
       return `<button class="btn btn-sm ${active ? "btn-primary" : "btn-outline"}" onclick="filterReportSummaryByDivision('${div}')">${escHtml(div.toUpperCase())}</button>`;
@@ -3721,6 +3674,7 @@ async function _loadReportSummaryForDate(dateVal) {
     ${htmlContent}`;
 
   container.setAttribute("data-wa-text", waText);
+}
 }
 
 function filterReportSummaryByDivision(div) {

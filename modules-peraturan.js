@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '16.0',
+            version: '16.1',
             updatedAt: new Date().toISOString(),
-            note: 'Fix Daily Report WA share and schedule reliability (v16.0)'
+            note: 'Fix Report Summary UI: Persistent header/buttons even when empty'
         }, { merge: true });
 
     } catch (e) {
