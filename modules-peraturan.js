@@ -1,5 +1,5 @@
 'use strict';
-// == PERATURAN PERUSAHAAN v14.9 ==============================
+// == PERATURAN PERUSAHAAN v16.1.1 ==============================
 const PERATURAN_PERUSAHAAN={
   nama:'LPK IJEF CORP',
   versi:'2026',

@@ -1373,15 +1373,17 @@ async function renderPenalty() {
   ]);
   // Build karyawan dept map
   const karyDeptMap = {};
-  karyawanSnap.forEach((d) => {
+  for (const d of karyawanSnap.docs) {
     const k = d.data();
     karyDeptMap[(k.nama || "").toLowerCase().trim()] = k.departemen || "-";
-  });
+  }
   const myDept = (currentUser.departemen || "").toLowerCase().trim();
   const myNama = (currentUser.nama || "").toLowerCase().trim();
   // Filter penalty data based on role
   const allPenalty = [];
-  penSnap.forEach((d) => allPenalty.push({ id: d.id, ...d.data() }));
+  for (const d of penSnap.docs) {
+    allPenalty.push({ id: d.id, ...d.data() });
+  }
   let visiblePenalty = allPenalty;
   if (!hasAccess(4)) {
     // Staff/leader (level 1-2): only see own penalty
@@ -1409,9 +1411,9 @@ async function renderPenalty() {
     // Only include karyawan visible to current user
     if (!hasAccess(6)) {
       if (!hasAccess(4)) {
-        if ((k.nama || "").toLowerCase().trim() !== myNama) return;
-      } else if (!hasAccess(6)) {
-        if ((k.departemen || "").toLowerCase().trim() !== myDept) return;
+        if ((k.nama || "").toLowerCase().trim() !== myNama) continue;
+      } else {
+        if ((k.departemen || "").toLowerCase().trim() !== myDept) continue;
       }
     }
     summary[k.nama] = {
@@ -1421,7 +1423,7 @@ async function renderPenalty() {
       detail: {},
     };
   }
-  visiblePenalty.forEach((p) => {
+  for (const p of visiblePenalty) {
     if (!summary[p.nama])
       summary[p.nama] = {
         nama: p.nama,
@@ -1432,7 +1434,7 @@ async function renderPenalty() {
     summary[p.nama].poin += parseInt(p.poin) || 0;
     const j = p.jenis || "Lainnya";
     summary[p.nama].detail[j] = (summary[p.nama].detail[j] || 0) + 1;
-  });
+  }
   // Render summary - only employees with points > 0
   const summaryItems = Object.values(summary).filter((s) => s.poin > 0);
   summaryItems.sort((a, b) => b.poin - a.poin);
@@ -1443,7 +1445,7 @@ async function renderPenalty() {
   } else {
     sumH =
       '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Departemen</th><th>Total Poin</th><th>Rincian</th><th>Status</th><th>Aksi</th></tr></thead><tbody>';
-    summaryItems.forEach((s) => {
+    for (const s of summaryItems) {
       const badgeClass =
         s.poin >= 10
           ? "badge-danger"
@@ -1464,7 +1466,7 @@ async function renderPenalty() {
         .join(", ");
       const jsName = escHtml(s.nama).replace(/'/g, "\\'");
       sumH += `<tr><td class="fw-700">${escHtml(s.nama)}</td><td>${escHtml(s.departemen)}</td><td><span class="badge ${badgeClass}">${s.poin}</span></td><td class="text-xs" style="color:#666">${escHtml(details)}</td><td>${statusLabel}</td><td><button class="btn btn-xs btn-info" onclick="viewPenaltyDetail('${jsName}')">👁️</button>${hasAccess(2) && !isBOD ? ` <button class="btn btn-xs btn-primary" onclick="modalPenalty('${jsName}')">+ Tambah</button>` : ""}</td></tr>`;
-    });
+    }
     sumH += "</tbody></table></div>";
   }
   document.getElementById("penaltySummary").innerHTML = sumH;
@@ -1476,7 +1478,7 @@ async function renderPenalty() {
     visiblePenalty.sort((a, b) =>
       (b.tanggal || "").localeCompare(a.tanggal || ""),
     );
-    visiblePenalty.forEach((p) => {
+    for (const p of visiblePenalty) {
       const statusBadge =
         p.jenis === "SP III"
           ? '<span class="badge badge-danger">Berat</span>'
@@ -1488,7 +1490,7 @@ async function renderPenalty() {
                 ? '<span class="badge badge-danger">Mangkir</span>'
                 : '<span class="badge badge-info">Ringan</span>';
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${formatDate(p.tanggal)}</td><td>${escHtml(p.jenis)}</td><td><span class="badge badge-danger">${p.poin}</span></td><td class="text-xs" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(p.deskripsi || "-")}">${escHtml(p.deskripsi || "-")}</td><td>${statusBadge}</td><td><button class="btn btn-xs btn-info" onclick="viewPenaltyItem('${p.id}')">👁️</button>${hasAccess(2) && !isBOD ? ` <button class="btn btn-xs btn-primary" onclick="editPenalty('${p.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_penalty','${p.id}','penalty')">🗑️</button>` : ""}</td></tr>`;
-    });
+    }
   }
   document.getElementById("tblPenalty").innerHTML = h;
 }
@@ -1497,10 +1499,10 @@ async function viewPenaltyDetail(nama) {
   try {
     const snap = await db.collection("hrd_penalty").get();
     const items = [];
-    snap.forEach((d) => {
+    for (const d of snap.docs) {
       const p = d.data();
       if (p.nama === nama) items.push({ id: d.id, ...p });
-    });
+    }
     items.sort((a, b) => (b.tanggal || "").localeCompare(a.tanggal || ""));
     const totalPoin = items.reduce(
       (sum, p) => sum + (parseInt(p.poin) || 0),
@@ -1628,11 +1630,11 @@ async function syncPenaltyToKPI() {
   ]);
   // Calculate total penalty per nama
   const penaltyMap = {};
-  penSnap.forEach((d) => {
+  for (const d of penSnap.docs) {
     const p = d.data();
     const n = (p.nama || "").toLowerCase().trim();
     penaltyMap[n] = (penaltyMap[n] || 0) + (parseInt(p.poin) || 0);
-  });
+  }
   // Track which names already have KPI records
   const kpiNames = new Set();
   let count = 0;
@@ -1708,7 +1710,7 @@ async function modalPenalty(prefillNama) {
     const k = d.data();
     // Non-admin/head: only show karyawan from same department
     if (!hasAccess(4)) {
-      if ((k.departemen || "").toLowerCase().trim() !== myDept) return;
+      if ((k.departemen || "").toLowerCase().trim() !== myDept) continue;
     }
     const sel = prefillNama && k.nama === prefillNama ? " selected" : "";
     opts += `<option value="${escHtml(k.nama)}"${sel}>${escHtml(k.nama)} — ${escHtml(k.departemen || "-")} (${escHtml(k.posisi || "-")})</option>`;
@@ -1767,11 +1769,11 @@ async function simpanPenalty() {
   try {
     const kSnap = await db.collection("hrd_karyawan").get();
     const nTarget = nama.toLowerCase().trim();
-    kSnap.forEach((d) => {
+    for (const d of kSnap.docs) {
       const k = d.data();
       if ((k.nama || "").toLowerCase().trim() === nTarget)
         dept = k.departemen || "";
-    });
+    }
   } catch (e) {}
   const data = {
     nama: nama,
@@ -1967,7 +1969,7 @@ async function loadDailyTasks(filter) {
 
     const snap = await db.collection("hrd_daily_tasks").get();
     _dailyTaskData = [];
-    snap.forEach((d) => {
+    for (const d of snap.docs) {
       const t = d.data();
       const taskDept = (t.departemen || "").toLowerCase().trim();
       const ownerName = normalizePersonName(getTaskOwnerDisplayName(t));
@@ -1998,7 +2000,7 @@ async function loadDailyTasks(filter) {
       }
 
       if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
-    });
+    }
   } catch (e) {
     _dailyTaskData = [];
     const errEl = document.getElementById("taskList");
@@ -3509,16 +3511,16 @@ async function _loadReportSummaryForDate(dateVal) {
   _reportSummaryCache = {};
   const allReports = [];
   for (const d of snap.docs) {
-    var t = d.data();
+    const t = d.data();
     if (t.type === "report" && t.tanggal === dateVal) {
-      var rep = Object.assign({ id: d.id }, t);
+      const rep = Object.assign({ id: d.id }, t);
       allReports.push(rep);
       _reportSummaryCache[d.id] = rep;
     }
   }
 
   // Prepare header info
-  var dayNames = [
+  const dayNames = [
     "Minggu",
     "Senin",
     "Selasa",
@@ -3527,15 +3529,15 @@ async function _loadReportSummaryForDate(dateVal) {
     "Jumat",
     "Sabtu",
   ];
-  var dObj = new Date(dateVal + "T00:00:00");
-  var dayName = dayNames[dObj.getDay()] || "Hari ini";
-  var dateStr = dObj.toLocaleDateString("id-ID", {
+  const dObj = new Date(dateVal + "T00:00:00");
+  const dayName = dayNames[dObj.getDay()] || "Hari ini";
+  const dateStr = dObj.toLocaleDateString("id-ID", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
 
-  var waText =
+  let waText =
     "\ud83d\udccb *REPORT HARIAN IJEF*\n\ud83d\udcc5 " +
     dayName +
     ", " +
@@ -3543,7 +3545,7 @@ async function _loadReportSummaryForDate(dateVal) {
     "\n\n";
 
   // Apply division filter
-  var reports = allReports;
+  let reports = allReports;
   if (_reportSummaryDivisionFilter === "academic") {
     reports = allReports.filter(
       (r) => (r.departemen || "").toUpperCase() === "ACADEMIC",
@@ -3554,8 +3556,8 @@ async function _loadReportSummaryForDate(dateVal) {
     );
   }
 
-  var htmlContent = "";
-  var totalDone = 0,
+  let htmlContent = "";
+  let totalDone = 0,
     totalProgressValue = 0,
     totalOnTrack = 0,
     totalNeedAttention = 0,
@@ -3566,54 +3568,50 @@ async function _loadReportSummaryForDate(dateVal) {
     htmlContent = `<div class="card"><p>\u26a0\ufe0f Tidak ada report masuk pada tanggal ${dateStr}.</p></div>`;
   } else {
     // Group by department then by category
-    var byDept = {};
-    reports.forEach(function (r) {
-      var dept = (r.departemen || "LAINNYA").toUpperCase();
-      var kat = (r.kategori || "UMUM").toUpperCase();
+    const byDept = {};
+    for (const r of reports) {
+      const dept = (r.departemen || "LAINNYA").toUpperCase();
+      const kat = (r.kategori || "UMUM").toUpperCase();
       if (!byDept[dept]) byDept[dept] = {};
       if (!byDept[dept][kat]) byDept[dept][kat] = [];
       byDept[dept][kat].push(r);
-    });
+    }
 
-    Object.keys(byDept)
-      .sort()
-      .forEach(function (dept) {
-        var katMap = byDept[dept];
-        var deptItems = Object.values(katMap).flat();
-        var icon = dept.includes("ACADEMIC") ? "\ud83d\udcda" : "\ud83c\udfe2";
-        var deptDone = 0,
-          deptOnTrack = 0,
-          deptNeedAttention = 0;
+    for (const dept of Object.keys(byDept).sort()) {
+      const katMap = byDept[dept];
+      const deptItems = Object.values(katMap).flat();
+      const icon = dept.includes("ACADEMIC") ? "\ud83d\udcda" : "\ud83c\udfe2";
+      let deptDone = 0,
+        deptOnTrack = 0,
+        deptNeedAttention = 0;
 
-        waText += "*" + icon + " " + dept + " (" + deptItems.length + " report)*\n";
-        htmlContent += `<div class="card mb-8"><div class="fw-700 mb-8">${icon} ${escHtml(dept)} (${deptItems.length})</div>`;
+      waText += "*" + icon + " " + dept + " (" + deptItems.length + " report)*\n";
+      htmlContent += `<div class="card mb-8"><div class="fw-700 mb-8">${icon} ${escHtml(dept)} (${deptItems.length})</div>`;
 
-        Object.keys(katMap)
-          .sort()
-          .forEach(function (kat) {
-            var items = katMap[kat];
-            waText += "  \ud83d\udcc2 " + kat + " (" + items.length + ")\n";
-            htmlContent += `<div style="margin-bottom:12px;background:#f9f9f9;border-radius:8px;padding:10px 12px">
+      for (const kat of Object.keys(katMap).sort()) {
+        const items = katMap[kat];
+        waText += "  \ud83d\udcc2 " + kat + " (" + items.length + ")\n";
+        htmlContent += `<div style="margin-bottom:12px;background:#f9f9f9;border-radius:8px;padding:10px 12px">
               <div style="font-weight:600;font-size:.82rem;color:#1565c0;margin-bottom:6px;border-bottom:1px solid #d0d9ff;padding-bottom:4px">\ud83d\udcc2 ${escHtml(kat)} (${items.length})</div>`;
 
-            items.forEach(function (r) {
-              var nama = (r.targetUserName || r.nama || "-").toUpperCase();
-              var aktivitasRaw = (r.aktivitas || r.description || "-").trim();
-              var prog = parseInt(r.progress, 10) || 0;
-              prog = Math.max(0, Math.min(100, prog));
+        for (const r of items) {
+          const nama = (r.targetUserName || r.nama || "-").toUpperCase();
+          const aktivitasRaw = (r.aktivitas || r.description || "-").trim();
+          let prog = parseInt(r.progress, 10) || 0;
+          prog = Math.max(0, Math.min(100, prog));
 
-              var hasil = (r.hasil || "").trim();
-              var kendala = (r.kendala || "").trim();
+          const hasil = (r.hasil || "").trim();
+          const kendala = (r.kendala || "").trim();
 
-              // Build WA Detail
-              waText += "    \u2022 " + nama + " (" + prog + "%)\n";
-              waText += "      \ud83d\udccb " + aktivitasRaw.split("\n")[0].substring(0, 100) + "\n";
-              if (hasil) waText += "      \u2714 Hasil: " + hasil.split("\n")[0].substring(0, 100) + "\n";
-              if (kendala) waText += "      \u26a0\ufe0f Kendala: " + kendala.split("\n")[0].substring(0, 100) + "\n";
+          // Build WA Detail
+          waText += "    \u2022 " + nama + " (" + prog + "%)\n";
+          waText += "      \ud83d\udccb " + aktivitasRaw.split("\n")[0].substring(0, 100) + "\n";
+          if (hasil) waText += "      \u2714 Hasil: " + hasil.split("\n")[0].substring(0, 100) + "\n";
+          if (kendala) waText += "      \u26a0\ufe0f Kendala: " + kendala.split("\n")[0].substring(0, 100) + "\n";
 
-              // Build HTML Detail
-              var progressColor = prog >= 100 ? "#2e7d32" : prog >= 70 ? "#f57f17" : "#c62828";
-              htmlContent += `<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:.85rem;cursor:pointer" onclick="viewReportFromSummary('${r.id}')">
+          // Build HTML Detail
+          const progressColor = prog >= 100 ? "#2e7d32" : prog >= 70 ? "#f57f17" : "#c62828";
+          htmlContent += `<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:.85rem;cursor:pointer" onclick="viewReportFromSummary('${r.id}')">
                 <div style="display:flex;justify-content:space-between">
                   <b>\u2022 ${escHtml(nama)}</b>
                   <span style="font-weight:700;color:${progressColor}">${prog}%</span>
@@ -3621,35 +3619,60 @@ async function _loadReportSummaryForDate(dateVal) {
                 <div class="text-xs color-light mt-4">${escHtml(aktivitasRaw.substring(0, 120))}...</div>
               </div>`;
 
-              totalProgressValue += prog;
-              if (prog >= 100) {
-                totalDone++;
-                deptDone++;
-              } else {
-                if (prog >= 70) {
-                  totalOnTrack++;
-                  deptOnTrack++;
-                } else {
-                  totalNeedAttention++;
-                  deptNeedAttention++;
-                }
-              }
-              if (kendala && prog < 100) totalKendala++;
-            });
-            htmlContent += `</div>`;
-          });
-
-        var deptAvg = Math.round(
-          deptItems.reduce((acc, it) => acc + (parseInt(it.progress) || 0), 0) /
-            deptItems.length,
-        );
-        waText += `  \ud83d\udcca Dept Summary: \u2705 ${deptDone} | \ud83d\udfe1 ${deptOnTrack} | \ud83d\udd34 ${deptNeedAttention} | \ud83d\udcc8 ${deptAvg}%\n\n`;
+          totalProgressValue += prog;
+          if (prog >= 100) {
+            totalDone++;
+            deptDone++;
+          } else {
+            if (prog >= 70) {
+              totalOnTrack++;
+              deptOnTrack++;
+            } else {
+              totalNeedAttention++;
+              deptNeedAttention++;
+            }
+          }
+          if (kendala && prog < 100) totalKendala++;
+        }
         htmlContent += `</div>`;
-      });
+      }
 
-    var avgOverall = Math.round(totalProgressValue / reports.length);
+      const deptAvg = Math.round(
+        deptItems.reduce((acc, it) => acc + (parseInt(it.progress) || 0), 0) /
+          deptItems.length,
+      );
+      waText += `  \ud83d\udcca Dept Summary: \u2705 ${deptDone} | \ud83d\udfe1 ${deptOnTrack} | \ud83d\udd34 ${deptNeedAttention} | \ud83d\udcc8 ${deptAvg}%\n\n`;
+      htmlContent += `</div>`;
+    }
+
+    const avgOverall = Math.round(totalProgressValue / reports.length);
     waText += `\ud83d\udcca *OVERALL SUMMARY*\nTotal: ${reports.length} | \u2705 Done: ${totalDone} | \ud83d\udfe1 On Track: ${totalOnTrack} | \ud83d\udd34 Perlu Atensi: ${totalNeedAttention} | \u26a0 Kendala: ${totalKendala} | \ud83d\udcc8 Avg: ${avgOverall}%`;
   }
+
+  // UI Setup
+  const filterTabs = `<div class="flex gap-8 mb-12">${["all", "academic", "office"]
+    .map((div) => {
+      const active = _reportSummaryDivisionFilter === div;
+      return `<button class="btn btn-sm ${active ? "btn-primary" : "btn-outline"}" onclick="filterReportSummaryByDivision('${div}')">${escHtml(div.toUpperCase())}</button>`;
+    })
+    .join("")}</div>`;
+
+  container.innerHTML = `
+    <div class="card mb-16">
+      <div class="flex" style="justify-content:space-between;align-items:center">
+        <div class="fw-700">\ud83d\udccb Rangkuman Report - ${escHtml(dateStr)}</div>
+        <div class="flex gap-8">
+          <input type="date" class="form-control" id="summaryDate" value="${escAttr(dateVal)}" onchange="loadReportSummaryByDate(this.value)" style="width:150px">
+          <button class="btn btn-sm btn-success" onclick="shareReportWAManual()" style="background:#25D366; border-color:#25D366; color:#fff" title="Share langsung ke WhatsApp">📱 Share WA</button>
+          <button class="btn btn-sm btn-success" onclick="shareReportWA()" title="Kirim otomatis ke grup admin via Gateway">📡 Gateway WA</button>
+        </div>
+      </div>
+    </div>
+    ${filterTabs}
+    ${htmlContent}`;
+
+  container.setAttribute("data-wa-text", waText);
+}
 
   // UI Setup
   var filterTabs = `<div class="flex gap-8 mb-12">${["all", "academic", "office"]
@@ -3674,7 +3697,6 @@ async function _loadReportSummaryForDate(dateVal) {
     ${htmlContent}`;
 
   container.setAttribute("data-wa-text", waText);
-}
 }
 
 function filterReportSummaryByDivision(div) {
@@ -3851,7 +3873,7 @@ async function shareReportWA() {
   try {
     toast("⏳ Mengirim ke antrian gateway...", "info");
     const batch = db.batch();
-    waNumbers.forEach(function (waNumber) {
+    for (const waNumber of waNumbers) {
       const ref = db.collection("hrd_wa_outbox").doc();
       batch.set(ref, {
         targetNumber: waNumber,
@@ -3862,7 +3884,7 @@ async function shareReportWA() {
         createdAt: new Date().toISOString(),
         status: "queued",
       });
-    });
+    }
     await batch.commit();
 
     toast(
