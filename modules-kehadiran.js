@@ -1,5 +1,5 @@
 "use strict";
-// == KEHADIRAN & DAILY TASK v16.1.2 ===============================
+// == KEHADIRAN & DAILY TASK v16.1.3 ===============================
 // == CUTI / IZIN / WFH ========================================-
 async function renderCuti() {
   const main = document.getElementById("mainContent");
@@ -1874,39 +1874,27 @@ function getDailyTaskTabs(activeFilter) {
   return tabs;
 }
 
-async function renderDailyTask() {
+window.renderDailyTask = async function() {
   const main = document.getElementById("mainContent");
-  const tabs = getDailyTaskTabs('all');
-
-  // Button: Staff only sees report, Leader+ sees both
-  let addBtn = "";
-  if (hasAccess(6)) {
-    // Admin: full access + import
-    addBtn =
-      '<button class="btn btn-primary btn-sm" onclick="modalAddTaskChoice()">+ Tambah</button> <button class="btn btn-success btn-sm" onclick="modalImportWeeklyReport()">⬆️ Import Laporan</button>';
-  } else if (hasAccess(5)) {
-    // BOD: can assign tasks to Head/Manager layer only
-    addBtn =
-      '<button class="btn btn-primary btn-sm" onclick="modalAddTask()">+ Tambah Task</button>';
-  } else if (hasAccess(2) || hasHeadLevelAccess()) {
-    // Leader/Manager/Head (including HEAD-posisi staff): can add task + report
-    addBtn =
-      '<button class="btn btn-primary btn-sm" onclick="modalAddTaskChoice()">+ Tambah</button> <button class="btn btn-success btn-sm" onclick="modalImportWeeklyReport()">⬆️ Import Laporan</button>';
-  } else {
-    // Staff: can only add report
-    addBtn =
-      '<button class="btn btn-primary btn-sm" onclick="modalAddDailyReport()">+ Daily Report</button>';
-  }
-
-  main.innerHTML = `
-    <div class="page-title"><span>📋 Daily Task & Report</span>${addBtn}</div>
-    <div class="stats-grid mb-16" id="taskStats"></div>
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📋 Daily Task</span><div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalDailyTask()">+ Task Baru</button><button class="btn btn-info btn-sm" onclick="modalAddDailyReport()">📝 Daily Report</button></div></div>
+    <div id="taskStats" class="grid-4 mb-16"></div>
     <div class="card">
-      <div class="tabs mb-16" id="taskTabs" style="flex-wrap:wrap">${tabs}</div>
-      <div id="taskList">Loading...</div>
+      <div class="tabs mb-12" id="taskTabs">
+        <div class="tab active" onclick="loadDailyTasks('all')">Semua</div>
+        <div class="tab" onclick="loadDailyTasks('today')">Hari Ini</div>
+        <div class="tab" onclick="loadDailyTasks('upcoming')">Mendatang</div>
+        <div class="tab" onclick="loadDailyTasks('overdue')">Terlambat</div>
+        <div class="tab" onclick="loadDailyTasks('done')">Selesai</div>
+        <div class="tab" onclick="loadDailyTasks('assigned')">📋 Ditugaskan</div>
+        <div class="tab" onclick="loadDailyTasks('history-assigned')">📊 History Tugas</div>
+        <div class="tab" onclick="loadDailyTasks('report')">📝 Daily Report</div>
+        <div class="tab" onclick="loadDailyTasks('team-report')">📊 Report Tim</div>
+        ${hasHeadLevelAccess() ? '<div class="tab" onclick="loadDailyTasks(\'all-report\')">🏢 Semua Divisi</div>' : ""}
+      </div>
+      <div id="taskList"></div>
     </div>`;
-  await loadDailyTasks("all");
-}
+  loadDailyTasks("all");
+};
 
 function modalAddTaskChoice() {
   openModal(`<div class="modal-title">+ Tambah</div>
@@ -1928,7 +1916,7 @@ function modalAddTaskChoice() {
 let _dailyTaskFilter = "all";
 let _dailyTaskData = [];
 
-async function loadDailyTasks(filter) {
+window.loadDailyTasks = async function(filter) {
   _dailyTaskFilter = filter || "all";
   document
     .querySelectorAll("#taskTabs .tab")
@@ -3652,31 +3640,6 @@ async function _loadReportSummaryForDate(dateVal) {
 
   // UI Setup
   const filterTabs = `<div class="flex gap-8 mb-12">${["all", "academic", "office"]
-    .map((div) => {
-      const active = _reportSummaryDivisionFilter === div;
-      return `<button class="btn btn-sm ${active ? "btn-primary" : "btn-outline"}" onclick="filterReportSummaryByDivision('${div}')">${escHtml(div.toUpperCase())}</button>`;
-    })
-    .join("")}</div>`;
-
-  container.innerHTML = `
-    <div class="card mb-16">
-      <div class="flex" style="justify-content:space-between;align-items:center">
-        <div class="fw-700">\ud83d\udccb Rangkuman Report - ${escHtml(dateStr)}</div>
-        <div class="flex gap-8">
-          <input type="date" class="form-control" id="summaryDate" value="${escAttr(dateVal)}" onchange="loadReportSummaryByDate(this.value)" style="width:150px">
-          <button class="btn btn-sm btn-success" onclick="shareReportWAManual()" style="background:#25D366; border-color:#25D366; color:#fff" title="Share langsung ke WhatsApp">📱 Share WA</button>
-          <button class="btn btn-sm btn-success" onclick="shareReportWA()" title="Kirim otomatis ke grup admin via Gateway">📡 Gateway WA</button>
-        </div>
-      </div>
-    </div>
-    ${filterTabs}
-    ${htmlContent}`;
-
-  container.setAttribute("data-wa-text", waText);
-}
-
-  // UI Setup
-  var filterTabs = `<div class="flex gap-8 mb-12">${["all", "academic", "office"]
     .map((div) => {
       const active = _reportSummaryDivisionFilter === div;
       return `<button class="btn btn-sm ${active ? "btn-primary" : "btn-outline"}" onclick="filterReportSummaryByDivision('${div}')">${escHtml(div.toUpperCase())}</button>`;
