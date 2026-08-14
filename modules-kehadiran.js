@@ -1877,7 +1877,7 @@ function getDailyTaskTabs(activeFilter) {
 window.renderDailyTask = async function() {
   const main = document.getElementById("mainContent");
   main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📋 Daily Task</span><div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalDailyTask()">+ Task Baru</button><button class="btn btn-info btn-sm" onclick="modalAddDailyReport()">📝 Daily Report</button></div></div>
-    <div id="taskStats" class="grid-4 mb-16"></div>
+    <div id="taskStats" class="stats-grid mb-16"></div>
     <div class="card">
       <div class="tabs mb-12" id="taskTabs">
         <div class="tab active" onclick="loadDailyTasks('all')">Semua</div>
