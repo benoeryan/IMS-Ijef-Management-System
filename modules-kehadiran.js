@@ -1874,7 +1874,7 @@ function getDailyTaskTabs(activeFilter) {
   }
 
   if (hasAccess(2) || hasHeadLevelAccess()) {
-    tabs += `<div class="tab ${activeFilter === "weekly" ? "active" : ""}" onclick="loadWeeklyReports()">📈 Laporan Mingguan</div>`;
+    tabs += `<div class="tab ${activeFilter === "weekly" ? "active" : ""}" onclick="loadDailyTasks('weekly')">📈 Laporan Mingguan</div>`;
   }
 
   return tabs;
@@ -2079,6 +2079,9 @@ window.loadDailyTasks = async function(filter, skipAutoRender = false) {
         (a.kategori || "").localeCompare(b.kategori || "") ||
         b.tanggal.localeCompare(a.tanggal),
     );
+  } else if (filter === "weekly") {
+    loadWeeklyReports();
+    return;
   }
 
   if (!["team-report", "all-report", "history-assigned"].includes(filter)) {
@@ -4673,6 +4676,12 @@ async function loadWeeklyReports(divFilter) {
     _weeklyReportFilter = divFilter;
     _wrSummaryFilter = "";
   }
+
+  if (!document.getElementById("taskList")) {
+    await renderDailyTask("weekly");
+    return;
+  }
+
   document.querySelectorAll("#taskTabs .tab").forEach(function (t) {
     t.classList.remove("active");
   });

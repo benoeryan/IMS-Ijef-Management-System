@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '16.1.5',
+            version: '16.1.6',
             updatedAt: new Date().toISOString(),
-            note: 'Update Daily Task stats layout to horizontal grid'
+            note: 'Fix Weekly Report view mismatch and tab navigation'
         }, { merge: true });
 
     } catch (e) {
