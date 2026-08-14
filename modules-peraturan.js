@@ -1,5 +1,5 @@
 'use strict';
-// == PERATURAN PERUSAHAAN v16.1.3 ==============================
+// == PERATURAN PERUSAHAAN v16.1.5 ==============================
 const PERATURAN_PERUSAHAAN={
   nama:'LPK IJEF CORP',
   versi:'2026',
@@ -199,7 +199,7 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '16.1.4',
+            version: '16.1.5',
             updatedAt: new Date().toISOString(),
             note: 'Update Daily Task stats layout to horizontal grid'
         }, { merge: true });

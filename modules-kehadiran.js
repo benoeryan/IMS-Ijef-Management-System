@@ -1,5 +1,5 @@
 "use strict";
-// == KEHADIRAN & DAILY TASK v16.1.3 ===============================
+// == KEHADIRAN & DAILY TASK v16.1.5 ===============================
 // == CUTI / IZIN / WFH ========================================-
 async function renderCuti() {
   const main = document.getElementById("mainContent");
@@ -1836,64 +1836,61 @@ function buildGCalUrl(t) {
 }
 
 function getDailyTaskTabs(activeFilter) {
-  let tabs = `<div class="tab ${activeFilter === 'all' ? 'active' : ''}" onclick="renderDailyTask()">Semua</div>`;
-  tabs += `<div class="tab ${activeFilter === 'today' ? 'active' : ''}" onclick="filterDailyTasks('today')">Hari Ini</div>`;
+  const cmd = (f) => `loadDailyTasks('${f}')`;
+
+  let tabs = `<div class="tab ${activeFilter === "all" ? "active" : ""}" onclick="${cmd("all")}">Semua</div>`;
+  tabs += `<div class="tab ${activeFilter === "today" ? "active" : ""}" onclick="${cmd("today")}">Hari Ini</div>`;
 
   if (!hasAccess(5) || hasAccess(6)) {
-    tabs += `<div class="tab ${activeFilter === 'upcoming' ? 'active' : ''}" onclick="filterDailyTasks('upcoming')">Mendatang</div>`;
-    tabs += `<div class="tab ${activeFilter === 'done' ? 'active' : ''}" onclick="filterDailyTasks('done')">Selesai</div>`;
-    tabs += `<div class="tab ${activeFilter === 'overdue' ? 'active' : ''}" onclick="filterDailyTasks('overdue')">Terlambat</div>`;
+    tabs += `<div class="tab ${activeFilter === "upcoming" ? "active" : ""}" onclick="${cmd("upcoming")}">Mendatang</div>`;
+    tabs += `<div class="tab ${activeFilter === "done" ? "active" : ""}" onclick="${cmd("done")}">Selesai</div>`;
+    tabs += `<div class="tab ${activeFilter === "overdue" ? "active" : ""}" onclick="${cmd("overdue")}">Terlambat</div>`;
   }
 
-  tabs += `<div class="tab ${activeFilter === 'report' ? 'active' : ''}" onclick="filterDailyTasks('report')">📝 Daily Report</div>`;
+  tabs += `<div class="tab ${activeFilter === "report" ? "active" : ""}" onclick="${cmd("report")}">📝 Daily Report</div>`;
 
   if (hasAccess(2) || hasHeadLevelAccess()) {
-    tabs += `<div class="tab ${activeFilter === 'team-report' ? 'active' : ''}" onclick="filterDailyTasks('team-report')">📊 Report Tim</div>`;
+    tabs += `<div class="tab ${activeFilter === "team-report" ? "active" : ""}" onclick="${cmd("team-report")}">📊 Report Tim</div>`;
   }
 
   if (hasHeadLevelAccess()) {
-    tabs += `<div class="tab ${activeFilter === 'all-report' ? 'active' : ''}" onclick="filterDailyTasks('all-report')">🏢 Semua Divisi</div>`;
+    tabs += `<div class="tab ${activeFilter === "all-report" ? "active" : ""}" onclick="${cmd("all-report")}">🏢 Semua Divisi</div>`;
   }
 
   if (hasAccess(3) || hasHeadLevelAccess()) {
-    tabs += `<div class="tab ${activeFilter === 'report-summary' ? 'active' : ''}" onclick="navigateTo('report-summary')">📋 Rangkuman Report</div>`;
+    tabs += `<div class="tab ${activeFilter === "report-summary" ? "active" : ""}" onclick="navigateTo('report-summary')">📋 Rangkuman Report</div>`;
   }
 
-  if (((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) || (hasAccess(5) && !hasAccess(6)) || hasAccess(6)) {
-    tabs += `<div class="tab ${activeFilter === 'assigned' ? 'active' : ''}" onclick="filterDailyTasks('assigned')">📋 Ditugaskan</div>`;
+  if (
+    ((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) ||
+    (hasAccess(5) && !hasAccess(6)) ||
+    hasAccess(6)
+  ) {
+    tabs += `<div class="tab ${activeFilter === "assigned" ? "active" : ""}" onclick="${cmd("assigned")}">📋 Ditugaskan</div>`;
   }
 
   if (((hasAccess(2) || hasHeadLevelAccess()) && !hasAccess(5)) || hasAccess(6)) {
-    tabs += `<div class="tab ${activeFilter === 'history-assigned' ? 'active' : ''}" onclick="filterDailyTasks('history-assigned')">📊 History Tugas</div>`;
+    tabs += `<div class="tab ${activeFilter === "history-assigned" ? "active" : ""}" onclick="${cmd("history-assigned")}">📊 History Tugas</div>`;
   }
 
   if (hasAccess(2) || hasHeadLevelAccess()) {
-    tabs += `<div class="tab ${activeFilter === 'weekly' ? 'active' : ''}" onclick="loadWeeklyReports()">📈 Laporan Mingguan</div>`;
+    tabs += `<div class="tab ${activeFilter === "weekly" ? "active" : ""}" onclick="loadWeeklyReports()">📈 Laporan Mingguan</div>`;
   }
 
   return tabs;
 }
 
-window.renderDailyTask = async function() {
+window.renderDailyTask = async function(initialFilter = "all") {
   const main = document.getElementById("mainContent");
+  if (!main) return;
+  const tabs = getDailyTaskTabs(initialFilter);
   main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📋 Daily Task</span><div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalDailyTask()">+ Task Baru</button><button class="btn btn-info btn-sm" onclick="modalAddDailyReport()">📝 Daily Report</button></div></div>
     <div id="taskStats" class="stats-grid mb-16"></div>
     <div class="card">
-      <div class="tabs mb-12" id="taskTabs">
-        <div class="tab active" onclick="loadDailyTasks('all')">Semua</div>
-        <div class="tab" onclick="loadDailyTasks('today')">Hari Ini</div>
-        <div class="tab" onclick="loadDailyTasks('upcoming')">Mendatang</div>
-        <div class="tab" onclick="loadDailyTasks('overdue')">Terlambat</div>
-        <div class="tab" onclick="loadDailyTasks('done')">Selesai</div>
-        <div class="tab" onclick="loadDailyTasks('assigned')">📋 Ditugaskan</div>
-        <div class="tab" onclick="loadDailyTasks('history-assigned')">📊 History Tugas</div>
-        <div class="tab" onclick="loadDailyTasks('report')">📝 Daily Report</div>
-        <div class="tab" onclick="loadDailyTasks('team-report')">📊 Report Tim</div>
-        ${hasHeadLevelAccess() ? '<div class="tab" onclick="loadDailyTasks(\'all-report\')">🏢 Semua Divisi</div>' : ""}
-      </div>
+      <div class="tabs mb-12" id="taskTabs" style="flex-wrap:wrap">${tabs}</div>
       <div id="taskList"></div>
     </div>`;
-  loadDailyTasks("all");
+  loadDailyTasks(initialFilter, true);
 };
 
 function modalAddTaskChoice() {
@@ -1916,8 +1913,14 @@ function modalAddTaskChoice() {
 let _dailyTaskFilter = "all";
 let _dailyTaskData = [];
 
-window.loadDailyTasks = async function(filter) {
+window.loadDailyTasks = async function(filter, skipAutoRender = false) {
   _dailyTaskFilter = filter || "all";
+
+  if (!skipAutoRender && !document.getElementById("taskList")) {
+    await renderDailyTask(_dailyTaskFilter);
+    return;
+  }
+
   document
     .querySelectorAll("#taskTabs .tab")
     .forEach((t) => t.classList.remove("active"));
