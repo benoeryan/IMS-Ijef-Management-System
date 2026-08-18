@@ -3900,35 +3900,67 @@ async function modalAddDailyReport() {
   // Kategori only for staff and leader (level 1-2), not manager+
   const showKategori = !hasAccess(3);
   const catHtml = showKategori
-    ? `<div class="form-group"><label>Kategori *</label><select class="form-control" id="drKategori">${getReportCategoryOptions()}</select></div>`
-    : '<input type="hidden" id="drKategori" value="">';
+    ? `<div class="form-group"><label>Kategori *</label><select class="form-control" id="drKategori" onchange="saveDailyReportDraft()">${getReportCategoryOptions()}</select></div>`
+    : '<input type="hidden" id="drKategori" value="" onchange="saveDailyReportDraft()">';
   openModal(
     `<div class="modal-title">📝 Daily Report</div>
     <p class="text-sm mb-16" style="color:#666">Isi laporan aktivitas harian Anda.</p>
+    <div id="draftNotice" style="display:none; background:#fff3e0; padding:10px; border-radius:8px; border-left:4px solid var(--warning); margin-bottom:16px; font-size:.8rem">
+        ✨ Draft laporan sebelumnya telah dimuat otomatis.
+    </div>
     <div class="grid-2">
-      <div class="form-group"><label>Tanggal Laporan *</label><input class="form-control" type="date" id="drTanggal" value="${todayStr()}"></div>
+      <div class="form-group"><label>Tanggal Laporan *</label><input class="form-control" type="date" id="drTanggal" value="${todayStr()}" oninput="saveDailyReportDraft()"></div>
       ${catHtml}
     </div>
     <div class="grid-2">
-      <div class="form-group"><label>Jam Masuk</label><input class="form-control" type="time" id="drJamMasuk" value="08:00"></div>
-      <div class="form-group"><label>Jam Keluar</label><input class="form-control" type="time" id="drJamKeluar" value="17:00"></div>
+      <div class="form-group"><label>Jam Masuk</label><input class="form-control" type="time" id="drJamMasuk" value="08:00" oninput="saveDailyReportDraft()"></div>
+      <div class="form-group"><label>Jam Keluar</label><input class="form-control" type="time" id="drJamKeluar" value="17:00" oninput="saveDailyReportDraft()"></div>
     </div>
-    <div class="form-group"><label>Aktivitas Hari Ini *</label><textarea class="form-control" id="drAktivitas" rows="4" placeholder="1. Meeting dengan tim marketing\n2. Follow up client ABC\n3. Buat proposal project X\n..."></textarea></div>
-    <div class="form-group"><label>Hasil / Output</label><textarea class="form-control" id="drHasil" rows="2" placeholder="Proposal selesai 80%, meeting berhasil dapat approval..."></textarea></div>
-    <div class="form-group"><label>Kendala / Hambatan</label><textarea class="form-control" id="drKendala" rows="2" placeholder="Tidak ada / Menunggu data dari divisi lain..."></textarea></div>
-    <div class="form-group"><label>Solusi / Tindakan atas Kendala</label><textarea class="form-control" id="drSolusi" rows="2" placeholder="Koordinasi dengan divisi terkait / Eskalasi ke atasan..."></textarea></div>
-    <div class="form-group"><label>Rencana Besok</label><textarea class="form-control" id="drRencana" rows="2" placeholder="1. Finalisasi proposal\n2. Kirim ke client..."></textarea></div>
+    <div class="form-group"><label>Aktivitas Hari Ini *</label><textarea class="form-control" id="drAktivitas" rows="4" placeholder="1. Meeting dengan tim marketing\n2. Follow up client ABC\n3. Buat proposal project X\n..." oninput="saveDailyReportDraft()"></textarea></div>
+    <div class="form-group"><label>Hasil / Output</label><textarea class="form-control" id="drHasil" rows="2" placeholder="Proposal selesai 80%, meeting berhasil dapat approval..." oninput="saveDailyReportDraft()"></textarea></div>
+    <div class="form-group"><label>Kendala / Hambatan</label><textarea class="form-control" id="drKendala" rows="2" placeholder="Tidak ada / Menunggu data dari divisi lain..." oninput="saveDailyReportDraft()"></textarea></div>
+    <div class="form-group"><label>Solusi / Tindakan atas Kendala</label><textarea class="form-control" id="drSolusi" rows="2" placeholder="Koordinasi dengan divisi terkait / Eskalasi ke atasan..." oninput="saveDailyReportDraft()"></textarea></div>
+    <div class="form-group"><label>Rencana Besok</label><textarea class="form-control" id="drRencana" rows="2" placeholder="1. Finalisasi proposal\n2. Kirim ke client..." oninput="saveDailyReportDraft()"></textarea></div>
     <div class="grid-2">
-      <div class="form-group"><label>Durasi Pekerjaan (hari)</label><input class="form-control" type="number" id="drDurasi" min="0" max="30" step="0.5" value="1" placeholder="Contoh: 1"></div>
-      <div class="form-group"><label>Progress Keseluruhan (%)</label><input class="form-control" type="number" id="drProgress" min="0" max="100" value="100" placeholder="0-100"></div>
+      <div class="form-group"><label>Durasi Pekerjaan (hari)</label><input class="form-control" type="number" id="drDurasi" min="0" max="30" step="0.5" value="1" placeholder="Contoh: 1" oninput="saveDailyReportDraft()"></div>
+      <div class="form-group"><label>Progress Keseluruhan (%)</label><input class="form-control" type="number" id="drProgress" min="0" max="100" value="100" placeholder="0-100" oninput="saveDailyReportDraft()"></div>
     </div>
-    <div class="form-group"><label>Mood Hari Ini</label><select class="form-control" id="drMood"><option value="sangat_baik">🤩 Sangat Baik / Luar Biasa Produktif</option><option value="baik">😊 Baik / Produktif</option><option value="cukup">😐 Cukup / Biasa Saja</option><option value="kurang">😟 Kurang / Ada Hambatan</option><option value="buruk">😞 Buruk / Banyak Masalah</option><option value="sangat_buruk">😫 Sangat Buruk / Overwhelmed</option></select></div>
-    <div class="form-group"><label>Komentar untuk Atasan</label><textarea class="form-control" id="drKomentarAtasan" rows="2" placeholder="Pesan/catatan khusus untuk atasan (opsional)..."></textarea></div>
-    <div class="form-group"><label>Komentar untuk Rekan Kerja</label><textarea class="form-control" id="drKomentarRekan" rows="2" placeholder="Apresiasi/pesan untuk rekan tim (opsional)..."></textarea></div>
+    <div class="form-group"><label>Mood Hari Ini</label><select class="form-control" id="drMood" onchange="saveDailyReportDraft()"><option value="sangat_baik">🤩 Sangat Baik / Luar Biasa Produktif</option><option value="baik">😊 Baik / Produktif</option><option value="cukup">😐 Cukup / Biasa Saja</option><option value="kurang">😟 Kurang / Ada Hambatan</option><option value="buruk">😞 Buruk / Banyak Masalah</option><option value="sangat_buruk">😫 Sangat Buruk / Overwhelmed</option></select></div>
+    <div class="form-group"><label>Komentar untuk Atasan</label><textarea class="form-control" id="drKomentarAtasan" rows="2" placeholder="Pesan/catatan khusus untuk atasan (opsional)..." oninput="saveDailyReportDraft()"></textarea></div>
+    <div class="form-group"><label>Komentar untuk Rekan Kerja</label><textarea class="form-control" id="drKomentarRekan" rows="2" placeholder="Apresiasi/pesan untuk rekan tim (opsional)..." oninput="saveDailyReportDraft()"></textarea></div>
     <div class="form-group"><label>📎 Lampiran Eviden</label><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('drFiles').click()">📁 Pilih File</button><button type="button" class="btn btn-sm btn-info" onclick="openCamera('drFilePreview','drCameraData')">📷 Kamera</button></div><input type="file" id="drFiles" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" onchange="previewTaskFiles(this,'drFilePreview')" style="display:none"><input type="hidden" id="drCameraData"><div id="drFilePreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div><div class="text-xs" style="color:#999;margin-top:4px">Maks 5 file, 10MB per file. Format: Gambar, PDF, DOC, XLS, PPT, ZIP. Bisa juga foto langsung via kamera.</div></div>
     <button class="btn btn-primary" onclick="simpanDailyReport()">📤 Kirim Daily Report</button>`,
     true,
   );
+
+  // Restore draft if exists
+  const draftKey = "dr_draft_" + currentUser.id;
+  const draftRaw = localStorage.getItem(draftKey);
+  if (draftRaw) {
+    try {
+      const d = JSON.parse(draftRaw);
+      // Only auto-restore if updated within last 24h
+      if (new Date().getTime() - (d.updatedAt || 0) < 86400000) {
+        if (d.tanggal) document.getElementById("drTanggal").value = d.tanggal;
+        if (d.kategori) document.getElementById("drKategori").value = d.kategori;
+        if (d.jamMasuk) document.getElementById("drJamMasuk").value = d.jamMasuk;
+        if (d.jamKeluar) document.getElementById("drJamKeluar").value = d.jamKeluar;
+        if (d.aktivitas) document.getElementById("drAktivitas").value = d.aktivitas;
+        if (d.hasil) document.getElementById("drHasil").value = d.hasil;
+        if (d.kendala) document.getElementById("drKendala").value = d.kendala;
+        if (d.solusi) document.getElementById("drSolusi").value = d.solusi;
+        if (d.rencana) document.getElementById("drRencana").value = d.rencana;
+        if (d.durasi) document.getElementById("drDurasi").value = d.durasi;
+        if (d.progress) document.getElementById("drProgress").value = d.progress;
+        if (d.mood) document.getElementById("drMood").value = d.mood;
+        if (d.komentarAtasan) document.getElementById("drKomentarAtasan").value = d.komentarAtasan;
+        if (d.komentarRekan) document.getElementById("drKomentarRekan").value = d.komentarRekan;
+
+        const notice = document.getElementById("draftNotice");
+        if (notice) notice.style.display = "block";
+      }
+    } catch (e) {}
+  }
 }
 
 async function simpanDailyReport() {
@@ -3973,6 +4005,8 @@ async function simpanDailyReport() {
   try {
     await db.collection("hrd_daily_tasks").add(data);
     toast("Daily Report berhasil dikirim", "success");
+    // Clear draft on success
+    localStorage.removeItem("dr_draft_" + currentUser.id);
   } catch (e) {
     toast("Gagal: " + e.message, "error");
   }
@@ -4017,6 +4051,30 @@ function viewDailyReport(id) {
     <div class="text-xs" style="color:#999">Dikirim: ${formatDateTime(task.createdAt)}</div>`,
     true,
   );
+}
+
+// == DAILY REPORT DRAFT HELPERS ================================
+function saveDailyReportDraft() {
+  try {
+    const draft = {
+      tanggal: document.getElementById("drTanggal")?.value,
+      kategori: document.getElementById("drKategori")?.value,
+      jamMasuk: document.getElementById("drJamMasuk")?.value,
+      jamKeluar: document.getElementById("drJamKeluar")?.value,
+      aktivitas: document.getElementById("drAktivitas")?.value,
+      hasil: document.getElementById("drHasil")?.value,
+      kendala: document.getElementById("drKendala")?.value,
+      solusi: document.getElementById("drSolusi")?.value,
+      rencana: document.getElementById("drRencana")?.value,
+      durasi: document.getElementById("drDurasi")?.value,
+      progress: document.getElementById("drProgress")?.value,
+      mood: document.getElementById("drMood")?.value,
+      komentarAtasan: document.getElementById("drKomentarAtasan")?.value,
+      komentarRekan: document.getElementById("drKomentarRekan")?.value,
+      updatedAt: new Date().getTime(),
+    };
+    localStorage.setItem("dr_draft_" + currentUser.id, JSON.stringify(draft));
+  } catch (e) {}
 }
 
 // == IMPORT LAPORAN MINGGUAN (dari Spreadsheet) ========================
