@@ -3886,6 +3886,198 @@ const REPORT_CATEGORIES = {
   ],
 };
 
+const SISWA_REPORT_DATA = {
+  LEVELS: ["NYUMON", "SHOKYU 1", "SHOKYU 2"],
+  MATERI: {
+    NYUMON: [
+      "KANA",
+      "N BAB 1",
+      "N BAB 2",
+      "N BAB 3",
+      "N BAB 4",
+      "N BAB 5",
+      "N BAB 6",
+      "N BAB 7",
+      "N BAB 8",
+      "N BAB 9",
+      "N BAB 10",
+      "N BAB 11",
+      "N BAB 12",
+      "N BAB 13",
+      "N BAB 14",
+      "N BAB 15",
+      "N BAB 16",
+      "N BAB 17",
+      "N BAB 18",
+    ],
+    "SHOKYU 1": [
+      "S1 BAB 1",
+      "S1 BAB 2",
+      "S1 BAB 3",
+      "S1 BAB 4",
+      "S1 BAB 5",
+      "S1 BAB 6",
+      "S1 BAB 7",
+      "S1 BAB 8",
+      "S1 BAB 9",
+      "S1 BAB 10",
+      "S1 BAB 11",
+      "S1 BAB 12",
+      "S1 BAB 13",
+      "S1 BAB 14",
+      "S1 BAB 15",
+      "S1 BAB 16",
+      "S1 BAB 17",
+      "S1 BAB 18",
+    ],
+    "SHOKYU 2": [
+      "S2 BAB 1",
+      "S2 BAB 2",
+      "S2 BAB 3",
+      "S2 BAB 4",
+      "S2 BAB 5",
+      "S2 BAB 6",
+      "S2 BAB 7",
+      "S2 BAB 8",
+      "S2 BAB 9",
+      "S2 BAB 10",
+      "S2 BAB 11",
+      "S2 BAB 12",
+      "S2 BAB 13",
+      "S2 BAB 14",
+      "S2 BAB 15",
+      "S2 BAB 16",
+      "S2 BAB 17",
+      "S2 BAB 18",
+    ],
+  },
+  PENCAPAIAN: {
+    KANA: "Mampu membaca, menulis huruf Hiragana juga Katakana, serta mampu membedakan kedua jenis huruf tersebut.",
+    "N BAB 1":
+      "Mampu mengucapkan salam ketika bertemu dan berpisah, Serta mampu berterimakasih maupun meminta maaf kepada orang lain.",
+    "N BAB 2": "Mampu meminta tolong kepada orang lain ketika dalam kesulitan.",
+    "N BAB 3": "Mampun memperkenalkan diri (Nama, Asal, Kewarganegaraan).",
+    "N BAB 4":
+      "Mampu memperkenalkan diri lebih lanjut (Usia, tempat tinggal, dan anggota keluarga).",
+    "N BAB 5":
+      "Mampu menyebutkan manakan yang bisa dimakan dan makanan yang paling disukai",
+    "N BAB 6": "Mampu berhitung benda dan memesan makanan di tempat makan.",
+    "N BAB 7":
+      "Mampu Bertanya dan menyebutkan nama-nama tempat, lalu mampu menjelaskan kegunaan raungan/tempat tersebut.",
+    "N BAB 8": "Mampu mempergunakan kata tunjuk benda dan benda",
+    "N BAB 9": "Mampu menyebutkan kegiatan sehari-hari dan satuan jam",
+    "N BAB 10": "Mampu memahami instruksi dan permintaan dari orang lain",
+    "N BAB 11": "Mampu menyebutkan kesukaan dan hobi.",
+    "N BAB 12": "Mampu mengajak orang lain untuk bermain ke suatu tempat.",
+    "N BAB 13":
+      "Mampu bertanya jalan kepada orang lain untuk ke tempat yang ingin dituju.",
+    "N BAB 14": "Mampu untuk mengatur pertemuan dan janjian disuatu tempat.",
+    "N BAB 15":
+      "Mampu meminta saran perihal tempat/toko rekomendasi untuk membeli barang yang diinginkan.",
+    "N BAB 16":
+      "Mampu bertanya-jawab perihal harga dan kuantitas barang yang ingin dibeli atau bernegosiasi.",
+    "N BAB 17":
+      "Mampu menyebutkan perihal kegiatan dan kesukaan di akhir pekan.",
+    "N BAB 18": "Mampu menceritakan rencana di libur pangjang.",
+    "S1 BAB 1":
+      "Mampu menceritakan tentang keadaan diri yang sekarang, serta kesibukan apa dll.",
+    "S1 BAB 2":
+      "Mampu menceritakan tentang kesukaan dan hobi yang dilakukan di hari libur secara lebih detail.",
+    "S1 BAB 3":
+      "Mampu bercerita tentang keadaan musim di negara sendiri dan negara 4 musim terlebih di jepang.",
+    "S1 BAB 4": "Mampu bercerita/basa basi tentang cuaca dan kondisi lingkungan.",
+    "S1 BAB 5": "Mampu bercerita tentang kota yang di tinggali sekarang.",
+    "S1 BAB 6":
+      "Mampu bertanya jawab rute jalan lebih detail lagi, baik bertanya langsung maupun melalui telepon.",
+    "S1 BAB 7":
+      "Mampu bercerita tentang suatu kejadian, apa yang terjadi dan rencana yang akan dilakukan.",
+    "S1 BAB 8":
+      "Mampu bercerita tentang pengalaman dan kesan tentang hal yang di alami.",
+    "S1 BAB 9":
+      "Mampu bercerita tentang suatu kegiatan yang diikuti, lalu kelebihan dan kekurangan diri.",
+    "S1 BAB 10":
+      "Mampu bercerita tentang keinginan untuk mengikuti suatu kegiatan dan kesan terhadap kegiatannya.",
+    "S1 BAB 11":
+      "Mampu membuat rencana dan mengatur acara yang akan dilakukan bersama.",
+    "S1 BAB 12": "Mampu bertanya jawab perihal dan cara membuat sesuatu.",
+    "S1 BAB 13":
+      "Mampu menjelaskan progres dari hal yang dilakukan, juga mampu mengerjakan suatu pekerjaan.",
+    "S1 BAB 14":
+      "Mampu meminta izin libur/cuti dari pekerjaan, baik secara langsung maupun melalui telepon.",
+    "S1 BAB 15":
+      "Mampu menceritakan gejala yang dialami ketika jatuh sakit, dan memahami penjelasan mengenai obat-obatan.",
+    "S1 BAB 16":
+      "Mampu memahami instruksi dan saran dari dokter perihal proses penyembuhan penyakit yang diderita.",
+    "S1 BAB 17":
+      "Mampu berkunjung ke rumah seseorang dengan memahami sopan santun seerta adat istiadat jepang.",
+    "S1 BAB 18":
+      "Mampu bertanya jawab perihal perencanaan pemberian hadian ualng tahun dll.",
+    "S2 BAB 1":
+      "Mampu untuk melakukan sapaan dan perkenalan diri secara lebih profesional dalam konteks bisnis.",
+    "S2 BAB 2":
+      "Mampu memahami dan juga menjelaskan mengenai ciri-ciri dan karakteristik seseorang.",
+    "S2 BAB 3":
+      "Mampu untuk memahami isi menu, bertanya menu favorit yang direkomendasikan, dan melakukan permintaan-permintan berdasarkan preferensi diri terhadap menu yang dipesan baik secara langsung maupun melalui telepon.",
+    "S2 BAB 4":
+      "Mampu bertanya jawab perihal rekomendasi tempat makanan yang bagus, serta cara menyantap hidangan tersebut dengan keunikannya masing-masing, lalu berbincang perihal kesan makanan tersebut.",
+    "S2 BAB 5":
+      "Membicarakan tentang rencana liburan dan tempat yang bagus untuk melakukannya, lalu mampu untuk mengatur rencana tersebut.",
+    "S2 BAB 6":
+      "Mampu memahami segala petunjuk dan arahan secara tulisan maupun melalui pengeras suara, dan juga bertanya kepada orang dijalan terhadap kesulitan yang sedang dihadapi, kemudian mampu menceritakan kesan perjalanan yang dilakukan.",
+    "S2 BAB 7":
+      "Mampu memahami isi selebaran perihal acara festival yang diadakan di wilayah setempat.",
+    "S2 BAB 8":
+      "Mampu untuk berpartisipasi pada festival acara setempat seperti perlombaan dan syarat mengikutinya.",
+    "S2 BAB 9":
+      "Mampu mengenal bebrapa perayaan hari yang memperingati suatu kejadian/momen, seperti kedewasaan, hari ibu, hari, pehalawan, hari lansia dan lain sebagainya.",
+    "S2 BAB 10":
+      "Mampu memahami tata krama ketika menghadiri suatu acara, atau bertanya jawab perihal tersebut ketika tidak mengetahuinya.",
+    "S2 BAB 11":
+      "Mampu bertanya jawab ketika berbelanja perihal ukuran atau warna dari barang yang akan dibeli, serta mampu meminta toling ketika dalam kesulitan di tempat perbelanjaan.",
+    "S2 BAB 12":
+      "Mampu bertanya lebih lanjut perihal rekomendasi berbelanja secara online, dan atau cara menawar harga barang.",
+    "S2 BAB 13":
+      "Mampun memahami cara menggunakan fasilitas umum seperti perpustakaan dll, seperti aturan pakai pinjam dll.",
+    "S2 BAB 14":
+      "Mampu menggunakan beberapa layanan seperti kantor pos, landry atau pangkas rambut, beserta hal-hal yang berkaitan.",
+    "S2 BAB 15":
+      "Mampu memahami ketentuan umum dijepang, juga mampu menceritakan hal-hal yang dihati-hatikan.",
+    "S2 BAB 16":
+      "Mampu memahami hal apa yang harus dilakkan ketika terjadi sesuatu insiden seperti kecelakaan atau bencana alam.",
+    "S2 BAB 17":
+      "Mampu menceritakan hal-hal yang sudah dilalui selama ini, beserta kesannya.",
+    "S2 BAB 18": "Mampu menyebutkan mimpi atau tujuan yang ingin dicapai dimasa depan.",
+  },
+};
+
+window.onDailyReportKategoriChange = function () {
+  const kat = document.getElementById("drKategori").value;
+  const extra = document.getElementById("drExtraSiswa");
+  if (kat === "SISWA") {
+    extra.style.display = "block";
+  } else {
+    extra.style.display = "none";
+  }
+};
+
+window.onDailyReportLevelChange = function () {
+  const level = document.getElementById("drLevel").value;
+  const materiEl = document.getElementById("drMateri");
+  materiEl.innerHTML = '<option value="">-- Pilih Materi --</option>';
+  if (level && SISWA_REPORT_DATA.MATERI[level]) {
+    SISWA_REPORT_DATA.MATERI[level].forEach((m) => {
+      materiEl.innerHTML += `<option value="${m}">${m}</option>`;
+    });
+  }
+  window.onDailyReportMateriChange();
+};
+
+window.onDailyReportMateriChange = function () {
+  const materi = document.getElementById("drMateri").value;
+  const pencapaianEl = document.getElementById("drPencapaian");
+  pencapaianEl.value = SISWA_REPORT_DATA.PENCAPAIAN[materi] || "";
+};
+
 function getReportCategoryOptions() {
   const dept = (currentUser.departemen || "").toUpperCase().trim();
   const cats = REPORT_CATEGORIES[dept] || REPORT_CATEGORIES["OFFICE"] || [];
@@ -3900,71 +4092,56 @@ async function modalAddDailyReport() {
   // Kategori only for staff and leader (level 1-2), not manager+
   const showKategori = !hasAccess(3);
   const catHtml = showKategori
-    ? `<div class="form-group"><label>Kategori *</label><select class="form-control" id="drKategori" onchange="saveDailyReportDraft()">${getReportCategoryOptions()}</select></div>`
-    : '<input type="hidden" id="drKategori" value="" onchange="saveDailyReportDraft()">';
+    ? `<div class="form-group"><label>Kategori *</label><select class="form-control" id="drKategori" onchange="onDailyReportKategoriChange()">${getReportCategoryOptions()}</select></div>`
+    : '<input type="hidden" id="drKategori" value="">';
   openModal(
     `<div class="modal-title">📝 Daily Report</div>
     <p class="text-sm mb-16" style="color:#666">Isi laporan aktivitas harian Anda.</p>
-    <div id="draftNotice" style="display:none; background:#fff3e0; padding:10px; border-radius:8px; border-left:4px solid var(--warning); margin-bottom:16px; font-size:.8rem">
-        ✨ Draft laporan sebelumnya telah dimuat otomatis.
-    </div>
     <div class="grid-2">
-      <div class="form-group"><label>Tanggal Laporan *</label><input class="form-control" type="date" id="drTanggal" value="${todayStr()}" oninput="saveDailyReportDraft()"></div>
+      <div class="form-group"><label>Tanggal Laporan *</label><input class="form-control" type="date" id="drTanggal" value="${todayStr()}"></div>
       ${catHtml}
     </div>
-    <div class="grid-2">
-      <div class="form-group"><label>Jam Masuk</label><input class="form-control" type="time" id="drJamMasuk" value="08:00" oninput="saveDailyReportDraft()"></div>
-      <div class="form-group"><label>Jam Keluar</label><input class="form-control" type="time" id="drJamKeluar" value="17:00" oninput="saveDailyReportDraft()"></div>
+
+    <!-- SISWA SPECIFIC FIELDS -->
+    <div id="drExtraSiswa" style="display:none; background:#f0f7ff; padding:15px; border-radius:10px; border:1px solid #c2e0ff; margin-bottom:15px">
+      <div class="grid-2">
+        <div class="form-group"><label>LEVEL</label>
+          <select class="form-control" id="drLevel" onchange="onDailyReportLevelChange()">
+            <option value="">-- Pilih Level --</option>
+            ${SISWA_REPORT_DATA.LEVELS.map((l) => `<option value="${l}">${l}</option>`).join("")}
+          </select>
+        </div>
+        <div class="form-group"><label>MATERI</label>
+          <select class="form-control" id="drMateri" onchange="onDailyReportMateriChange()">
+            <option value="">-- Pilih Materi --</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label>PENCAPAIAN BAB</label>
+        <textarea class="form-control" id="drPencapaian" rows="2" readonly style="background:#f9f9f9; font-size:.85rem"></textarea>
+      </div>
     </div>
-    <div class="form-group"><label>Aktivitas Hari Ini *</label><textarea class="form-control" id="drAktivitas" rows="4" placeholder="1. Meeting dengan tim marketing\n2. Follow up client ABC\n3. Buat proposal project X\n..." oninput="saveDailyReportDraft()"></textarea></div>
-    <div class="form-group"><label>Hasil / Output</label><textarea class="form-control" id="drHasil" rows="2" placeholder="Proposal selesai 80%, meeting berhasil dapat approval..." oninput="saveDailyReportDraft()"></textarea></div>
-    <div class="form-group"><label>Kendala / Hambatan</label><textarea class="form-control" id="drKendala" rows="2" placeholder="Tidak ada / Menunggu data dari divisi lain..." oninput="saveDailyReportDraft()"></textarea></div>
-    <div class="form-group"><label>Solusi / Tindakan atas Kendala</label><textarea class="form-control" id="drSolusi" rows="2" placeholder="Koordinasi dengan divisi terkait / Eskalasi ke atasan..." oninput="saveDailyReportDraft()"></textarea></div>
-    <div class="form-group"><label>Rencana Besok</label><textarea class="form-control" id="drRencana" rows="2" placeholder="1. Finalisasi proposal\n2. Kirim ke client..." oninput="saveDailyReportDraft()"></textarea></div>
+
     <div class="grid-2">
-      <div class="form-group"><label>Durasi Pekerjaan (hari)</label><input class="form-control" type="number" id="drDurasi" min="0" max="30" step="0.5" value="1" placeholder="Contoh: 1" oninput="saveDailyReportDraft()"></div>
-      <div class="form-group"><label>Progress Keseluruhan (%)</label><input class="form-control" type="number" id="drProgress" min="0" max="100" value="100" placeholder="0-100" oninput="saveDailyReportDraft()"></div>
+      <div class="form-group"><label>Jam Masuk</label><input class="form-control" type="time" id="drJamMasuk" value="08:00"></div>
+      <div class="form-group"><label>Jam Keluar</label><input class="form-control" type="time" id="drJamKeluar" value="17:00"></div>
     </div>
-    <div class="form-group"><label>Mood Hari Ini</label><select class="form-control" id="drMood" onchange="saveDailyReportDraft()"><option value="sangat_baik">🤩 Sangat Baik / Luar Biasa Produktif</option><option value="baik">😊 Baik / Produktif</option><option value="cukup">😐 Cukup / Biasa Saja</option><option value="kurang">😟 Kurang / Ada Hambatan</option><option value="buruk">😞 Buruk / Banyak Masalah</option><option value="sangat_buruk">😫 Sangat Buruk / Overwhelmed</option></select></div>
-    <div class="form-group"><label>Komentar untuk Atasan</label><textarea class="form-control" id="drKomentarAtasan" rows="2" placeholder="Pesan/catatan khusus untuk atasan (opsional)..." oninput="saveDailyReportDraft()"></textarea></div>
-    <div class="form-group"><label>Komentar untuk Rekan Kerja</label><textarea class="form-control" id="drKomentarRekan" rows="2" placeholder="Apresiasi/pesan untuk rekan tim (opsional)..." oninput="saveDailyReportDraft()"></textarea></div>
+    <div class="form-group"><label>Aktivitas Hari Ini *</label><textarea class="form-control" id="drAktivitas" rows="4" placeholder="1. Meeting dengan tim marketing\n2. Follow up client ABC\n3. Buat proposal project X\n..."></textarea></div>
+    <div class="form-group"><label>Hasil / Output</label><textarea class="form-control" id="drHasil" rows="2" placeholder="Proposal selesai 80%, meeting berhasil dapat approval..."></textarea></div>
+    <div class="form-group"><label>Kendala / Hambatan</label><textarea class="form-control" id="drKendala" rows="2" placeholder="Tidak ada / Menunggu data dari divisi lain..."></textarea></div>
+    <div class="form-group"><label>Solusi / Tindakan atas Kendala</label><textarea class="form-control" id="drSolusi" rows="2" placeholder="Koordinasi dengan divisi terkait / Eskalasi ke atasan..."></textarea></div>
+    <div class="form-group"><label>Rencana Besok</label><textarea class="form-control" id="drRencana" rows="2" placeholder="1. Finalisasi proposal\n2. Kirim ke client..."></textarea></div>
+    <div class="grid-2">
+      <div class="form-group"><label>Durasi Pekerjaan (hari)</label><input class="form-control" type="number" id="drDurasi" min="0" max="30" step="0.5" value="1" placeholder="Contoh: 1"></div>
+      <div class="form-group"><label>Progress Keseluruhan (%)</label><input class="form-control" type="number" id="drProgress" min="0" max="100" value="100" placeholder="0-100"></div>
+    </div>
+    <div class="form-group"><label>Mood Hari Ini</label><select class="form-control" id="drMood"><option value="sangat_baik">🤩 Sangat Baik / Luar Biasa Produktif</option><option value="baik">😊 Baik / Produktif</option><option value="cukup">😐 Cukup / Biasa Saja</option><option value="kurang">😟 Kurang / Ada Hambatan</option><option value="buruk">😞 Buruk / Banyak Masalah</option><option value="sangat_buruk">😫 Sangat Buruk / Overwhelmed</option></select></div>
+    <div class="form-group"><label>Komentar untuk Atasan</label><textarea class="form-control" id="drKomentarAtasan" rows="2" placeholder="Pesan/catatan khusus untuk atasan (opsional)..."></textarea></div>
+    <div class="form-group"><label>Komentar untuk Rekan Kerja</label><textarea class="form-control" id="drKomentarRekan" rows="2" placeholder="Apresiasi/pesan untuk rekan tim (opsional)..."></textarea></div>
     <div class="form-group"><label>📎 Lampiran Eviden</label><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('drFiles').click()">📁 Pilih File</button><button type="button" class="btn btn-sm btn-info" onclick="openCamera('drFilePreview','drCameraData')">📷 Kamera</button></div><input type="file" id="drFiles" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" onchange="previewTaskFiles(this,'drFilePreview')" style="display:none"><input type="hidden" id="drCameraData"><div id="drFilePreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div><div class="text-xs" style="color:#999;margin-top:4px">Maks 5 file, 10MB per file. Format: Gambar, PDF, DOC, XLS, PPT, ZIP. Bisa juga foto langsung via kamera.</div></div>
-    <div class="flex gap-8 mt-16">
-      <button class="btn btn-primary" style="flex:1; padding:12px" onclick="simpanDailyReport()">📤 Kirim Daily Report</button>
-      <button class="btn btn-outline" style="padding:12px" onclick="closeModalDirect()">✕ Tutup Laporan</button>
-    </div>`,
-    true,
+    <button class="btn btn-primary" onclick="simpanDailyReport()">📤 Kirim Daily Report</button>`,
     true,
   );
-
-  // Restore draft if exists
-  const draftKey = "dr_draft_" + currentUser.id;
-  const draftRaw = localStorage.getItem(draftKey);
-  if (draftRaw) {
-    try {
-      const d = JSON.parse(draftRaw);
-      // Only auto-restore if updated within last 24h
-      if (new Date().getTime() - (d.updatedAt || 0) < 86400000) {
-        if (d.tanggal) document.getElementById("drTanggal").value = d.tanggal;
-        if (d.kategori) document.getElementById("drKategori").value = d.kategori;
-        if (d.jamMasuk) document.getElementById("drJamMasuk").value = d.jamMasuk;
-        if (d.jamKeluar) document.getElementById("drJamKeluar").value = d.jamKeluar;
-        if (d.aktivitas) document.getElementById("drAktivitas").value = d.aktivitas;
-        if (d.hasil) document.getElementById("drHasil").value = d.hasil;
-        if (d.kendala) document.getElementById("drKendala").value = d.kendala;
-        if (d.solusi) document.getElementById("drSolusi").value = d.solusi;
-        if (d.rencana) document.getElementById("drRencana").value = d.rencana;
-        if (d.durasi) document.getElementById("drDurasi").value = d.durasi;
-        if (d.progress) document.getElementById("drProgress").value = d.progress;
-        if (d.mood) document.getElementById("drMood").value = d.mood;
-        if (d.komentarAtasan) document.getElementById("drKomentarAtasan").value = d.komentarAtasan;
-        if (d.komentarRekan) document.getElementById("drKomentarRekan").value = d.komentarRekan;
-
-        const notice = document.getElementById("draftNotice");
-        if (notice) notice.style.display = "block";
-      }
-    } catch (e) {}
-  }
 }
 
 async function simpanDailyReport() {
@@ -4001,6 +4178,9 @@ async function simpanDailyReport() {
     departemen: currentUser.departemen || "",
     ownerLevel: ROLES[currentUser.role] || 0,
     ownerRole: currentUser.role || "",
+    level: document.getElementById("drLevel")?.value || "",
+    materi: document.getElementById("drMateri")?.value || "",
+    pencapaian: document.getElementById("drPencapaian")?.value || "",
     attachments: [],
     createdAt: new Date().toISOString(),
   };
@@ -4009,8 +4189,6 @@ async function simpanDailyReport() {
   try {
     await db.collection("hrd_daily_tasks").add(data);
     toast("Daily Report berhasil dikirim", "success");
-    // Clear draft on success
-    localStorage.removeItem("dr_draft_" + currentUser.id);
   } catch (e) {
     toast("Gagal: " + e.message, "error");
   }
@@ -4055,30 +4233,6 @@ function viewDailyReport(id) {
     <div class="text-xs" style="color:#999">Dikirim: ${formatDateTime(task.createdAt)}</div>`,
     true,
   );
-}
-
-// == DAILY REPORT DRAFT HELPERS ================================
-function saveDailyReportDraft() {
-  try {
-    const draft = {
-      tanggal: document.getElementById("drTanggal")?.value,
-      kategori: document.getElementById("drKategori")?.value,
-      jamMasuk: document.getElementById("drJamMasuk")?.value,
-      jamKeluar: document.getElementById("drJamKeluar")?.value,
-      aktivitas: document.getElementById("drAktivitas")?.value,
-      hasil: document.getElementById("drHasil")?.value,
-      kendala: document.getElementById("drKendala")?.value,
-      solusi: document.getElementById("drSolusi")?.value,
-      rencana: document.getElementById("drRencana")?.value,
-      durasi: document.getElementById("drDurasi")?.value,
-      progress: document.getElementById("drProgress")?.value,
-      mood: document.getElementById("drMood")?.value,
-      komentarAtasan: document.getElementById("drKomentarAtasan")?.value,
-      komentarRekan: document.getElementById("drKomentarRekan")?.value,
-      updatedAt: new Date().getTime(),
-    };
-    localStorage.setItem("dr_draft_" + currentUser.id, JSON.stringify(draft));
-  } catch (e) {}
 }
 
 // == IMPORT LAPORAN MINGGUAN (dari Spreadsheet) ========================
