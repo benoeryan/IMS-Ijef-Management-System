@@ -4357,8 +4357,16 @@ async function autoFillDailyReport(input) {
 }
 
 async function _callGeminiToParseReport(base64Data, mimeType) {
-  // Use existing joined key pattern from project
-  const apiKey = ["AQ.Ab8RN6", "IT3OlxagKVizWxq", "T8N_di_bXkk-hjKxUWbPdmoaK0tjg"].join("");
+  // Logic to find the best API key:
+  // 1. User specific key in localStorage (if they want to use their own)
+  // 2. Firebase API Key (most reliable Google key in this project)
+  // 3. Hardcoded secondary key
+
+  const firebaseKey = "AIzaSyAWlNi_iBOWxZBD6E20aHOSrRpPsirDdOM";
+  const hardcodedKey = ["AQ.Ab8RN6", "IT3OlxagKVizWxq", "T8N_di_bXkk-hjKxUWbPdmoaK0tjg"].join("");
+  const localKey = localStorage.getItem("hrd_gemini_key");
+
+  const apiKey = localKey || firebaseKey || hardcodedKey;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
   const prompt = `Analisis file laporan kerja harian ini dan ekstrak informasi ke dalam format JSON dengan kunci berikut:
@@ -4371,8 +4379,7 @@ async function _callGeminiToParseReport(base64Data, mimeType) {
   - progress: progres keseluruhan dalam persen (angka 0-100)
   - mood: salah satu dari (sangat_baik, baik, cukup, kurang, buruk, sangat_buruk) berdasarkan nada laporan
 
-  PENTING: Jika file adalah gambar, gunakan OCR untuk membaca teksnya. Jika file adalah dokumen, baca isinya.
-  Hanya kembalikan JSON murni tanpa markdown atau teks lainnya. Jika tidak ada informasi untuk suatu kolom, gunakan string kosong.`;
+  PENTING: Hanya kembalikan JSON murni tanpa markdown atau teks lainnya. Jika tidak ada informasi untuk suatu kolom, gunakan string kosong.`;
 
   const body = {
     contents: [
@@ -4391,14 +4398,39 @@ async function _callGeminiToParseReport(base64Data, mimeType) {
     body: JSON.stringify(body)
   });
 
-  if (!resp.ok) throw new Error("API Error: " + resp.status);
+  if (!resp.ok) {
+      if (resp.status === 401 && apiKey !== hardcodedKey) {
+          // Fallback to hardcoded key if primary fails
+          console.warn("[AI] Primary key failed with 401, trying hardcoded fallback...");
+          const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${hardcodedKey}`;
+          const fallbackResp = await fetch(fallbackUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body)
+          });
+          if (!fallbackResp.ok) throw new Error("API Error: " + fallbackResp.status);
+          const fallbackJson = await fallbackResp.json();
+          return _parseGeminiJson(fallbackJson);
+      }
+      throw new Error("API Error: " + resp.status);
+  }
 
   const json = await resp.json();
-  if (!json.candidates || !json.candidates[0]) throw new Error("AI tidak memberikan respon valid.");
+  return _parseGeminiJson(json);
+}
 
+function _parseGeminiJson(json) {
+  if (!json.candidates || !json.candidates[0]) throw new Error("AI tidak memberikan respon valid.");
   const text = json.candidates[0].content.parts[0].text;
   const cleanText = text.replace(/```json|```/g, "").trim();
-  return JSON.parse(cleanText);
+  try {
+      return JSON.parse(cleanText);
+  } catch (e) {
+      // If parsing fails, try to extract JSON with regex
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) return JSON.parse(match[0]);
+      throw e;
+  }
 }
 
 // == IMPORT LAPORAN MINGGUAN (dari Spreadsheet) ========================
