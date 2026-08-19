@@ -4368,16 +4368,8 @@ async function autoFillDailyReport(input) {
 }
 
 async function _callGeminiToParseReport(base64Data, mimeType) {
-  // Logic to find the best API key:
-  // 1. User specific key in localStorage (if they want to use their own)
-  // 2. Firebase API Key (most reliable Google key in this project)
-  // 3. Hardcoded secondary key
-
-  const firebaseKey = "AIzaSyAWlNi_iBOWxZBD6E20aHOSrRpPsirDdOM";
-  const hardcodedKey = ["AQ.Ab8RN6", "IT3OlxagKVizWxq", "T8N_di_bXkk-hjKxUWbPdmoaK0tjg"].join("");
-  const localKey = localStorage.getItem("hrd_gemini_key");
-
-  const apiKey = localKey || firebaseKey || hardcodedKey;
+  // Use existing joined key pattern from project - THIS IS THE KNOWN WORKING KEY
+  const apiKey = ["AQ.Ab8RN6", "IT3OlxagKVizWxq", "T8N_di_bXkk-hjKxUWbPdmoaK0tjg"].join("");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
   const prompt = `Analisis file laporan kerja harian ini dan ekstrak informasi ke dalam format JSON dengan kunci berikut:
@@ -4410,34 +4402,17 @@ async function _callGeminiToParseReport(base64Data, mimeType) {
   });
 
   if (!resp.ok) {
-      if (resp.status === 401 && apiKey !== hardcodedKey) {
-          // Fallback to hardcoded key if primary fails
-          console.warn("[AI] Primary key failed with 401, trying hardcoded fallback...");
-          const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${hardcodedKey}`;
-          const fallbackResp = await fetch(fallbackUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body)
-          });
-          if (!fallbackResp.ok) throw new Error("API Error: " + fallbackResp.status);
-          const fallbackJson = await fallbackResp.json();
-          return _parseGeminiJson(fallbackJson);
-      }
-      throw new Error("API Error: " + resp.status);
+    throw new Error("API Error: " + resp.status);
   }
 
   const json = await resp.json();
-  return _parseGeminiJson(json);
-}
-
-function _parseGeminiJson(json) {
   if (!json.candidates || !json.candidates[0]) throw new Error("AI tidak memberikan respon valid.");
+
   const text = json.candidates[0].content.parts[0].text;
   const cleanText = text.replace(/```json|```/g, "").trim();
   try {
       return JSON.parse(cleanText);
   } catch (e) {
-      // If parsing fails, try to extract JSON with regex
       const match = text.match(/\{[\s\S]*\}/);
       if (match) return JSON.parse(match[0]);
       throw e;
@@ -5199,75 +5174,36 @@ async function loadWeeklyReports(divFilter) {
 
     var html = "";
 
-    // --- SISWA PROGRESS TRACKING (For Leader+ in Academic) ---
+    // --- SISWA STATISTICS ANALYSIS (For Leader+ in Academic) ---
     const isAcademicLeader = (hasAccess(2) || hasHeadLevelAccess()) && (_weeklyReportFilter === "akademik" || (currentUser.departemen || "").toUpperCase().includes("ACADEMIC"));
 
     if (isAcademicLeader) {
       const siswaReports = items.filter(r => (r.kategori || "").toUpperCase() === "SISWA");
       if (siswaReports.length > 0) {
-        // Group by name, level, materi
-        const progressMap = {};
-        siswaReports.forEach(r => {
-          const key = `${r.targetUserName || r.nama || "-"}_${r.level || "-"}_${r.materi || "-"}`;
-          if (!progressMap[key]) progressMap[key] = [];
-          progressMap[key].push(r);
-        });
+        const totalSiswaReports = siswaReports.length;
+        const avgSiswaProgress = Math.round(siswaReports.reduce((acc, r) => acc + (parseInt(r.progress) || 0), 0) / totalSiswaReports);
+        const obstacleSiswaCount = siswaReports.filter(r => (r.kendala || "").trim().length > 0).length;
 
-        let siswaHtml = `<div class="card mb-16" style="border-top: 4px solid #1565c0">
-          <div class="fw-700 mb-12" style="display:flex; align-items:center; gap:8px">
-            <span style="font-size:1.2rem">📈</span> Monitoring Progress Pembelajaran Siswa
+        html += `
+        <div class="card mb-16" style="border-top: 4px solid #1565c0; background:#f0f7ff">
+          <div class="fw-700 mb-12" style="color:#1565c0; display:flex; align-items:center; gap:8px">
+            <span style="font-size:1.2rem">📊</span> Statistik Analisis Laporan Siswa
           </div>
-          <div style="overflow-x:auto">
-            <table class="text-xs">
-              <thead>
-                <tr style="background:#f0f7ff">
-                  <th>Pengajar</th>
-                  <th>Level</th>
-                  <th>Materi</th>
-                  <th>Progress Terakhir</th>
-                  <th>Catatan Terakhir</th>
-                </tr>
-              </thead>
-              <tbody>`;
-
-        Object.keys(progressMap).sort().forEach(key => {
-          const group = progressMap[key].sort((a, b) => (a.tanggal || "").localeCompare(b.tanggal || ""));
-          const last = group[group.length - 1];
-
-          // Create Sparkline-like progress history and sequence string
-          let historyDots = "";
-          let sequenceText = [];
-          group.forEach(g => {
-            const p = g.progress || 0;
-            const color = p >= 100 ? "#2e7d32" : p >= 70 ? "#f57f17" : "#c62828";
-            historyDots += `<div style="width:12px; height:12px; border-radius:50%; background:${color}; border:1px solid #fff; box-shadow:0 0 2px rgba(0,0,0,0.2)" title="${formatDate(g.tanggal)}: ${p}%"></div>`;
-            if (g.pencapaian) sequenceText.push(`<small style="color:#666">${formatDate(g.tanggal)}:</small> ${g.pencapaian}`);
-          });
-
-          siswaHtml += `
-            <tr>
-              <td class="fw-700">${escHtml(last.targetUserName || last.nama || "-")}</td>
-              <td><span class="badge badge-info">${escHtml(last.level || "-")}</span></td>
-              <td>${escHtml(last.materi || "-")}</td>
-              <td style="min-width:140px">
-                <div style="display:flex; align-items:center; gap:8px">
-                    <div style="flex:1; background:#eee; border-radius:10px; height:8px; overflow:hidden">
-                        <div style="width:${last.progress || 0}%; background:#2e7d32; height:100%"></div>
-                    </div>
-                    <b>${last.progress || 0}%</b>
-                </div>
-                <div style="display:flex; gap:4px; margin-top:8px">${historyDots}</div>
-              </td>
-              <td style="max-width:300px; font-size:.7rem; line-height:1.4">
-                <div style="max-height:80px; overflow-y:auto">
-                    ${sequenceText.reverse().join("<br>")}
-                </div>
-              </td>
-            </tr>`;
-        });
-
-        siswaHtml += `</tbody></table></div></div>`;
-        html += siswaHtml;
+          <div class="grid-3" style="gap:16px">
+            <div style="background:#fff; padding:12px; border-radius:8px; text-align:center; border:1px solid #c2e0ff">
+              <div style="font-size:.7rem; color:#666">Total Laporan Siswa</div>
+              <div style="font-size:1.4rem; font-weight:800; color:#1565c0">${totalSiswaReports}</div>
+            </div>
+            <div style="background:#fff; padding:12px; border-radius:8px; text-align:center; border:1px solid #c2e0ff">
+              <div style="font-size:.7rem; color:#666">Rata-rata Progress</div>
+              <div style="font-size:1.4rem; font-weight:800; color:#2e7d32">${avgSiswaProgress}%</div>
+            </div>
+            <div style="background:#fff; padding:12px; border-radius:8px; text-align:center; border:1px solid #c2e0ff">
+              <div style="font-size:.7rem; color:#666">Total Kendala</div>
+              <div style="font-size:1.4rem; font-weight:800; color:#c62828">${obstacleSiswaCount}</div>
+            </div>
+          </div>
+        </div>`;
       }
     }
 
