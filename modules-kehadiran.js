@@ -5161,10 +5161,6 @@ async function loadWeeklyReports(divFilter) {
         return d.includes("OFFICE") || d.includes("MANAJEMEN");
       });
 
-    // --- NAME COLLECTION FOR DROPDOWN ---
-    // Collect unique names from division-filtered items
-    const uniqueNames = [...new Set(filtered.map(r => r.targetUserName || r.nama || r.pic || "-"))].sort();
-
     var filterFrom =
       document.getElementById("wrDateFrom")?.value || _wrDateFrom;
     var filterTo = document.getElementById("wrDateTo")?.value || _wrDateTo;
@@ -5178,6 +5174,10 @@ async function loadWeeklyReports(divFilter) {
       filtered = filtered.filter(function (r) {
         return (r.tanggal || "") <= filterTo;
       });
+
+    // --- NAME COLLECTION FOR DROPDOWN (Filtered by Division & Date) ---
+    // Collect unique names from items that match division AND selected date range
+    const uniqueNames = [...new Set(filtered.map(r => r.targetUserName || r.nama || r.pic || "-"))].sort();
 
     if (window._wrCatFilter) {
       filtered = filtered.filter(function (r) {
