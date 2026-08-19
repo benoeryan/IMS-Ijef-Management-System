@@ -5075,6 +5075,7 @@ async function loadWeeklyReports(divFilter) {
   if (divFilter !== undefined) {
     _weeklyReportFilter = divFilter;
     _wrSummaryFilter = "";
+    window._wrNameFilter = ""; // Reset name filter when division changes
   }
 
   if (!document.getElementById("taskList")) {
@@ -5148,6 +5149,10 @@ async function loadWeeklyReports(divFilter) {
         return d.includes("OFFICE") || d.includes("MANAJEMEN");
       });
 
+    // --- NAME COLLECTION FOR DROPDOWN ---
+    // Collect unique names from division-filtered items
+    const uniqueNames = [...new Set(filtered.map(r => r.targetUserName || r.nama || r.pic || "-"))].sort();
+
     var filterFrom =
       document.getElementById("wrDateFrom")?.value || _wrDateFrom;
     var filterTo = document.getElementById("wrDateTo")?.value || _wrDateTo;
@@ -5169,6 +5174,13 @@ async function loadWeeklyReports(divFilter) {
         if (fv === "tanpa kategori")
           return !r.kategori || r.kategori.trim() === "";
         return kat.includes(fv);
+      });
+    }
+
+    if (window._wrNameFilter) {
+      filtered = filtered.filter(function (r) {
+        var name = r.targetUserName || r.nama || r.pic || "-";
+        return name === window._wrNameFilter;
       });
     }
 
@@ -5298,6 +5310,16 @@ async function loadWeeklyReports(divFilter) {
       '<select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window._wrCatFilter=this.value;loadWeeklyReports()">' +
       wrCatOpts +
       "</select>";
+
+    let wrNameOpts = '<option value="">Semua User</option>';
+    uniqueNames.forEach(function (n) {
+      wrNameOpts += `<option value="${escAttr(n)}" ${window._wrNameFilter === n ? "selected" : ""}>${escHtml(n)}</option>`;
+    });
+    html +=
+      '<select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window._wrNameFilter=this.value;loadWeeklyReports()">' +
+      wrNameOpts +
+      "</select>";
+
     html += '<span style="margin-left:auto"></span>';
     if (currentUser.role !== "bod") {
       html +=
