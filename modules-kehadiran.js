@@ -4257,9 +4257,18 @@ async function simpanDailyReport() {
   await loadDailyTasks("report");
 }
 
-function viewDailyReport(id) {
-  const task = _dailyTaskData.find((t) => t.id === id);
-  if (!task) return;
+async function viewDailyReport(id) {
+  let task = _dailyTaskData.find((t) => t.id === id);
+  if (!task) {
+    try {
+      const doc = await db.collection("hrd_daily_tasks").doc(id).get();
+      if (!doc.exists) return toast("Data tidak ditemukan", "warning");
+      task = { id: doc.id, ...doc.data() };
+    } catch (e) {
+      return toast("Gagal memuat data", "error");
+    }
+  }
+
   const moodMap = {
     sangat_baik: "🤩 Sangat Baik",
     baik: "😊 Baik",
@@ -5436,14 +5445,14 @@ async function loadWeeklyReports(divFilter) {
                     : "#c62828"
                 : "#1565c0";
 
-              html += `<div class="wr-item" onclick="viewWeeklyReportItem('${escAttr(encodeURIComponent(wrKey))}')" style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;cursor:pointer">
+              html += `<div class="wr-item" onclick="viewWeeklyReportItem('${escAttr(wrKey)}')" style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;cursor:pointer">
             <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
               ${currentUser.role !== "bod" ? `<input type="checkbox" class="wr-check" value="${escAttr(r.id)}" data-col="${escAttr(r.col || WEEKLY_REPORT_DEFAULT_COL)}" onclick="event.stopPropagation()">` : ""}
               <div style="flex:1"><div class="fw-700">${escHtml(pic)}</div>
               <div class="text-xs" style="color:#666">📅 ${escHtml(tgl)} | 🏢 ${escHtml(div)} | 🏷️ ${escHtml(kat)}${subKatHtml}</div></div></div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
               <div style="font-size:.8rem;font-weight:700;color:${progressColor}">📈 Progress: ${escHtml(r.progress || "-")}${!isNaN(progressNum) && String(r.progress).indexOf("%") === -1 ? "%" : ""}</div>
-              <button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem('${escAttr(encodeURIComponent(wrKey))}')">👁️ View</button>
+              <button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem('${escAttr(wrKey)}')">👁️ View</button>
             </div>
             <div style="font-size:.82rem;color:#333;line-height:1.5;background:#f9f9f9;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ${escHtml(previewText)}</div>
           </div>`;
@@ -5499,7 +5508,6 @@ function showWeeklyReportSummaryModal() {
 }
 
 function viewWeeklyReportItem(key) {
-  key = decodeURIComponent(key || "");
   var report = _weeklyReportLookup[key];
   if (!report) return toast("Data laporan tidak ditemukan", "warning");
   var tgl = report.tanggal ? formatDate(report.tanggal) : report.bulan || "-";
