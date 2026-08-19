@@ -4147,14 +4147,12 @@ async function modalAddDailyReport() {
     <div class="form-group"><label>📎 Lampiran Eviden</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
         <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('drFiles').click()">📁 Pilih File (JPG/PNG/Dokumen)</button>
-        <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('drAutoFillFile').click()">✨ Upload & Auto-Fill Laporan</button>
         <button type="button" class="btn btn-sm btn-info" onclick="openCamera('drFilePreview','drCameraData')">📷 Kamera</button>
       </div>
       <input type="file" id="drFiles" multiple accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" onchange="previewTaskFiles(this,'drFilePreview')" style="display:none">
-      <input type="file" id="drAutoFillFile" accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.csv" onchange="autoFillDailyReport(this)" style="display:none">
       <input type="hidden" id="drCameraData">
       <div id="drFilePreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
-      <div class="text-xs" style="color:#999;margin-top:4px">Maks 5 file, 50MB per file. Format: Gambar (JPG/PNG), PDF, DOC, XLS, PPT, ZIP. Gunakan tombol <b>Auto-Fill</b> untuk mengisi form otomatis dari file laporan Anda.</div>
+      <div class="text-xs" style="color:#999;margin-top:4px">Maks 5 file, 50MB per file. Format: Gambar (JPG/PNG), PDF, DOC, XLS, PPT, ZIP.</div>
     </div>
     <div class="flex gap-8 mt-16">
       <button class="btn btn-primary" style="flex:1; padding:12px" onclick="simpanDailyReport()">📤 Kirim Daily Report</button>
@@ -5135,20 +5133,20 @@ async function loadWeeklyReports(divFilter) {
 
     // Hierarchical visibility for Weekly Reports: Manager+ see all, Staff/Leader see own division
     if (!hasAccess(3)) {
-      var myDept = (currentUser.departemen || "").toUpperCase().trim();
-      if (myDept) {
-        items = items.filter(function (r) {
-          var d = (r.departemen || r.divisi || "").toUpperCase().trim();
+      const myDept = (currentUser.departemen || "").toUpperCase().trim();
+      const isAcademic = myDept.includes("ACADEMIC") || myDept.includes("AKADEMIK");
+      const isOffice = myDept.includes("OFFICE") || myDept.includes("MANAJEMEN");
+
+      items = items.filter(function (r) {
+          const dept = (r.departemen || r.divisi || "").toUpperCase().trim();
           const isOwn = doesTaskBelongToUser(r);
-          return (
-            isOwn ||
-            d === myDept ||
-            d.includes(myDept) ||
-            myDept.includes(d) ||
-            !d
-          );
-        });
-      }
+          if (isOwn) return true;
+
+          if (isAcademic) return dept.includes("ACADEMIC") || dept.includes("AKADEMIK");
+          if (isOffice) return dept.includes("OFFICE") || dept.includes("MANAJEMEN");
+
+          return dept === myDept || dept.includes(myDept) || !dept;
+      });
     }
 
     var filtered = items;
