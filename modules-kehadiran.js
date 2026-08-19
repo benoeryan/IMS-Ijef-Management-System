@@ -5174,39 +5174,6 @@ async function loadWeeklyReports(divFilter) {
 
     var html = "";
 
-    // --- SISWA STATISTICS ANALYSIS (For Leader+ in Academic) ---
-    const isAcademicLeader = (hasAccess(2) || hasHeadLevelAccess()) && (_weeklyReportFilter === "akademik" || (currentUser.departemen || "").toUpperCase().includes("ACADEMIC"));
-
-    if (isAcademicLeader) {
-      const siswaReports = items.filter(r => (r.kategori || "").toUpperCase() === "SISWA");
-      if (siswaReports.length > 0) {
-        const totalSiswaReports = siswaReports.length;
-        const avgSiswaProgress = Math.round(siswaReports.reduce((acc, r) => acc + (parseInt(r.progress) || 0), 0) / totalSiswaReports);
-        const obstacleSiswaCount = siswaReports.filter(r => (r.kendala || "").trim().length > 0).length;
-
-        html += `
-        <div class="card mb-16" style="border-top: 4px solid #1565c0; background:#f0f7ff">
-          <div class="fw-700 mb-12" style="color:#1565c0; display:flex; align-items:center; gap:8px">
-            <span style="font-size:1.2rem">📊</span> Statistik Analisis Laporan Siswa
-          </div>
-          <div class="grid-3" style="gap:16px">
-            <div style="background:#fff; padding:12px; border-radius:8px; text-align:center; border:1px solid #c2e0ff">
-              <div style="font-size:.7rem; color:#666">Total Laporan Siswa</div>
-              <div style="font-size:1.4rem; font-weight:800; color:#1565c0">${totalSiswaReports}</div>
-            </div>
-            <div style="background:#fff; padding:12px; border-radius:8px; text-align:center; border:1px solid #c2e0ff">
-              <div style="font-size:.7rem; color:#666">Rata-rata Progress</div>
-              <div style="font-size:1.4rem; font-weight:800; color:#2e7d32">${avgSiswaProgress}%</div>
-            </div>
-            <div style="background:#fff; padding:12px; border-radius:8px; text-align:center; border:1px solid #c2e0ff">
-              <div style="font-size:.7rem; color:#666">Total Kendala</div>
-              <div style="font-size:1.4rem; font-weight:800; color:#c62828">${obstacleSiswaCount}</div>
-            </div>
-          </div>
-        </div>`;
-      }
-    }
-
     // --- RANGKUMAN DATA LAPORAN MINGGUAN (DASHBOARD BOX) ---
     const totalReportsSummary = filtered.length;
     const avgProgressSummary =
@@ -5402,6 +5369,12 @@ async function loadWeeklyReports(divFilter) {
             userRows.forEach(function (r) {
               var tgl = r.tanggal || r.bulan || "-";
               var kat = r.kategori || "-";
+
+              var subKatHtml = "";
+              if ((kat || "").toUpperCase() === "SISWA") {
+                  subKatHtml = ` | 📍 <b>LVL:</b> ${escHtml(r.level || "-")} | 📚 <b>MAT:</b> ${escHtml(r.materi || "-")}`;
+              }
+
               var wrKey = (r.col || WEEKLY_REPORT_DEFAULT_COL) + "::" + r.id;
               _weeklyReportLookup[wrKey] = r;
               var previewText =
@@ -5429,14 +5402,14 @@ async function loadWeeklyReports(divFilter) {
                     : "#c62828"
                 : "#1565c0";
 
-              html += `<div class="wr-item" data-report-key="${escAttr(encodeURIComponent(wrKey))}" style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;cursor:pointer">
+              html += `<div class="wr-item" onclick="viewWeeklyReportItem('${escAttr(encodeURIComponent(wrKey))}')" style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;cursor:pointer">
             <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
-              ${currentUser.role !== "bod" ? `<input type="checkbox" class="wr-check" value="${escAttr(r.id)}" data-col="${escAttr(r.col || WEEKLY_REPORT_DEFAULT_COL)}">` : ""}
+              ${currentUser.role !== "bod" ? `<input type="checkbox" class="wr-check" value="${escAttr(r.id)}" data-col="${escAttr(r.col || WEEKLY_REPORT_DEFAULT_COL)}" onclick="event.stopPropagation()">` : ""}
               <div style="flex:1"><div class="fw-700">${escHtml(pic)}</div>
-              <div class="text-xs" style="color:#666">📅 ${escHtml(tgl)} | 🏢 ${escHtml(div)} | 🏷️ ${escHtml(kat)}</div></div></div>
+              <div class="text-xs" style="color:#666">📅 ${escHtml(tgl)} | 🏢 ${escHtml(div)} | 🏷️ ${escHtml(kat)}${subKatHtml}</div></div></div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
               <div style="font-size:.8rem;font-weight:700;color:${progressColor}">📈 Progress: ${escHtml(r.progress || "-")}${!isNaN(progressNum) && String(r.progress).indexOf("%") === -1 ? "%" : ""}</div>
-              <button class="btn btn-xs btn-info wr-view-btn" data-report-key="${escAttr(encodeURIComponent(wrKey))}">👁️ View</button>
+              <button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem('${escAttr(encodeURIComponent(wrKey))}')">👁️ View</button>
             </div>
             <div style="font-size:.82rem;color:#333;line-height:1.5;background:#f9f9f9;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ${escHtml(previewText)}</div>
           </div>`;
@@ -5451,22 +5424,6 @@ async function loadWeeklyReports(divFilter) {
       html += _buildReportTrackerStats(filtered);
     }
     listEl.innerHTML = html;
-    listEl.querySelectorAll(".wr-item").forEach((itemEl) => {
-      itemEl.addEventListener("click", function () {
-        viewWeeklyReportItem(this.dataset.reportKey || "");
-      });
-    });
-    listEl.querySelectorAll(".wr-view-btn").forEach((btn) => {
-      btn.addEventListener("click", function (event) {
-        event.stopPropagation();
-        viewWeeklyReportItem(this.dataset.reportKey || "");
-      });
-    });
-    listEl.querySelectorAll(".wr-check").forEach((checkbox) => {
-      checkbox.addEventListener("click", function (event) {
-        event.stopPropagation();
-      });
-    });
   } catch (e) {
     listEl.innerHTML =
       '<p class="text-sm" style="color:#c62828">Gagal memuat: ' +
@@ -5550,7 +5507,7 @@ function viewWeeklyReportItem(key) {
       " | 🏢 " +
       escHtml(div) +
       " | 📂 " +
-      escHtml(kat) +
+      escHtml(kategori) +
       "</div>" +
       '<div class="text-sm mt-4">📈 Progress: <b>' +
       escHtml(progressText) +
