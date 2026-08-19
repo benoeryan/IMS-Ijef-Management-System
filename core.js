@@ -287,7 +287,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.1.7";
+const APP_VERSION = "16.1.9";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -1200,7 +1200,9 @@ function closeSidebar() {
   }
 }
 
-function openModal(html, large) {
+let _modalPersistent = false;
+function openModal(html, large, persistent = false) {
+  _modalPersistent = persistent;
   const o = document.getElementById("modalOverlay"),
     c = document.getElementById("modalContent");
   c.className = "modal" + (large ? " modal-lg" : "");
@@ -1208,13 +1210,15 @@ function openModal(html, large) {
   o.classList.add("active");
 }
 function closeModal(e) {
-  if (e && e.target !== document.getElementById("modalOverlay")) return;
+  if (_modalPersistent && e && e.target === document.getElementById("modalOverlay")) return;
   runPageResourceCleanup("modal-close");
   document.getElementById("modalOverlay").classList.remove("active");
+  _modalPersistent = false;
 }
 function closeModalDirect() {
   runPageResourceCleanup("modal-close");
   document.getElementById("modalOverlay").classList.remove("active");
+  _modalPersistent = false;
   // Clean up zoom drag listeners
   if (typeof handleZoomDrag === "function") {
     document.removeEventListener("mousemove", handleZoomDrag);
