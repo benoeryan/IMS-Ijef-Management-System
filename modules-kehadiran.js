@@ -2185,9 +2185,12 @@ window.loadDailyTasks = async function(filter, skipAutoRender = false) {
           : (t.progress || 0) >= 50
             ? "#f57f17"
             : "#c62828";
+      const levelMateri = (t.kategori === "SISWA") ? `<div style="font-size:.7rem; color:#1565c0; margin-top:4px; font-weight:600">📍 LEVEL: ${escHtml(t.level || "-")} | 📚 MATERI: ${escHtml(t.materi || "-")}</div>` : "";
+
       html += `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border-left:4px solid #7b1fa2;margin-bottom:8px;background:#faf5ff;border-radius:0 8px 8px 0;cursor:pointer" onclick="viewDailyReport('${t.id}')">
         <div style="font-size:1.5rem">📝</div>
         <div style="flex:1"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:700;font-size:.9rem">${escHtml(t.title || "Daily Report")}</span><span class="badge" style="background:#7b1fa220;color:#7b1fa2">Report</span></div>
+        ${levelMateri}
         <div style="font-size:.8rem;color:#666;margin-top:4px">${escHtml((t.aktivitas || "").substring(0, 100))}...</div>
         <div style="font-size:.7rem;color:#999;margin-top:4px">👤 ${escHtml(t.targetUserName || "")} | 📅 ${formatDate(t.tanggal)} | Progress: <span style="color:${progressColor};font-weight:600">${t.progress || 0}%</span></div>
         </div>
@@ -4280,9 +4283,17 @@ function viewDailyReport(id) {
       <div class="fw-700" style="color:var(--primary)">${escHtml(task.targetUserName || currentUser.nama)} <span style="font-size:.7rem;color:#999;font-weight:400">👤 klik untuk lihat profil</span></div>
       <div class="text-sm" style="color:#666">📅 ${formatDate(task.tanggal)} | ⏰ ${task.jamMasuk || "-"} - ${task.jamKeluar || "-"}</div>
       <div class="text-sm mt-4">🏢 ${escHtml(task.departemen || "-")} | 📂 ${escHtml(task.kategori || "-")}</div>
+      ${task.kategori === "SISWA" ? `
+        <div class="text-sm mt-4" style="background:#e3f2fd; padding:8px; border-radius:6px; border-left:3px solid #1565c0">
+          📍 <b>LEVEL:</b> ${escHtml(task.level || "-")} | 📚 <b>MATERI:</b> ${escHtml(task.materi || "-")}
+        </div>
+      ` : ""}
       <div class="text-sm mt-4">Progress: <span style="color:${progressColor};font-weight:700">${task.progress || 0}%</span> | Durasi: <b>${task.durasi || "-"} hari</b> | Mood: ${moodLabel}</div>
     </div>
     <div class="mb-16"><div class="fw-700 mb-4" style="color:var(--primary)">📋 Aktivitas</div><div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap;line-height:1.7">${escHtml(task.aktivitas || task.description || "-")}</div></div>
+    ${task.kategori === "SISWA" && task.pencapaian ? `
+      <div class="mb-16"><div class="fw-700 mb-4" style="color:#1565c0">📈 Pencapaian Bab</div><div style="background:#f0f7ff;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.pencapaian)}</div></div>
+    ` : ""}
     ${task.hasil ? `<div class="mb-16"><div class="fw-700 mb-4" style="color:#2e7d32">✅ Hasil / Output</div><div style="background:#f1f8e9;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.hasil)}</div></div>` : ""}
     ${task.kendala || task.case_desc ? `<div class="mb-16"><div class="fw-700 mb-4" style="color:#c62828">⚠️ Kendala / Case</div><div style="background:#fff8f8;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.kendala || task.case_desc)}</div></div>` : ""}
     ${task.solusi || task.solution ? `<div class="mb-16"><div class="fw-700 mb-4" style="color:#ff6f00">💡 Solusi / Tindakan</div><div style="background:#fff8e1;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.solusi || task.solution)}</div></div>` : ""}
@@ -5188,6 +5199,78 @@ async function loadWeeklyReports(divFilter) {
 
     var html = "";
 
+    // --- SISWA PROGRESS TRACKING (For Leader+ in Academic) ---
+    const isAcademicLeader = (hasAccess(2) || hasHeadLevelAccess()) && (_weeklyReportFilter === "akademik" || (currentUser.departemen || "").toUpperCase().includes("ACADEMIC"));
+
+    if (isAcademicLeader) {
+      const siswaReports = items.filter(r => (r.kategori || "").toUpperCase() === "SISWA");
+      if (siswaReports.length > 0) {
+        // Group by name, level, materi
+        const progressMap = {};
+        siswaReports.forEach(r => {
+          const key = `${r.targetUserName || r.nama || "-"}_${r.level || "-"}_${r.materi || "-"}`;
+          if (!progressMap[key]) progressMap[key] = [];
+          progressMap[key].push(r);
+        });
+
+        let siswaHtml = `<div class="card mb-16" style="border-top: 4px solid #1565c0">
+          <div class="fw-700 mb-12" style="display:flex; align-items:center; gap:8px">
+            <span style="font-size:1.2rem">📈</span> Monitoring Progress Pembelajaran Siswa
+          </div>
+          <div style="overflow-x:auto">
+            <table class="text-xs">
+              <thead>
+                <tr style="background:#f0f7ff">
+                  <th>Pengajar</th>
+                  <th>Level</th>
+                  <th>Materi</th>
+                  <th>Progress Terakhir</th>
+                  <th>Catatan Terakhir</th>
+                </tr>
+              </thead>
+              <tbody>`;
+
+        Object.keys(progressMap).sort().forEach(key => {
+          const group = progressMap[key].sort((a, b) => (a.tanggal || "").localeCompare(b.tanggal || ""));
+          const last = group[group.length - 1];
+
+          // Create Sparkline-like progress history and sequence string
+          let historyDots = "";
+          let sequenceText = [];
+          group.forEach(g => {
+            const p = g.progress || 0;
+            const color = p >= 100 ? "#2e7d32" : p >= 70 ? "#f57f17" : "#c62828";
+            historyDots += `<div style="width:12px; height:12px; border-radius:50%; background:${color}; border:1px solid #fff; box-shadow:0 0 2px rgba(0,0,0,0.2)" title="${formatDate(g.tanggal)}: ${p}%"></div>`;
+            if (g.pencapaian) sequenceText.push(`<small style="color:#666">${formatDate(g.tanggal)}:</small> ${g.pencapaian}`);
+          });
+
+          siswaHtml += `
+            <tr>
+              <td class="fw-700">${escHtml(last.targetUserName || last.nama || "-")}</td>
+              <td><span class="badge badge-info">${escHtml(last.level || "-")}</span></td>
+              <td>${escHtml(last.materi || "-")}</td>
+              <td style="min-width:140px">
+                <div style="display:flex; align-items:center; gap:8px">
+                    <div style="flex:1; background:#eee; border-radius:10px; height:8px; overflow:hidden">
+                        <div style="width:${last.progress || 0}%; background:#2e7d32; height:100%"></div>
+                    </div>
+                    <b>${last.progress || 0}%</b>
+                </div>
+                <div style="display:flex; gap:4px; margin-top:8px">${historyDots}</div>
+              </td>
+              <td style="max-width:300px; font-size:.7rem; line-height:1.4">
+                <div style="max-height:80px; overflow-y:auto">
+                    ${sequenceText.reverse().join("<br>")}
+                </div>
+              </td>
+            </tr>`;
+        });
+
+        siswaHtml += `</tbody></table></div></div>`;
+        html += siswaHtml;
+      }
+    }
+
     // --- RANGKUMAN DATA LAPORAN MINGGUAN (DASHBOARD BOX) ---
     const totalReportsSummary = filtered.length;
     const avgProgressSummary =
@@ -5495,10 +5578,25 @@ function viewWeeklyReportItem(key) {
   var tgl = report.tanggal ? formatDate(report.tanggal) : report.bulan || "-";
   var pic = report.targetUserName || report.pic || report.nama || "-";
   var div = report.departemen || report.divisi || "-";
-  var kat = report.kategori || "-";
+  var kategori = report.kategori || "-";
   var progressText = String(report.progress || "-").trim() || "-";
   var progressNum = parseInt(progressText, 10);
   var hasProgressNum = !isNaN(progressNum);
+
+  let extraSiswaHtml = "";
+  if ((kategori || "").toUpperCase() === "SISWA") {
+    extraSiswaHtml = `
+      <div style="background:#e3f2fd; padding:12px; border-radius:8px; margin-bottom:12px; border-left:4px solid #1565c0">
+        <div class="grid-2">
+          <div><b>LEVEL:</b> ${escHtml(report.level || "-")}</div>
+          <div><b>MATERI:</b> ${escHtml(report.materi || "-")}</div>
+        </div>
+        <div class="mt-8"><b>PENCAPAIAN BAB:</b></div>
+        <div style="font-size:.85rem; color:#444">${escHtml(report.pencapaian || "-")}</div>
+      </div>
+    `;
+  }
+
   var aktivitas = report.aktivitas || report.description || "-";
   var kendala = report.kendala || report.case_desc || "";
   var solusi = report.solusi || report.solution || "";
@@ -5523,6 +5621,7 @@ function viewWeeklyReportItem(key) {
       (hasProgressNum && progressText.indexOf("%") === -1 ? "%" : "") +
       "</b></div>" +
       "</div>" +
+      extraSiswaHtml +
       '<div class="mb-12"><div class="fw-700 mb-4" style="color:#1565c0">📋 Aktivitas</div><div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.84rem;white-space:pre-wrap;line-height:1.6">' +
       escHtml(aktivitas) +
       "</div></div>" +
@@ -5840,10 +5939,18 @@ function _buildReportTrackerRow(r) {
       r.id +
       "')\">\ud83d\uddd1\ufe0f</button>"
     : "";
+  var levelMateriHtml = "";
+  if ((r.kategori || "").toUpperCase() === "SISWA") {
+    levelMateriHtml = `<div style="font-size:.7rem; color:#1565c0; margin-bottom:4px; font-weight:600">
+        📍 LEVEL: ${escHtml(r.level || "-")} | 📚 MATERI: ${escHtml(r.materi || "-")}
+    </div>`;
+  }
+
   return (
     '<div style="margin-bottom:8px;padding:10px 12px;border:1px solid #e8e8e8;border-radius:8px;background:#fff;cursor:pointer" onclick="viewDailyReport(\'' +
     r.id +
     "')\">" +
+    levelMateriHtml +
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
     '<div style="font-weight:600;font-size:.85rem">' +
     statusIcon +
