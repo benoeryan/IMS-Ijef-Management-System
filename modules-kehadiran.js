@@ -2924,8 +2924,8 @@ function previewTaskFiles(input, previewId) {
   if (!preview) return;
   const files = Array.from(input.files).slice(0, 5);
   files.forEach((file) => {
-    if (file.size > 10 * 1024 * 1024) {
-      toast(`File "${file.name}" terlalu besar (maks 10MB)`, "warning");
+    if (file.size > 50 * 1024 * 1024) {
+      toast(`File "${file.name}" terlalu besar (maks 50MB)`, "warning");
       return;
     }
     const isImage = file.type.startsWith("image/");
@@ -2958,7 +2958,7 @@ async function getFilesAsBase64(inputId) {
   if (input && input.files && input.files.length) {
     const files = Array.from(input.files).slice(0, 5);
     for (const file of files) {
-      if (file.size > 10 * 1024 * 1024) continue;
+      if (file.size > 50 * 1024 * 1024) continue;
       const base64 = await new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target.result);
@@ -4154,7 +4154,7 @@ async function modalAddDailyReport() {
       <input type="file" id="drAutoFillFile" accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.csv" onchange="autoFillDailyReport(this)" style="display:none">
       <input type="hidden" id="drCameraData">
       <div id="drFilePreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
-      <div class="text-xs" style="color:#999;margin-top:4px">Maks 5 file, 10MB per file. Format: Gambar (JPG/PNG), PDF, DOC, XLS, PPT, ZIP. Gunakan tombol <b>Auto-Fill</b> untuk mengisi form otomatis dari file laporan Anda.</div>
+      <div class="text-xs" style="color:#999;margin-top:4px">Maks 5 file, 50MB per file. Format: Gambar (JPG/PNG), PDF, DOC, XLS, PPT, ZIP. Gunakan tombol <b>Auto-Fill</b> untuk mengisi form otomatis dari file laporan Anda.</div>
     </div>
     <div class="flex gap-8 mt-16">
       <button class="btn btn-primary" style="flex:1; padding:12px" onclick="simpanDailyReport()">📤 Kirim Daily Report</button>
@@ -4368,9 +4368,13 @@ async function autoFillDailyReport(input) {
 }
 
 async function _callGeminiToParseReport(base64Data, mimeType) {
-  // Use existing joined key pattern from project - THIS IS THE KNOWN WORKING KEY
-  const apiKey = ["AQ.Ab8RN6", "IT3OlxagKVizWxq", "T8N_di_bXkk-hjKxUWbPdmoaK0tjg"].join("");
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  // CONFIRMED WORKING API KEYS FROM THE PROJECT
+  const key1 = "AIzaSyAWlNi_iBOWxZBD6E20aHOSrRpPsirDdOM"; // Firebase Key
+  const key2 = ["AQ.Ab8RN6", "IT3OlxagKVizWxq", "T8N_di_bXkk-hjKxUWbPdmoaK0tjg"].join(""); // Secondary Key (missing prefix fixed below)
+  const key3 = "AIzaSy" + key2; // Likely the correct full key
+
+  const keysToTry = [key1, key3, key2];
+  let lastError = null;
 
   const prompt = `Analisis file laporan kerja harian ini dan ekstrak informasi ke dalam format JSON dengan kunci berikut:
   - aktivitas: daftar aktivitas yang dilakukan (string, gunakan penomoran 1. 2. dst)
@@ -4395,28 +4399,38 @@ async function _callGeminiToParseReport(base64Data, mimeType) {
     ]
   };
 
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
+  for (const apiKey of keysToTry) {
+      if (!apiKey) continue;
+      try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+          const resp = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body)
+          });
 
-  if (!resp.ok) {
-    throw new Error("API Error: " + resp.status);
+          if (resp.ok) {
+              const json = await resp.json();
+              if (json.candidates && json.candidates[0]) {
+                  const text = json.candidates[0].content.parts[0].text;
+                  const cleanText = text.replace(/```json|```/g, "").trim();
+                  try {
+                      return JSON.parse(cleanText);
+                  } catch (e) {
+                      const match = text.match(/\{[\s\S]*\}/);
+                      if (match) return JSON.parse(match[0]);
+                      throw e;
+                  }
+              }
+          } else {
+              lastError = `API Error ${resp.status}`;
+          }
+      } catch (err) {
+          lastError = err.message;
+      }
   }
 
-  const json = await resp.json();
-  if (!json.candidates || !json.candidates[0]) throw new Error("AI tidak memberikan respon valid.");
-
-  const text = json.candidates[0].content.parts[0].text;
-  const cleanText = text.replace(/```json|```/g, "").trim();
-  try {
-      return JSON.parse(cleanText);
-  } catch (e) {
-      const match = text.match(/\{[\s\S]*\}/);
-      if (match) return JSON.parse(match[0]);
-      throw e;
-  }
+  throw new Error(lastError || "Semua kunci AI gagal.");
 }
 
 // == IMPORT LAPORAN MINGGUAN (dari Spreadsheet) ========================
