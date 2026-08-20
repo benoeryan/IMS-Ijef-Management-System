@@ -205,44 +205,88 @@ async function showKaryawanForm(id, p) {
     db.collection('hrd_posisi').get(),
     db.collection('hrd_cabang').get(),
   ]);
+
   let dOpts = '<option value="">-- Pilih Departemen --</option>';
-  depts.forEach((d) => (dOpts += `<option value="${d.data().nama}" ${p.departemen === d.data().nama ? 'selected' : ''}>${d.data().nama}</option>`));
+  depts.forEach((d) => {
+      const name = d.data().nama;
+      dOpts += `<option value="${name}" ${p.departemen === name ? 'selected' : ''}>${name}</option>`;
+  });
+
   let pOpts = '<option value="">-- Pilih Posisi --</option>';
-  posisi.forEach((d) => (pOpts += `<option value="${d.data().nama}" ${p.posisi === d.data().nama ? 'selected' : ''}>${d.data().nama}</option>`));
+  let hasGA = false;
+  posisi.forEach((d) => {
+      const name = d.data().nama;
+      if (name.toUpperCase() === 'GENERAL AFFAIR') hasGA = true;
+      pOpts += `<option value="${name}" ${p.posisi === name ? 'selected' : ''}>${name}</option>`;
+  });
+  // Force add General Affair if missing
+  if (!hasGA) {
+      pOpts += `<option value="GENERAL AFFAIR" ${p.posisi === 'GENERAL AFFAIR' ? 'selected' : ''}>GENERAL AFFAIR</option>`;
+  }
+
   let cOpts = '<option value="">-- Pilih Cabang --</option>';
-  cabang.forEach((d) => (cOpts += `<option value="${d.data().nama}" ${p.cabang === d.data().nama ? 'selected' : ''}>${d.data().nama}</option>`));
+  cabang.forEach((d) => {
+      const name = d.data().nama;
+      cOpts += `<option value="${name}" ${p.cabang === name ? 'selected' : ''}>${name}</option>`;
+  });
 
   openModal(
     `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Karyawan</div>
-    <div style="display:flex;gap:20px;margin-bottom:20px">
-      <div id="kyFotoPreview" style="width:100px;height:100px;border-radius:10px;background:#eee;overflow:hidden;cursor:pointer" onclick="document.getElementById('kyFotoFile').click()">${p.foto ? `<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:2.5rem">👤</div>'}</div>
-      <div><input type="file" id="kyFotoFile" accept="image/*" style="display:none" onchange="previewKaryawanFoto(this)"><button class="btn btn-sm btn-primary" onclick="document.getElementById('kyFotoFile').click()">📸 Upload Foto</button><p class="text-xs color-gray mt-4">Klik foto atau tombol untuk upload</p></div>
-    </div>
-    <div class="grid-2">
-      <div class="form-group"><label>NIP</label><input class="form-control" id="kyNip" value="${escHtml(p.nip || '')}" placeholder="Contoh: NIP2024001"></div>
-      <div class="form-group"><label>Nama Lengkap</label><input class="form-control" id="kyNama" value="${escHtml(p.nama || '')}"></div>
-    </div>
-    <div class="grid-2">
-      <div class="form-group"><label>Departemen</label><select class="form-control" id="kyDept">${dOpts}</select></div>
-      <div class="form-group"><label>Posisi</label><select class="form-control" id="kyPos">${pOpts}</select></div>
-    </div>
-    <div class="grid-2">
-      <div class="form-group"><label>Tipe Karyawan</label><select class="form-control" id="kyTipe"><option value="PKWTT" ${p.tipeKaryawan === 'PKWTT' ? 'selected' : ''}>PKWTT (Tetap)</option><option value="PKWT" ${p.tipeKaryawan === 'PKWT' ? 'selected' : ''}>PKWT (Kontrak)</option><option value="PROBATION" ${p.tipeKaryawan === 'PROBATION' ? 'selected' : ''}>PROBATION</option><option value="FREELANCE" ${p.tipeKaryawan === 'FREELANCE' ? 'selected' : ''}>FREELANCE</option></select></div>
-      <div class="form-group"><label>Status</label><select class="form-control" id="kyStatus"><option value="aktif" ${p.status === 'aktif' ? 'selected' : ''}>Aktif</option><option value="nonaktif" ${p.status === 'nonaktif' ? 'selected' : ''}>Nonaktif</option></select></div>
-    </div>
-    <div class="grid-2">
-      <div class="form-group"><label>Tanggal Masuk</label><input class="form-control" type="date" id="kyMasuk" value="${p.tanggalMasuk || ''}"></div>
-      <div class="form-group"><label>Grade Jabatan</label><input class="form-control" id="kyGrade" value="${escHtml(p.gradeJabatan || '')}" placeholder="Staff, Leader, Manager, dll"></div>
-    </div>
-    <div class="grid-2">
-      <div class="form-group"><label>Email</label><input class="form-control" type="email" id="kyEmail" value="${escHtml(p.email || '')}"></div>
-      <div class="form-group"><label>WhatsApp</label><input class="form-control" id="kyWa" value="${escHtml(p.whatsapp || '')}"></div>
-    </div>
-    <div class="grid-2">
-      <div class="form-group"><label>Gaji Pokok</label><input class="form-control" type="number" id="kyGaji" value="${p.gajiPokok || 0}"></div>
-      <div class="form-group"><label>Cabang</label><select class="form-control" id="kyCabang">${cOpts}</select></div>
-    </div>
-    <button class="btn btn-primary" style="width:100%" onclick="simpanKaryawan('${id || ''}')">💾 Simpan Data Karyawan</button>`,
+    <div style="max-height:75vh; overflow-y:auto; padding-right:10px">
+        <div style="display:flex;gap:20px;margin-bottom:20px">
+          <div id="kyFotoPreview" style="width:100px;height:100px;border-radius:10px;background:#eee;overflow:hidden;cursor:pointer" onclick="document.getElementById('kyFotoFile').click()">${p.foto ? `<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:2.5rem">👤</div>'}</div>
+          <div><input type="file" id="kyFotoFile" accept="image/*" style="display:none" onchange="previewKaryawanFoto(this)"><button class="btn btn-sm btn-primary" onclick="document.getElementById('kyFotoFile').click()">📸 Upload Foto</button><p class="text-xs color-gray mt-4">Klik foto atau tombol untuk upload</p></div>
+        </div>
+
+        <div class="fw-700 mb-8 color-primary" style="border-bottom:1px solid #eee; padding-bottom:4px">📋 Informasi Utama</div>
+        <div class="grid-2">
+          <div class="form-group"><label>NIP</label><input class="form-control" id="kyNip" value="${escHtml(p.nip || '')}" placeholder="NIP2024xxx"></div>
+          <div class="form-group"><label>Nama Lengkap</label><input class="form-control" id="kyNama" value="${escHtml(p.nama || '')}"></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label>Departemen</label><select class="form-control" id="kyDept">${dOpts}</select></div>
+          <div class="form-group"><label>Posisi</label><select class="form-control" id="kyPos">${pOpts}</select></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label>Tipe Karyawan</label><select class="form-control" id="kyTipe"><option value="PKWTT" ${p.tipeKaryawan === 'PKWTT' ? 'selected' : ''}>PKWTT (Tetap)</option><option value="PKWT" ${p.tipeKaryawan === 'PKWT' ? 'selected' : ''}>PKWT (Kontrak)</option><option value="PROBATION" ${p.tipeKaryawan === 'PROBATION' ? 'selected' : ''}>PROBATION</option><option value="FREELANCE" ${p.tipeKaryawan === 'FREELANCE' ? 'selected' : ''}>FREELANCE</option></select></div>
+          <div class="form-group"><label>Status</label><select class="form-control" id="kyStatus"><option value="aktif" ${p.status === 'aktif' ? 'selected' : ''}>Aktif</option><option value="nonaktif" ${p.status === 'nonaktif' ? 'selected' : ''}>Nonaktif</option></select></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label>Tanggal Masuk</label><input class="form-control" type="date" id="kyMasuk" value="${p.tanggalMasuk || ''}"></div>
+          <div class="form-group"><label>Grade Jabatan</label><input class="form-control" id="kyGrade" value="${escHtml(p.gradeJabatan || '')}" placeholder="Staff, Leader, Manager, dll"></div>
+        </div>
+
+        <div class="fw-700 mb-8 mt-16 color-primary" style="border-bottom:1px solid #eee; padding-bottom:4px">👤 Data Pribadi</div>
+        <div class="grid-2">
+          <div class="form-group"><label>NIK (KTP)</label><input class="form-control" id="kyNik" value="${escHtml(p.nik || '')}"></div>
+          <div class="form-group"><label>NPWP</label><input class="form-control" id="kyNpwp" value="${escHtml(p.npwp || '')}"></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label>Tanggal Lahir</label><input class="form-control" type="date" id="kyLahir" value="${p.tanggalLahir || ''}"></div>
+          <div class="form-group"><label>Jenis Kelamin</label><select class="form-control" id="kyGender"><option value="">-- Pilih --</option><option value="Laki-laki" ${p.gender === 'Laki-laki' ? 'selected' : ''}>Laki-laki</option><option value="Perempuan" ${p.gender === 'Perempuan' ? 'selected' : ''}>Perempuan</option></select></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label>Agama</label><input class="form-control" id="kyAgama" value="${escHtml(p.agama || '')}"></div>
+          <div class="form-group"><label>WhatsApp</label><input class="form-control" id="kyWa" value="${escHtml(p.whatsapp || '')}"></div>
+        </div>
+        <div class="form-group"><label>Email</label><input class="form-control" type="email" id="kyEmail" value="${escHtml(p.email || '')}"></div>
+
+        <div class="fw-700 mb-8 mt-16 color-primary" style="border-bottom:1px solid #eee; padding-bottom:4px">💰 Keuangan & Bank</div>
+        <div class="grid-2">
+          <div class="form-group"><label>Gaji Pokok</label><input class="form-control" type="number" id="kyGaji" value="${p.gajiPokok || 0}"></div>
+          <div class="form-group"><label>Cabang</label><select class="form-control" id="kyCabang">${cOpts}</select></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label>BPJS Kesehatan</label><input class="form-control" id="kyBpjsKes" value="${escHtml(p.bpjsKes || '')}"></div>
+          <div class="form-group"><label>BPJS Ketenagakerjaan</label><input class="form-control" id="kyBpjsTk" value="${escHtml(p.bpjsTk || '')}"></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label>Nama Bank</label><input class="form-control" id="kyBank" value="${escHtml(p.namaBank || '')}" placeholder="BCA, Mandiri, dll"></div>
+          <div class="form-group"><label>No. Rekening</label><input class="form-control" id="kyRek" value="${escHtml(p.noRekening || '')}"></div>
+        </div>
+
+        <button class="btn btn-primary mt-16" style="width:100%; padding:12px" onclick="simpanKaryawan('${id || ''}')">💾 Simpan Data Karyawan</button>
+    </div>`,
     true
   );
 }
@@ -279,10 +323,25 @@ async function simpanKaryawan(id) {
     status: document.getElementById('kyStatus').value,
     tanggalMasuk: document.getElementById('kyMasuk').value,
     gradeJabatan: document.getElementById('kyGrade').value.trim(),
+
+    // Additional fields
+    nik: document.getElementById('kyNik').value.trim(),
+    npwp: document.getElementById('kyNpwp').value.trim(),
+    tanggalLahir: document.getElementById('kyLahir').value,
+    gender: document.getElementById('kyGender').value,
+    agama: document.getElementById('kyAgama').value.trim(),
+
     email: document.getElementById('kyEmail').value.trim(),
     whatsapp: document.getElementById('kyWa').value.trim(),
     gajiPokok: Number(document.getElementById('kyGaji').value) || 0,
     cabang: document.getElementById('kyCabang').value,
+
+    // Bank fields
+    bpjsKes: document.getElementById('kyBpjsKes').value.trim(),
+    bpjsTk: document.getElementById('kyBpjsTk').value.trim(),
+    namaBank: document.getElementById('kyBank').value.trim(),
+    noRekening: document.getElementById('kyRek').value.trim(),
+
     updatedAt: new Date().toISOString(),
   };
   if (window._kyFoto) data.foto = window._kyFoto;
