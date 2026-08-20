@@ -200,6 +200,14 @@ function modalKaryawan(id) {
 
 async function showKaryawanForm(id, p) {
   window._kyFoto = p.foto || null;
+  // Initialize document variables
+  window._kyKtpFile = p.ktpFile || null;
+  window._kyKkFile = p.kkFile || null;
+  window._kyNpwpFile = p.npwpFile || null;
+  window._kyBukuNikahFile = p.bukuNikahFile || null;
+  window._kyCvFile = p.cvFile || null;
+  window._kyOtherFiles = p.otherFiles || [];
+
   const [depts, posisi, cabang] = await Promise.all([
     db.collection('hrd_departemen').get(),
     db.collection('hrd_posisi').get(),
@@ -219,7 +227,6 @@ async function showKaryawanForm(id, p) {
       if (name.toUpperCase() === 'GENERAL AFFAIR') hasGA = true;
       pOpts += `<option value="${name}" ${p.posisi === name ? 'selected' : ''}>${name}</option>`;
   });
-  // Force add General Affair if missing
   if (!hasGA) {
       pOpts += `<option value="GENERAL AFFAIR" ${p.posisi === 'GENERAL AFFAIR' ? 'selected' : ''}>GENERAL AFFAIR</option>`;
   }
@@ -230,15 +237,25 @@ async function showKaryawanForm(id, p) {
       cOpts += `<option value="${name}" ${p.cabang === name ? 'selected' : ''}>${name}</option>`;
   });
 
+  const renderFileBadge = (file, id) => {
+      if (!file) return `<div id="${id}" class="text-xs color-gray">Belum ada file</div>`;
+      return `<div id="${id}"><span class="badge badge-success">✓ ${escHtml(file.name || 'File terupload')}</span></div>`;
+  };
+
   openModal(
     `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Karyawan</div>
-    <div style="max-height:75vh; overflow-y:auto; padding-right:10px">
-        <div style="display:flex;gap:20px;margin-bottom:20px">
-          <div id="kyFotoPreview" style="width:100px;height:100px;border-radius:10px;background:#eee;overflow:hidden;cursor:pointer" onclick="document.getElementById('kyFotoFile').click()">${p.foto ? `<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:2.5rem">👤</div>'}</div>
-          <div><input type="file" id="kyFotoFile" accept="image/*" style="display:none" onchange="previewKaryawanFoto(this)"><button class="btn btn-sm btn-primary" onclick="document.getElementById('kyFotoFile').click()">📸 Upload Foto</button><p class="text-xs color-gray mt-4">Klik foto atau tombol untuk upload</p></div>
+    <div style="max-height:80vh; overflow-y:auto; padding-right:10px">
+        <div style="display:flex;gap:20px;margin-bottom:20px;background:#f9f9f9;padding:15px;border-radius:12px">
+          <div id="kyFotoPreview" style="width:120px;height:120px;border-radius:12px;background:#eee;overflow:hidden;cursor:pointer;border:2px solid var(--primary)" onclick="document.getElementById('kyFotoFile').click()">${p.foto ? `<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:3rem">👤</div>'}</div>
+          <div style="flex:1">
+            <input type="file" id="kyFotoFile" accept="image/*" style="display:none" onchange="previewKaryawanFoto(this)">
+            <div class="fw-700 mb-4">Pas Foto / Foto Profil</div>
+            <button class="btn btn-sm btn-primary" onclick="document.getElementById('kyFotoFile').click()">📸 Upload Pas Foto</button>
+            <p class="text-xs color-gray mt-8">Foto ini akan terintegrasi langsung dengan profil sistem.</p>
+          </div>
         </div>
 
-        <div class="fw-700 mb-8 color-primary" style="border-bottom:1px solid #eee; padding-bottom:4px">📋 Informasi Utama</div>
+        <div class="fw-700 mb-8 color-primary" style="border-bottom:1px solid #eee; padding-bottom:4px">📋 Informasi Kepegawaian</div>
         <div class="grid-2">
           <div class="form-group"><label>NIP</label><input class="form-control" id="kyNip" value="${escHtml(p.nip || '')}" placeholder="NIP2024xxx"></div>
           <div class="form-group"><label>Nama Lengkap</label><input class="form-control" id="kyNama" value="${escHtml(p.nama || '')}"></div>
@@ -249,27 +266,84 @@ async function showKaryawanForm(id, p) {
         </div>
         <div class="grid-2">
           <div class="form-group"><label>Tipe Karyawan</label><select class="form-control" id="kyTipe"><option value="PKWTT" ${p.tipeKaryawan === 'PKWTT' ? 'selected' : ''}>PKWTT (Tetap)</option><option value="PKWT" ${p.tipeKaryawan === 'PKWT' ? 'selected' : ''}>PKWT (Kontrak)</option><option value="PROBATION" ${p.tipeKaryawan === 'PROBATION' ? 'selected' : ''}>PROBATION</option><option value="FREELANCE" ${p.tipeKaryawan === 'FREELANCE' ? 'selected' : ''}>FREELANCE</option></select></div>
-          <div class="form-group"><label>Status</label><select class="form-control" id="kyStatus"><option value="aktif" ${p.status === 'aktif' ? 'selected' : ''}>Aktif</option><option value="nonaktif" ${p.status === 'nonaktif' ? 'selected' : ''}>Nonaktif</option></select></div>
+          <div class="form-group"><label>Status Kerja</label><select class="form-control" id="kyStatus"><option value="aktif" ${p.status === 'aktif' ? 'selected' : ''}>Aktif</option><option value="nonaktif" ${p.status === 'nonaktif' ? 'selected' : ''}>Nonaktif</option></select></div>
         </div>
         <div class="grid-2">
           <div class="form-group"><label>Tanggal Masuk</label><input class="form-control" type="date" id="kyMasuk" value="${p.tanggalMasuk || ''}"></div>
           <div class="form-group"><label>Grade Jabatan</label><input class="form-control" id="kyGrade" value="${escHtml(p.gradeJabatan || '')}" placeholder="Staff, Leader, Manager, dll"></div>
         </div>
 
-        <div class="fw-700 mb-8 mt-16 color-primary" style="border-bottom:1px solid #eee; padding-bottom:4px">👤 Data Pribadi</div>
+        <div class="fw-700 mb-8 mt-16 color-primary" style="border-bottom:1px solid #eee; padding-bottom:4px">👤 Data Pribadi & Dokumen</div>
         <div class="grid-2">
           <div class="form-group"><label>NIK (KTP)</label><input class="form-control" id="kyNik" value="${escHtml(p.nik || '')}"></div>
           <div class="form-group"><label>NPWP</label><input class="form-control" id="kyNpwp" value="${escHtml(p.npwp || '')}"></div>
         </div>
         <div class="grid-2">
+          <div class="form-group"><label>Tempat Lahir</label><input class="form-control" id="kyTempatLahir" value="${escHtml(p.tempatLahir || '')}"></div>
           <div class="form-group"><label>Tanggal Lahir</label><input class="form-control" type="date" id="kyLahir" value="${p.tanggalLahir || ''}"></div>
-          <div class="form-group"><label>Jenis Kelamin</label><select class="form-control" id="kyGender"><option value="">-- Pilih --</option><option value="Laki-laki" ${p.gender === 'Laki-laki' ? 'selected' : ''}>Laki-laki</option><option value="Perempuan" ${p.gender === 'Perempuan' ? 'selected' : ''}>Perempuan</option></select></div>
         </div>
         <div class="grid-2">
+          <div class="form-group"><label>Jenis Kelamin</label><select class="form-control" id="kyGender"><option value="">-- Pilih --</option><option value="Laki-laki" ${p.gender === 'Laki-laki' ? 'selected' : ''}>Laki-laki</option><option value="Perempuan" ${p.gender === 'Perempuan' ? 'selected' : ''}>Perempuan</option></select></div>
           <div class="form-group"><label>Agama</label><input class="form-control" id="kyAgama" value="${escHtml(p.agama || '')}"></div>
-          <div class="form-group"><label>WhatsApp</label><input class="form-control" id="kyWa" value="${escHtml(p.whatsapp || '')}"></div>
         </div>
-        <div class="form-group"><label>Email</label><input class="form-control" type="email" id="kyEmail" value="${escHtml(p.email || '')}"></div>
+        <div class="grid-2">
+            <div class="form-group"><label>Status Pernikahan</label>
+                <select class="form-control" id="kyStatusNikah" onchange="toggleBukuNikahUpload(this.value)">
+                    <option value="Lajang" ${p.statusNikah === 'Lajang' ? 'selected' : ''}>Lajang</option>
+                    <option value="Menikah" ${p.statusNikah === 'Menikah' ? 'selected' : ''}>Menikah</option>
+                    <option value="Cerai" ${p.statusNikah === 'Cerai' ? 'selected' : ''}>Cerai</option>
+                </select>
+            </div>
+            <div class="form-group"><label>WhatsApp</label><input class="form-control" id="kyWa" value="${escHtml(p.whatsapp || '')}"></div>
+        </div>
+        <div class="form-group"><label>Email Pribadi</label><input class="form-control" type="email" id="kyEmail" value="${escHtml(p.email || '')}"></div>
+        <div class="form-group"><label>Alamat Lengkap (Domisili)</label><textarea class="form-control" id="kyAlamat" rows="2">${escHtml(p.alamat || '')}</textarea></div>
+
+        <div class="mb-16 mt-8 p-12" style="background:#f0f4ff; border-radius:10px; border:1px solid #d0d9ff">
+            <div class="fw-700 mb-8" style="font-size:.85rem">📎 Upload Dokumen Pendukung (PDF/JPG/PNG)</div>
+            <div class="grid-2" style="gap:15px">
+                <div>
+                    <label class="text-xs fw-700">KTP (Kartu Tanda Penduduk)</label>
+                    <input type="file" id="fKtp" hidden onchange="handleKaryawanFile(this, '_kyKtpFile', 'prevKtp')">
+                    <div class="flex gap-8 mt-4">
+                        <button class="btn btn-xs btn-outline" onclick="document.getElementById('fKtp').click()">📁 Pilih</button>
+                        ${renderFileBadge(p.ktpFile, 'prevKtp')}
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs fw-700">KK (Kartu Keluarga)</label>
+                    <input type="file" id="fKk" hidden onchange="handleKaryawanFile(this, '_kyKkFile', 'prevKk')">
+                    <div class="flex gap-8 mt-4">
+                        <button class="btn btn-xs btn-outline" onclick="document.getElementById('fKk').click()">📁 Pilih</button>
+                        ${renderFileBadge(p.kkFile, 'prevKk')}
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs fw-700">NPWP</label>
+                    <input type="file" id="fNpwp" hidden onchange="handleKaryawanFile(this, '_kyNpwpFile', 'prevNpwp')">
+                    <div class="flex gap-8 mt-4">
+                        <button class="btn btn-xs btn-outline" onclick="document.getElementById('fNpwp').click()">📁 Pilih</button>
+                        ${renderFileBadge(p.npwpFile, 'prevNpwp')}
+                    </div>
+                </div>
+                <div id="boxBukuNikah" style="display:${p.statusNikah === 'Menikah' ? 'block' : 'none'}">
+                    <label class="text-xs fw-700">Buku Nikah</label>
+                    <input type="file" id="fNikah" hidden onchange="handleKaryawanFile(this, '_kyBukuNikahFile', 'prevNikah')">
+                    <div class="flex gap-8 mt-4">
+                        <button class="btn btn-xs btn-outline" onclick="document.getElementById('fNikah').click()">📁 Pilih</button>
+                        ${renderFileBadge(p.bukuNikahFile, 'prevNikah')}
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs fw-700">CV (Curriculum Vitae)</label>
+                    <input type="file" id="fCv" hidden onchange="handleKaryawanFile(this, '_kyCvFile', 'prevCv')">
+                    <div class="flex gap-8 mt-4">
+                        <button class="btn btn-xs btn-outline" onclick="document.getElementById('fCv').click()">📁 Pilih</button>
+                        ${renderFileBadge(p.cvFile, 'prevCv')}
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="fw-700 mb-8 mt-16 color-primary" style="border-bottom:1px solid #eee; padding-bottom:4px">💰 Keuangan & Bank</div>
         <div class="grid-2">
@@ -285,10 +359,36 @@ async function showKaryawanForm(id, p) {
           <div class="form-group"><label>No. Rekening</label><input class="form-control" id="kyRek" value="${escHtml(p.noRekening || '')}"></div>
         </div>
 
-        <button class="btn btn-primary mt-16" style="width:100%; padding:12px" onclick="simpanKaryawan('${id || ''}')">💾 Simpan Data Karyawan</button>
+        <button class="btn btn-primary mt-16" style="width:100%; padding:15px; font-weight:700" onclick="simpanKaryawan('${id || ''}')">💾 Simpan Data Karyawan</button>
     </div>`,
     true
   );
+}
+
+function toggleBukuNikahUpload(val) {
+    const box = document.getElementById('boxBukuNikah');
+    if (box) box.style.display = (val === 'Menikah') ? 'block' : 'none';
+}
+
+function handleKaryawanFile(input, targetVar, previewId) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) return toast("File terlalu besar (maks 10MB)", "warning");
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        window[targetVar] = {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            data: e.target.result
+        };
+        const prev = document.getElementById(previewId);
+        if (prev) {
+            prev.innerHTML = `<span class="badge badge-success">✓ ${escHtml(file.name.substring(0, 12))}...</span>`;
+        }
+    };
+    reader.readAsDataURL(file);
 }
 
 function previewKaryawanFoto(input) {
@@ -327,9 +427,12 @@ async function simpanKaryawan(id) {
     // Additional fields
     nik: document.getElementById('kyNik').value.trim(),
     npwp: document.getElementById('kyNpwp').value.trim(),
+    tempatLahir: document.getElementById('kyTempatLahir').value.trim(),
     tanggalLahir: document.getElementById('kyLahir').value,
     gender: document.getElementById('kyGender').value,
     agama: document.getElementById('kyAgama').value.trim(),
+    statusNikah: document.getElementById('kyStatusNikah').value,
+    alamat: document.getElementById('kyAlamat').value.trim(),
 
     email: document.getElementById('kyEmail').value.trim(),
     whatsapp: document.getElementById('kyWa').value.trim(),
@@ -342,6 +445,13 @@ async function simpanKaryawan(id) {
     namaBank: document.getElementById('kyBank').value.trim(),
     noRekening: document.getElementById('kyRek').value.trim(),
 
+    // Document fields
+    ktpFile: window._kyKtpFile || null,
+    kkFile: window._kyKkFile || null,
+    npwpFile: window._kyNpwpFile || null,
+    bukuNikahFile: window._kyBukuNikahFile || null,
+    cvFile: window._kyCvFile || null,
+
     updatedAt: new Date().toISOString(),
   };
   if (window._kyFoto) data.foto = window._kyFoto;
@@ -353,7 +463,13 @@ async function simpanKaryawan(id) {
     closeModalDirect();
     toast('Data karyawan berhasil disimpan', 'success');
     renderKaryawan();
+    // Clear temp files
     window._kyFoto = null;
+    window._kyKtpFile = null;
+    window._kyKkFile = null;
+    window._kyNpwpFile = null;
+    window._kyBukuNikahFile = null;
+    window._kyCvFile = null;
   } catch (e) {
     toast('Gagal menyimpan: ' + e.message, 'error');
   }
@@ -491,7 +607,73 @@ function viewKaryawan(id) {
   const k = window._allKaryawan.find((x) => x.id === id);
   if (!k) return;
   const isBOD = currentUser.role === 'bod';
-  let html = `<div class="modal-title">Profil Karyawan</div><div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px"><div style="width:120px;height:120px;border-radius:12px;overflow:hidden;background:#eee">${k.foto ? `<img src="${k.foto}" style="width:100%;height:100%;object-fit:cover">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:3rem">👤</div>'}</div><div style="flex:1"><h3>${escHtml(k.nama)}</h3><p class="color-gray">${escHtml(k.posisi)} — ${escHtml(k.departemen)}</p><div class="flex gap-8 mt-12"><span class="badge badge-primary">Grade: ${escHtml(k.gradeJabatan || k.grade || '-')}</span><span class="badge badge-info">NIP: ${escHtml(k.nip || '-')}</span></div></div></div><div class="grid-2" style="gap:12px;font-size:.85rem"><div><b>Email:</b> ${escHtml(k.email || '-')}</div><div><b>WhatsApp:</b> ${escHtml(k.whatsapp || '-')}</div><div><b>Tgl Masuk:</b> ${formatDate(k.tanggalMasuk)}</div><div><b>Tgl Lahir:</b> ${formatDate(k.tanggalLahir)}</div><div><b>Kelamin:</b> ${escHtml(k.gender || '-')}</div><div><b>Agama:</b> ${escHtml(k.agama || '-')}</div><div><b>NIK:</b> ${escHtml(k.nik || '-')}</div><div><b>NPWP:</b> ${escHtml(k.npwp || '-')}</div><div><b>BPJS Kes:</b> ${escHtml(k.bpjsKes || '-')}</div><div><b>BPJS TK:</b> ${escHtml(k.bpjsTk || '-')}</div><div><b>Bank:</b> ${escHtml(k.namaBank || '-')} - ${escHtml(k.noRekening || '-')}</div><div><b>Status:</b> ${escHtml(k.status || 'aktif')}</div></div><div class="mt-20 flex gap-8">${!isBOD ? `<button class="btn btn-primary" onclick="modalKaryawan('${k.id}')">✏️ Edit Data</button>` : ''}<button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button></div>`;
+
+  const renderDocLink = (file, label) => {
+      if (!file || !file.data) return `<div class="color-gray" style="font-size:.75rem">❌ No ${label}</div>`;
+      return `<button class="btn btn-xs btn-outline" onclick="viewEviden('${encodeURIComponent(JSON.stringify(file))}')" style="padding:4px 8px">👁️ Lihat ${label}</button>`;
+  };
+
+  let html = `<div class="modal-title">Profil Karyawan</div>
+    <div style="max-height:80vh; overflow-y:auto; padding-right:10px">
+        <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px;background:#f8f9ff;padding:15px;border-radius:12px;border:1px solid #d0d9ff">
+            <div style="width:120px;height:120px;border-radius:12px;overflow:hidden;background:#eee;border:2px solid var(--primary)">
+                ${k.foto ? `<img src="${k.foto}" style="width:100%;height:100%;object-fit:cover">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:3rem">👤</div>'}
+            </div>
+            <div style="flex:1">
+                <h3 style="margin:0;color:var(--primary)">${escHtml(k.nama)}</h3>
+                <p class="color-gray" style="margin:4px 0">${escHtml(k.posisi)} — ${escHtml(k.departemen)}</p>
+                <div class="flex gap-8 mt-12">
+                    <span class="badge badge-primary">Grade: ${escHtml(k.gradeJabatan || k.grade || '-')}</span>
+                    <span class="badge badge-info">NIP: ${escHtml(k.nip || '-')}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="fw-700 mb-8 color-primary" style="border-bottom:1px solid #eee">📋 Info Kepegawaian</div>
+        <div class="grid-2 mb-16" style="gap:12px;font-size:.85rem">
+            <div><b>Tipe:</b> ${escHtml(k.tipeKaryawan || '-')}</div>
+            <div><b>Status Kerja:</b> ${escHtml(k.status || 'aktif')}</div>
+            <div><b>Tgl Masuk:</b> ${formatDate(k.tanggalMasuk)}</div>
+            <div><b>Cabang:</b> ${escHtml(k.cabang || '-')}</div>
+        </div>
+
+        <div class="fw-700 mb-8 color-primary" style="border-bottom:1px solid #eee">👤 Data Pribadi</div>
+        <div class="grid-2 mb-16" style="gap:12px;font-size:.85rem">
+            <div><b>WhatsApp:</b> ${escHtml(k.whatsapp || '-')}</div>
+            <div><b>Email:</b> ${escHtml(k.email || '-')}</div>
+            <div><b>Tempat Lahir:</b> ${escHtml(k.tempatLahir || '-')}</div>
+            <div><b>Tgl Lahir:</b> ${formatDate(k.tanggalLahir)}</div>
+            <div><b>Kelamin:</b> ${escHtml(k.gender || '-')}</div>
+            <div><b>Agama:</b> ${escHtml(k.agama || '-')}</div>
+            <div><b>Status Nikah:</b> ${escHtml(k.statusNikah || '-')}</div>
+            <div><b>NIK (KTP):</b> ${escHtml(k.nik || '-')}</div>
+            <div><b>NPWP:</b> ${escHtml(k.npwp || '-')}</div>
+            <div style="grid-column: span 2"><b>Alamat:</b> ${escHtml(k.alamat || '-')}</div>
+        </div>
+
+        <div class="fw-700 mb-8 color-primary" style="border-bottom:1px solid #eee">💰 Keuangan & Bank</div>
+        <div class="grid-2 mb-16" style="gap:12px;font-size:.85rem">
+            <div><b>Gaji Pokok:</b> ${formatCurrency(k.gajiPokok || 0)}</div>
+            <div><b>Nama Bank:</b> ${escHtml(k.namaBank || '-')}</div>
+            <div><b>No. Rekening:</b> ${escHtml(k.noRekening || '-')}</div>
+            <div><b>BPJS Kes:</b> ${escHtml(k.bpjsKes || '-')}</div>
+            <div><b>BPJS TK:</b> ${escHtml(k.bpjsTk || '-')}</div>
+        </div>
+
+        <div class="fw-700 mb-8 color-primary" style="border-bottom:1px solid #eee">📎 Dokumen Lampiran</div>
+        <div class="grid-2 mb-20" style="gap:10px">
+            ${renderDocLink(k.ktpFile, 'KTP')}
+            ${renderDocLink(k.kkFile, 'KK')}
+            ${renderDocLink(k.npwpFile, 'NPWP')}
+            ${k.statusNikah === 'Menikah' ? renderDocLink(k.bukuNikahFile, 'Buku Nikah') : ''}
+            ${renderDocLink(k.cvFile, 'CV')}
+        </div>
+
+        <div class="mt-20 flex gap-8">
+            ${!isBOD ? `<button class="btn btn-primary" onclick="modalKaryawan('${k.id}')">✏️ Edit Data</button>` : ''}
+            <button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>
+        </div>
+    </div>`;
   openModal(html, true);
 }
 
