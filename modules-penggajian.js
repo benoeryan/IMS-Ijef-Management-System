@@ -353,8 +353,8 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
       }
       const isFullMonth = (tglMasuk <= periodeStart && tglKeluar >= periodeEnd);
 
-      // SANITASI GAJI POKOK (Hapus titik/format teks)
-      const rawGajiPokok = String(k.gajiPokok || '0').replace(/[^0-9]/g, '');
+      // SANITASI GAJI POKOK (Hapus titik/format teks) + Fallback field names
+      const rawGajiPokok = String(k.gajiPokok || k.gapok || k.salary || '0').replace(/[^0-9]/g, '');
       const baseSalaryFull = Number(rawGajiPokok) || 0;
 
       let gajiPokok = baseSalaryFull;
@@ -367,14 +367,14 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
       absenList.forEach(a => {
           const aNama = (a.nama || '').trim().toLowerCase().replace(/\s+/g, ' ');
           // Logic pencocokan: ID cocok, atau Nama Sama Persis, atau mengandung Substring Nama (untuk nama panjang)
-          const isMatch = (a.userId === k.id || aNama === namaLow ||
+          const isNameMatch = (aNama === namaLow ||
                            (namaLow.length > 5 && aNama.includes(namaLow)) ||
                            (aNama.length > 5 && namaLow.includes(aNama)) ||
                            (namaLow.includes('rizky') && aNama.includes('rizky')) || // Fix khusus Rizky
                            (namaLow.includes('rizky') && aNama.includes('nanda'))    // Fix histori Nanda
                           );
 
-          if (isMatch && a.tanggal >= rangeStart && a.tanggal <= rangeEnd) {
+          if ((a.userId === k.id || isNameMatch) && a.tanggal >= rangeStart && a.tanggal <= rangeEnd) {
               absenDatesSet.add(a.tanggal);
           }
       });
@@ -384,9 +384,11 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
 
       cutiList.forEach(c => {
           if (c.status !== 'approved') return;
-          const cNama = (c.nama || '').trim().toLowerCase();
-          const isMatch = (c.userId === k.id || cNama === namaLow || namaLow.includes(cNama) || cNama.includes(namaLow));
-          if (isMatch) {
+          const cNama = (c.nama || '').trim().toLowerCase().replace(/\s+/g, ' ');
+          const isNameMatch = (cNama === namaLow || namaLow.includes(cNama) || cNama.includes(namaLow) ||
+                               (namaLow.includes('rizky') && (cNama.includes('rizky') || cNama.includes('nanda'))));
+
+          if (c.userId === k.id || isNameMatch) {
               const start = c.mulai;
               const end = c.selesai || c.mulai;
               for (let dt = new Date(start + 'T00:00:00'); dt <= new Date(end + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
@@ -400,8 +402,11 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
       });
 
       dinasList.forEach(dl => {
-          const dNama = (dl.nama || '').trim().toLowerCase();
-          if (dl.userId === k.id || dNama === namaLow || dNama.includes(namaLow) || namaLow.includes(dNama)) {
+          const dNama = (dl.nama || '').trim().toLowerCase().replace(/\s+/g, ' ');
+          const isNameMatch = (dNama === namaLow || dNama.includes(namaLow) || namaLow.includes(dNama) ||
+                               (namaLow.includes('rizky') && (dNama.includes('rizky') || dNama.includes('nanda'))));
+
+          if (dl.userId === k.id || isNameMatch) {
               const start = dl.tanggalMulai || dl.tanggal;
               const end = dl.tanggalSelesai || dl.tanggal;
               for (let dt = new Date(start + 'T00:00:00'); dt <= new Date(end + 'T00:00:00'); dt.setDate(dt.getDate() + 1)) {
@@ -447,8 +452,12 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
       let tunjTetap = 0, tunjLain = 0, insentif = 0, reimb = 0, loan = 0;
       if (incTunj) {
           tunjList.forEach(t => {
-              const p = (t.penerima || 'Semua').trim().toLowerCase();
-              if (p === 'semua' || p === 'all' || p.split(',').some(x => namaLow.includes(x.trim()))) {
+              const p = (t.penerima || 'Semua').trim().toLowerCase().replace(/\s+/g, ' ');
+              const isMatch = (p === 'semua' || p === 'all' || p.split(',').some(x => {
+                  const target = x.trim();
+                  return namaLow.includes(target) || (namaLow.includes('rizky') && (target.includes('rizky') || target.includes('nanda')));
+              }));
+              if (isMatch) {
                   if (t.jenis === 'tetap') tunjTetap += (Number(t.nominal) || 0);
                   else tunjLain += (Number(t.nominal) || 0);
               }
@@ -457,9 +466,10 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
       if (incInsentif) {
           insentifList.forEach(ins => {
               if (ins.status && ins.status !== 'approved') return;
-              const insNama = (ins.nama || '').trim().toLowerCase();
+              const insNama = (ins.nama || '').trim().toLowerCase().replace(/\s+/g, ' ');
               // PRIORITY: If periode matches exactly, use it. Otherwise use date range.
-              const isNameMatch = (insNama === namaLow || namaLow.includes(insNama) || insNama.includes(namaLow));
+              const isNameMatch = (insNama === namaLow || namaLow.includes(insNama) || insNama.includes(namaLow) ||
+                                   (namaLow.includes('rizky') && (insNama.includes('rizky') || insNama.includes('nanda'))));
               if (isNameMatch) {
                   const insPeriode = ins.periode || "";
                   const insDate = getSafeDateString(ins.approvedAt || ins.createdAt);
@@ -471,17 +481,21 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
       }
       if (incReimb) {
           reimbList.forEach(r => {
-              const rNama = (r.nama || '').trim().toLowerCase();
+              const rNama = (r.nama || '').trim().toLowerCase().replace(/\s+/g, ' ');
               const rDate = getSafeDateString(r.approvedAt || r.createdAt);
-              if ((rNama === namaLow || namaLow.includes(rNama)) && rDate >= periodeStart && rDate <= periodeEnd) {
+              const isNameMatch = (rNama === namaLow || namaLow.includes(rNama) ||
+                                   (namaLow.includes('rizky') && (rNama.includes('rizky') || rNama.includes('nanda'))));
+              if ((r.userId === k.id || isNameMatch) && rDate >= periodeStart && rDate <= periodeEnd) {
                   reimb += (Number(r.jumlah) || 0);
               }
           });
       }
       if (incKasbon) {
           kasbonList.forEach(r => {
-              const rNama = (r.nama || '').trim().toLowerCase();
-              if (rNama === namaLow || namaLow.includes(rNama)) {
+              const rNama = (r.nama || '').trim().toLowerCase().replace(/\s+/g, ' ');
+              const isNameMatch = (rNama === namaLow || namaLow.includes(rNama) ||
+                                   (namaLow.includes('rizky') && (rNama.includes('rizky') || rNama.includes('nanda'))));
+              if (r.userId === k.id || isNameMatch) {
                   loan += (Number(r.angsuran) || Number(r.jumlah) || 0);
               }
           });
