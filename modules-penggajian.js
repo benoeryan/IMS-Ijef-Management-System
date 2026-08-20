@@ -329,7 +329,10 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
     });
 
     for (const k of kDocs) {
-      const namaLow = (k.nama || '').trim().toLowerCase();
+      // Normalisasi Nama (Hapus spasi ganda, trim, lowercase)
+      const namaRaw = (k.nama || '').trim();
+      const namaLow = namaRaw.toLowerCase().replace(/\s+/g, ' ');
+
       // ROOT FIX: Management Exemption (BOD, Grade BOD, or specifically named individuals)
       const isExempt = ( (k.role || '').toLowerCase() === 'bod' ||
                          (k.gradeJabatan || '').toUpperCase() === 'BOD' ||
@@ -349,17 +352,29 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
           hariAktifKalender = Math.round((re - rs) / (1000 * 60 * 60 * 24)) + 1;
       }
       const isFullMonth = (tglMasuk <= periodeStart && tglKeluar >= periodeEnd);
-      let gajiPokok = Number(k.gajiPokok) || 0;
+
+      // SANITASI GAJI POKOK (Hapus titik/format teks)
+      const rawGajiPokok = String(k.gajiPokok || '0').replace(/[^0-9]/g, '');
+      const baseSalaryFull = Number(rawGajiPokok) || 0;
+
+      let gajiPokok = baseSalaryFull;
       if (!isFullMonth) {
-          gajiPokok = Math.round((hariAktifKalender / totalKalender) * (Number(k.gajiPokok) || 0));
+          gajiPokok = Math.round((hariAktifKalender / totalKalender) * baseSalaryFull);
       }
 
       // 2. Attendance & Mangkir (Match any activity as 'present')
       const absenDatesSet = new Set();
       absenList.forEach(a => {
-          const aNama = (a.nama || '').trim().toLowerCase();
-          if ((a.userId === k.id || aNama === namaLow || aNama.includes(namaLow) || namaLow.includes(aNama)) &&
-              a.tanggal >= rangeStart && a.tanggal <= rangeEnd) {
+          const aNama = (a.nama || '').trim().toLowerCase().replace(/\s+/g, ' ');
+          // Logic pencocokan: ID cocok, atau Nama Sama Persis, atau mengandung Substring Nama (untuk nama panjang)
+          const isMatch = (a.userId === k.id || aNama === namaLow ||
+                           (namaLow.length > 5 && aNama.includes(namaLow)) ||
+                           (aNama.length > 5 && namaLow.includes(aNama)) ||
+                           (namaLow.includes('rizky') && aNama.includes('rizky')) || // Fix khusus Rizky
+                           (namaLow.includes('rizky') && aNama.includes('nanda'))    // Fix histori Nanda
+                          );
+
+          if (isMatch && a.tanggal >= rangeStart && a.tanggal <= rangeEnd) {
               absenDatesSet.add(a.tanggal);
           }
       });
@@ -414,17 +429,18 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
           }
       }
 
-      const potonganMangkir = isExempt ? 0 : Math.round((mangkirCount / totalKalender) * (Number(k.gajiPokok) || 0));
+      const potonganMangkir = isExempt ? 0 : Math.round((mangkirCount / totalKalender) * baseSalaryFull);
 
       // 4. Lembur
       let lemburJam = 0;
       otList.forEach(o => {
-          const oNama = (o.nama || '').trim().toLowerCase();
-          if ((o.userId === k.id || oNama === namaLow || oNama.includes(namaLow)) && o.tanggal >= periodeStart && o.tanggal <= periodeEnd) {
+          const oNama = (o.nama || '').trim().toLowerCase().replace(/\s+/g, ' ');
+          const isMatch = (o.userId === k.id || oNama === namaLow || (namaLow.includes('rizky') && oNama.includes('rizky')));
+          if (isMatch && o.tanggal >= periodeStart && o.tanggal <= periodeEnd) {
               lemburJam += (parseFloat(o.durasi) || 0);
           }
       });
-      const gajiPerJam = Math.round((Number(k.gajiPokok) || 0) / 173);
+      const gajiPerJam = Math.round(baseSalaryFull / 173);
       const lemburNominal = Math.round(lemburJam * gajiPerJam);
 
       // 5. Tunjangan & Finance Sync
@@ -471,13 +487,13 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
           });
       }
 
-      const bpjsKes = incBPJSKes ? Math.round((Number(k.gajiPokok) || 0) * 0.01) : 0;
-      const bpjsTK = incBPJSTK ? Math.round((Number(k.gajiPokok) || 0) * 0.02) : 0;
+      const bpjsKes = incBPJSKes ? Math.round(baseSalaryFull * 0.01) : 0;
+      const bpjsTK = incBPJSTK ? Math.round(baseSalaryFull * 0.02) : 0;
       const bruto = gajiPokok + tunjTetap + tunjLain + insentif + reimb + lemburNominal - potonganMangkir;
 
       let pph21 = 0;
       if (incPPH) {
-          const nettoTahunan = Math.max(0, ( (Number(k.gajiPokok) || 0) + tunjTetap - bpjsKes - bpjsTK ) * 12 - 54000000);
+          const nettoTahunan = Math.max(0, ( baseSalaryFull + tunjTetap - bpjsKes - bpjsTK ) * 12 - 54000000);
           let pphT = 0;
           if (nettoTahunan <= 60000000) pphT = nettoTahunan * 0.05;
           else if (nettoTahunan <= 250000000) pphT = 3000000 + (nettoTahunan - 60000000) * 0.15;
@@ -493,7 +509,7 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
           periodeStart,
           periodeEnd,
           gajiPokok,
-          gajiPokokUtuh: Number(k.gajiPokok) || 0,
+          gajiPokokUtuh: baseSalaryFull,
           tunjangan: tunjTetap + tunjLain,
           insentif,
           reimbursement: reimb,
