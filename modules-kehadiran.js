@@ -1884,7 +1884,7 @@ window.renderDailyTask = async function(initialFilter = "all") {
   const main = document.getElementById("mainContent");
   if (!main) return;
   const tabs = getDailyTaskTabs(initialFilter);
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📋 Daily Task</span><div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalDailyTask()">+ Task Baru</button><button class="btn btn-info btn-sm" onclick="modalAddDailyReport()">📝 Daily Report</button></div></div>
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📋 Daily Task</span><div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalAddTask()">+ Task Baru</button><button class="btn btn-info btn-sm" onclick="modalAddDailyReport()">📝 Daily Report</button></div></div>
     <div id="taskStats" class="stats-grid mb-16"></div>
     <div class="card">
       <div class="tabs mb-12" id="taskTabs" style="flex-wrap:wrap">${tabs}</div>
@@ -1947,7 +1947,7 @@ window.loadDailyTasks = async function(filter, skipAutoRender = false) {
 
   try {
     let directSubNames = [];
-    if (myLevel === 2) {
+    if (myLevel >= 2 && myLevel <= 4) {
       const kSnap = await db
         .collection("hrd_karyawan")
         .where("atasan", "==", currentUser.nama)
@@ -1959,7 +1959,15 @@ window.loadDailyTasks = async function(filter, skipAutoRender = false) {
     }
     window._directSubNamesCache = directSubNames;
 
-    const snap = await db.collection("hrd_daily_tasks").get();
+    // Optimization: Fetch only tasks from last 6 months to avoid performance issues
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const dateLimit = sixMonthsAgo.toISOString().split("T")[0];
+
+    const snap = await db.collection("hrd_daily_tasks")
+      .where("tanggal", ">=", dateLimit)
+      .get();
+
     _dailyTaskData = [];
     for (const d of snap.docs) {
       const t = d.data();
@@ -2092,7 +2100,7 @@ window.loadDailyTasks = async function(filter, skipAutoRender = false) {
         if (b.tanggal < today && a.tanggal >= today) return 1;
       }
       return (
-        a.tanggal.localeCompare(b.tanggal) ||
+        (a.tanggal || "").localeCompare(b.tanggal || "") ||
         (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1)
       );
     });
@@ -2399,9 +2407,46 @@ function _showDailyTaskDetail(task) {
 }
 
 async function modalAddTask() {
-  // Leader/Manager/Head can assign tasks to subordinates
+  // Admin/HR can assign to everyone
   let assignHtml = "";
-  if (hasAccess(2) && !hasAccess(5)) {
+  if (hasAccess(6)) {
+    try {
+      const usersSnap = await db.collection("hrd_users").get();
+      let checkboxes = "";
+      for (const d of usersSnap.docs) {
+        var u = d.data();
+        if (u.status !== "nonaktif" && d.id !== currentUser.id) {
+          checkboxes +=
+            '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">';
+          checkboxes +=
+            '<input type="checkbox" class="dt-assign-cb" value="' +
+            d.id +
+            '" data-nama="' +
+            escHtml(u.nama) +
+            '"> ';
+          checkboxes +=
+            "<span>" +
+            escHtml(u.nama) +
+            ' <span style="color:#999;font-size:.75rem">(' +
+            escHtml(u.departemen || "-") +
+            ")</span></span></label>";
+        }
+      }
+      assignHtml = '<div class="form-group"><label>Tugaskan Ke</label>';
+      assignHtml +=
+        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:4px;background:#f9f9f9;border-radius:6px;cursor:pointer"><input type="checkbox" id="dtAssignSelf" checked> <span class="fw-700">📝 Untuk Diri Sendiri</span></label>';
+      assignHtml +=
+        '<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
+      assignHtml +=
+        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #eee;cursor:pointer"><input type="checkbox" id="dtAssignAll" onchange="document.querySelectorAll(\'.dt-assign-cb\').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="fw-700 text-sm">Pilih Semua</span></label>';
+      assignHtml += checkboxes;
+      assignHtml +=
+        '</div><div class="text-xs" style="color:#999;margin-top:4px">Centang satu atau lebih karyawan</div></div>';
+    } catch (_e) {
+      assignHtml = "";
+    }
+  } else if (hasAccess(2) && !hasAccess(5)) {
+    // Leader/Manager/Head can assign tasks to subordinates
     try {
       const usersSnap = await db.collection("hrd_users").get();
       const myDept = (currentUser.departemen || "").toLowerCase().trim();
@@ -2501,42 +2546,6 @@ async function modalAddTask() {
         '<p class="text-sm" style="color:#999;padding:8px">Tidak ada Head/Manager ditemukan</p>';
       assignHtml +=
         '</div><div class="text-xs" style="color:#999;margin-top:4px">Hanya menampilkan karyawan layer Head dan Manager</div></div>';
-    } catch (_e) {
-      assignHtml = "";
-    }
-  } else if (hasAccess(6)) {
-    try {
-      const usersSnap = await db.collection("hrd_users").get();
-      let checkboxes = "";
-      for (const d of usersSnap.docs) {
-        var u = d.data();
-        if (u.status !== "nonaktif" && d.id !== currentUser.id) {
-          checkboxes +=
-            '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">';
-          checkboxes +=
-            '<input type="checkbox" class="dt-assign-cb" value="' +
-            d.id +
-            '" data-nama="' +
-            escHtml(u.nama) +
-            '"> ';
-          checkboxes +=
-            "<span>" +
-            escHtml(u.nama) +
-            ' <span style="color:#999;font-size:.75rem">(' +
-            escHtml(u.departemen || "-") +
-            ")</span></span></label>";
-        }
-      }
-      assignHtml = '<div class="form-group"><label>Tugaskan Ke</label>';
-      assignHtml +=
-        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:4px;background:#f9f9f9;border-radius:6px;cursor:pointer"><input type="checkbox" id="dtAssignSelf" checked> <span class="fw-700">📝 Untuk Diri Sendiri</span></label>';
-      assignHtml +=
-        '<div style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
-      assignHtml +=
-        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #eee;cursor:pointer"><input type="checkbox" id="dtAssignAll" onchange="document.querySelectorAll(\'.dt-assign-cb\').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="fw-700 text-sm">Pilih Semua</span></label>';
-      assignHtml += checkboxes;
-      assignHtml +=
-        '</div><div class="text-xs" style="color:#999;margin-top:4px">Centang satu atau lebih karyawan</div></div>';
     } catch (_e) {
       assignHtml = "";
     }
