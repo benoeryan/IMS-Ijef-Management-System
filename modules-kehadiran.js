@@ -2860,7 +2860,14 @@ async function checkTaskReminders() {
 }
 
 async function editDailyReport(id) {
-  const doc = await db.collection("hrd_daily_tasks").doc(id).get();
+  let col = "hrd_daily_tasks";
+  let docId = id;
+  if (id && id.includes("::")) {
+    const parts = id.split("::");
+    col = parts[0];
+    docId = parts[1];
+  }
+  const doc = await db.collection(col).doc(docId).get();
   if (!doc.exists) return toast("Data tidak ditemukan", "warning");
   const t = doc.data();
   const showKategori = !hasAccess(3);
@@ -2878,21 +2885,21 @@ async function editDailyReport(id) {
   openModal(
     `<div class="modal-title">✏️ Edit Daily Report</div>
     <div class="grid-2">
-      <div class="form-group"><label>Tanggal</label><input class="form-control" type="date" id="erTanggal" value="${t.tanggal || ""}"></div>
+      <div class="form-group"><label>Tanggal</label><input class="form-control" type="date" id="erTanggal" value="${t.tanggal || t.bulan || ""}"></div>
       ${catHtml}
     </div>
     <div class="grid-2">
       <div class="form-group"><label>Jam Masuk</label><input class="form-control" type="time" id="erJamMasuk" value="${t.jamMasuk || ""}"></div>
       <div class="form-group"><label>Jam Keluar</label><input class="form-control" type="time" id="erJamKeluar" value="${t.jamKeluar || ""}"></div>
     </div>
-    <div class="form-group"><label>Aktivitas *</label><textarea class="form-control" id="erAktivitas" rows="3">${escHtml(t.aktivitas || "")}</textarea></div>
+    <div class="form-group"><label>Aktivitas *</label><textarea class="form-control" id="erAktivitas" rows="3">${escHtml(t.aktivitas || t.description || "")}</textarea></div>
     <div class="form-group"><label>Hasil / Output</label><textarea class="form-control" id="erHasil" rows="2">${escHtml(t.hasil || "")}</textarea></div>
-    <div class="form-group"><label>Kendala</label><textarea class="form-control" id="erKendala" rows="2">${escHtml(t.kendala || "")}</textarea></div>
-    <div class="form-group"><label>Solusi</label><textarea class="form-control" id="erSolusi" rows="2">${escHtml(t.solusi || "")}</textarea></div>
-    <div class="form-group"><label>Rencana Besok</label><textarea class="form-control" id="erRencana" rows="2">${escHtml(t.rencana || "")}</textarea></div>
+    <div class="form-group"><label>Kendala</label><textarea class="form-control" id="erKendala" rows="2">${escHtml(t.kendala || t.case_desc || "")}</textarea></div>
+    <div class="form-group"><label>Solusi</label><textarea class="form-control" id="erSolusi" rows="2">${escHtml(t.solusi || t.solution || "")}</textarea></div>
+    <div class="form-group"><label>Rencana Besok</label><textarea class="form-control" id="erRencana" rows="2">${escHtml(t.rencana || t.rencanaBesok || t.planning || "")}</textarea></div>
     <div class="grid-2">
       <div class="form-group"><label>Durasi (hari)</label><input class="form-control" type="number" id="erDurasi" value="${t.durasi || 1}" step="0.5"></div>
-      <div class="form-group"><label>Progress (%)</label><input class="form-control" type="number" id="erProgress" value="${t.progress || 0}" min="0" max="100"></div>
+      <div class="form-group"><label>Progress (%)</label><input class="form-control" type="number" id="erProgress" value="${parseInt(t.progress) || 0}" min="0" max="100"></div>
     </div>
     <button class="btn btn-primary" onclick="updateDailyReport('${id}')">💾 Simpan</button>`,
     true,
@@ -2900,10 +2907,18 @@ async function editDailyReport(id) {
 }
 
 async function updateDailyReport(id) {
+  let col = "hrd_daily_tasks";
+  let docId = id;
+  if (id && id.includes("::")) {
+    const parts = id.split("::");
+    col = parts[0];
+    docId = parts[1];
+  }
   const aktivitas = document.getElementById("erAktivitas").value.trim();
   if (!aktivitas) return toast("Aktivitas wajib", "warning");
+  const tgl = document.getElementById("erTanggal").value;
   const updateData = {
-    tanggal: document.getElementById("erTanggal").value,
+    tanggal: tgl,
     jamMasuk: document.getElementById("erJamMasuk").value,
     jamKeluar: document.getElementById("erJamKeluar").value,
     aktivitas,
@@ -2914,14 +2929,22 @@ async function updateDailyReport(id) {
     durasi: parseFloat(document.getElementById("erDurasi").value) || 0,
     progress: parseInt(document.getElementById("erProgress").value) || 0,
     description: aktivitas,
-    title:
-      "📝 Daily Report — " +
-      formatDate(document.getElementById("erTanggal").value),
+    title: "📝 Daily Report — " + formatDate(tgl),
     updatedAt: new Date().toISOString(),
   };
+
+  // Field mapping for hrd_weekly_reports compatibility
+  if (col === "hrd_weekly_reports") {
+    updateData.bulan = tgl;
+    updateData.case_desc = updateData.kendala;
+    updateData.solution = updateData.solusi;
+    updateData.planning = updateData.rencana;
+    updateData.rencanaBesok = updateData.rencana;
+  }
+
   const katEl = document.getElementById("erKategori");
   if (katEl) updateData.kategori = katEl.value;
-  await db.collection("hrd_daily_tasks").doc(id).update(updateData);
+  await db.collection(col).doc(docId).update(updateData);
   closeModalDirect();
   toast("Report diperbarui", "success");
   await loadDailyTasks(_dailyTaskFilter);
@@ -5461,7 +5484,10 @@ async function loadWeeklyReports(divFilter) {
               <div class="text-xs" style="color:#666">📅 ${escHtml(tgl)} | 🏢 ${escHtml(div)} | 🏷️ ${escHtml(kat)}${subKatHtml}</div></div></div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
               <div style="font-size:.8rem;font-weight:700;color:${progressColor}">📈 Progress: ${escHtml(r.progress || "-")}${!isNaN(progressNum) && String(r.progress).indexOf("%") === -1 ? "%" : ""}</div>
-              <button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem('${escAttr(wrKey)}')">👁️ View</button>
+              <div style="display:flex;gap:4px">
+                  <button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem('${escAttr(wrKey)}')">👁️ View</button>
+                  ${hasAccess(6) ? `<button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyReport('${escAttr(wrKey)}')">✏️ Edit</button>` : ""}
+              </div>
             </div>
             <div style="font-size:.82rem;color:#333;line-height:1.5;background:#f9f9f9;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ${escHtml(previewText)}</div>
           </div>`;
