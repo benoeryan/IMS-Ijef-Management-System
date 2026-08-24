@@ -3922,7 +3922,14 @@ const REPORT_CATEGORIES = {
 };
 
 const SISWA_REPORT_DATA = {
-  LEVELS: ["NYUMON", "SHOKYU 1", "SHOKYU 2"],
+  LEVELS: [
+    "NYUMON",
+    "SHOKYU 1",
+    "SHOKYU 2",
+    "MENSETSU RENSHU",
+    "JFT",
+    "SSW",
+  ],
   MATERI: {
     NYUMON: [
       "KANA",
