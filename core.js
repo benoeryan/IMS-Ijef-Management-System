@@ -287,7 +287,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.3.6";
+const APP_VERSION = "16.3.7";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -1889,6 +1889,8 @@ async function updateNotifBadge() {
   if (_notifUnsubscribe.length === 0) {
     const q1 = db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.id);
     const q2 = db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.role);
+    const q3 = db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.nama);
+    const q4 = db.collection("hrd_notifikasi").where("targetUser", "==", (currentUser.posisi || ""));
 
     const handleSnapshot = (snap) => {
       let hasNewAdded = false;
@@ -1909,16 +1911,20 @@ async function updateNotifBadge() {
 
     _notifUnsubscribe.push(q1.onSnapshot(handleSnapshot));
     _notifUnsubscribe.push(q2.onSnapshot(handleSnapshot));
+    _notifUnsubscribe.push(q3.onSnapshot(handleSnapshot));
+    _notifUnsubscribe.push(q4.onSnapshot(handleSnapshot));
   }
 }
 
 async function _calculateTotalUnread() {
-  const [s1, s2] = await Promise.all([
+  const [s1, s2, s3, s4] = await Promise.all([
     db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.id).where("read", "==", false).get(),
     db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.role).where("read", "==", false).get(),
+    db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.nama).where("read", "==", false).get(),
+    db.collection("hrd_notifikasi").where("targetUser", "==", (currentUser.posisi || "")).where("read", "==", false).get(),
   ]);
 
-  const count = s1.size + s2.size;
+  const count = s1.size + s2.size + s3.size + s4.size;
   const badge = document.getElementById("notifCount");
   if (badge) {
     badge.textContent = count;

@@ -2006,7 +2006,7 @@ async function renderNotifikasi() {
   const main = document.getElementById("mainContent");
   main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🔔 Notifikasi</span><div class="flex gap-8"><button class="btn btn-sm btn-danger" onclick="hapusSemuaNotif()">🗑️ Hapus Semua</button></div></div><div class="card" id="notifList">Loading...</div>`;
   try {
-    const [snap1, snap2] = await Promise.all([
+    const [snap1, snap2, snap3, snap4] = await Promise.all([
       db
         .collection("hrd_notifikasi")
         .where("targetUser", "==", currentUser.id)
@@ -2015,20 +2015,24 @@ async function renderNotifikasi() {
         .collection("hrd_notifikasi")
         .where("targetUser", "==", currentUser.role)
         .get(),
+      db
+        .collection("hrd_notifikasi")
+        .where("targetUser", "==", currentUser.nama)
+        .get(),
+      db
+        .collection("hrd_notifikasi")
+        .where("targetUser", "==", currentUser.posisi || "")
+        .get(),
     ]);
     const allNotifs = [];
     const seen = new Set();
-    snap1.forEach((d) => {
-      if (!seen.has(d.id)) {
-        seen.add(d.id);
-        allNotifs.push({ id: d.id, ...d.data() });
-      }
-    });
-    snap2.forEach((d) => {
-      if (!seen.has(d.id)) {
-        seen.add(d.id);
-        allNotifs.push({ id: d.id, ...d.data() });
-      }
+    [snap1, snap2, snap3, snap4].forEach((snap) => {
+      snap.forEach((d) => {
+        if (!seen.has(d.id)) {
+          seen.add(d.id);
+          allNotifs.push({ id: d.id, ...d.data() });
+        }
+      });
     });
     allNotifs.sort((a, b) =>
       (b.createdAt || "").localeCompare(a.createdAt || ""),
@@ -2059,7 +2063,7 @@ async function hapusNotif(id) {
 }
 async function hapusSemuaNotif() {
   if (!confirm("Hapus semua notifikasi?")) return;
-  const [s1, s2] = await Promise.all([
+  const [s1, s2, s3, s4] = await Promise.all([
     db
       .collection("hrd_notifikasi")
       .where("targetUser", "==", currentUser.id)
@@ -2068,16 +2072,25 @@ async function hapusSemuaNotif() {
       .collection("hrd_notifikasi")
       .where("targetUser", "==", currentUser.role)
       .get(),
+    db
+      .collection("hrd_notifikasi")
+      .where("targetUser", "==", currentUser.nama)
+      .get(),
+    db
+      .collection("hrd_notifikasi")
+      .where("targetUser", "==", currentUser.posisi || "")
+      .get(),
   ]);
   const batch = db.batch();
   const seen = new Set();
-  s1.forEach((d) => {
-    if (!seen.has(d.id)) {
-      seen.add(d.id);
-      batch.delete(d.ref);
-    }
+  [s1, s2, s3, s4].forEach((snap) => {
+    snap.forEach((d) => {
+      if (!seen.has(d.id)) {
+        seen.add(d.id);
+        batch.delete(d.ref);
+      }
+    });
   });
-  s2.forEach((d) => {
     if (!seen.has(d.id)) {
       seen.add(d.id);
       batch.delete(d.ref);
