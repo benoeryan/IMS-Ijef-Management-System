@@ -4107,16 +4107,23 @@ window.onDailyReportLevelChange = function () {
   const materiEl = document.getElementById("drMateri");
   const pencapaianEl = document.getElementById("drPencapaian");
 
-  const devMsg = "untuk materi dan pencapaian bab masih dalam proses pengembangan";
+  const fieldsBox = document.getElementById("drSiswaFields");
+  const devMsgEl = document.getElementById("drSiswaDevMsg");
 
-  materiEl.innerHTML = '<option value="">-- Pilih Materi --</option>';
+  const isDev = ["MENSETSU RENSHU", "JFT", "SSW"].includes(level);
 
-  if (["MENSETSU RENSHU", "JFT", "SSW"].includes(level)) {
-      materiEl.innerHTML = `<option value="PROSES PENGEMBANGAN">${devMsg}</option>`;
-      pencapaianEl.value = devMsg;
+  if (isDev) {
+      if (fieldsBox) fieldsBox.style.display = "none";
+      if (devMsgEl) devMsgEl.style.display = "block";
+      materiEl.value = "";
+      pencapaianEl.value = "";
       return;
+  } else {
+      if (fieldsBox) fieldsBox.style.display = "grid";
+      if (devMsgEl) devMsgEl.style.display = "none";
   }
 
+  materiEl.innerHTML = '<option value="">-- Pilih Materi --</option>';
   if (level && SISWA_REPORT_DATA.MATERI[level]) {
     SISWA_REPORT_DATA.MATERI[level].forEach((m) => {
       materiEl.innerHTML += `<option value="${m}">${m}</option>`;
@@ -4126,15 +4133,8 @@ window.onDailyReportLevelChange = function () {
 };
 
 window.onDailyReportMateriChange = function () {
-  const level = document.getElementById("drLevel").value;
   const materi = document.getElementById("drMateri").value;
   const pencapaianEl = document.getElementById("drPencapaian");
-
-  if (["MENSETSU RENSHU", "JFT", "SSW"].includes(level)) {
-      pencapaianEl.value = "untuk materi dan pencapaian bab masih dalam proses pengembangan";
-      return;
-  }
-
   pencapaianEl.value = SISWA_REPORT_DATA.PENCAPAIAN[materi] || "";
 };
 
@@ -4167,21 +4167,26 @@ async function modalAddDailyReport() {
 
     <!-- SISWA SPECIFIC FIELDS -->
     <div id="drExtraSiswa" style="display:none; background:#f0f7ff; padding:15px; border-radius:10px; border:1px solid #c2e0ff; margin-bottom:15px">
-      <div class="grid-2">
-        <div class="form-group"><label>LEVEL</label>
-          <select class="form-control" id="drLevel" onchange="onDailyReportLevelChange();saveDailyReportDraft()">
-            <option value="">-- Pilih Level --</option>
-            ${SISWA_REPORT_DATA.LEVELS.map((l) => `<option value="${l}">${l}</option>`).join("")}
-          </select>
-        </div>
+      <div class="form-group"><label>LEVEL</label>
+        <select class="form-control" id="drLevel" onchange="onDailyReportLevelChange();saveDailyReportDraft()">
+          <option value="">-- Pilih Level --</option>
+          ${SISWA_REPORT_DATA.LEVELS.map((l) => `<option value="${l}">${l}</option>`).join("")}
+        </select>
+      </div>
+
+      <div id="drSiswaDevMsg" style="display:none; margin-top:8px; font-size:0.75rem; color:#c62828; font-style:italic">
+          untuk materi dan pencapaian bab masih dalam proses pengembangan
+      </div>
+
+      <div id="drSiswaFields" class="grid-2" style="margin-top:10px">
         <div class="form-group"><label>MATERI</label>
           <select class="form-control" id="drMateri" onchange="onDailyReportMateriChange();saveDailyReportDraft()">
             <option value="">-- Pilih Materi --</option>
           </select>
         </div>
-      </div>
-      <div class="form-group"><label>PENCAPAIAN BAB</label>
-        <textarea class="form-control" id="drPencapaian" rows="2" readonly style="background:#f9f9f9; font-size:.85rem"></textarea>
+        <div class="form-group"><label>PENCAPAIAN BAB</label>
+          <textarea class="form-control" id="drPencapaian" rows="2" readonly style="background:#f9f9f9; font-size:.85rem"></textarea>
+        </div>
       </div>
     </div>
 
