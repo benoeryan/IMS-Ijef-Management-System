@@ -82,7 +82,8 @@ async function renderPortal() {
     </div>
   </div>
   ${["muhammad agus ryanda", "siti sofuroh", "irsan janwar wibawa", "misriana"].includes((u.nama || "").toLowerCase()) ? '<div class="card" style="border-left:4px solid #2e7d32"><div class="card-title mb-8">💰 Keuangan</div><a href="https://laporankeuanganijef.netlify.app/" target="_blank" class="btn btn-sm" style="background:#2e7d32;color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px">📊 Laporan Keuangan IJEF</a><p class="text-xs mt-8" style="color:#999">Klik untuk membuka portal laporan keuangan</p></div>' : ""}
-  <div class="card"><div class="card-title">📲 Download / Install Aplikasi</div><p class="text-sm mb-8" style="color:#666">Install aplikasi ini di perangkat Anda untuk akses lebih cepat.</p>${renderDownloadAppSection()}</div>`;
+  <div class="card"><div class="card-title">📲 Download / Install Aplikasi</div><p class="text-sm mb-8" style="color:#666">Install aplikasi ini di perangkat Anda untuk akses lebih cepat.</p>${renderDownloadAppSection()}</div>
+  <div id="portalBirthdaySection"></div>`;
   // Load data (using .where() queries to only fetch current user's data for privacy)
   let absenCount = 0,
     cutiUsed = 0,
@@ -142,6 +143,11 @@ async function renderPortal() {
 
   const pInboxEl = document.getElementById("pInbox");
   if (pInboxEl) pInboxEl.textContent = inboxCount;
+
+  if (hasAccess(3) || currentUser.role === 'admin') {
+      loadBirthdayReminders();
+  }
+
   // Daily task today
   const today = todayStr();
   const myTasks = [];
@@ -1885,4 +1891,72 @@ async function simpanPortalSetting() {
   window._profilePic = null;
   toast("Akun diperbarui", "success");
   renderApp();
+}
+
+/**
+ * Birthday reminder for employees
+ * Only visible to Level 3+ (Manager, Head, BOD) and Admin
+ */
+async function loadBirthdayReminders() {
+    const el = document.getElementById('portalBirthdaySection');
+    if (!el) return;
+
+    try {
+        const snap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1; // 0-indexed to 1-indexed
+        const currentDay = now.getDate();
+
+        const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        const monthName = months[now.getMonth()];
+
+        const bdays = [];
+        snap.forEach(d => {
+            const k = d.data();
+            if (k.tanggalLahir) {
+                // Handle different formats if necessary, standard is YYYY-MM-DD
+                const parts = k.tanggalLahir.split('-');
+                if (parts.length === 3) {
+                    const m = parseInt(parts[1]);
+                    const day = parseInt(parts[2]);
+                    if (m === currentMonth) {
+                        bdays.push({ ...k, day: day });
+                    }
+                }
+            }
+        });
+
+        if (bdays.length === 0) return;
+
+        // Sort by day
+        bdays.sort((a, b) => a.day - b.day);
+
+        let h = `<div class="card" style="border-left:4px solid #f06292; background: linear-gradient(to right, #fff, #fff5f8)">
+            <div class="card-title mb-12" style="color:#d81b60">🎂 Ulang Tahun Karyawan (${monthName})</div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:12px">`;
+
+        bdays.forEach(k => {
+            const isToday = k.day === currentDay;
+            const style = isToday
+                ? 'background:#fce4ec; border:2px solid #f06292; transform: scale(1.02)'
+                : 'background:#fff; border:1px solid #eee';
+
+            h += `<div style="padding:12px; border-radius:12px; ${style}; transition: all .2s" class="birthday-item">
+                <div class="flex gap-12 align-center">
+                    <div style="width:45px; height:45px; border-radius:50%; overflow:hidden; background:#f0f0f0; border:1px solid #eee">
+                        ${k.foto ? `<img src="${k.foto}" style="width:100%; height:100%; object-fit:cover">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:1.5rem">👤</div>'}
+                    </div>
+                    <div style="flex:1">
+                        <div class="fw-700 text-sm" style="line-height:1.2; margin-bottom:2px">${escHtml(k.nama)}</div>
+                        <div class="text-xs ${isToday ? 'fw-700' : ''}" style="color:${isToday ? '#d81b60' : '#888'}">${k.day} ${monthName} ${isToday ? '✨ HARI INI!' : ''}</div>
+                    </div>
+                </div>
+            </div>`;
+        });
+
+        h += `</div></div>`;
+        el.innerHTML = h;
+    } catch (e) {
+        console.error("loadBirthdayReminders error:", e);
+    }
 }
