@@ -1904,39 +1904,52 @@ async function loadBirthdayReminders() {
     try {
         const snap = await db.collection('hrd_karyawan').where('status', '==', 'aktif').get();
         const now = new Date();
-        const currentMonth = now.getMonth() + 1; // 0-indexed to 1-indexed
-        const currentDay = now.getDate();
+        now.setHours(0, 0, 0, 0);
+        const todayTime = now.getTime();
 
         const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-        const monthName = months[now.getMonth()];
 
         const bdays = [];
         snap.forEach(d => {
             const k = d.data();
             if (k.tanggalLahir) {
-                // Handle different formats if necessary, standard is YYYY-MM-DD
                 const parts = k.tanggalLahir.split('-');
                 if (parts.length === 3) {
-                    const m = parseInt(parts[1]);
-                    const day = parseInt(parts[2]);
-                    if (m === currentMonth) {
-                        bdays.push({ ...k, day: day });
+                    const bMonth = parseInt(parts[1]) - 1;
+                    const bDay = parseInt(parts[2]);
+
+                    // Hitung tanggal ulang tahun terdekat (bisa tahun ini atau tahun depan jika sudah lewat)
+                    let bDate = new Date(now.getFullYear(), bMonth, bDay);
+                    let diffDays = Math.ceil((bDate.getTime() - todayTime) / (1000 * 60 * 60 * 24));
+
+                    if (diffDays < 0) {
+                        bDate = new Date(now.getFullYear() + 1, bMonth, bDay);
+                        diffDays = Math.ceil((bDate.getTime() - todayTime) / (1000 * 60 * 60 * 24));
+                    }
+
+                    // Ingatkan jika dalam 7 hari ke depan (H-7 s/d Hari H)
+                    if (diffDays >= 0 && diffDays <= 7) {
+                        bdays.push({ ...k, day: bDay, month: bMonth, daysLeft: diffDays });
                     }
                 }
             }
         });
 
-        if (bdays.length === 0) return;
+        if (bdays.length === 0) {
+            el.innerHTML = ""; // Sembunyikan jika tidak ada yang ultah dekat
+            return;
+        }
 
-        // Sort by day
-        bdays.sort((a, b) => a.day - b.day);
+        // Urutkan berdasarkan yang paling dekat (H-0, H-1, dst)
+        bdays.sort((a, b) => a.daysLeft - b.daysLeft);
 
         let h = `<div class="card" style="border-left:4px solid #f06292; background: linear-gradient(to right, #fff, #fff5f8)">
-            <div class="card-title mb-12" style="color:#d81b60">🎂 Ulang Tahun Karyawan (${monthName})</div>
-            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:12px">`;
+            <div class="card-title mb-12" style="color:#d81b60">🎂 Pengingat Ulang Tahun (7 Hari ke Depan)</div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:12px">`;
 
         bdays.forEach(k => {
-            const isToday = k.day === currentDay;
+            const isToday = k.daysLeft === 0;
+            const label = isToday ? '✨ HARI INI!' : (k.daysLeft === 1 ? 'Besok' : `H-${k.daysLeft}`);
             const style = isToday
                 ? 'background:#fce4ec; border:2px solid #f06292; transform: scale(1.02)'
                 : 'background:#fff; border:1px solid #eee';
@@ -1948,7 +1961,7 @@ async function loadBirthdayReminders() {
                     </div>
                     <div style="flex:1">
                         <div class="fw-700 text-sm" style="line-height:1.2; margin-bottom:2px">${escHtml(k.nama)}</div>
-                        <div class="text-xs ${isToday ? 'fw-700' : ''}" style="color:${isToday ? '#d81b60' : '#888'}">${k.day} ${monthName} ${isToday ? '✨ HARI INI!' : ''}</div>
+                        <div class="text-xs ${isToday ? 'fw-700' : ''}" style="color:${isToday ? '#d81b60' : '#888'}">${k.day} ${months[k.month]} — <b style="color:#d81b60">${label}</b></div>
                     </div>
                 </div>
             </div>`;
