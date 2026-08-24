@@ -4105,7 +4105,18 @@ window.onDailyReportKategoriChange = function () {
 window.onDailyReportLevelChange = function () {
   const level = document.getElementById("drLevel").value;
   const materiEl = document.getElementById("drMateri");
+  const pencapaianEl = document.getElementById("drPencapaian");
+
+  const devMsg = "untuk materi dan pencapaian bab masih dalam proses pengembangan";
+
   materiEl.innerHTML = '<option value="">-- Pilih Materi --</option>';
+
+  if (["MENSETSU RENSHU", "JFT", "SSW"].includes(level)) {
+      materiEl.innerHTML = `<option value="PROSES PENGEMBANGAN">${devMsg}</option>`;
+      pencapaianEl.value = devMsg;
+      return;
+  }
+
   if (level && SISWA_REPORT_DATA.MATERI[level]) {
     SISWA_REPORT_DATA.MATERI[level].forEach((m) => {
       materiEl.innerHTML += `<option value="${m}">${m}</option>`;
@@ -4115,8 +4126,15 @@ window.onDailyReportLevelChange = function () {
 };
 
 window.onDailyReportMateriChange = function () {
+  const level = document.getElementById("drLevel").value;
   const materi = document.getElementById("drMateri").value;
   const pencapaianEl = document.getElementById("drPencapaian");
+
+  if (["MENSETSU RENSHU", "JFT", "SSW"].includes(level)) {
+      pencapaianEl.value = "untuk materi dan pencapaian bab masih dalam proses pengembangan";
+      return;
+  }
+
   pencapaianEl.value = SISWA_REPORT_DATA.PENCAPAIAN[materi] || "";
 };
 
