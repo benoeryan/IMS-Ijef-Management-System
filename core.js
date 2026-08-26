@@ -287,7 +287,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.4.4";
+const APP_VERSION = "16.4.5";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -423,7 +423,7 @@ const HARI_LIBUR_NASIONAL_2026 = [
   { tanggal: "2026-06-01", nama: "Hari Lahir Pancasila", tipe: "nasional" },
   { tanggal: "2026-06-16", nama: "Tahun Baru Islam 1448 H", tipe: "nasional" },
   { tanggal: "2026-08-17", nama: "Hari Kemerdekaan RI", tipe: "nasional" },
-  { tanggal: "2026-08-26", nama: "Maulid Nabi Muhammad SAW", tipe: "nasional" },
+  { tanggal: "2026-08-25", nama: "Maulid Nabi Muhammad SAW", tipe: "nasional" },
   { tanggal: "2026-12-24", nama: "Cuti Bersama Natal", tipe: "cuti_bersama" },
   { tanggal: "2026-12-25", nama: "Hari Natal", tipe: "nasional" },
   {
@@ -443,6 +443,18 @@ async function autoLoadHariLiburNasional() {
         .collection("hrd_hari_libur")
         .where("tahun", "==", year)
         .get();
+
+      // Proactive Fix: Correct Maulid Nabi 2026 if it exists on the wrong date (Aug 26 -> Aug 25)
+      if (year === 2026) {
+          existingSnap.forEach(doc => {
+              const d = doc.data();
+              if (d.tanggal === "2026-08-26" && d.nama.includes("Maulid")) {
+                  console.log("[HOLIDAY] Correcting Maulid Nabi 2026 date...");
+                  doc.ref.update({ tanggal: "2026-08-25" });
+              }
+          });
+      }
+
       let alreadyPopulated = false;
       existingSnap.forEach((d) => {
         const t = d.data().tipe;
