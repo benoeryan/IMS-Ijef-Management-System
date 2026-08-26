@@ -2065,8 +2065,9 @@ async function renderApprovalCenter(tab = "pending") {
     visibleCount++;
 
     const typeLabel = item.collection.replace("hrd_", "").toUpperCase();
-    const detail = item.jenis || item.kategori || "";
-    const jumlah = item.jumlah ? ` — ${formatCurrency(item.jumlah)}` : "";
+    const detail = item.jenis || item.kategori || item.tujuan || "";
+    const nominal = item.jumlah || item.totalEstimasi || item.totalAktual || 0;
+    const jumlah = nominal ? ` — ${formatCurrency(nominal)}` : "";
     const durasi = item.durasi ? ` (${item.durasi} hari)` : "";
 
     let progressHtml = "";
@@ -2523,6 +2524,92 @@ async function _buildKasbonDetail(p, karyawan) {
   return h;
 }
 
+async function _buildSPPDDetail(p, karyawan) {
+  let h =
+    '<div style="background:#fff;padding:14px;border-radius:8px;border:1px solid var(--border);margin-bottom:16px">';
+  h +=
+    '<div class="fw-700 mb-8" style="font-size:.88rem">📋 Detail SPPD — ' +
+    escHtml(p.noSPPD || "-") +
+    "</div>";
+  h += '<div class="grid-2" style="gap:8px;font-size:.85rem">';
+  const tglMulai = p.tanggalMulai || p.tanggal || "";
+  const tglSelesai = p.tanggalSelesai || p.tanggal || "";
+  const durasiFull =
+    tglMulai && tglSelesai
+      ? Math.ceil(
+          (new Date(tglSelesai) - new Date(tglMulai)) / (1000 * 60 * 60 * 24) +
+            1,
+        )
+      : 0;
+
+  h += `<div><b>Tujuan:</b> ${escHtml(p.tujuan || "-")}</div>`;
+  h += `<div><b>Klien/Instansi:</b> ${escHtml(p.klien || "-")}</div>`;
+  h += `<div><b>Tanggal:</b> ${formatDate(tglMulai)}${tglSelesai && tglSelesai !== tglMulai ? " s/d " + formatDate(tglSelesai) : ""}</div>`;
+  h += `<div><b>Durasi:</b> ${durasiFull} hari</div>`;
+  h += `<div><b>Transportasi:</b> ${escHtml(p.transportasi || "-")}</div>`;
+  h += `<div><b>Akomodasi:</b> ${escHtml(p.akomodasi || "-")}</div>`;
+  if (p.keperluan)
+    h += `<div style="grid-column:1/-1"><b>Keperluan:</b> ${escHtml(p.keperluan)}</div>`;
+  h += "</div>";
+
+  // Benefit Grade Section
+  const grade =
+    p.gradeJabatan ||
+    (karyawan && (karyawan.gradeJabatan || karyawan.grade)) ||
+    "STAFF";
+  try {
+    const cfg = await getGradeConfig(grade);
+    const malam = Math.max(durasiFull - 1, 0);
+    if (durasiFull > 0 && cfg) {
+      const maxTransport = cfg.maxTransport || 0;
+      const maxAkomodasi = (cfg.maxHotel || 0) * malam;
+      const maxMakan = ((cfg.maxMakan || 0) + (cfg.uangSaku || 0)) * durasiFull;
+
+      const transportStatus =
+        (p.biayaTransport || 0) <= maxTransport
+          ? "color:var(--success)"
+          : "color:var(--danger)";
+      const akomodasiStatus =
+        malam > 0 && (p.biayaAkomodasi || 0) <= maxAkomodasi
+          ? "color:var(--success)"
+          : malam === 0
+            ? "color:var(--success)"
+            : "color:var(--danger)";
+      const makanStatus =
+        (p.biayaMakan || 0) <= maxMakan
+          ? "color:var(--success)"
+          : "color:var(--danger)";
+
+      h += `<div class="mt-12" style="background:#f9f9f9;padding:12px;border-radius:8px;border-left:4px solid var(--primary)">
+        <div class="fw-700 text-sm mb-8">🎯 Benefit Grade: <span class="badge badge-info">${escHtml(grade)}</span> (${escHtml(cfg.label)})</div>
+        <div class="text-sm" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">
+          <div>Transport</div><div>Diajukan: ${formatCurrency(p.biayaTransport || 0)}</div><div style="${transportStatus}">Max: ${formatCurrency(maxTransport)}</div>
+          <div>Akomodasi</div><div>Diajukan: ${formatCurrency(p.biayaAkomodasi || 0)}</div><div style="${akomodasiStatus}">Max: ${formatCurrency(maxAkomodasi)} (${malam} mlm)</div>
+          <div>Makan+Saku</div><div>Diajukan: ${formatCurrency(p.biayaMakan || 0)}</div><div style="${makanStatus}">Max: ${formatCurrency(maxMakan)} (${durasiFull} hr)</div>
+        </div>
+      </div>`;
+    }
+  } catch (e) {
+    console.warn(e);
+  }
+
+  // Estimasi Biaya Section
+  h += `<div class="fw-700 mb-8 mt-12" style="font-size:.85rem">💰 Estimasi Biaya:</div>
+    <div class="grid-2" style="background:#f9f9f9;padding:12px;border-radius:8px;font-size:.85rem">
+      <div>Transport: ${formatCurrency(p.biayaTransport || 0)}</div>
+      <div>Akomodasi: ${formatCurrency(p.biayaAkomodasi || 0)}</div>
+      <div>Makan & Saku: ${formatCurrency(p.biayaMakan || 0)}</div>
+      <div>Lain-lain: ${formatCurrency(p.biayaLain || 0)}</div>
+      <div class="fw-700" style="grid-column:span 2;border-top:1px solid var(--border);padding-top:8px;margin-top:4px">Total: ${formatCurrency(p.totalEstimasi || 0)}</div>
+    </div>`;
+
+  if (p.catatan)
+    h += `<div class="mt-12 text-sm"><b>Catatan:</b> ${escHtml(p.catatan)}</div>`;
+  h += _renderAttachments(p);
+  h += "</div>";
+  return h;
+}
+
 function _buildGenericDetail(p) {
   let h =
     '<div style="background:#fff;padding:14px;border-radius:8px;border:1px solid var(--border);margin-bottom:16px">';
@@ -2632,6 +2719,8 @@ async function viewApprovalDetail(col, id) {
     else if (col === "hrd_reimbursement") html += await _buildReimbDetail(p);
     else if (col === "hrd_kasbon")
       html += await _buildKasbonDetail(p, karyawan);
+    else if (col === "hrd_perjalanan_dinas")
+      html += await _buildSPPDDetail(p, karyawan);
     else html += _buildGenericDetail(p);
     // Approval timeline
     html += _buildApprovalTimeline(p);
