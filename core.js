@@ -287,7 +287,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.4.5";
+const APP_VERSION = "16.4.6";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -781,8 +781,8 @@ function buildNavItems(isPortalUser) {
       ["inbox", "📥", "Inbox"],
       ["chat", "💬", "Obrolan"],
     ]);
-    // Leader gets approval access
-    if (currentUser.role === "leader")
+    // Leader gets approval access, also Siti Sofuroh for Finance Approval
+    if (currentUser.role === "leader" || (currentUser.nama || "").toLowerCase().includes("siti sofuroh"))
       nav += navGroup("✅ Approval", [
         ["approval-center", "✅", "Approval Center"],
       ]);

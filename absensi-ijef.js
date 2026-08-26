@@ -2403,6 +2403,8 @@ async function loadRekapGrid() {
     const absenMap = {};
     const jamKerjaMap = {};
     const lemburMap = {};
+    const dinasAbsenKetMap = {};
+
     absenSnap.forEach((d) => {
       const p = d.data();
       if (!p.tanggal || p.tanggal < startDate || p.tanggal > endDate) return;
@@ -2411,6 +2413,7 @@ async function loadRekapGrid() {
           if (!absenMap[uid]) absenMap[uid] = {};
           if (!jamKerjaMap[uid]) jamKerjaMap[uid] = {};
           if (!lemburMap[uid]) lemburMap[uid] = {};
+          if (!dinasAbsenKetMap[uid]) dinasAbsenKetMap[uid] = {};
 
           if (p.tipe === 'masuk') absenMap[uid][p.tanggal] = p.status || 'hadir';
           else if (p.tipe === 'pulang') {
@@ -2421,6 +2424,10 @@ async function loadRekapGrid() {
                   absenMap[uid][p.tanggal] = p.status;
               }
               if (p.jamKerjaActual) jamKerjaMap[uid][p.tanggal] = p.jamKerjaActual;
+          } else if (p.tipe === 'dinas_luar') {
+              const info = `${p.waktu || ''} - ${p.tujuanDinas || ''}: ${p.keteranganDinas || ''}`;
+              if (!dinasAbsenKetMap[uid][p.tanggal]) dinasAbsenKetMap[uid][p.tanggal] = [];
+              dinasAbsenKetMap[uid][p.tanggal].push(info);
           }
       });
     });
@@ -2445,6 +2452,7 @@ async function loadRekapGrid() {
       const userLemburMap2 = { ...(lemburMap[u.id] || {}), ...(lemburMap[namaLow] || {}) };
       const userCuti = { ...(cutiMap[u.id] || {}), ...(cutiMap[namaLow] || {}) };
       const userDinas = { ...(dinasLuarMap[u.id] || {}), ...(dinasLuarMap[namaLow] || {}) };
+      const userDinasKet = { ...(dinasAbsenKetMap[u.id] || {}), ...(dinasAbsenKetMap[namaLow] || {}) };
       const userOT = { ...(otMap[u.id] || {}), ...(otMap[namaLow] || {}) };
 
       const userRawAbsen = absenSnap.docs.filter(d => {
@@ -2479,7 +2487,8 @@ async function loadRekapGrid() {
             color = ct[0]; text = ct[1]; title = ` title="${ct[2]}"`;
             if (!isWeekend && !isLibur) ut++;
         } else if (isDinas) {
-            color = '#2196f3'; text = 'D'; title = ' title="Dinas Luar"';
+            const ketDinas = (userDinasKet[ds] || []).join(' | ');
+            color = '#2196f3'; text = 'D'; title = ` title="Dinas Luar${ketDinas ? ': ' + ketDinas : ''}"`;
             if (!isWeekend && !isLibur) { ut++; totalD++; }
         } else if (otDurasi > 0 || (st === 'lembur')) {
             color = '#7b1fa2'; text = 'L'; ut++; totalLembur++;

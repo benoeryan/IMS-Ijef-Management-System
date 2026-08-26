@@ -2037,8 +2037,13 @@ async function renderApprovalCenter(tab = "pending") {
     const isSubordinate = mySubordinates.includes(
       (item.nama || "").toLowerCase().trim(),
     );
+    const isFinanceItem = ["hrd_reimbursement", "hrd_kasbon", "hrd_reimburse_dinas", "hrd_perjalanan_dinas"].includes(item.collection);
+    const isFinanceUser = (currentUser.nama || "").toLowerCase().includes("siti sofuroh");
 
     if (isAdmin || isGM) {
+      canSee = true;
+    } else if (isFinanceUser && isFinanceItem) {
+      // Siti Sofuroh can see all finance-related flows
       canSee = true;
     } else {
       if (tab === "pending") {
