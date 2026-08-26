@@ -2011,6 +2011,14 @@ async function renderApprovalCenter(tab = "pending") {
     );
   }
 
+  // --- DEDUPLICATION LOGIC for SPPD & DINAS LUAR ---
+  const sppdSet = new Set(items.filter(it => it.collection === 'hrd_perjalanan_dinas').map(it => it.noSPPD).filter(Boolean));
+  items = items.filter(it => {
+      // If it's a dinas_luar record that has a linked SPPD already in the list, skip it to avoid redundancy
+      if (it.collection === 'hrd_dinas_luar' && it.noSPPD && sppdSet.has(it.noSPPD)) return false;
+      return true;
+  });
+
   items.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   let h = "";
   let visibleCount = 0;
@@ -2653,32 +2661,26 @@ async function approveItem(col, id, status, catatan) {
   history.push(entry);
 
   if (status === "rejected") {
-    await db
-      .collection(col)
-      .doc(id)
-      .update({
-        status: "rejected",
-        approvedAt: new Date().toISOString(),
-        approvalHistory: history,
-        rejectedBy: currentUser.nama,
-        rejectionCatatan: catatan || "",
-      });
+    const rejectUpdate = {
+      status: "rejected",
+      approvedAt: new Date().toISOString(),
+      approvalHistory: history,
+      rejectedBy: currentUser.nama,
+      rejectionCatatan: catatan || "",
+    };
+    await db.collection(col).doc(id).update(rejectUpdate);
 
-    // Special Logic: Propagate status to linked SPPD record if hrd_dinas_luar
-    if (col === "hrd_dinas_luar") {
-      try {
-        const linkSnap = await db
-          .collection("hrd_perjalanan_dinas")
-          .where("dinasLuarId", "==", id)
-          .get();
-        linkSnap.forEach((d) =>
-          d.ref.update({
-            status: "rejected",
-            approvedBy: currentUser.nama,
-            approvedAt: new Date().toISOString(),
-          }),
-        );
-      } catch (err) {}
+    // PROACTIVE SYNC: Perjalanan Dinas <-> Dinas Luar (Reject Sync)
+    if (col === "hrd_perjalanan_dinas" || col === "hrd_dinas_luar") {
+        const syncCol = col === "hrd_perjalanan_dinas" ? "hrd_dinas_luar" : "hrd_perjalanan_dinas";
+        if (data.noSPPD) {
+            const linkSnap = await db.collection(syncCol).where("noSPPD", "==", data.noSPPD).get();
+            linkSnap.forEach(d => d.ref.update(rejectUpdate));
+        }
+        if (col === "hrd_dinas_luar") {
+            const legacySnap = await db.collection("hrd_perjalanan_dinas").where("dinasLuarId", "==", id).get();
+            legacySnap.forEach(d => d.ref.update(rejectUpdate));
+        }
     }
 
     if (data.userId)
@@ -2715,15 +2717,23 @@ async function approveItem(col, id, status, catatan) {
 
     const nextStep = currentStep + 1;
     if (nextStep < steps.length) {
-      await db
-        .collection(col)
-        .doc(id)
-        .update({
-          status: `step${nextStep}`,
-          approvalStep: nextStep,
-          approvalHistory: history,
-          lastApprovedBy: currentUser.nama,
-        });
+      const updateData = {
+        status: `step${nextStep}`,
+        approvalStep: nextStep,
+        approvalHistory: history,
+        lastApprovedBy: currentUser.nama,
+      };
+      await db.collection(col).doc(id).update(updateData);
+
+      // PROACTIVE SYNC: Perjalanan Dinas <-> Dinas Luar (Step Sync)
+      if (col === "hrd_perjalanan_dinas" || col === "hrd_dinas_luar") {
+          const syncCol = col === "hrd_perjalanan_dinas" ? "hrd_dinas_luar" : "hrd_perjalanan_dinas";
+          if (data.noSPPD) {
+              const linkSnap = await db.collection(syncCol).where("noSPPD", "==", data.noSPPD).get();
+              linkSnap.forEach(d => d.ref.update(updateData));
+          }
+      }
+
       const nextApprover = steps[nextStep];
       if (nextApprover?.nama) {
         const uSnap = await db.collection("hrd_users").get();
@@ -2748,29 +2758,27 @@ async function approveItem(col, id, status, catatan) {
           `Disetujui ${currentUser.nama}, menunggu ${nextApprover?.nama || "selanjutnya"}`,
         );
     } else {
-      await db.collection(col).doc(id).update({
+      const finalUpdate = {
         status: "approved",
         approvedBy: currentUser.nama,
         approvedAt: new Date().toISOString(),
         approvalStep: nextStep,
         approvalHistory: history,
-      });
+      };
+      await db.collection(col).doc(id).update(finalUpdate);
 
-      // Special Logic: Propagate status to linked SPPD record if hrd_dinas_luar
-      if (col === "hrd_dinas_luar") {
-        try {
-          const linkSnap = await db
-            .collection("hrd_perjalanan_dinas")
-            .where("dinasLuarId", "==", id)
-            .get();
-          linkSnap.forEach((d) =>
-            d.ref.update({
-              status: "approved",
-              approvedBy: currentUser.nama,
-              approvedAt: new Date().toISOString(),
-            }),
-          );
-        } catch (err) {}
+      // PROACTIVE SYNC: Perjalanan Dinas <-> Dinas Luar (Final Approval Sync)
+      if (col === "hrd_perjalanan_dinas" || col === "hrd_dinas_luar") {
+          const syncCol = col === "hrd_perjalanan_dinas" ? "hrd_dinas_luar" : "hrd_perjalanan_dinas";
+          if (data.noSPPD) {
+              const linkSnap = await db.collection(syncCol).where("noSPPD", "==", data.noSPPD).get();
+              linkSnap.forEach(d => d.ref.update(finalUpdate));
+          }
+          // Legacy check for hrd_dinas_luar without noSPPD
+          if (col === "hrd_dinas_luar") {
+              const legacySnap = await db.collection("hrd_perjalanan_dinas").where("dinasLuarId", "==", id).get();
+              legacySnap.forEach(d => d.ref.update(finalUpdate));
+          }
       }
 
       if (data.userId)
