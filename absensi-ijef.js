@@ -2291,6 +2291,15 @@ async function loadRekapGrid() {
   if (!gridEl) return;
   gridEl.innerHTML = 'Memuat data...';
 
+  // Real-time listener for current month attendance
+  const unsub = db.collection('hrd_absensi').onSnapshot(() => {
+      _doLoadRekapGridContent(bulan, mode, gridEl);
+  });
+
+  if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
+}
+
+async function _doLoadRekapGridContent(bulan, mode, gridEl) {
   try {
     let startDate, endDate, labelRange = '';
     const [year, month] = bulan.split('-').map(Number);

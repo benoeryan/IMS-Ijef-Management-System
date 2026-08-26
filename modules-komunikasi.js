@@ -1883,50 +1883,56 @@ async function kirimChatMsg(threadId) {
 async function renderBroadcast() {
   const main = document.getElementById("mainContent");
   main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📡 Broadcast</span><button class="btn btn-primary btn-sm" onclick="modalBroadcast()">+ Kirim</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Pesan</th><th>Target</th><th>Pengirim</th><th>Tanggal</th><th>Aksi</th></tr></thead><tbody id="tblBroadcast"></tbody></table></div></div>`;
-  const snap = await db.collection("hrd_broadcast").get();
-  const allItems = [];
-  snap.forEach((d) => allItems.push({ id: d.id, ...d.data() }));
-  // Only admin (level 6) and head (level 4+) sees all; others filtered by their department/targetIds
-  let items = allItems;
-  if (!hasAccess(4)) {
-    const myDept = (currentUser.departemen || "").toLowerCase().trim();
-    const myId = currentUser.id || "";
-    const myNama = (currentUser.nama || "").toLowerCase().trim();
-    items = allItems.filter((p) => {
-      // New broadcasts with targetType field
-      if (p.targetType) {
-        if (p.targetType === "all") return true;
-        if (p.targetType === "personal")
-          return (p.targetIds || []).includes(myId);
-        if (p.targetType === "departemen") {
-          const bcDept = (p.targetDepartemen || "").toLowerCase().trim();
-          return bcDept === myDept || (p.targetIds || []).includes(myId);
-        }
+
+  const unsub = db.collection("hrd_broadcast").onSnapshot((snap) => {
+      const allItems = [];
+      snap.forEach((d) => allItems.push({ id: d.id, ...d.data() }));
+
+      // Only admin (level 6) and head (level 4+) sees all; others filtered by their department/targetIds
+      let items = allItems;
+      if (!hasAccess(4)) {
+        const myDept = (currentUser.departemen || "").toLowerCase().trim();
+        const myId = currentUser.id || "";
+        const myNama = (currentUser.nama || "").toLowerCase().trim();
+        items = allItems.filter((p) => {
+          // New broadcasts with targetType field
+          if (p.targetType) {
+            if (p.targetType === "all") return true;
+            if (p.targetType === "personal")
+              return (p.targetIds || []).includes(myId);
+            if (p.targetType === "departemen") {
+              const bcDept = (p.targetDepartemen || "").toLowerCase().trim();
+              return bcDept === myDept || (p.targetIds || []).includes(myId);
+            }
+          }
+          // Legacy broadcasts (no targetType) — infer from targetLabel
+          const label = (p.targetLabel || "").toLowerCase();
+          if (label === "semua" || label.includes("general") || !label) return true;
+          if (label.includes("divisi")) {
+            // e.g. "Divisi OFFICE" → extract dept name
+            const deptName = label.replace("divisi", "").trim();
+            return deptName === myDept;
+          }
+          // Personal target (targetLabel = person name) → check if it matches current user or targetIds
+          if (p.targetIds && p.targetIds.length > 0)
+            return p.targetIds.includes(myId);
+          if (label === myNama) return true;
+          return false;
+        });
       }
-      // Legacy broadcasts (no targetType) — infer from targetLabel
-      const label = (p.targetLabel || "").toLowerCase();
-      if (label === "semua" || label.includes("general") || !label) return true;
-      if (label.includes("divisi")) {
-        // e.g. "Divisi OFFICE" → extract dept name
-        const deptName = label.replace("divisi", "").trim();
-        return deptName === myDept;
-      }
-      // Personal target (targetLabel = person name) → check if it matches current user or targetIds
-      if (p.targetIds && p.targetIds.length > 0)
-        return p.targetIds.includes(myId);
-      if (label === myNama) return true;
-      return false;
-    });
-  }
-  items.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
-  let h = "";
-  if (!items.length)
-    h = '<tr><td colspan="5" class="text-center">Belum ada</td></tr>';
-  else
-    items.forEach((p) => {
-      h += `<tr style="cursor:pointer" onclick="viewBroadcast('${p.id}')"><td>${escHtml((p.pesan || "").substring(0, 60))}${(p.pesan || "").length > 60 ? "..." : ""}</td><td><span class="badge badge-info">${escHtml(p.targetLabel || "Semua")}</span></td><td>${escHtml(p.pengirim || "-")}</td><td>${formatDateTime(p.createdAt)}</td><td><button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewBroadcast('${p.id}')">👁️</button> <button class="btn btn-xs btn-danger" onclick="event.stopPropagation();hapusDoc('hrd_broadcast','${p.id}','broadcast')">🗑️</button></td></tr>`;
-    });
-  document.getElementById("tblBroadcast").innerHTML = h;
+      items.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      let h = "";
+      if (!items.length)
+        h = '<tr><td colspan="5" class="text-center">Belum ada</td></tr>';
+      else
+        items.forEach((p) => {
+          h += `<tr style="cursor:pointer" onclick="viewBroadcast('${p.id}')"><td>${escHtml((p.pesan || "").substring(0, 60))}${(p.pesan || "").length > 60 ? "..." : ""}</td><td><span class="badge badge-info">${escHtml(p.targetLabel || "Semua")}</span></td><td>${escHtml(p.pengirim || "-")}</td><td>${formatDateTime(p.createdAt)}</td><td><button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewBroadcast('${p.id}')">👁️</button> <button class="btn btn-xs btn-danger" onclick="event.stopPropagation();hapusDoc('hrd_broadcast','${p.id}','broadcast')">🗑️</button></td></tr>`;
+        });
+      const tbody = document.getElementById("tblBroadcast");
+      if (tbody) tbody.innerHTML = h;
+  });
+
+  if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
 }
 function viewBroadcast(id) {
   db.collection("hrd_broadcast")

@@ -579,10 +579,12 @@ async function renderKaryawan() {
 }
 
 async function loadKaryawanTable() {
-  const snap = await db.collection('hrd_karyawan').get();
-  window._allKaryawan = [];
-  snap.forEach((d) => window._allKaryawan.push({ id: d.id, ...d.data() }));
-  filterKaryawan();
+  const unsub = db.collection('hrd_karyawan').onSnapshot((snap) => {
+      window._allKaryawan = [];
+      snap.forEach((d) => window._allKaryawan.push({ id: d.id, ...d.data() }));
+      filterKaryawan();
+  });
+  if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
 }
 
 function filterKaryawan() {

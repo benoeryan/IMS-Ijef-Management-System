@@ -1964,49 +1964,278 @@ window.loadDailyTasks = async function(filter, skipAutoRender = false) {
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
     const dateLimit = sixMonthsAgo.toISOString().split("T")[0];
 
-    const snap = await db.collection("hrd_daily_tasks")
+    const unsub = db.collection("hrd_daily_tasks")
       .where("tanggal", ">=", dateLimit)
-      .get();
+      .onSnapshot((snap) => {
+        _dailyTaskData = [];
+        for (const d of snap.docs) {
+          const t = d.data();
+          const taskDept = (t.departemen || "").toLowerCase().trim();
+          const ownerName = normalizePersonName(getTaskOwnerDisplayName(t));
+          const ownerMatchesMe = doesTaskBelongToUser(t);
+          const assignedByMe = wasTaskAssignedByUser(t);
+          const isReport = isDailyReportEntry(t);
 
-    _dailyTaskData = [];
-    for (const d of snap.docs) {
-      const t = d.data();
-      const taskDept = (t.departemen || "").toLowerCase().trim();
-      const ownerName = normalizePersonName(getTaskOwnerDisplayName(t));
-      const ownerMatchesMe = doesTaskBelongToUser(t);
-      const assignedByMe = wasTaskAssignedByUser(t);
-      const isReport = isDailyReportEntry(t);
-
-      let isVisible = false;
-      if (
-        hasHeadLevelAccess() ||
-        currentUser.id === "admin" ||
-        currentUser.role === "admin"
-      ) {
-        isVisible = true;
-      } else {
-        // Strict Privacy: Tasks are only visible to owner and assigner
-        if (ownerMatchesMe || assignedByMe) {
-          isVisible = true;
-        } else if (isReport) {
-          // Reports follow hierarchy: visible to supervisors
-          if (hasAccess(3)) {
-            if (taskDept === myDept || !taskDept) isVisible = true;
-          } else if (hasAccess(2)) {
-            if (directSubNames.includes(ownerName) || taskDept === myDept)
+          let isVisible = false;
+          if (
+            hasHeadLevelAccess() ||
+            currentUser.id === "admin" ||
+            currentUser.role === "admin"
+          ) {
+            isVisible = true;
+          } else {
+            // Strict Privacy: Tasks are only visible to owner and assigner
+            if (ownerMatchesMe || assignedByMe) {
               isVisible = true;
+            } else if (isReport) {
+              // Reports follow hierarchy: visible to supervisors
+              if (hasAccess(3)) {
+                if (taskDept === myDept || !taskDept) isVisible = true;
+              } else if (hasAccess(2)) {
+                if (directSubNames.includes(ownerName) || taskDept === myDept)
+                  isVisible = true;
+              }
+            }
           }
-        }
-      }
 
-      if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
-    }
+          if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
+        }
+
+        // Internal helper to render the list with filtered data
+        _renderDailyTaskListContent(filter, todayStr());
+      });
+
+    if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
   } catch (e) {
     _dailyTaskData = [];
     const errEl = document.getElementById("taskList");
     if (errEl) errEl.innerHTML = `<p style="color:#c62828;padding:20px;text-align:center">⚠️ Gagal memuat data: ${escHtml(e.message || String(e))}</p>`;
     return;
   }
+};
+
+/**
+ * Internal helper to render the Daily Task list content.
+ * Extracted for auto-refresh support.
+ */
+function _renderDailyTaskListContent(filter, today) {
+  const myDept = (currentUser.departemen || "").toLowerCase().trim();
+  let filtered = _dailyTaskData;
+
+  if (filter === "today")
+    filtered = _dailyTaskData.filter((t) => t.tanggal === today && !t.done);
+  else if (filter === "upcoming")
+    filtered = _dailyTaskData.filter((t) => t.tanggal > today && !t.done);
+  else if (filter === "done") filtered = _dailyTaskData.filter((t) => t.done);
+  else if (filter === "overdue")
+    filtered = _dailyTaskData.filter((t) => t.tanggal < today && !t.done);
+  else if (filter === "assigned")
+    filtered = _dailyTaskData.filter(
+      (t) => wasTaskAssignedByUser(t) && !doesTaskBelongToUser(t),
+    );
+  else if (filter === "history-assigned") {
+    const canSeeAllTaskHistory =
+      hasAccess(2) || hasHeadLevelAccess() || hasAccess(6);
+    filtered = _dailyTaskData.filter((t) => {
+      const isReport = isDailyReportEntry(t);
+      if (isReport) return false;
+      if (canSeeAllTaskHistory) return true;
+      return wasTaskAssignedByUser(t) && !doesTaskBelongToUser(t);
+    });
+    const haFrom = document.getElementById("historyAssignedFrom")?.value;
+    const haTo = document.getElementById("historyAssignedTo")?.value;
+    if (haFrom) filtered = filtered.filter((t) => t.tanggal >= haFrom);
+    if (haTo) filtered = filtered.filter((t) => t.tanggal <= haTo);
+    filtered.sort((a, b) => (b.tanggal || "").localeCompare(a.tanggal || ""));
+  } else if (filter === "report") {
+    filtered = _dailyTaskData.filter(
+      (t) => isDailyReportEntry(t) && doesTaskBelongToUser(t),
+    );
+  } else if (filter === "team-report" || filter === "all-report") {
+    filtered = _dailyTaskData.filter((t) => isDailyReportEntry(t));
+    if (filter === "team-report" && !hasAccess(4)) {
+      if (hasAccess(3))
+        filtered = filtered.filter(
+          (t) => (t.departemen || "").toLowerCase().trim() === myDept,
+        );
+      else if (hasAccess(2)) {
+        const subs = window._directSubNamesCache || [];
+        filtered = filtered.filter(
+          (t) =>
+            subs.includes(normalizePersonName(getTaskOwnerDisplayName(t))) ||
+            doesTaskBelongToUser(t),
+        );
+      }
+    }
+    const drFrom = document.getElementById("reportDateFrom")?.value;
+    const drTo = document.getElementById("reportDateTo")?.value;
+    if (drFrom) filtered = filtered.filter((t) => t.tanggal >= drFrom);
+    if (drTo) filtered = filtered.filter((t) => t.tanggal <= drTo);
+
+    const divFilter =
+      filter === "team-report"
+        ? window._teamReportDivFilter
+        : window._allReportDivFilter;
+    if (divFilter)
+      filtered = filtered.filter((t) =>
+        (t.departemen || "").toUpperCase().includes(divFilter),
+      );
+
+    const catFilter =
+      filter === "team-report"
+        ? window._teamReportCatFilter
+        : window._allReportCatFilter;
+    if (catFilter)
+      filtered = filtered.filter((t) =>
+        catFilter === "Tanpa Kategori"
+          ? !t.kategori || t.kategori === ""
+          : (t.kategori || "").toLowerCase().includes(catFilter.toLowerCase()),
+      );
+
+    filtered.sort(
+      (a, b) =>
+        (a.departemen || "").localeCompare(b.departemen || "") ||
+        (a.kategori || "").localeCompare(b.kategori || "") ||
+        (b.tanggal || "").localeCompare(a.tanggal || ""),
+    );
+  } else if (filter === "weekly") {
+    loadWeeklyReports();
+    return;
+  }
+
+  if (!["team-report", "all-report", "history-assigned"].includes(filter)) {
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    filtered.sort((a, b) => {
+      if (!a.done && !b.done) {
+        if (a.tanggal < today && b.tanggal >= today) return -1;
+        if (b.tanggal < today && a.tanggal >= today) return 1;
+      }
+      return (
+        (a.tanggal || "").localeCompare(b.tanggal || "") ||
+        (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1)
+      );
+    });
+  }
+
+  const statsEl = document.getElementById("taskStats");
+  if (statsEl) {
+    const total = _dailyTaskData.length;
+    const done = _dailyTaskData.filter((t) => t.done).length;
+    const todayTasks = _dailyTaskData.filter(
+      (t) => t.tanggal === today && !t.done,
+    ).length;
+    const overdue = _dailyTaskData.filter(
+      (t) => t.tanggal < today && !t.done,
+    ).length;
+    statsEl.innerHTML = `<div class="stat-card" style="border-left-color:#1565c0"><div class="stat-value" style="color:#1565c0">${total}</div><div class="stat-label">Total Task</div></div><div class="stat-card" style="border-left-color:#f57f17"><div class="stat-value" style="color:#f57f17">${todayTasks}</div><div class="stat-label">Hari Ini</div></div><div class="stat-card" style="border-left-color:#c62828"><div class="stat-value" style="color:#c62828">${overdue}</div><div class="stat-label">Terlambat</div></div><div class="stat-card" style="border-left-color:#2e7d32"><div class="stat-value" style="color:#2e7d32">${done}</div><div class="stat-label">Selesai</div></div>`;
+  }
+
+  const listEl = document.getElementById("taskList");
+  if (!listEl) return;
+
+  let html = "";
+  if (filter === "history-assigned") {
+    const curHaFrom = document.getElementById("historyAssignedFrom")?.value || "";
+    const curHaTo = document.getElementById("historyAssignedTo")?.value || "";
+    html = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px;background:#f9f9f9;border-radius:8px">
+      <span class="text-sm fw-700">📅 Periode:</span>
+      <input type="date" class="form-control" id="historyAssignedFrom" value="${escAttr(curHaFrom)}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('history-assigned')">
+      <span class="text-sm">s/d</span>
+      <input type="date" class="form-control" id="historyAssignedTo" value="${escAttr(curHaTo)}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('history-assigned')">
+      <button class="btn btn-xs btn-outline" onclick="document.getElementById('historyAssignedFrom').value='';document.getElementById('historyAssignedTo').value='';loadDailyTasks('history-assigned')">Reset</button>
+    </div>`;
+  }
+  if (filter === "team-report" || filter === "all-report") {
+    const curFrom = document.getElementById("reportDateFrom")?.value || "";
+    const curTo = document.getElementById("reportDateTo")?.value || "";
+    html = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px;background:#f9f9f9;border-radius:8px">
+      <span class="text-sm fw-700">📅 Periode:</span>
+      <input type="date" class="form-control" id="reportDateFrom" value="${escAttr(curFrom)}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('${filter}')">
+      <span class="text-sm">s/d</span>
+      <input type="date" class="form-control" id="reportDateTo" value="${escAttr(curTo)}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('${filter}')">
+      <button class="btn btn-xs btn-outline" onclick="document.getElementById('reportDateFrom').value='';document.getElementById('reportDateTo').value='';loadDailyTasks('${filter}')">Reset</button>
+    </div>`;
+
+    let divFilterBtns = "";
+    if (hasHeadLevelAccess()) {
+      const curDiv =
+        filter === "team-report"
+          ? window._teamReportDivFilter
+          : window._allReportDivFilter;
+      divFilterBtns = `<button class="btn btn-xs ${!curDiv ? "btn-primary" : "btn-outline"}" onclick="window['_${filter === "team-report" ? "team" : "all"}ReportDivFilter']='';loadDailyTasks('${filter}')">Semua</button>
+      <button class="btn btn-xs ${curDiv === "ACADEMIC" ? "btn-primary" : "btn-outline"}" onclick="window['_${filter === "team-report" ? "team" : "all"}ReportDivFilter']='ACADEMIC';loadDailyTasks('${filter}')">📚 ACADEMIC</button>
+      <button class="btn btn-xs ${curDiv === "OFFICE" ? "btn-primary" : "btn-outline"}" onclick="window['_${filter === "team-report" ? "team" : "all"}ReportDivFilter']='OFFICE';loadDailyTasks('${filter}')">🏢 OFFICE</button>`;
+    }
+
+    let catOpts = '<option value="">Semua Kategori</option>';
+    const catList = [
+      "Siswa",
+      "Sensei",
+      "Curriculum",
+      "TSK-Job",
+      "HR & Legal",
+      "Document",
+      "Facility's",
+      "Finance",
+      "Marketing & Sales",
+      "Promosi",
+      "Tanpa Kategori",
+    ];
+    const curCat =
+      filter === "team-report"
+        ? window._teamReportCatFilter
+        : window._allReportCatFilter;
+    catList.forEach(
+      (c) =>
+        (catOpts += `<option value="${c}" ${curCat === c ? "selected" : ""}>${c}</option>`),
+    );
+
+    html += `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">${divFilterBtns} <select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window['_${filter === "team-report" ? "team" : "all"}ReportCatFilter']=this.value;loadDailyTasks('${filter}')">${catOpts}</select></div>`;
+    html += _renderGroupedReportTracker(filtered, filter);
+    listEl.innerHTML = html;
+    return;
+  }
+
+  for (const t of filtered) {
+    if (isDailyReportEntry(t)) {
+      const progressColor =
+        (t.progress || 0) >= 80
+          ? "#2e7d32"
+          : (t.progress || 0) >= 50
+            ? "#f57f17"
+            : "#c62828";
+      const levelMateri = (t.kategori === "SISWA") ? `<div style="font-size:.7rem; color:#1565c0; margin-top:4px; font-weight:600">📍 LEVEL: ${escHtml(t.level || "-")} | 📚 MATERI: ${escHtml(t.materi || "-")}</div>` : "";
+
+      html += `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border-left:4px solid #7b1fa2;margin-bottom:8px;background:#faf5ff;border-radius:0 8px 8px 0;cursor:pointer" onclick="viewDailyReport('${t.id}')">
+        <div style="font-size:1.5rem">📝</div>
+        <div style="flex:1"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:700;font-size:.9rem">${escHtml(t.title || "Daily Report")}</span><span class="badge" style="background:#7b1fa220;color:#7b1fa2">Report</span></div>
+        ${levelMateri}
+        <div style="font-size:.8rem;color:#666;margin-top:4px">${escHtml((t.aktivitas || "").substring(0, 100))}...</div>
+        <div style="font-size:.7rem;color:#999;margin-top:4px">👤 ${escHtml(t.targetUserName || "")} | 📅 ${formatDate(t.tanggal)} | Progress: <span style="color:${progressColor};font-weight:600">${t.progress || 0}%</span></div>
+        </div>
+        <div style="display:flex;gap:4px"><button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewDailyReport('${t.id}')">👁️</button>
+        ${doesTaskBelongToUser(t) || hasAccess(3) ? `<button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyReport('${t.id}')">✏️</button>` : ""}
+        </div></div>`;
+    } else {
+      const isOverdue = t.tanggal < today && !t.done;
+      const borderColor = t.done
+        ? "#2e7d32"
+        : isOverdue
+          ? "#c62828"
+          : t.tanggal === today
+            ? "#1565c0"
+            : "#e0e0e0";
+      html += `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border-left:4px solid ${borderColor};margin-bottom:8px;background:${t.done ? "#f1f8e9" : isOverdue ? "#fff8f8" : "#fff"};border-radius:0 8px 8px 0;cursor:pointer" onclick="viewDailyTask('${t.id}')">
+        <input type="checkbox" ${t.done ? "checked" : ""} onchange="event.stopPropagation();toggleDailyTask('${t.id}')" style="margin-top:4px;width:18px;height:18px;accent-color:#2e7d32;cursor:pointer">
+        <div style="flex:1"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:700;font-size:.9rem;${t.done ? "text-decoration:line-through;color:#999" : ""}">${escHtml(t.title)}</span></div>
+        <div style="font-size:.8rem;color:#666;margin-top:4px">${escHtml(t.description || "")}</div>
+        <div style="font-size:.7rem;color:#999;margin-top:4px">📅 ${formatDate(t.tanggal)} | ${t.priority}${t.targetUserName ? ` | 👤 ${escHtml(t.targetUserName)}` : ""}</div></div>
+        <div style="display:flex;gap:4px"><button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyTask('${t.id}')">✏️</button></div></div>`;
+    }
+  }
+  if (filtered.length === 0) html += '<p style="color:#999;padding:20px;text-align:center">Tidak ada data</p>';
+  listEl.innerHTML = html;
+}
 
   const today = todayStr();
   let filtered = _dailyTaskData;

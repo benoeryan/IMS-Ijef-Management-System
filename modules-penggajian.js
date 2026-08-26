@@ -115,32 +115,35 @@ window.syncSinglePayrollData = async function(nama, periode) {
 };
 async function loadGaji() {
   const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
-  const allSnap = await db.collection('hrd_penggajian').get();
-  window._gajiData = [];
-  for (const d of allSnap.docs) { const data = d.data();
-    if (data.periode === bulan) window._gajiData.push({ id: d.id, ...data });
-  }
-  // Populate dept filter from karyawan data
-  const kSnap = await db.collection('hrd_karyawan').get();
-  const depts = new Set();
-  const karyDeptMap = {};
-  kSnap.forEach((d) => {
-    const k = d.data();
-    depts.add(k.departemen || '');
-    karyDeptMap[(k.nama || '').toLowerCase()] = k.departemen || '';
+
+  const unsub = db.collection('hrd_penggajian').where('periode', '==', bulan).onSnapshot(async (snap) => {
+      window._gajiData = [];
+      snap.forEach(d => _gajiData.push({ id: d.id, ...d.data() }));
+
+      // Populate dept filter from karyawan data
+      const kSnap = await db.collection('hrd_karyawan').get();
+      const depts = new Set();
+      const karyDeptMap = {};
+      kSnap.forEach((d) => {
+        const k = d.data();
+        depts.add(k.departemen || '');
+        karyDeptMap[(k.nama || '').toLowerCase()] = k.departemen || '';
+      });
+      for (const g of _gajiData) {
+        g._dept = karyDeptMap[(g.nama || '').toLowerCase()] || '';
+      }
+      const sel = document.getElementById('filterDeptGaji');
+      if (sel) {
+        let opts = '<option value="">Semua Dept</option>';
+        depts.forEach((d) => {
+          if (d) opts += `<option>${escHtml(d)}</option>`;
+        });
+        sel.innerHTML = opts;
+      }
+      filterGajiTable();
   });
-  for (const g of _gajiData) {
-    g._dept = karyDeptMap[(g.nama || '').toLowerCase()] || '';
-  }
-  const sel = document.getElementById('filterDeptGaji');
-  if (sel) {
-    let opts = '<option value="">Semua Dept</option>';
-    depts.forEach((d) => {
-      if (d) opts += `<option>${escHtml(d)}</option>`;
-    });
-    sel.innerHTML = opts;
-  }
-  filterGajiTable();
+
+  if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
 }
 
 function filterGajiTable() {

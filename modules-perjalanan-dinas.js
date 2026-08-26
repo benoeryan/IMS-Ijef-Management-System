@@ -388,101 +388,108 @@ async function showSPPDTab(tab) {
 
 async function loadSPPDDaftar(el) {
   const isPortal = window._portalDinasMode || !hasAccess(3);
-  const snap = await db
-    .collection('hrd_perjalanan_dinas')
-    .orderBy('createdAt', 'desc')
-    .get()
-    .catch(function () {
-      return db.collection('hrd_perjalanan_dinas').get();
-    });
-  var approveBtn = '';
-  if (hasAccess(3)) {
-    approveBtn =
-      '<button class="btn btn-xs btn-success" onclick="bulkApproveSPPD()">✅ Approve Semua</button>';
-  }
-  var isBOD = currentUser.role === 'bod';
-  var h = '<div class="card">';
-  h +=
-    '<div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">';
-  h += '<div class="card-title">📋 Daftar Surat Perintah Perjalanan Dinas (SPPD)</div>';
-  if (!isBOD) {
-    h +=
-      '<div id="sppdBulkActions" style="display:none;gap:8px;align-items:center;flex-wrap:wrap">';
-    h +=
-      '<span id="sppdSelectedCount" class="text-sm fw-700" style="color:var(--primary)">0 dipilih</span>';
-    h += approveBtn;
-    h += '<button class="btn btn-xs btn-danger" onclick="bulkDeleteSPPD()">🗑️ Hapus Semua</button>';
-    h += '</div>';
-  }
-  h += '</div>';
-  h += '<div class="table-wrap"><table><thead><tr>';
-  if (!isBOD) {
-    h +=
-      '<th style="width:40px;text-align:center"><input type="checkbox" id="sppdCheckAll" onchange="toggleAllSPPDCheckbox(this)"></th>';
-  }
-  h +=
-    '<th>No. SPPD</th><th>Nama</th><th>Tujuan</th><th>Tanggal</th><th>Durasi</th><th>Status</th><th>Aksi</th>';
-  h += '</tr></thead><tbody>';
-  var hasData = false;
-  var docs = [];
-  snap.forEach(function (d) {
-    docs.push({ id: d.id, ...d.data() });
+
+  const unsub = db.collection('hrd_perjalanan_dinas').onSnapshot((snap) => {
+      var approveBtn = '';
+      if (hasAccess(3)) {
+        approveBtn =
+          '<button class="btn btn-xs btn-success" onclick="bulkApproveSPPD()">✅ Approve Semua</button>';
+      }
+      var isBOD = currentUser.role === 'bod';
+      var h = '<div class="card">';
+      h +=
+        '<div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">';
+      h += '<div class="card-title">📋 Daftar Surat Perintah Perjalanan Dinas (SPPD)</div>';
+      if (!isBOD) {
+        h +=
+          '<div id="sppdBulkActions" style="display:none;gap:8px;align-items:center;flex-wrap:wrap">';
+        h +=
+          '<span id="sppdSelectedCount" class="text-sm fw-700" style="color:var(--primary)">0 dipilih</span>';
+        h += approveBtn;
+        h += '<button class="btn btn-xs btn-danger" onclick="bulkDeleteSPPD()">🗑️ Hapus Semua</button>';
+        h += '</div>';
+      }
+      h += '</div>';
+      h += '<div class="table-wrap"><table><thead><tr>';
+      if (!isBOD) {
+        h +=
+          '<th style="width:40px;text-align:center"><input type="checkbox" id="sppdCheckAll" onchange="toggleAllSPPDCheckbox(this)"></th>';
+      }
+      h +=
+        '<th>No. SPPD</th><th>Nama</th><th>Tujuan</th><th>Tanggal</th><th>Durasi</th><th>Status</th><th>Aksi</th>';
+      h += '</tr></thead><tbody>';
+      var hasData = false;
+      var docs = [];
+      snap.forEach(function (d) {
+        docs.push({ id: d.id, ...d.data() });
+      });
+      docs.sort((a,b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+      docs.forEach(function (p) {
+        if (
+          isPortal &&
+          p.userId !== currentUser.id &&
+          (p.nama || '').toLowerCase() !== currentUser.nama.toLowerCase()
+        )
+          return;
+        // Manager (level 3) only sees own department; Head/BOD/Admin (level 4+) sees all
+        if (!isPortal && hasAccess(3) && !hasAccess(4)) {
+          if (
+            p.userId !== currentUser.id &&
+            (p.departemen || '').toLowerCase() !== (currentUser.departemen || '').toLowerCase()
+          )
+            return;
+        }
+        hasData = true;
+        var durasi =
+          p.tanggalMulai && p.tanggalSelesai
+            ? Math.ceil(
+                (new Date(p.tanggalSelesai) - new Date(p.tanggalMulai)) / (1000 * 60 * 60 * 24) + 1
+              ) + ' hari'
+            : '-';
+        var badge =
+          p.status === 'approved'
+            ? 'badge-success'
+            : p.status === 'rejected'
+              ? 'badge-danger'
+              : p.status === 'selesai'
+                ? 'badge-info'
+                : 'badge-warning';
+        h += '<tr>';
+        if (!isBOD) {
+          h +=
+            '<td style="text-align:center"><input type="checkbox" class="sppd-check-item" value="' +
+            p.id +
+            '" data-status="' +
+            (p.status || 'pending') +
+            '" onchange="updateSPPDBulkUI()"></td>';
+        }
+        h += '<td class="fw-700">' + escHtml(p.noSPPD || '-') + '</td>';
+        h += '<td>' + escHtml(p.nama) + '</td>';
+        h += '<td>' + escHtml(p.tujuan || '-') + '</td>';
+        h += '<td>' + formatDate(p.tanggalMulai) + '</td>';
+        h += '<td>' + durasi + '</td>';
+        h += '<td><span class="badge ' + badge + '">' + (p.status || 'pending') + '</span></td>';
+        h += '<td>';
+        h += '<button class="btn btn-xs btn-info" onclick="viewSPPD(\'' + p.id + '\')">👁️</button> ';
+        if (!isBOD && hasAccess(3) && p.status === 'pending') {
+          h +=
+            '<button class="btn btn-xs btn-success" onclick="approveSPPD(\'' +
+            p.id +
+            '\')">✅</button> ';
+          h +=
+            '<button class="btn btn-xs btn-danger" onclick="rejectSPPD(\'' + p.id + '\')">❌</button> ';
+        }
+        h += '</td></tr>';
+      });
+      if (!hasData)
+        h += '<tr><td colspan="8" class="text-center">Belum ada pengajuan SPPD</td></tr>';
+      h += '</tbody></table></div></div>';
+      if (el) el.innerHTML = h;
   });
-  docs.forEach(function (p) {
-    if (
-      isPortal &&
-      p.userId !== currentUser.id &&
-      (p.nama || '').toLowerCase() !== currentUser.nama.toLowerCase()
-    )
-      return;
-    // Manager (level 3) only sees own department; Head/BOD/Admin (level 4+) sees all
-    if (!isPortal && hasAccess(3) && !hasAccess(4)) {
-      if (
-        p.userId !== currentUser.id &&
-        (p.departemen || '').toLowerCase() !== (currentUser.departemen || '').toLowerCase()
-      )
-        return;
-    }
-    hasData = true;
-    var durasi =
-      p.tanggalMulai && p.tanggalSelesai
-        ? Math.ceil(
-            (new Date(p.tanggalSelesai) - new Date(p.tanggalMulai)) / (1000 * 60 * 60 * 24) + 1
-          ) + ' hari'
-        : '-';
-    var badge =
-      p.status === 'approved'
-        ? 'badge-success'
-        : p.status === 'rejected'
-          ? 'badge-danger'
-          : p.status === 'selesai'
-            ? 'badge-info'
-            : 'badge-warning';
-    h += '<tr>';
-    if (!isBOD) {
-      h +=
-        '<td style="text-align:center"><input type="checkbox" class="sppd-check-item" value="' +
-        p.id +
-        '" data-status="' +
-        (p.status || 'pending') +
-        '" onchange="updateSPPDBulkUI()"></td>';
-    }
-    h += '<td class="fw-700">' + escHtml(p.noSPPD || '-') + '</td>';
-    h += '<td>' + escHtml(p.nama) + '</td>';
-    h += '<td>' + escHtml(p.tujuan || '-') + '</td>';
-    h += '<td>' + formatDate(p.tanggalMulai) + '</td>';
-    h += '<td>' + durasi + '</td>';
-    h += '<td><span class="badge ' + badge + '">' + (p.status || 'pending') + '</span></td>';
-    h += '<td>';
-    h += '<button class="btn btn-xs btn-info" onclick="viewSPPD(\'' + p.id + '\')">👁️</button> ';
-    if (!isBOD && hasAccess(3) && p.status === 'pending') {
-      h +=
-        '<button class="btn btn-xs btn-success" onclick="approveSPPD(\'' +
-        p.id +
-        '\')">✅</button> ';
-      h +=
-        '<button class="btn btn-xs btn-danger" onclick="rejectSPPD(\'' + p.id + '\')">❌</button> ';
-    }
+
+  if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
+}
     if (p.status === 'approved') {
       h +=
         '<button class="btn btn-xs btn-primary" onclick="cetakSPPD(\'' + p.id + '\')">🖨️</button> ';

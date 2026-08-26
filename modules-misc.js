@@ -1953,77 +1953,65 @@ async function renderApprovalCenter(tab = "pending") {
     "hrd_reimburse_dinas",
   ];
 
-  let items = [];
-  for (const col of collections) {
-    try {
+  let itemsMap = new Map();
+
+  const setupListener = (col) => {
       let q = db.collection(col);
       if (tab === "pending") {
-        q = q.where("status", "in", [
-          "pending",
-          "step1",
-          "step2",
-          "step3",
-          "step4",
-          "step5",
-        ]);
+          q = q.where("status", "in", ["pending", "step1", "step2", "step3", "step4", "step5"]);
       } else {
-        // Fetch last 100 for history to keep it snappy
-        q = q.orderBy("createdAt", "desc").limit(100);
+          q = q.orderBy("createdAt", "desc").limit(50); // Lower limit for real-time history
       }
 
-      const snap = await q.get();
-      snap.forEach((d) => {
-        const data = { id: d.id, collection: col, ...d.data() };
-        data._dept = (
-          data.departemen ||
-          deptMap[(data.nama || "").toLowerCase().trim()] ||
-          ""
-        )
-          .toLowerCase()
-          .trim();
-        items.push(data);
+      const unsub = q.onSnapshot((snap) => {
+          // Update items for this specific collection
+          const colItems = [];
+          snap.forEach((d) => {
+              const data = { id: d.id, collection: col, ...d.data() };
+              data._dept = (data.departemen || deptMap[(data.nama || "").toLowerCase().trim()] || "").toLowerCase().trim();
+              colItems.push(data);
+          });
+
+          itemsMap.set(col, colItems);
+
+          // Flatten and render
+          let allItems = [];
+          itemsMap.forEach(list => allItems = allItems.concat(list));
+
+          // Re-apply history filter if needed
+          if (tab === "history") {
+              allItems = allItems.filter(x => !["pending", "step1", "step2", "step3", "step4", "step5"].includes(x.status));
+          }
+
+          _renderApprovalCenterContent(allItems, tab, flowSnap, deptMap, gradeMap, mySubordinates, isGM, isAdmin, isPowerUser, myName);
+      }, (err) => {
+          console.warn(`Listener failed for ${col}:`, err);
       });
-    } catch (e) {
-      console.warn(`Error fetching ${col}:`, e);
-      // Fallback for collections without composite index
-      const snap = await db.collection(col).get();
-      for (const d of snap.docs) {
-        const data = { id: d.id, collection: col, ...d.data() };
-        data._dept = (
-          data.departemen ||
-          deptMap[(data.nama || "").toLowerCase().trim()] ||
-          ""
-        )
-          .toLowerCase()
-          .trim();
-        items.push(data);
-      }
-    }
-  }
 
-  // Filter history tab for non-pending items (or show all if you prefer)
-  if (tab === "history") {
-    items = items.filter(
-      (x) =>
-        !["pending", "step1", "step2", "step3", "step4", "step5"].includes(
-          x.status,
-        ),
-    );
-  }
+      if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
+  };
+
+  collections.forEach(setupListener);
+}
+
+/**
+ * Internal helper to render the Approval Center list content.
+ * Extracted for auto-refresh support.
+ */
+function _renderApprovalCenterContent(items, tab, flows, deptMap, gradeMap, mySubordinates, isGM, isAdmin, isPowerUser, myName) {
+  items.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 
   // --- DEDUPLICATION LOGIC for SPPD & DINAS LUAR ---
   const sppdSet = new Set(items.filter(it => it.collection === 'hrd_perjalanan_dinas').map(it => it.noSPPD).filter(Boolean));
-  items = items.filter(it => {
-      // If it's a dinas_luar record that has a linked SPPD already in the list, skip it to avoid redundancy
+  let filteredItems = items.filter(it => {
       if (it.collection === 'hrd_dinas_luar' && it.noSPPD && sppdSet.has(it.noSPPD)) return false;
       return true;
   });
 
-  items.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   let h = "";
   let visibleCount = 0;
 
-  items.forEach((item) => {
+  filteredItems.forEach((item) => {
     const cat = getApprovalCategory(item.collection, item);
     const steps = getApprovalStepsForItem(flows, item, cat);
     const currentStep = item.approvalStep || 0;
@@ -2033,12 +2021,6 @@ async function renderApprovalCenter(tab = "pending") {
 
     const isExplicitlyMyTurn = isSameName(currentApprover, myName);
     const isMyTurnForActions = isAdmin || isExplicitlyMyTurn;
-
-    // --- ENHANCED FILTERING (v11.4) ---
-    // Rules:
-    // 1. Admin & GM see everything.
-    // 2. Pending Tab: Only show if it's explicitly my turn.
-    // 3. History Tab: Only show if it's my own request OR request from a subordinate.
 
     let canSee = false;
     const isOwn = isSameName(item.nama, currentUser.nama);
@@ -2051,7 +2033,6 @@ async function renderApprovalCenter(tab = "pending") {
     if (isAdmin || isGM) {
       canSee = true;
     } else if (isFinanceUser && isFinanceItem) {
-      // Siti Sofuroh can see all finance-related flows
       canSee = true;
     } else {
       if (tab === "pending") {
