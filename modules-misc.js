@@ -1983,7 +1983,7 @@ async function renderApprovalCenter(tab = "pending") {
               allItems = allItems.filter(x => !["pending", "step1", "step2", "step3", "step4", "step5"].includes(x.status));
           }
 
-          _renderApprovalCenterContent(allItems, tab, flowSnap, deptMap, gradeMap, mySubordinates, isGM, isAdmin, isPowerUser, myName);
+          _renderApprovalCenterContent(allItems, tab, flows, deptMap, gradeMap, mySubordinates, isGM, isAdmin, isPowerUser, myName);
       }, (err) => {
           console.warn(`Listener failed for ${col}:`, err);
       });
