@@ -2091,11 +2091,6 @@ async function hapusSemuaNotif() {
       }
     });
   });
-    if (!seen.has(d.id)) {
-      seen.add(d.id);
-      batch.delete(d.ref);
-    }
-  });
   await batch.commit();
   toast("Semua notifikasi dihapus", "success");
   renderNotifikasi();
