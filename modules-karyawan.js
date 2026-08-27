@@ -979,44 +979,96 @@ async function renderJobdeskMgmt() {
   const main = document.getElementById('mainContent');
   if (!main) return;
   main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📋 Kelola Jobdesk</span><button class="btn btn-primary btn-sm" onclick="modalJobdesk()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Departemen</th><th>Detail</th><th>Aksi</th></tr></thead><tbody id="tblJobdesk"></tbody></table></div></div>`;
-  const [snap, karyawanSnap, usersSnap] = await Promise.all([
-    db.collection('hrd_jobdesk').orderBy('updatedAt', 'desc').get(),
-    db.collection('hrd_karyawan').get(),
-    db.collection('hrd_users').get(),
-  ]);
-  const karyawanById = {};
-  const karyawanByName = {};
-  const linkedKaryawanByUserId = {};
-  karyawanSnap.forEach((d) => {
-    const data = d.data() || {};
-    karyawanById[d.id] = data;
-    const namaKey = (data.nama || '').toLowerCase().trim();
-    if (namaKey && !karyawanByName[namaKey]) karyawanByName[namaKey] = data;
+
+  // Real-time listener for jobdesk management
+  const unsub = db.collection('hrd_jobdesk').onSnapshot(async (snap) => {
+      const [karyawanSnap, usersSnap] = await Promise.all([
+        db.collection('hrd_karyawan').get(),
+        db.collection('hrd_users').get(),
+      ]);
+
+      const karyawanById = {};
+      const karyawanByName = {};
+      const linkedKaryawanByUserId = {};
+      karyawanSnap.forEach((d) => {
+        const data = d.data() || {};
+        karyawanById[d.id] = data;
+        const namaKey = (data.nama || '').toLowerCase().trim();
+        if (namaKey && !karyawanByName[namaKey]) karyawanByName[namaKey] = data;
+      });
+      usersSnap.forEach((d) => {
+        const data = d.data() || {};
+        if (data.linkedKaryawan) linkedKaryawanByUserId[d.id] = data.linkedKaryawan;
+      });
+
+      let items = [];
+      snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
+
+      // Sort in memory (safest for docs missing updatedAt)
+      items.sort((a, b) => (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || ''));
+
+      let h = '';
+      items.forEach((p) => {
+        const linkedKaryawanId = p.karyawanId || linkedKaryawanByUserId[p.userId] || p.userId;
+        const karyawan = karyawanById[linkedKaryawanId] || karyawanByName[(p.nama || '').toLowerCase().trim()] || {};
+        const nama = p.nama || karyawan.nama || '-';
+        const posisi = p.posisi || karyawan.posisi || '-';
+        const departemen = p.departemen || karyawan.departemen || '-';
+        const detail =
+          p.rincian ||
+          p.jobdesk ||
+          p.deskripsi ||
+          [p.tanggungJawab, p.kualifikasi, p.kpi]
+            .flat()
+            .filter(Boolean)
+            .join(' • ');
+
+        h += `<tr>
+            <td class="fw-700">${escHtml(nama)}</td>
+            <td>${escHtml(posisi)}</td>
+            <td>${escHtml(departemen)}</td>
+            <td><div class="text-xs" style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${escHtml(detail || '-')}</div></td>
+            <td>
+                <div class="flex gap-4">
+                    <button class="btn btn-xs btn-info" onclick="viewJobdesk('${p.id}')">👁️</button>
+                    <button class="btn btn-xs btn-warning" onclick="modalJobdesk('${p.id}')">✏️</button>
+                    <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_jobdesk','${p.id}','jobdesk')">🗑️</button>
+                </div>
+            </td>
+        </tr>`;
+      });
+      const tbody = document.getElementById('tblJobdesk');
+      if (tbody) tbody.innerHTML = h || '<tr><td colspan="5" class="text-center">Belum ada data</td></tr>';
   });
-  usersSnap.forEach((d) => {
-    const data = d.data() || {};
-    if (data.linkedKaryawan) linkedKaryawanByUserId[d.id] = data.linkedKaryawan;
-  });
-  let h = '';
-  snap.forEach((d) => {
-    const p = d.data();
-    const linkedKaryawanId = p.karyawanId || linkedKaryawanByUserId[p.userId] || p.userId;
-    const karyawan =
-      karyawanById[linkedKaryawanId] || karyawanByName[(p.nama || '').toLowerCase().trim()] || {};
-    const nama = p.nama || karyawan.nama || '-';
-    const posisi = p.posisi || karyawan.posisi || '-';
-    const departemen = p.departemen || karyawan.departemen || '-';
-    const detail =
-      p.rincian ||
-      p.jobdesk ||
-      p.deskripsi ||
-      [p.tanggungJawab, p.kualifikasi, p.kpi]
-        .flat()
-        .filter(Boolean)
-        .join(' • ');
-    h += `<tr><td class="fw-700">${escHtml(nama)}</td><td>${escHtml(posisi)}</td><td>${escHtml(departemen)}</td><td>${escHtml((detail || '').toString().slice(0, 90) || '-')}</td><td><button class="btn btn-xs btn-info" onclick="modalJobdesk('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_jobdesk','${d.id}','jobdesk')">🗑️</button></td></tr>`;
-  });
-  document.getElementById('tblJobdesk').innerHTML = h || '<tr><td colspan="5" class="text-center">Belum ada data</td></tr>';
+
+  if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
+}
+
+async function viewJobdesk(id) {
+    try {
+        const doc = await db.collection('hrd_jobdesk').doc(id).get();
+        if (!doc.exists) return toast("Data tidak ditemukan", "warning");
+        const p = doc.data();
+
+        openModal(`
+            <div class="modal-title">👁️ Detail Jobdesk</div>
+            <div style="background:#f8f9ff; padding:15px; border-radius:10px; border-left:4px solid var(--primary); margin-bottom:16px">
+                <div class="fw-700" style="font-size:1.1rem">${escHtml(p.nama)}</div>
+                <div class="text-sm color-gray">${escHtml(p.posisi)} — ${escHtml(p.departemen)}</div>
+            </div>
+            <div class="mb-16">
+                <div class="fw-700 mb-8">📝 Rincian Pekerjaan</div>
+                <div class="text-sm" style="white-space:pre-wrap; line-height:1.8; background:#fff; border:1px solid var(--border); padding:12px; border-radius:8px">
+                    ${escHtml(p.rincian || p.jobdesk || p.deskripsi || "-")}
+                </div>
+            </div>
+            ${p.tanggungJawab ? `<div class="mb-16"><div class="fw-700 mb-4">✅ Tanggung Jawab</div><div class="text-sm" style="white-space:pre-wrap">${escHtml(p.tanggungJawab)}</div></div>` : ""}
+            ${p.kpi ? `<div class="mb-16"><div class="fw-700 mb-4">📈 KPI / Target</div><div class="text-sm" style="white-space:pre-wrap">${escHtml(p.kpi)}</div></div>` : ""}
+            <div class="text-xs color-gray text-right">Terakhir diupdate: ${formatDateTime(p.updatedAt || p.createdAt)}</div>
+        `, true);
+    } catch (e) {
+        toast("Gagal memuat detail", "error");
+    }
 }
 
 function modalJobdesk(id) {
