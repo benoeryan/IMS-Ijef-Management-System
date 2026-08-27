@@ -5028,6 +5028,7 @@ var _wrDateFrom = "";
 var _wrDateTo = "";
 var _wrSummaryFilter = "";
 var _weeklyReportLookup = {};
+var _weeklyReportDataCache = null; // Global cache to improve performance
 var WEEKLY_REPORT_DEFAULT_COL = "hrd_daily_tasks";
 var WEEKLY_REPORT_PREVIEW_MAX_LENGTH = 140;
 
@@ -5052,138 +5053,119 @@ async function loadWeeklyReports(divFilter) {
   });
   var listEl = document.getElementById("taskList");
   if (!listEl) return;
-  listEl.innerHTML =
-    '<p class="text-sm" style="color:#999">Memuat laporan mingguan...</p>';
-  try {
-    var items = [];
-    var [snap1, snap2] = await Promise.all([
-      db.collection("hrd_daily_tasks").where("type", "==", "report").get(),
-      db.collection("hrd_weekly_reports").get(),
-    ]);
-    for (const d of snap1.docs) {
-      items.push({ id: d.id, col: "hrd_daily_tasks", ...d.data() });
-    }
-    snap2.forEach(function (d) {
-      items.push({ id: d.id, col: "hrd_weekly_reports", ...d.data() });
-    });
 
-    items.sort(function (a, b) {
-      return (b.tanggal || b.bulan || "").localeCompare(
-        a.tanggal || a.bulan || "",
-      );
-    });
+  if (!_weeklyReportDataCache) {
+      listEl.innerHTML = '<p class="text-sm" style="color:#999">Memuat laporan mingguan...</p>';
+      _setupWeeklyReportsListeners();
+  } else {
+      _renderWeeklyReportsContent();
+  }
+}
+
+async function _setupWeeklyReportsListeners() {
+    try {
+        const myDept = (currentUser.departemen || "").toLowerCase().trim();
+        const myLevel = ROLES[currentUser.role] || 0;
+
+        let directSubNames = window._directSubNamesCache || [];
+        if (directSubNames.length === 0 && myLevel >= 2 && myLevel <= 4) {
+            const kSnap = await db.collection("hrd_karyawan").where("atasan", "==", currentUser.nama).get();
+            kSnap.forEach(sk => directSubNames.push(normalizePersonName(sk.data().nama)));
+        }
+
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        const dateLimit = oneYearAgo.toISOString().split("T")[0];
+
+        const handleUpdate = (snap1, snap2) => {
+            let items = [];
+            snap1.forEach(d => items.push({ id: d.id, col: "hrd_daily_tasks", ...d.data() }));
+            snap2.forEach(d => items.push({ id: d.id, col: "hrd_weekly_reports", ...d.data() }));
+
+            if (!hasAccess(3)) {
+                const isAcademic = myDept.includes("academic") || myDept.includes("akademik");
+                const isOffice = myDept.includes("office") || myDept.includes("manajemen");
+                items = items.filter(r => {
+                    if (doesTaskBelongToUser(r)) return true;
+                    const dept = (r.departemen || r.divisi || "").toLowerCase().trim();
+                    if (isAcademic) return dept.includes("academic") || dept.includes("akademik");
+                    if (isOffice) return dept.includes("office") || dept.includes("manajemen");
+                    return dept === myDept || dept.includes(myDept) || !dept;
+                });
+            }
+
+            _weeklyReportDataCache = items;
+            _renderWeeklyReportsContent();
+        };
+
+        let s1 = [], s2 = [];
+        const trigger = () => handleUpdate(s1, s2);
+        const unsub1 = db.collection("hrd_daily_tasks").where("type", "==", "report").where("tanggal", ">=", dateLimit).onSnapshot(snap => { s1 = snap; trigger(); });
+        const unsub2 = db.collection("hrd_weekly_reports").where("tanggal", ">=", dateLimit).onSnapshot(snap => { s2 = snap; trigger(); },
+            () => db.collection("hrd_weekly_reports").onSnapshot(snap => { s2 = snap; trigger(); }));
+
+        if (typeof unsubscribers !== 'undefined') {
+            unsubscribers.push(unsub1);
+            unsubscribers.push(unsub2);
+        }
+    } catch (e) {
+        console.error("Weekly Reports Listener Error:", e);
+    }
+}
+
+function _renderWeeklyReportsContent() {
+    const listEl = document.getElementById("taskList");
+    if (!listEl || !_weeklyReportDataCache) return;
+
+    let items = [..._weeklyReportDataCache];
+    items.sort((a, b) => (b.tanggal || b.bulan || "").localeCompare(a.tanggal || a.bulan || ""));
 
     if (!items.length) {
-      listEl.innerHTML =
-        '<div style="text-align:center;padding:32px;color:#999"><div style="font-size:2rem;margin-bottom:8px">📈</div><p>Belum ada laporan mingguan.</p></div>';
+      listEl.innerHTML = '<div style="text-align:center;padding:32px;color:#999"><div style="font-size:2rem;margin-bottom:8px">📈</div><p>Belum ada laporan mingguan.</p></div>';
       return;
-    }
-
-    // Hierarchical visibility for Weekly Reports: Manager+ see all, Staff/Leader see own division
-    if (!hasAccess(3)) {
-      const myDept = (currentUser.departemen || "").toUpperCase().trim();
-      const isAcademic = myDept.includes("ACADEMIC") || myDept.includes("AKADEMIK");
-      const isOffice = myDept.includes("OFFICE") || myDept.includes("MANAJEMEN");
-
-      items = items.filter(function (r) {
-          const dept = (r.departemen || r.divisi || "").toUpperCase().trim();
-          const isOwn = doesTaskBelongToUser(r);
-          if (isOwn) return true;
-
-          if (isAcademic) return dept.includes("ACADEMIC") || dept.includes("AKADEMIK");
-          if (isOffice) return dept.includes("OFFICE") || dept.includes("MANAJEMEN");
-
-          return dept === myDept || dept.includes(myDept) || !dept;
-      });
     }
 
     var filtered = items;
     if (_weeklyReportFilter === "akademik")
-      filtered = items.filter(function (r) {
-        var d = (r.departemen || r.divisi || "").toUpperCase();
-        return d.includes("ACADEMIC") || d.includes("AKADEMIK");
-      });
+      filtered = items.filter(r => (r.departemen || r.divisi || "").toUpperCase().includes("ACADEMIC") || (r.departemen || r.divisi || "").toUpperCase().includes("AKADEMIK"));
     else if (_weeklyReportFilter === "manajemen")
-      filtered = items.filter(function (r) {
-        var d = (r.departemen || r.divisi || "").toUpperCase();
-        return d.includes("OFFICE") || d.includes("MANAJEMEN");
-      });
+      filtered = items.filter(r => (r.departemen || r.divisi || "").toUpperCase().includes("OFFICE") || (r.departemen || r.divisi || "").toUpperCase().includes("MANAJEMEN"));
 
-    var filterFrom =
-      document.getElementById("wrDateFrom")?.value || _wrDateFrom;
+    var filterFrom = document.getElementById("wrDateFrom")?.value || _wrDateFrom;
     var filterTo = document.getElementById("wrDateTo")?.value || _wrDateTo;
-    _wrDateFrom = filterFrom;
-    _wrDateTo = filterTo;
-    if (filterFrom)
-      filtered = filtered.filter(function (r) {
-        return (r.tanggal || "") >= filterFrom;
-      });
-    if (filterTo)
-      filtered = filtered.filter(function (r) {
-        return (r.tanggal || "") <= filterTo;
-      });
+    _wrDateFrom = filterFrom; _wrDateTo = filterTo;
 
-    // --- NAME COLLECTION FOR DROPDOWN (Filtered by Division & Date) ---
-    // Collect unique names from items that match division AND selected date range
+    if (filterFrom) filtered = filtered.filter(r => (r.tanggal || r.bulan || "") >= filterFrom);
+    if (filterTo) filtered = filtered.filter(r => (r.tanggal || r.bulan || "") <= filterTo);
+
     const uniqueNames = [...new Set(filtered.map(r => r.targetUserName || r.nama || r.pic || "-"))].sort();
 
     if (window._wrCatFilter) {
-      filtered = filtered.filter(function (r) {
+      filtered = filtered.filter(r => {
         var kat = (r.kategori || "").toLowerCase();
         var fv = (window._wrCatFilter || "").toLowerCase();
-        if (fv === "tanpa kategori")
-          return !r.kategori || r.kategori.trim() === "";
-        return kat.includes(fv);
+        return fv === "tanpa kategori" ? (!r.kategori || r.kategori.trim() === "") : kat.includes(fv);
       });
     }
 
     if (window._wrNameFilter) {
-      filtered = filtered.filter(function (r) {
-        var name = r.targetUserName || r.nama || r.pic || "-";
-        return name === window._wrNameFilter;
-      });
+      filtered = filtered.filter(r => (r.targetUserName || r.nama || r.pic || "-") === window._wrNameFilter);
     }
 
-    var html = "";
-
-    // --- RANGKUMAN DATA LAPORAN MINGGUAN (DASHBOARD BOX) ---
     const totalReportsSummary = filtered.length;
-    const avgProgressSummary =
-      totalReportsSummary > 0
-        ? Math.round(
-            filtered.reduce(
-              (acc, cur) => acc + (parseInt(cur.progress) || 0),
-              0,
-            ) / totalReportsSummary,
-          )
-        : 0;
-    const totalObstaclesSummary = filtered.filter(
-      (it) =>
-        (it.kendala || it.case_desc || "").trim().length > 0 &&
-        (parseInt(it.progress) || 0) < 100,
-    ).length;
+    const avgProgressSummary = totalReportsSummary > 0 ? Math.round(filtered.reduce((acc, cur) => acc + (parseInt(cur.progress) || 0), 0) / totalReportsSummary) : 0;
+    const totalObstaclesSummary = filtered.filter(it => (it.kendala || it.case_desc || "").trim().length > 0 && (parseInt(it.progress) || 0) < 100).length;
 
-    // Apply summary filter (set by clicking on summary boxes)
     var filteredForList = filtered;
-    if (_wrSummaryFilter === "low_progress") {
-      filteredForList = filtered.filter(function (r) {
-        return (parseInt(r.progress) || 0) < 70;
-      });
-    } else if (_wrSummaryFilter === "kendala") {
-      filteredForList = filtered.filter(function (r) {
-        return (
-          (r.kendala || r.case_desc || "").trim().length > 0 &&
-          (parseInt(r.progress) || 0) < 100
-        );
-      });
-    }
+    if (_wrSummaryFilter === "low_progress") filteredForList = filtered.filter(r => (parseInt(r.progress) || 0) < 70);
+    else if (_wrSummaryFilter === "kendala") filteredForList = filtered.filter(r => (r.kendala || r.case_desc || "").trim().length > 0 && (parseInt(r.progress) || 0) < 100);
     filtered = filteredForList;
 
     var _sfTotal = _wrSummaryFilter === "" || _wrSummaryFilter === "total";
     var _sfProgress = _wrSummaryFilter === "low_progress";
     var _sfKendala = _wrSummaryFilter === "kendala";
 
-    html += `
+    let html = `
     <div id="weeklySummaryBox" style="background:#f9f9f9; border:1px solid #d0d9ff; border-radius:12px; padding:16px; margin-bottom:20px; display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:16px">
         <div onclick="filterWeeklySummary('')" style="text-align:center;cursor:pointer;border-radius:8px;padding:8px;transition:background .2s${_sfTotal ? ";background:#e8eaf6;outline:2px solid var(--primary)" : ""}" title="Klik untuk lihat semua data">
             <div style="font-size:0.75rem; color:#666; margin-bottom:4px">📊 Total Laporan</div>
@@ -5203,218 +5185,107 @@ async function loadWeeklyReports(divFilter) {
     </div>`;
 
     if (_wrSummaryFilter) {
-      var _sfLabel =
-        _wrSummaryFilter === "low_progress"
-          ? "📈 Menampilkan: Progress &lt;70%"
-          : "⚠️ Menampilkan: Data Berkendala";
+      var _sfLabel = _wrSummaryFilter === "low_progress" ? "📈 Menampilkan: Progress &lt;70%" : "⚠️ Menampilkan: Data Berkendala";
       html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#fff3e0;border:1px solid #ff9800;border-radius:8px;margin-bottom:10px;font-size:.82rem;font-weight:700;color:#e65100">
         <span>${_sfLabel}</span>
         <button class="btn btn-xs btn-outline" style="margin-left:auto" onclick="filterWeeklySummary('')">✕ Hapus Filter</button>
       </div>`;
     }
 
-    html +=
-      '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">';
-    html +=
-      '<button class="btn btn-xs ' +
-      (_weeklyReportFilter === "all" ? "btn-primary" : "btn-outline") +
-      '" onclick="loadWeeklyReports(\'all\')">Semua</button>';
-    html +=
-      '<button class="btn btn-xs ' +
-      (_weeklyReportFilter === "akademik" ? "btn-primary" : "btn-outline") +
-      '" onclick="loadWeeklyReports(\'akademik\')">📚 ACADEMIC</button>';
-    html +=
-      '<button class="btn btn-xs ' +
-      (_weeklyReportFilter === "manajemen" ? "btn-primary" : "btn-outline") +
-      '" onclick="loadWeeklyReports(\'manajemen\')">🏢 OFFICE</button>';
-    html +=
-      '<button class="btn btn-xs btn-info" style="margin-left:8px" onclick="showWeeklyReportSummaryModal()">📊 Lihat Rangkuman</button>';
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">';
+    html += `<button class="btn btn-xs ${_weeklyReportFilter === "all" ? "btn-primary" : "btn-outline"}" onclick="loadWeeklyReports('all')">Semua</button>`;
+    html += `<button class="btn btn-xs ${_weeklyReportFilter === "akademik" ? "btn-primary" : "btn-outline"}" onclick="loadWeeklyReports('akademik')">📚 ACADEMIC</button>`;
+    html += `<button class="btn btn-xs ${_weeklyReportFilter === "manajemen" ? "btn-primary" : "btn-outline"}" onclick="loadWeeklyReports('manajemen')">🏢 OFFICE</button>`;
+    html += '<button class="btn btn-xs btn-info" style="margin-left:8px" onclick="showWeeklyReportSummaryModal()">📊 Lihat Rangkuman</button>';
 
     let wrCatOpts = '<option value="">Semua Kategori</option>';
-    const categories =
-      _weeklyReportFilter === "akademik"
-        ? ["Siswa", "Sensei", "Curriculum", "TSK-Job", "Tanpa Kategori"]
-        : _weeklyReportFilter === "manajemen"
-          ? [
-              "HR & Legal",
-              "Document",
-              "Facility's",
-              "Finance",
-              "Marketing & Sales",
-              "Promosi",
-            ]
-          : [
-              "Siswa",
-              "Sensei",
-              "Curriculum",
-              "TSK-Job",
-              "HR & Legal",
-              "Document",
-              "Facility's",
-              "Finance",
-              "Marketing & Sales",
-              "Promosi",
-              "Tanpa Kategori",
-            ];
-    categories.forEach(function (c) {
-      wrCatOpts +=
-        '<option value="' +
-        c +
-        '" ' +
-        (window._wrCatFilter === c ? "selected" : "") +
-        ">" +
-        c +
-        "</option>";
-    });
-    html +=
-      '<select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window._wrCatFilter=this.value;loadWeeklyReports()">' +
-      wrCatOpts +
-      "</select>";
+    const categories = _weeklyReportFilter === "akademik" ? ["Siswa", "Sensei", "Curriculum", "TSK-Job", "Tanpa Kategori"] : _weeklyReportFilter === "manajemen" ? ["HR & Legal", "Document", "Facility's", "Finance", "Marketing & Sales", "Promosi"] : ["Siswa", "Sensei", "Curriculum", "TSK-Job", "HR & Legal", "Document", "Facility's", "Finance", "Marketing & Sales", "Promosi", "Tanpa Kategori"];
+    categories.forEach(c => wrCatOpts += `<option value="${c}" ${window._wrCatFilter === c ? "selected" : ""}>${c}</option>`);
+    html += `<select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window._wrCatFilter=this.value;loadWeeklyReports()">${wrCatOpts}</select>`;
 
     let wrNameOpts = '<option value="">Semua User</option>';
-    uniqueNames.forEach(function (n) {
-      wrNameOpts += `<option value="${escAttr(n)}" ${window._wrNameFilter === n ? "selected" : ""}>${escHtml(n)}</option>`;
-    });
-    html +=
-      '<select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window._wrNameFilter=this.value;loadWeeklyReports()">' +
-      wrNameOpts +
-      "</select>";
+    uniqueNames.forEach(n => wrNameOpts += `<option value="${escAttr(n)}" ${window._wrNameFilter === n ? "selected" : ""}>${escHtml(n)}</option>`);
+    html += `<select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window._wrNameFilter=this.value;loadWeeklyReports()">${wrNameOpts}</select>`;
 
     html += '<span style="margin-left:auto"></span>';
     if (currentUser.role !== "bod") {
-      html +=
-        '<button class="btn btn-xs btn-danger" onclick="deleteSelectedWeeklyReports()">🗑️ Hapus Terpilih</button> ';
-      html +=
-        '<button class="btn btn-xs btn-warning" onclick="resetAllWeeklyReports()">⚠️ Reset Semua</button>';
+      html += '<button class="btn btn-xs btn-danger" onclick="deleteSelectedWeeklyReports()">🗑️ Hapus Terpilih</button> ';
+      html += '<button class="btn btn-xs btn-warning" onclick="resetAllWeeklyReports()">⚠️ Reset Semua</button>';
     }
     html += "</div>";
 
-    html +=
-      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:8px 12px;background:#f9f9f9;border-radius:8px">';
+    html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:8px 12px;background:#f9f9f9;border-radius:8px">';
     html += '<span class="text-sm fw-700">📅 Periode:</span>';
-    html +=
-      '<input type="date" class="form-control" id="wrDateFrom" value="' +
-      filterFrom +
-      '" style="max-width:140px;padding:4px 8px;font-size:.82rem" onchange="_wrDateFrom=this.value;loadWeeklyReports()">';
+    html += `<input type="date" class="form-control" id="wrDateFrom" value="${filterFrom}" style="max-width:140px;padding:4px 8px;font-size:.82rem" onchange="_wrDateFrom=this.value;loadWeeklyReports()">`;
     html += '<span class="text-sm">—</span>';
-    html +=
-      '<input type="date" class="form-control" id="wrDateTo" value="' +
-      filterTo +
-      '" style="max-width:140px;padding:4px 8px;font-size:.82rem" onchange="_wrDateTo=this.value;loadWeeklyReports()">';
-    if (filterFrom || filterTo)
-      html +=
-        "<button class=\"btn btn-xs btn-outline\" onclick=\"_wrDateFrom='';_wrDateTo='';loadWeeklyReports()\">✕</button>";
+    html += `<input type="date" class="form-control" id="wrDateTo" value="${filterTo}" style="max-width:140px;padding:4px 8px;font-size:.82rem" onchange="_wrDateTo=this.value;loadWeeklyReports()">`;
+    if (filterFrom || filterTo) html += "<button class=\"btn btn-xs btn-outline\" onclick=\"_wrDateFrom='';_wrDateTo='';loadWeeklyReports()\">✕</button>";
     html += "</div>";
 
     if (currentUser.role !== "bod") {
-      html +=
-        '<div style="margin-bottom:8px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="wrSelectAll" onchange="document.querySelectorAll(\'.wr-check\').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="text-sm fw-700">Pilih Semua (' +
-        filtered.length +
-        " data)</span></label></div>";
+      html += `<div style="margin-bottom:8px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="wrSelectAll" onchange="document.querySelectorAll('.wr-check').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="text-sm fw-700">Pilih Semua (${filtered.length} data)</span></label></div>`;
     }
 
     _weeklyReportLookup = {};
     var groups = {};
-    filtered.forEach(function (r) {
+    filtered.forEach(r => {
       var div = r.departemen || r.divisi || "Tanpa Divisi";
       if (!groups[div]) groups[div] = [];
       groups[div].push(r);
     });
 
-    Object.keys(groups)
-      .sort()
-      .forEach(function (div) {
+    Object.keys(groups).sort().forEach(div => {
         var rows = groups[div];
         html += '<div style="margin-bottom:20px">';
-        html +=
-          '<div style="padding:8px 14px;background:#e8eaf6;border-radius:8px;font-weight:700;font-size:.88rem;color:#283593;border-left:4px solid #3f51b5;margin-bottom:8px">🏢 ' +
-          escHtml(div) +
-          " (" +
-          rows.length +
-          " data)</div>";
+        html += `<div style="padding:8px 14px;background:#e8eaf6;border-radius:8px;font-weight:700;font-size:.88rem;color:#283593;border-left:4px solid #3f51b5;margin-bottom:8px">🏢 ${escHtml(div)} (${rows.length} data)</div>`;
         var byPic = {};
-        rows.forEach(function (r) {
+        rows.forEach(r => {
           var picKey = r.targetUserName || r.pic || r.nama || "-";
           if (!byPic[picKey]) byPic[picKey] = [];
           byPic[picKey].push(r);
         });
-        Object.keys(byPic)
-          .sort()
-          .forEach(function (pic) {
+        Object.keys(byPic).sort().forEach(pic => {
             var userRows = byPic[pic];
-            html +=
-              '<div style="padding:8px 12px;margin:10px 0 8px;background:#f4f6ff;border-radius:8px;border-left:4px solid #5c6bc0;font-weight:700;font-size:.82rem;color:#3949ab">👤 ' +
-              escHtml(pic) +
-              " (" +
-              userRows.length +
-              " report)</div>";
-            userRows.forEach(function (r) {
+            html += `<div style="padding:8px 12px;margin:10px 0 8px;background:#f4f6ff;border-radius:8px;border-left:4px solid #5c6bc0;font-weight:700;font-size:.82rem;color:#3949ab">👤 ${escHtml(pic)} (${userRows.length} report)</div>`;
+            userRows.forEach(r => {
               var tgl = r.tanggal || r.bulan || "-";
               var kat = r.kategori || "-";
-
-              var subKatHtml = "";
-              if ((kat || "").toUpperCase() === "SISWA") {
-                  subKatHtml = ` | 📍 <b>LVL:</b> ${escHtml(r.level || "-")} | 📚 <b>MAT:</b> ${escHtml(r.materi || "-")}`;
-              }
-
+              var subKatHtml = (kat.toUpperCase() === "SISWA") ? ` | 📍 <b>LVL:</b> ${escHtml(r.level || "-")} | 📚 <b>MAT:</b> ${escHtml(r.materi || "-")}` : "";
               var wrKey = (r.col || WEEKLY_REPORT_DEFAULT_COL) + "::" + r.id;
               _weeklyReportLookup[wrKey] = r;
-              var previewText =
-                [
-                  r.aktivitas,
-                  r.kendala,
-                  r.solusi,
-                  r.rencanaBesok,
-                  r.rencana,
-                  r.planning,
-                  r.komentar,
-                  r.keterangan,
-                ].find((t) => t && t.trim()) || "-";
-              if (previewText.length > WEEKLY_REPORT_PREVIEW_MAX_LENGTH)
-                previewText =
-                  previewText.substring(0, WEEKLY_REPORT_PREVIEW_MAX_LENGTH) +
-                  "...";
+
+              var previewText = [r.aktivitas, r.kendala, r.solusi, r.rencanaBesok, r.rencana, r.planning, r.komentar, r.keterangan].find(t => t && t.trim()) || "-";
+              if (previewText.length > WEEKLY_REPORT_PREVIEW_MAX_LENGTH) previewText = previewText.substring(0, WEEKLY_REPORT_PREVIEW_MAX_LENGTH) + "...";
 
               var progressNum = parseInt(r.progress, 10);
-              var progressColor = !isNaN(progressNum)
-                ? progressNum >= 100
-                  ? "#2e7d32"
-                  : progressNum >= 70
-                    ? "#f57f17"
-                    : "#c62828"
-                : "#1565c0";
+              var progressColor = !isNaN(progressNum) ? (progressNum >= 100 ? "#2e7d32" : progressNum >= 70 ? "#f57f17" : "#c62828") : "#1565c0";
 
               html += `<div class="wr-item" onclick="viewWeeklyReportItem('${escAttr(wrKey)}')" style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;cursor:pointer">
-            <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
-              ${currentUser.role !== "bod" ? `<input type="checkbox" class="wr-check" value="${escAttr(r.id)}" data-col="${escAttr(r.col || WEEKLY_REPORT_DEFAULT_COL)}" onclick="event.stopPropagation()">` : ""}
-              <div style="flex:1"><div class="fw-700">${escHtml(pic)}</div>
-              <div class="text-xs" style="color:#666">📅 ${escHtml(tgl)} | 🏢 ${escHtml(div)} | 🏷️ ${escHtml(kat)}${subKatHtml}</div></div></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-              <div style="font-size:.8rem;font-weight:700;color:${progressColor}">📈 Progress: ${escHtml(r.progress || "-")}${!isNaN(progressNum) && String(r.progress).indexOf("%") === -1 ? "%" : ""}</div>
-              <div style="display:flex;gap:4px">
-                  <button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem('${escAttr(wrKey)}')">👁️ View</button>
-                  ${hasAccess(6) ? `<button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyReport('${escAttr(wrKey)}')">✏️ Edit</button>` : ""}
-              </div>
-            </div>
-            <div style="font-size:.82rem;color:#333;line-height:1.5;background:#f9f9f9;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ${escHtml(previewText)}</div>
-          </div>`;
+                <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+                  ${currentUser.role !== "bod" ? `<input type="checkbox" class="wr-check" value="${escAttr(r.id)}" data-col="${escAttr(r.col || WEEKLY_REPORT_DEFAULT_COL)}" onclick="event.stopPropagation()">` : ""}
+                  <div style="flex:1"><div class="fw-700">${escHtml(pic)}</div>
+                  <div class="text-xs" style="color:#666">📅 ${escHtml(tgl)} | 🏢 ${escHtml(div)} | 🏷️ ${escHtml(kat)}${subKatHtml}</div></div></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+                  <div style="font-size:.8rem;font-weight:700;color:${progressColor}">📈 Progress: ${escHtml(r.progress || "-")}${!isNaN(progressNum) && String(r.progress).indexOf("%") === -1 ? "%" : ""}</div>
+                  <div style="display:flex;gap:4px">
+                      <button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem('${escAttr(wrKey)}')">👁️ View</button>
+                      ${hasAccess(6) ? `<button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyReport('${escAttr(wrKey)}')">✏️ Edit</button>` : ""}
+                  </div>
+                </div>
+                <div style="font-size:.82rem;color:#333;line-height:1.5;background:#f9f9f9;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ${escHtml(previewText)}</div>
+              </div>`;
             });
             html += _buildReportTrackerStats(userRows);
-          });
+        });
         html += _buildReportTrackerStats(rows);
         html += "</div>";
-      });
+    });
+
     if (Object.keys(groups).length > 0) {
       html += `<div style="margin-top:20px;padding:10px 14px;background:#fafafa;border-radius:8px;border:1px solid #ddd;font-weight:700;font-size:.82rem;color:#555">📊 Ringkasan Keseluruhan Laporan Mingguan (${filtered.length} data)</div>`;
       html += _buildReportTrackerStats(filtered);
     }
     listEl.innerHTML = html;
-  } catch (e) {
-    listEl.innerHTML =
-      '<p class="text-sm" style="color:#c62828">Gagal memuat: ' +
-      escHtml(e.message) +
-      "</p>";
-  }
 }
 
 /**
