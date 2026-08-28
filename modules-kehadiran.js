@@ -5100,9 +5100,21 @@ async function _setupWeeklyReportsListeners() {
 
         let s1 = [], s2 = [];
         const trigger = () => handleUpdate(s1, s2);
-        const unsub1 = db.collection("hrd_daily_tasks").where("type", "==", "report").where("tanggal", ">=", dateLimit).onSnapshot(snap => { s1 = snap; trigger(); });
-        const unsub2 = db.collection("hrd_weekly_reports").where("tanggal", ">=", dateLimit).onSnapshot(snap => { s2 = snap; trigger(); },
-            () => db.collection("hrd_weekly_reports").onSnapshot(snap => { s2 = snap; trigger(); }));
+
+        // Listen to daily tasks (reports only)
+        const unsub1 = db.collection("hrd_daily_tasks")
+            .where("type", "==", "report")
+            .where("tanggal", ">=", dateLimit)
+            .onSnapshot(snap => { s1 = snap; trigger(); });
+
+        // Broaden hrd_weekly_reports query: use 'bulan' as fallback filter or fetch all recent
+        const unsub2 = db.collection("hrd_weekly_reports")
+            .where("bulan", ">=", dateLimit.substring(0, 7))
+            .onSnapshot(snap => { s2 = snap; trigger(); },
+            () => {
+                // Fallback for very old data or missing 'bulan' index
+                db.collection("hrd_weekly_reports").limit(500).onSnapshot(snap => { s2 = snap; trigger(); });
+            });
 
         if (typeof unsubscribers !== 'undefined') {
             unsubscribers.push(unsub1);
@@ -5135,8 +5147,27 @@ function _renderWeeklyReportsContent() {
     var filterTo = document.getElementById("wrDateTo")?.value || _wrDateTo;
     _wrDateFrom = filterFrom; _wrDateTo = filterTo;
 
-    if (filterFrom) filtered = filtered.filter(r => (r.tanggal || r.bulan || "") >= filterFrom);
-    if (filterTo) filtered = filtered.filter(r => (r.tanggal || r.bulan || "") <= filterTo);
+    if (filterFrom) {
+      filtered = filtered.filter(r => {
+        let tgl = r.tanggal || r.bulan || "";
+        if (tgl.includes('/')) {
+            // Convert MM/DD/YYYY to YYYY-MM-DD for comparison
+            const parts = tgl.split('/');
+            if (parts.length === 3) tgl = `${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+        }
+        return tgl >= filterFrom;
+      });
+    }
+    if (filterTo) {
+      filtered = filtered.filter(r => {
+        let tgl = r.tanggal || r.bulan || "";
+        if (tgl.includes('/')) {
+            const parts = tgl.split('/');
+            if (parts.length === 3) tgl = `${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+        }
+        return tgl <= filterTo;
+      });
+    }
 
     const uniqueNames = [...new Set(filtered.map(r => r.targetUserName || r.nama || r.pic || "-"))].sort();
 
@@ -5149,7 +5180,11 @@ function _renderWeeklyReportsContent() {
     }
 
     if (window._wrNameFilter) {
-      filtered = filtered.filter(r => (r.targetUserName || r.nama || r.pic || "-") === window._wrNameFilter);
+      const targetName = window._wrNameFilter.trim().toLowerCase();
+      filtered = filtered.filter(r => {
+          const name = (r.targetUserName || r.nama || r.pic || "-").trim().toLowerCase();
+          return name === targetName;
+      });
     }
 
     const totalReportsSummary = filtered.length;
