@@ -629,8 +629,23 @@ async function viewKaryawan(id) {
   }
 
   const renderDocLink = (file, label) => {
-      if (!file || !file.data) return `<div class="color-gray" style="font-size:.75rem">❌ No ${label}</div>`;
-      return `<button class="btn btn-xs btn-outline" onclick="viewEviden('${encodeURIComponent(JSON.stringify(file))}')" style="padding:4px 8px">👁️ Lihat ${label}</button>`;
+      // Check if file exists directly in employee record
+      if (file && file.data) {
+          return `<button class="btn btn-xs btn-outline" onclick="viewEviden('${encodeURIComponent(JSON.stringify(file))}')" style="padding:4px 8px">👁️ Lihat ${label}</button>`;
+      }
+
+      // Fallback: Check if document exists in synced system documents (hrd_dokumen_karyawan)
+      const sysDoc = systemDocs.find(d => (d.tipeDokumen || '').toUpperCase() === label.toUpperCase());
+      if (sysDoc) {
+          const fileObj = {
+              name: sysDoc.fileName,
+              data: sysDoc.fileURL || sysDoc.fileData,
+              type: (sysDoc.fileName || '').toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'
+          };
+          return `<button class="btn btn-xs btn-outline" onclick="viewEviden('${encodeURIComponent(JSON.stringify(fileObj))}')" style="padding:4px 8px">👁️ Lihat ${label}</button>`;
+      }
+
+      return `<div class="color-gray" style="font-size:.75rem">❌ No ${label}</div>`;
   };
 
   const renderSystemDoc = (doc) => {
