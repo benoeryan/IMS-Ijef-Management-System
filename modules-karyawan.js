@@ -445,7 +445,7 @@ async function simpanKaryawan(id) {
     namaBank: document.getElementById('kyBank').value.trim(),
     noRekening: document.getElementById('kyRek').value.trim(),
 
-    // Document fields
+    // Document fields - only update if provided
     ktpFile: window._kyKtpFile || null,
     kkFile: window._kyKkFile || null,
     npwpFile: window._kyNpwpFile || null,
@@ -454,6 +454,15 @@ async function simpanKaryawan(id) {
 
     updatedAt: new Date().toISOString(),
   };
+
+  // Prevent overwriting with null if editing and no new file uploaded
+  if (id) {
+      if (!window._kyKtpFile) delete data.ktpFile;
+      if (!window._kyKkFile) delete data.kkFile;
+      if (!window._kyNpwpFile) delete data.npwpFile;
+      if (!window._kyBukuNikahFile) delete data.bukuNikahFile;
+      if (!window._kyCvFile) delete data.cvFile;
+  }
   if (window._kyFoto) data.foto = window._kyFoto;
   if (!data.nama || !data.nip) return toast('Nama & NIP wajib diisi', 'warning');
 
@@ -605,14 +614,33 @@ function filterKaryawan() {
   document.getElementById('tblKaryawan').innerHTML = h || '<tr><td colspan="8" class="text-center">Tidak ada data</td></tr>';
 }
 
-function viewKaryawan(id) {
+async function viewKaryawan(id) {
   const k = window._allKaryawan.find((x) => x.id === id);
   if (!k) return;
   const isBOD = currentUser.role === 'bod';
 
+  // Fetch documents from the central document collection (Image 1 source)
+  let systemDocs = [];
+  try {
+      const docSnap = await db.collection("hrd_dokumen_karyawan").where("karyawanId", "==", id).get();
+      docSnap.forEach(d => systemDocs.push({ id: d.id, ...d.data() }));
+  } catch (e) {
+      console.warn("Failed to fetch system docs:", e);
+  }
+
   const renderDocLink = (file, label) => {
       if (!file || !file.data) return `<div class="color-gray" style="font-size:.75rem">❌ No ${label}</div>`;
       return `<button class="btn btn-xs btn-outline" onclick="viewEviden('${encodeURIComponent(JSON.stringify(file))}')" style="padding:4px 8px">👁️ Lihat ${label}</button>`;
+  };
+
+  const renderSystemDoc = (doc) => {
+      return `<div class="card mb-4 p-8 flex" style="justify-content:space-between; align-items:center; background:#fff; border:1px solid #eee">
+        <div>
+            <span class="badge badge-info text-xs">${escHtml(doc.tipeDokumen)}</span>
+            <span class="text-xs fw-700 ml-4">${escHtml(doc.fileName)}</span>
+        </div>
+        <button class="btn btn-xs btn-success" onclick="viewEviden('${encodeURIComponent(JSON.stringify({name: doc.fileName, data: doc.fileURL || doc.fileData, type: (doc.fileName || '').endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'}))}')">👁️</button>
+      </div>`;
   };
 
   let html = `<div class="modal-title">Profil Karyawan</div>
@@ -623,7 +651,7 @@ function viewKaryawan(id) {
             </div>
             <div style="flex:1">
                 <h3 style="margin:0;color:var(--primary)">${escHtml(k.nama)}</h3>
-                <p class="color-gray" style="margin:4px 0">${escHtml(k.posisi)} — ${escHtml(k.departemen)}</p>
+                <p class="color-gray" style="margin:4px 0">${escHtml(k.posisi || '-')} — ${escHtml(k.departemen || '-')}</p>
                 <div class="flex gap-8 mt-12">
                     <span class="badge badge-primary">Grade: ${escHtml(k.gradeJabatan || k.grade || '-')}</span>
                     <span class="badge badge-info">NIP: ${escHtml(k.nip || '-')}</span>
@@ -637,6 +665,11 @@ function viewKaryawan(id) {
             <div><b>Status Kerja:</b> ${escHtml(k.status || 'aktif')}</div>
             <div><b>Tgl Masuk:</b> ${formatDate(k.tanggalMasuk)}</div>
             <div><b>Cabang:</b> ${escHtml(k.cabang || '-')}</div>
+        </div>
+
+        <div class="fw-700 mb-8 color-primary" style="border-bottom:1px solid #eee">📎 Berkas Kelengkapan (Upload)</div>
+        <div class="mb-16">
+            ${systemDocs.length > 0 ? systemDocs.map(renderSystemDoc).join('') : '<p class="text-xs color-gray">Belum ada dokumen yang diupload di modul Kontrak/Dokumen.</p>'}
         </div>
 
         <div class="fw-700 mb-8 color-primary" style="border-bottom:1px solid #eee">👤 Data Pribadi</div>
@@ -662,7 +695,7 @@ function viewKaryawan(id) {
             <div><b>BPJS TK:</b> ${escHtml(k.bpjsTk || '-')}</div>
         </div>
 
-        <div class="fw-700 mb-8 color-primary" style="border-bottom:1px solid #eee">📎 Dokumen Lampiran</div>
+        <div class="fw-700 mb-8 color-primary" style="border-bottom:1px solid #eee">📎 Dokumen Profil</div>
         <div class="grid-2 mb-20" style="gap:10px">
             ${renderDocLink(k.ktpFile, 'KTP')}
             ${renderDocLink(k.kkFile, 'KK')}
