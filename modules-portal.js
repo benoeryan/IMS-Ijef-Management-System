@@ -212,9 +212,9 @@ async function loadPortalTeamReport(targetId, filterStateKey) {
   var listEl = document.getElementById(listId);
   if (!listEl) return;
   listEl.innerHTML = '<p class="text-sm" style="color:#999">Memuat...</p>';
-  try {
+
+  const unsub = db.collection("hrd_daily_tasks").onSnapshot((snap) => {
     var today2 = todayStr();
-    var snap = await db.collection("hrd_daily_tasks").get();
     var reports = [];
     snap.forEach(function (d) {
       var t = d.data();
@@ -226,6 +226,7 @@ async function loadPortalTeamReport(targetId, filterStateKey) {
         reports.push({ id: d.id, ...t });
       }
     });
+
     if (!reports.length) {
       listEl.innerHTML =
         '<p class="text-sm" style="color:#999">Belum ada report masuk hari ini.</p>';
@@ -284,12 +285,11 @@ async function loadPortalTeamReport(targetId, filterStateKey) {
     var html =
       tabHtml + _renderGroupedReportTracker(filteredReports, "all-report");
     listEl.innerHTML = html;
-  } catch (e) {
-    listEl.innerHTML =
-      '<p class="text-sm" style="color:#c62828">Gagal memuat: ' +
-      escHtml(e.message) +
-      "</p>";
-  }
+  }, (err) => {
+      listEl.innerHTML = '<p class="text-sm" style="color:#c62828">Gagal memuat: ' + escHtml(err.message) + '</p>';
+  });
+
+  if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
 }
 
 async function loadPortalPengumuman() {

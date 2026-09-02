@@ -3987,6 +3987,21 @@ const SISWA_REPORT_DATA = {
     "S2 BAB 17":
       "Mampu menceritakan hal-hal yang sudah dilalui selama ini, beserta kesannya.",
     "S2 BAB 18": "Mampu menyebutkan mimpi atau tujuan yang ingin dicapai dimasa depan.",
+    "Persiapan Dokumen": "Mampu menyiapkan berkas-berkas penting yang diperlukan untuk proses interview kerja.",
+    "Latihan Jikoshoukai": "Mampu memperkenalkan diri dengan lancar dan sopan dalam bahasa Jepang formal (keigo).",
+    "Q&A Dasar": "Mampu menjawab pertanyaan umum seputar motivasi kerja dan pengalaman pribadi.",
+    "Etika Mensetsu": "Memahami tata krama, cara duduk, cara masuk ruangan, dan etika komunikasi saat interview.",
+    "Mock Interview": "Mampu menjalani simulasi interview secara utuh dari awal hingga akhir dengan percaya diri.",
+    "Latihan Soal Dasar": "Mampu mengerjakan soal-soal latihan JFT dengan tingkat akurasi yang baik.",
+    "Kanji & Kosakata": "Menguasai daftar kanji dan kosakata penting yang sering muncul dalam ujian JFT.",
+    "Listening JFT": "Mampu memahami instruksi lisan dan percakapan harian sesuai standar JFT.",
+    "Reading JFT": "Mampu membaca dan memahami teks pendek serta informasi umum dalam format JFT.",
+    "Try Out JFT": "Mampu menyelesaikan simulasi ujian JFT dalam batas waktu yang ditentukan.",
+    "Materi Teknis 1": "Memahami materi teknis tahap awal sesuai bidang SSW yang dipilih.",
+    "Materi Teknis 2": "Menguasai rincian operasional dan keselamatan kerja pada bidang SSW.",
+    "Bahasa Jepang Teknis": "Mampu menggunakan istilah-istilah khusus industri dalam bahasa Jepang.",
+    "Ujian Kompetensi": "Siap mengikuti ujian keterampilan khusus (SSW) di bidang yang ditekuni.",
+    "Try Out SSW": "Mampu mengerjakan simulasi ujian SSW dengan skor di atas ambang kelulusan.",
   },
 };
 
