@@ -2450,6 +2450,10 @@ async function simpanDailyTask() {
   const title = document.getElementById("dtTitle").value.trim();
   const tanggal = document.getElementById("dtDate").value;
   if (!title || !tanggal) return toast("Judul dan tanggal wajib", "warning");
+
+  const btn = document.querySelector(".modal .btn-primary");
+  const originalText = btn ? btn.innerHTML : "Simpan";
+
   // Collect selected users from checkboxes
   var targets = [];
   var selfCb = document.getElementById("dtAssignSelf");
@@ -2460,47 +2464,53 @@ async function simpanDailyTask() {
   assignCbs.forEach(function (cb) {
     targets.push({ id: cb.value, nama: cb.getAttribute("data-nama") || "" });
   });
-  // Fallback: if nothing selected, assign to self (old dropdown compatibility)
-  var oldSelect = document.getElementById("dtAssignUser");
-  if (!targets.length && oldSelect) {
-    if (oldSelect.value === "self") {
-      targets.push({ id: currentUser.id, nama: currentUser.nama });
-    } else {
-      var opt = oldSelect.options[oldSelect.selectedIndex];
-      targets.push({
-        id: oldSelect.value,
-        nama: opt.getAttribute("data-nama") || opt.text,
-      });
-    }
-  }
-  if (!targets.length)
-    targets.push({ id: currentUser.id, nama: currentUser.nama });
+
+  if (!targets.length) targets.push({ id: currentUser.id, nama: currentUser.nama });
+
   try {
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ⏳ Memproses...';
+    }
+
     const kategoriEl = document.getElementById("dtKategori");
     const attachments = await getFilesAsBase64("dtFiles");
+
+    // Check total size to prevent Firestore 1MB limit crash
+    const totalSize = attachments.reduce((acc, cur) => acc + (cur.size || 0), 0);
+    if (totalSize > 800 * 1024) {
+        throw new Error("Total ukuran lampiran terlalu besar (maks 800KB untuk Firestore). Silakan gunakan file yang lebih kecil atau kurangi jumlah file.");
+    }
+
+    const desc = document.getElementById("dtDesc").value.trim();
+    const aktivitas = document.getElementById("dtAktivitas").value.trim();
+    const progress = Math.max(0, Math.min(100, parseInt(document.getElementById("dtProgress").value, 10) || 0));
+    const kendala = document.getElementById("dtKendala").value.trim();
+    const solusi = document.getElementById("dtSolusi").value.trim();
+    const waktu = document.getElementById("dtTime").value || "";
+    const priority = document.getElementById("dtPriority").value;
+    const reminder = document.getElementById("dtReminder").value;
+    const repeat = document.getElementById("dtRepeat").value || "";
+    const kategori = kategoriEl ? kategoriEl.value : "";
+    const createdAt = new Date().toISOString();
+
     for (var i = 0; i < targets.length; i++) {
       var t = targets[i];
-      var assignedBy = t.id !== currentUser.id ? currentUser.id : "";
-      var assignedByName = t.id !== currentUser.id ? currentUser.nama : "";
-      await db.collection("hrd_daily_tasks").add({
+      var isSelf = (t.id === currentUser.id);
+
+      const taskData = {
         title: title,
-        description: document.getElementById("dtDesc").value.trim(),
-        aktivitas: document.getElementById("dtAktivitas").value.trim(),
-        progress: Math.max(
-          0,
-          Math.min(
-            100,
-            parseInt(document.getElementById("dtProgress").value, 10) || 0,
-          ),
-        ),
-        kendala: document.getElementById("dtKendala").value.trim(),
-        solusi: document.getElementById("dtSolusi").value.trim(),
+        description: desc,
+        aktivitas: aktivitas,
+        progress: progress,
+        kendala: kendala,
+        solusi: solusi,
         tanggal: tanggal,
-        waktu: document.getElementById("dtTime").value || "",
-        priority: document.getElementById("dtPriority").value,
-        reminder: document.getElementById("dtReminder").value,
-        repeat: document.getElementById("dtRepeat").value || "",
-        kategori: kategoriEl ? kategoriEl.value : "",
+        waktu: waktu,
+        priority: priority,
+        reminder: reminder,
+        repeat: repeat,
+        kategori: kategori,
         attachments: attachments,
         done: false,
         type: "task",
@@ -2508,28 +2518,39 @@ async function simpanDailyTask() {
         targetUserName: t.nama,
         departemen: currentUser.departemen || "",
         ownerLevel: ROLES[currentUser.role] || 0,
-        assignedBy: assignedBy,
-        assignedByName: assignedByName,
-        createdAt: new Date().toISOString(),
-      });
+        assignedBy: isSelf ? "" : currentUser.id,
+        assignedByName: isSelf ? "" : currentUser.nama,
+        createdAt: createdAt,
+      };
+
+      await db.collection("hrd_daily_tasks").add(taskData);
+
       // Notify target user if assigned to someone else
-      if (t.id !== currentUser.id) {
-        await db.collection("hrd_notifikasi").add({
-          targetUser: t.id,
-          title: "📋 Task Baru Ditugaskan",
-          message: currentUser.nama + " menugaskan: " + title,
-          read: false,
-          type: "daily-task",
-          createdAt: new Date().toISOString(),
-        });
+      if (!isSelf) {
+        try {
+            await db.collection("hrd_notifikasi").add({
+              targetUser: t.id,
+              title: "📋 Task Baru Ditugaskan",
+              message: currentUser.nama + " menugaskan: " + title,
+              read: false,
+              type: "daily-task",
+              createdAt: createdAt,
+            });
+        } catch (notifErr) { console.warn("Failed to send notification:", notifErr); }
       }
     }
-    toast("Task ditambahkan untuk " + targets.length + " orang", "success");
+
+    toast("Task berhasil ditambahkan untuk " + targets.length + " orang", "success");
+    closeModalDirect();
+    await loadDailyTasks(_dailyTaskFilter);
   } catch (e) {
+    console.error("[simpanDailyTask Error]", e);
     toast("Gagal: " + e.message, "error");
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
   }
-  closeModalDirect();
-  await loadDailyTasks(_dailyTaskFilter);
 }
 
 async function toggleDailyTask(id) {
@@ -2840,30 +2861,60 @@ function previewTaskFiles(input, previewId) {
     const isImage = file.type.startsWith("image/");
     const reader = new FileReader();
     reader.onload = (e) => {
+      const item = document.createElement("div");
+      item.style.cssText = "position:relative;display:inline-block";
+      item.className = "file-preview-item";
+
+      const removeBtn = `<div style="position:absolute;top:-6px;right:-6px;background:#c62828;color:#fff;border-radius:50%;width:18px;height:18px;font-size:.65rem;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3)" onclick="this.parentElement.remove(); if(document.getElementById('${previewId}').children.length === 0) document.getElementById('${input.id}').value=''">✕</div>`;
+
       if (isImage) {
-        preview.innerHTML += `<div style="position:relative;display:inline-block" class="file-preview-item"><img src="${e.target.result}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:2px solid var(--border);cursor:pointer" onclick="window.open(this.src,'_blank')"><div style="position:absolute;top:-6px;right:-6px;background:#c62828;color:#fff;border-radius:50%;width:18px;height:18px;font-size:.65rem;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3)" onclick="this.parentElement.remove()">✕</div><div style="font-size:.55rem;text-align:center;color:#666;margin-top:2px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(file.name.substring(0, 12))}</div></div>`;
+        item.innerHTML = `<img src="${e.target.result}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:2px solid var(--border);cursor:pointer" onclick="window.open(this.src,'_blank')">${removeBtn}<div style="font-size:.55rem;text-align:center;color:#666;margin-top:2px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(file.name.substring(0, 12))}</div>`;
       } else {
         const ext = file.name.split(".").pop().toUpperCase();
-        const icon =
-          ext === "PDF"
-            ? "📕"
-            : ext.includes("DOC")
-              ? "📘"
-              : ext.includes("XLS")
-                ? "📗"
-                : ext.includes("PPT")
-                  ? "📙"
-                  : "📄";
-        preview.innerHTML += `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;padding:8px 12px;background:#f5f5f5;border-radius:8px;border:1px solid var(--border);min-width:70px" class="file-preview-item"><div style="font-size:1.5rem">${icon}</div><div style="font-size:.55rem;color:#666;margin-top:4px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(file.name.substring(0, 12))}</div><div style="font-size:.5rem;color:#999">${(file.size / 1024 / 1024).toFixed(1)}MB</div><div style="position:absolute;top:-6px;right:-6px;background:#c62828;color:#fff;border-radius:50%;width:18px;height:18px;font-size:.65rem;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3)" onclick="this.parentElement.remove()">✕</div></div>`;
+        const icon = ext === "PDF" ? "📕" : ext.includes("DOC") ? "📘" : ext.includes("XLS") ? "📗" : ext.includes("PPT") ? "📙" : "📄";
+        item.innerHTML = `<div style="display:inline-flex;flex-direction:column;align-items:center;padding:8px 12px;background:#f5f5f5;border-radius:8px;border:1px solid var(--border);min-width:70px">${removeBtn}<div style="font-size:1.5rem">${icon}</div><div style="font-size:.55rem;color:#666;margin-top:4px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(file.name.substring(0, 12))}</div><div style="font-size:.5rem;color:#999">${(file.size / 1024 / 1024).toFixed(1)}MB</div></div>`;
       }
+      preview.appendChild(item);
     };
     reader.readAsDataURL(file);
+  });
+}
   });
 }
 
 async function getFilesAsBase64(inputId) {
   const input = document.getElementById(inputId);
   const results = [];
+
+  const compressImage = (base64Str, maxWidth = 800, maxHeight = 800) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7)); // 70% quality
+      };
+      img.onerror = () => resolve(base64Str); // Fallback to original
+    });
+  };
+
   if (input && input.files && input.files.length) {
     const files = Array.from(input.files).slice(0, 5);
     for (const file of files) {
@@ -2873,11 +2924,17 @@ async function getFilesAsBase64(inputId) {
         reader.onload = (e) => resolve(e.target.result);
         reader.readAsDataURL(file);
       });
+
+      let finalData = base64;
+      if (file.type.startsWith('image/')) {
+          finalData = await compressImage(base64);
+      }
+
       results.push({
         name: file.name,
         type: file.type,
-        size: file.size,
-        data: base64,
+        size: finalData.length,
+        data: finalData,
       });
     }
   }
@@ -2887,7 +2944,10 @@ async function getFilesAsBase64(inputId) {
   if (cameraEl && cameraEl.value) {
     try {
       const cam = JSON.parse(cameraEl.value);
-      cam.forEach((p) => results.push(p));
+      for (const p of cam) {
+          const compressed = await compressImage(p.data);
+          results.push({ ...p, data: compressed, size: compressed.length });
+      }
     } catch (e) {}
   }
   return results.slice(0, 5);
@@ -4177,50 +4237,68 @@ async function simpanDailyReport() {
     return toast("Tanggal dan aktivitas wajib diisi", "warning");
   if (!hasAccess(3) && !kategori)
     return toast("Kategori wajib dipilih", "warning");
-  const data = {
-    type: "report",
-    title: "📝 Daily Report — " + formatDate(tanggal),
-    tanggal,
-    kategori,
-    jamMasuk: document.getElementById("drJamMasuk").value || "",
-    jamKeluar: document.getElementById("drJamKeluar").value || "",
-    aktivitas,
-    hasil: document.getElementById("drHasil").value.trim(),
-    kendala: document.getElementById("drKendala").value.trim(),
-    solusi: document.getElementById("drSolusi").value.trim(),
-    rencana: document.getElementById("drRencana").value.trim(),
-    durasi: parseFloat(document.getElementById("drDurasi").value) || 0,
-    progress: parseInt(document.getElementById("drProgress").value) || 0,
-    mood: document.getElementById("drMood").value,
-    komentarAtasan: document.getElementById("drKomentarAtasan").value.trim(),
-    komentarRekan: document.getElementById("drKomentarRekan").value.trim(),
-    description: aktivitas,
-    done: true,
-    doneAt: new Date().toISOString(),
-    priority: "medium",
-    userId: currentUser.id,
-    targetUserName: currentUser.nama,
-    departemen: currentUser.departemen || "",
-    ownerLevel: ROLES[currentUser.role] || 0,
-    ownerRole: currentUser.role || "",
-    level: document.getElementById("drLevel")?.value || "",
-    materi: document.getElementById("drMateri")?.value || "",
-    pencapaian: document.getElementById("drPencapaian")?.value || "",
-    attachments: [],
-    createdAt: new Date().toISOString(),
-  };
-  // Get file attachments
-  data.attachments = await getFilesAsBase64("drFiles");
+
+  const btn = document.querySelector(".modal button.btn-primary");
+  const originalText = btn ? btn.innerHTML : "Kirim Daily Report";
+
   try {
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ⏳ Mengirim...';
+    }
+
+    const attachments = await getFilesAsBase64("drFiles");
+    const totalSize = attachments.reduce((acc, cur) => acc + (cur.size || 0), 0);
+    if (totalSize > 900 * 1024) {
+        throw new Error("Total ukuran lampiran terlalu besar (maks 900KB). Silakan gunakan file yang lebih kecil.");
+    }
+
+    const data = {
+      type: "report",
+      title: "📝 Daily Report — " + formatDate(tanggal),
+      tanggal,
+      kategori,
+      jamMasuk: document.getElementById("drJamMasuk").value || "",
+      jamKeluar: document.getElementById("drJamKeluar").value || "",
+      aktivitas,
+      hasil: document.getElementById("drHasil").value.trim(),
+      kendala: document.getElementById("drKendala").value.trim(),
+      solusi: document.getElementById("drSolusi").value.trim(),
+      rencana: document.getElementById("drRencana").value.trim(),
+      durasi: parseFloat(document.getElementById("drDurasi").value) || 0,
+      progress: parseInt(document.getElementById("drProgress").value) || 0,
+      mood: document.getElementById("drMood").value,
+      komentarAtasan: document.getElementById("drKomentarAtasan").value.trim(),
+      komentarRekan: document.getElementById("drKomentarRekan").value.trim(),
+      description: aktivitas,
+      done: true,
+      doneAt: new Date().toISOString(),
+      priority: "medium",
+      userId: currentUser.id,
+      targetUserName: currentUser.nama,
+      departemen: currentUser.departemen || "",
+      ownerLevel: ROLES[currentUser.role] || 0,
+      ownerRole: currentUser.role || "",
+      level: document.getElementById("drLevel")?.value || "",
+      materi: document.getElementById("drMateri")?.value || "",
+      pencapaian: document.getElementById("drPencapaian")?.value || "",
+      attachments: attachments,
+      createdAt: new Date().toISOString(),
+    };
+
     await db.collection("hrd_daily_tasks").add(data);
     toast("Daily Report berhasil dikirim", "success");
-    // Clear draft on success
     localStorage.removeItem("dr_draft_" + currentUser.id);
+    closeModalDirect();
+    await loadDailyTasks("report");
   } catch (e) {
+    console.error("[simpanDailyReport Error]", e);
     toast("Gagal: " + e.message, "error");
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
   }
-  closeModalDirect();
-  await loadDailyTasks("report");
 }
 
 window.viewDailyReport = async function(id) {
