@@ -5,7 +5,7 @@
 // Logic: SPPD handles Finance/Workflow, Absence handles presence records.
 // ══════════════════════════════════════════════════════════════
 
-async function renderPerjalananDinas() {
+window.renderPerjalananDinas = async function() {
   const main = document.getElementById("mainContent");
   if (!main) return;
 

@@ -2655,7 +2655,7 @@ async function updateDailyTask(id) {
   await loadDailyTasks(_dailyTaskFilter);
 }
 
-async function hapusDailyTask(id) {
+window.hapusDailyTask = async function(id) {
   if (!confirm("Hapus task ini?")) return;
   try {
     await db.collection("hrd_daily_tasks").doc(id).delete();
@@ -2736,7 +2736,7 @@ async function checkTaskReminders() {
   }
 }
 
-async function editDailyReport(id) {
+window.editDailyReport = async function(id) {
   let col = "hrd_daily_tasks";
   let docId = id;
   if (id && id.includes("::")) {
@@ -3803,7 +3803,7 @@ const SISWA_REPORT_DATA = {
     "NYUMON",
     "SHOKYU 1",
     "SHOKYU 2",
-    "MENSETSU RENSHU",
+    "MENSETSU",
     "JFT",
     "SSW",
   ],
@@ -3869,6 +3869,27 @@ const SISWA_REPORT_DATA = {
       "S2 BAB 17",
       "S2 BAB 18",
     ],
+    "MENSETSU": [
+      "Persiapan Dokumen",
+      "Latihan Jikoshoukai",
+      "Q&A Dasar",
+      "Etika Mensetsu",
+      "Mock Interview"
+    ],
+    "JFT": [
+      "Latihan Soal Dasar",
+      "Kanji & Kosakata",
+      "Listening JFT",
+      "Reading JFT",
+      "Try Out JFT"
+    ],
+    "SSW": [
+      "Materi Teknis 1",
+      "Materi Teknis 2",
+      "Bahasa Jepang Teknis",
+      "Ujian Kompetensi",
+      "Try Out SSW"
+    ]
   },
   PENCAPAIAN: {
     KANA: "Mampu membaca, menulis huruf Hiragana juga Katakana, serta mampu membedakan kedua jenis huruf tersebut.",
@@ -3987,18 +4008,9 @@ window.onDailyReportLevelChange = function () {
   const fieldsBox = document.getElementById("drSiswaFields");
   const devMsgEl = document.getElementById("drSiswaDevMsg");
 
-  const isDev = ["MENSETSU RENSHU", "JFT", "SSW"].includes(level);
-
-  if (isDev) {
-      if (fieldsBox) fieldsBox.style.display = "none";
-      if (devMsgEl) devMsgEl.style.display = "block";
-      materiEl.value = "";
-      pencapaianEl.value = "";
-      return;
-  } else {
-      if (fieldsBox) fieldsBox.style.display = "grid";
-      if (devMsgEl) devMsgEl.style.display = "none";
-  }
+  // Removed restriction to allow all levels to have materi and pencapaian
+  if (fieldsBox) fieldsBox.style.display = "grid";
+  if (devMsgEl) devMsgEl.style.display = "none";
 
   materiEl.innerHTML = '<option value="">-- Pilih Materi --</option>';
   if (level && SISWA_REPORT_DATA.MATERI[level]) {
@@ -4196,7 +4208,7 @@ async function simpanDailyReport() {
   await loadDailyTasks("report");
 }
 
-async function viewDailyReport(id) {
+window.viewDailyReport = async function(id) {
   let task = _dailyTaskData.find((t) => t.id === id);
   if (!task) {
     try {
