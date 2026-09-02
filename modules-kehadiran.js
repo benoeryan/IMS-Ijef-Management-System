@@ -1880,7 +1880,7 @@ function getDailyTaskTabs(activeFilter) {
   return tabs;
 }
 
-window.renderDailyTask = async function(initialFilter = "all") {
+async function renderDailyTask(initialFilter = "all") {
   const main = document.getElementById("mainContent");
   if (!main) return;
   const tabs = getDailyTaskTabs(initialFilter);
@@ -1891,7 +1891,8 @@ window.renderDailyTask = async function(initialFilter = "all") {
       <div id="taskList"></div>
     </div>`;
   loadDailyTasks(initialFilter, true);
-};
+}
+window.renderDailyTask = renderDailyTask;
 
 function modalAddTaskChoice() {
   openModal(`<div class="modal-title">+ Tambah</div>
@@ -1913,7 +1914,7 @@ function modalAddTaskChoice() {
 let _dailyTaskFilter = "all";
 let _dailyTaskData = [];
 
-window.loadDailyTasks = async function(filter, skipAutoRender = false) {
+async function loadDailyTasks(filter, skipAutoRender = false) {
   _dailyTaskFilter = filter || "all";
 
   if (!skipAutoRender && !document.getElementById("taskList")) {
@@ -2757,7 +2758,7 @@ async function checkTaskReminders() {
   }
 }
 
-window.editDailyReport = async function(id) {
+async function editDailyReport(id) {
   let col = "hrd_daily_tasks";
   let docId = id;
   if (id && id.includes("::")) {
@@ -2879,8 +2880,6 @@ function previewTaskFiles(input, previewId) {
     reader.readAsDataURL(file);
   });
 }
-  });
-}
 
 async function getFilesAsBase64(inputId) {
   const input = document.getElementById(inputId);
@@ -2889,7 +2888,6 @@ async function getFilesAsBase64(inputId) {
   const compressImage = (base64Str, maxWidth = 800, maxHeight = 800) => {
     return new Promise((resolve) => {
       const img = new Image();
-      img.src = base64Str;
       img.onload = () => {
         const canvas = document.createElement('canvas');
         let width = img.width;
@@ -2912,6 +2910,7 @@ async function getFilesAsBase64(inputId) {
         resolve(canvas.toDataURL('image/jpeg', 0.7)); // 70% quality
       };
       img.onerror = () => resolve(base64Str); // Fallback to original
+      img.src = base64Str;
     });
   };
 
@@ -2945,8 +2944,10 @@ async function getFilesAsBase64(inputId) {
     try {
       const cam = JSON.parse(cameraEl.value);
       for (const p of cam) {
-          const compressed = await compressImage(p.data);
-          results.push({ ...p, data: compressed, size: compressed.length });
+          if (p.data) {
+              const compressed = await compressImage(p.data);
+              results.push({ ...p, data: compressed, size: compressed.length });
+          }
       }
     } catch (e) {}
   }
@@ -4301,7 +4302,7 @@ async function simpanDailyReport() {
   }
 }
 
-window.viewDailyReport = async function(id) {
+async function viewDailyReport(id) {
   let task = _dailyTaskData.find((t) => t.id === id);
   if (!task) {
     try {
@@ -6834,3 +6835,9 @@ async function doInputCutiBersamaMassal() {
     toast("Error: " + e.message, "error");
   }
 }
+
+window.renderDailyTask = renderDailyTask;
+window.loadDailyTasks = loadDailyTasks;
+window.editDailyReport = editDailyReport;
+window.viewDailyReport = viewDailyReport;
+window.hapusDailyTask = hapusDailyTask;
