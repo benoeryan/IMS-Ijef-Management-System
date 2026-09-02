@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '16.1.7',
+            version: '16.1.8',
             updatedAt: new Date().toISOString(),
-            note: 'Daily Report: Add LEVEL, MATERI, and PENCAPAIAN fields for SISWA category'
+            note: 'Daily Report View: Enhanced layout, larger size (modal-xl), and added SISWA level/materi info'
         }, { merge: true });
 
     } catch (e) {
