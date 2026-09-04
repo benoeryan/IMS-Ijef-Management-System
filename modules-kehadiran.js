@@ -1880,19 +1880,18 @@ function getDailyTaskTabs(activeFilter) {
   return tabs;
 }
 
-async function renderDailyTask(initialFilter = "all") {
+window.renderDailyTask = async function(initialFilter = "all") {
   const main = document.getElementById("mainContent");
   if (!main) return;
   const tabs = getDailyTaskTabs(initialFilter);
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📋 Daily Task</span><div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalAddTask()">+ Task Baru</button><button class="btn btn-info btn-sm" onclick="modalAddDailyReport()">📝 Daily Report</button></div></div>
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📋 Daily Task</span><div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalDailyTask()">+ Task Baru</button><button class="btn btn-info btn-sm" onclick="modalAddDailyReport()">📝 Daily Report</button></div></div>
     <div id="taskStats" class="stats-grid mb-16"></div>
     <div class="card">
       <div class="tabs mb-12" id="taskTabs" style="flex-wrap:wrap">${tabs}</div>
       <div id="taskList"></div>
     </div>`;
   loadDailyTasks(initialFilter, true);
-}
-window.renderDailyTask = renderDailyTask;
+};
 
 function modalAddTaskChoice() {
   openModal(`<div class="modal-title">+ Tambah</div>
@@ -1914,7 +1913,7 @@ function modalAddTaskChoice() {
 let _dailyTaskFilter = "all";
 let _dailyTaskData = [];
 
-async function loadDailyTasks(filter, skipAutoRender = false) {
+window.loadDailyTasks = async function(filter, skipAutoRender = false) {
   _dailyTaskFilter = filter || "all";
 
   if (!skipAutoRender && !document.getElementById("taskList")) {
@@ -1948,7 +1947,7 @@ async function loadDailyTasks(filter, skipAutoRender = false) {
 
   try {
     let directSubNames = [];
-    if (myLevel >= 2 && myLevel <= 4) {
+    if (myLevel === 2) {
       const kSnap = await db
         .collection("hrd_karyawan")
         .where("atasan", "==", currentUser.nama)
@@ -1960,60 +1959,48 @@ async function loadDailyTasks(filter, skipAutoRender = false) {
     }
     window._directSubNamesCache = directSubNames;
 
-    // Optimization: Fetch only tasks from last 6 months to avoid performance issues
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    const dateLimit = sixMonthsAgo.toISOString().split("T")[0];
+    const snap = await db.collection("hrd_daily_tasks").get();
+    _dailyTaskData = [];
+    for (const d of snap.docs) {
+      const t = d.data();
+      const taskDept = (t.departemen || "").toLowerCase().trim();
+      const ownerName = normalizePersonName(getTaskOwnerDisplayName(t));
+      const ownerMatchesMe = doesTaskBelongToUser(t);
+      const assignedByMe = wasTaskAssignedByUser(t);
+      const isReport = isDailyReportEntry(t);
 
-    const unsub = db.collection("hrd_daily_tasks")
-      .where("tanggal", ">=", dateLimit)
-      .onSnapshot((snap) => {
-        _dailyTaskData = [];
-        for (const d of snap.docs) {
-          const t = d.data();
-          const taskDept = (t.departemen || "").toLowerCase().trim();
-          const ownerName = normalizePersonName(getTaskOwnerDisplayName(t));
-          const ownerMatchesMe = doesTaskBelongToUser(t);
-          const assignedByMe = wasTaskAssignedByUser(t);
-          const isReport = isDailyReportEntry(t);
-
-          let isVisible = false;
-          if (
-            hasHeadLevelAccess() ||
-            currentUser.id === "admin" ||
-            currentUser.role === "admin"
-          ) {
-            isVisible = true;
-          } else {
-            if (ownerMatchesMe || assignedByMe) {
+      let isVisible = false;
+      if (
+        hasHeadLevelAccess() ||
+        currentUser.id === "admin" ||
+        currentUser.role === "admin"
+      ) {
+        isVisible = true;
+      } else {
+        // Strict Privacy: Tasks are only visible to owner and assigner
+        if (ownerMatchesMe || assignedByMe) {
+          isVisible = true;
+        } else if (isReport) {
+          // Reports follow hierarchy: visible to supervisors
+          if (hasAccess(3)) {
+            if (taskDept === myDept || !taskDept) isVisible = true;
+          } else if (hasAccess(2)) {
+            if (directSubNames.includes(ownerName) || taskDept === myDept)
               isVisible = true;
-            } else if (isReport) {
-              if (hasAccess(3)) {
-                if (taskDept === myDept || !taskDept) isVisible = true;
-              } else if (hasAccess(2)) {
-                if (directSubNames.includes(ownerName) || taskDept === myDept)
-                  isVisible = true;
-              }
-            }
           }
-
-          if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
         }
+      }
 
-        _renderDailyTaskListContent(filter, todayStr());
-      });
-
-    if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
-
+      if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
+    }
   } catch (e) {
     _dailyTaskData = [];
     const errEl = document.getElementById("taskList");
     if (errEl) errEl.innerHTML = `<p style="color:#c62828;padding:20px;text-align:center">⚠️ Gagal memuat data: ${escHtml(e.message || String(e))}</p>`;
+    return;
   }
-};
 
-function _renderDailyTaskListContent(filter, today) {
-  const myDept = (currentUser.departemen || "").toLowerCase().trim();
+  const today = todayStr();
   let filtered = _dailyTaskData;
 
   if (filter === "today")
@@ -2028,7 +2015,8 @@ function _renderDailyTaskListContent(filter, today) {
       (t) => wasTaskAssignedByUser(t) && !doesTaskBelongToUser(t),
     );
   else if (filter === "history-assigned") {
-    const canSeeAllTaskHistory = hasAccess(2) || hasHeadLevelAccess() || hasAccess(6);
+    const canSeeAllTaskHistory =
+      hasAccess(2) || hasHeadLevelAccess() || hasAccess(6);
     filtered = _dailyTaskData.filter((t) => {
       const isReport = isDailyReportEntry(t);
       if (isReport) return false;
@@ -2039,17 +2027,25 @@ function _renderDailyTaskListContent(filter, today) {
     const haTo = document.getElementById("historyAssignedTo")?.value;
     if (haFrom) filtered = filtered.filter((t) => t.tanggal >= haFrom);
     if (haTo) filtered = filtered.filter((t) => t.tanggal <= haTo);
-    filtered.sort((a, b) => (b.tanggal || "").localeCompare(a.tanggal || ""));
+    filtered.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
   } else if (filter === "report") {
-    filtered = _dailyTaskData.filter((t) => isDailyReportEntry(t) && doesTaskBelongToUser(t));
+    filtered = _dailyTaskData.filter(
+      (t) => isDailyReportEntry(t) && doesTaskBelongToUser(t),
+    );
   } else if (filter === "team-report" || filter === "all-report") {
     filtered = _dailyTaskData.filter((t) => isDailyReportEntry(t));
     if (filter === "team-report" && !hasAccess(4)) {
       if (hasAccess(3))
-        filtered = filtered.filter((t) => (t.departemen || "").toLowerCase().trim() === myDept);
+        filtered = filtered.filter(
+          (t) => (t.departemen || "").toLowerCase().trim() === myDept,
+        );
       else if (hasAccess(2)) {
         const subs = window._directSubNamesCache || [];
-        filtered = filtered.filter((t) => subs.includes(normalizePersonName(getTaskOwnerDisplayName(t))) || doesTaskBelongToUser(t));
+        filtered = filtered.filter(
+          (t) =>
+            subs.includes(normalizePersonName(getTaskOwnerDisplayName(t))) ||
+            doesTaskBelongToUser(t),
+        );
       }
     }
     const drFrom = document.getElementById("reportDateFrom")?.value;
@@ -2057,13 +2053,32 @@ function _renderDailyTaskListContent(filter, today) {
     if (drFrom) filtered = filtered.filter((t) => t.tanggal >= drFrom);
     if (drTo) filtered = filtered.filter((t) => t.tanggal <= drTo);
 
-    const divFilter = filter === "team-report" ? window._teamReportDivFilter : window._allReportDivFilter;
-    if (divFilter) filtered = filtered.filter((t) => (t.departemen || "").toUpperCase().includes(divFilter));
+    const divFilter =
+      filter === "team-report"
+        ? window._teamReportDivFilter
+        : window._allReportDivFilter;
+    if (divFilter)
+      filtered = filtered.filter((t) =>
+        (t.departemen || "").toUpperCase().includes(divFilter),
+      );
 
-    const catFilter = filter === "team-report" ? window._teamReportCatFilter : window._allReportCatFilter;
-    if (catFilter) filtered = filtered.filter((t) => catFilter === "Tanpa Kategori" ? !t.kategori || t.kategori === "" : (t.kategori || "").toLowerCase().includes(catFilter.toLowerCase()));
+    const catFilter =
+      filter === "team-report"
+        ? window._teamReportCatFilter
+        : window._allReportCatFilter;
+    if (catFilter)
+      filtered = filtered.filter((t) =>
+        catFilter === "Tanpa Kategori"
+          ? !t.kategori || t.kategori === ""
+          : (t.kategori || "").toLowerCase().includes(catFilter.toLowerCase()),
+      );
 
-    filtered.sort((a, b) => (a.departemen || "").localeCompare(b.departemen || "") || (a.kategori || "").localeCompare(b.kategori || "") || (b.tanggal || "").localeCompare(a.tanggal || ""));
+    filtered.sort(
+      (a, b) =>
+        (a.departemen || "").localeCompare(b.departemen || "") ||
+        (a.kategori || "").localeCompare(b.kategori || "") ||
+        b.tanggal.localeCompare(a.tanggal),
+    );
   } else if (filter === "weekly") {
     loadWeeklyReports();
     return;
@@ -2076,7 +2091,10 @@ function _renderDailyTaskListContent(filter, today) {
         if (a.tanggal < today && b.tanggal >= today) return -1;
         if (b.tanggal < today && a.tanggal >= today) return 1;
       }
-      return (a.tanggal || "").localeCompare(b.tanggal || "") || (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1);
+      return (
+        a.tanggal.localeCompare(b.tanggal) ||
+        (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1)
+      );
     });
   }
 
@@ -2084,8 +2102,12 @@ function _renderDailyTaskListContent(filter, today) {
   if (statsEl) {
     const total = _dailyTaskData.length;
     const done = _dailyTaskData.filter((t) => t.done).length;
-    const todayTasks = _dailyTaskData.filter((t) => t.tanggal === today && !t.done).length;
-    const overdue = _dailyTaskData.filter((t) => t.tanggal < today && !t.done).length;
+    const todayTasks = _dailyTaskData.filter(
+      (t) => t.tanggal === today && !t.done,
+    ).length;
+    const overdue = _dailyTaskData.filter(
+      (t) => t.tanggal < today && !t.done,
+    ).length;
     statsEl.innerHTML = `<div class="stat-card" style="border-left-color:#1565c0"><div class="stat-value" style="color:#1565c0">${total}</div><div class="stat-label">Total Task</div></div><div class="stat-card" style="border-left-color:#f57f17"><div class="stat-value" style="color:#f57f17">${todayTasks}</div><div class="stat-label">Hari Ini</div></div><div class="stat-card" style="border-left-color:#c62828"><div class="stat-value" style="color:#c62828">${overdue}</div><div class="stat-label">Terlambat</div></div><div class="stat-card" style="border-left-color:#2e7d32"><div class="stat-value" style="color:#2e7d32">${done}</div><div class="stat-label">Selesai</div></div>`;
   }
 
@@ -2104,45 +2126,68 @@ function _renderDailyTaskListContent(filter, today) {
       <button class="btn btn-xs btn-outline" onclick="document.getElementById('historyAssignedFrom').value='';document.getElementById('historyAssignedTo').value='';loadDailyTasks('history-assigned')">Reset</button>
     </div>`;
   }
-
   if (filter === "team-report" || filter === "all-report") {
-      const curFrom = document.getElementById("reportDateFrom")?.value || "";
-      const curTo = document.getElementById("reportDateTo")?.value || "";
-      html = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px;background:#f9f9f9;border-radius:8px">
-        <span class="text-sm fw-700">📅 Periode:</span>
-        <input type="date" class="form-control" id="reportDateFrom" value="${escAttr(curFrom)}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('${filter}')">
-        <span class="text-sm">s/d</span>
-        <input type="date" class="form-control" id="reportDateTo" value="${escAttr(curTo)}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('${filter}')">
-        <button class="btn btn-xs btn-outline" onclick="document.getElementById('reportDateFrom').value='';document.getElementById('reportDateTo').value='';loadDailyTasks('${filter}')">Reset</button>
-      </div>`;
+    const curFrom = document.getElementById("reportDateFrom")?.value || "";
+    const curTo = document.getElementById("reportDateTo")?.value || "";
+    html = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px;background:#f9f9f9;border-radius:8px">
+      <span class="text-sm fw-700">📅 Periode:</span>
+      <input type="date" class="form-control" id="reportDateFrom" value="${escAttr(curFrom)}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('${filter}')">
+      <span class="text-sm">s/d</span>
+      <input type="date" class="form-control" id="reportDateTo" value="${escAttr(curTo)}" style="max-width:160px;padding:6px 10px" onchange="loadDailyTasks('${filter}')">
+      <button class="btn btn-xs btn-outline" onclick="document.getElementById('reportDateFrom').value='';document.getElementById('reportDateTo').value='';loadDailyTasks('${filter}')">Reset</button>
+    </div>`;
 
-      let divFilterBtns = "";
-      if (hasHeadLevelAccess()) {
-        const curDiv = filter === "team-report" ? window._teamReportDivFilter : window._allReportDivFilter;
-        divFilterBtns = `<button class="btn btn-xs ${!curDiv ? "btn-primary" : "btn-outline"}" onclick="window['_${filter === "team-report" ? "team" : "all"}ReportDivFilter']='';loadDailyTasks('${filter}')">Semua</button>
-        <button class="btn btn-xs ${curDiv === "ACADEMIC" ? "btn-primary" : "btn-outline"}" onclick="window['_${filter === "team-report" ? "team" : "all"}ReportDivFilter']='ACADEMIC';loadDailyTasks('${filter}')">📚 ACADEMIC</button>
-        <button class="btn btn-xs ${curDiv === "OFFICE" ? "btn-primary" : "btn-outline"}" onclick="window['_${filter === "team-report" ? "team" : "all"}ReportDivFilter']='OFFICE';loadDailyTasks('${filter}')">🏢 OFFICE</button>`;
-      }
+    let divFilterBtns = "";
+    if (hasHeadLevelAccess()) {
+      const curDiv =
+        filter === "team-report"
+          ? window._teamReportDivFilter
+          : window._allReportDivFilter;
+      divFilterBtns = `<button class="btn btn-xs ${!curDiv ? "btn-primary" : "btn-outline"}" onclick="window['_${filter === "team-report" ? "team" : "all"}ReportDivFilter']='';loadDailyTasks('${filter}')">Semua</button>
+      <button class="btn btn-xs ${curDiv === "ACADEMIC" ? "btn-primary" : "btn-outline"}" onclick="window['_${filter === "team-report" ? "team" : "all"}ReportDivFilter']='ACADEMIC';loadDailyTasks('${filter}')">📚 ACADEMIC</button>
+      <button class="btn btn-xs ${curDiv === "OFFICE" ? "btn-primary" : "btn-outline"}" onclick="window['_${filter === "team-report" ? "team" : "all"}ReportDivFilter']='OFFICE';loadDailyTasks('${filter}')">🏢 OFFICE</button>`;
+    }
 
-      let catOpts = '<option value="">Semua Kategori</option>';
-      const catList = ["Siswa","Sensei","Curriculum","TSK-Job","HR & Legal","Document","Facility's","Finance","Marketing & Sales","Promosi","Tanpa Kategori"];
-      const curCat = filter === "team-report" ? window._teamReportCatFilter : window._allReportCatFilter;
-      catList.forEach(c => catOpts += `<option value="${c}" ${curCat === c ? "selected" : ""}>${c}</option>`);
+    let catOpts = '<option value="">Semua Kategori</option>';
+    const catList = [
+      "Siswa",
+      "Sensei",
+      "Curriculum",
+      "TSK-Job",
+      "HR & Legal",
+      "Document",
+      "Facility's",
+      "Finance",
+      "Marketing & Sales",
+      "Promosi",
+      "Tanpa Kategori",
+    ];
+    const curCat =
+      filter === "team-report"
+        ? window._teamReportCatFilter
+        : window._allReportCatFilter;
+    catList.forEach(
+      (c) =>
+        (catOpts += `<option value="${c}" ${curCat === c ? "selected" : ""}>${c}</option>`),
+    );
 
-      html += `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">${divFilterBtns} <select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window['_${filter === "team-report" ? "team" : "all"}ReportCatFilter']=this.value;loadDailyTasks('${filter}')">${catOpts}</select></div>`;
-      html += _renderGroupedReportTracker(filtered, filter);
-      listEl.innerHTML = html;
-      return;
+    html += `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">${divFilterBtns} <select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window['_${filter === "team-report" ? "team" : "all"}ReportCatFilter']=this.value;loadDailyTasks('${filter}')">${catOpts}</select></div>`;
+    html += _renderGroupedReportTracker(filtered, filter);
+    listEl.innerHTML = html;
+    return;
   }
 
   for (const t of filtered) {
     if (isDailyReportEntry(t)) {
-      const progressColor = (t.progress || 0) >= 80 ? "#2e7d32" : (t.progress || 0) >= 50 ? "#f57f17" : "#c62828";
-      const levelMateri = (t.kategori === "SISWA") ? `<div style="font-size:.7rem; color:#1565c0; margin-top:4px; font-weight:600">📍 LEVEL: ${escHtml(t.level || "-")} | 📚 MATERI: ${escHtml(t.materi || "-")}</div>` : "";
+      const progressColor =
+        (t.progress || 0) >= 80
+          ? "#2e7d32"
+          : (t.progress || 0) >= 50
+            ? "#f57f17"
+            : "#c62828";
       html += `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border-left:4px solid #7b1fa2;margin-bottom:8px;background:#faf5ff;border-radius:0 8px 8px 0;cursor:pointer" onclick="viewDailyReport('${t.id}')">
         <div style="font-size:1.5rem">📝</div>
         <div style="flex:1"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:700;font-size:.9rem">${escHtml(t.title || "Daily Report")}</span><span class="badge" style="background:#7b1fa220;color:#7b1fa2">Report</span></div>
-        ${levelMateri}
         <div style="font-size:.8rem;color:#666;margin-top:4px">${escHtml((t.aktivitas || "").substring(0, 100))}...</div>
         <div style="font-size:.7rem;color:#999;margin-top:4px">👤 ${escHtml(t.targetUserName || "")} | 📅 ${formatDate(t.tanggal)} | Progress: <span style="color:${progressColor};font-weight:600">${t.progress || 0}%</span></div>
         </div>
@@ -2150,8 +2195,14 @@ function _renderDailyTaskListContent(filter, today) {
         ${doesTaskBelongToUser(t) || hasAccess(3) ? `<button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyReport('${t.id}')">✏️</button>` : ""}
         </div></div>`;
     } else {
-      const isOverdue = t.tanggal < todayStr() && !t.done;
-      const borderColor = t.done ? "#2e7d32" : isOverdue ? "#c62828" : t.tanggal === todayStr() ? "#1565c0" : "#e0e0e0";
+      const isOverdue = t.tanggal < today && !t.done;
+      const borderColor = t.done
+        ? "#2e7d32"
+        : isOverdue
+          ? "#c62828"
+          : t.tanggal === today
+            ? "#1565c0"
+            : "#e0e0e0";
       html += `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border-left:4px solid ${borderColor};margin-bottom:8px;background:${t.done ? "#f1f8e9" : isOverdue ? "#fff8f8" : "#fff"};border-radius:0 8px 8px 0;cursor:pointer" onclick="viewDailyTask('${t.id}')">
         <input type="checkbox" ${t.done ? "checked" : ""} onchange="event.stopPropagation();toggleDailyTask('${t.id}')" style="margin-top:4px;width:18px;height:18px;accent-color:#2e7d32;cursor:pointer">
         <div style="flex:1"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:700;font-size:.9rem;${t.done ? "text-decoration:line-through;color:#999" : ""}">${escHtml(t.title)}</span></div>
@@ -2171,11 +2222,15 @@ function filterDailyTasks(f) {
 function viewDailyTask(id) {
   var task = _dailyTaskData.find((t) => t.id === id);
   if (!task) {
-    db.collection("hrd_daily_tasks").doc(id).get().then(function (doc) {
+    // Fallback: fetch from Firestore if not in local cache
+    db.collection("hrd_daily_tasks")
+      .doc(id)
+      .get()
+      .then(function (doc) {
         if (!doc.exists) return toast("Data tidak ditemukan", "warning");
         var t = { id: doc.id, ...doc.data() };
         _showDailyTaskDetail(t);
-    });
+      });
     return;
   }
   _showDailyTaskDetail(task);
@@ -2184,17 +2239,45 @@ function viewDailyTask(id) {
 function _showDailyTaskDetail(task) {
   const userName = (currentUser.nama || "").toLowerCase().trim();
   const isGA = userName.includes("rizky") || userName.includes("rizkynur");
-  const priorityLabel = task.priority === "high" ? "Tinggi" : task.priority === "low" ? "Rendah" : "Sedang";
-  const priorityColor = task.priority === "high" ? "#c62828" : task.priority === "low" ? "#666" : "#f57f17";
-  const trackerProgress = task.done ? 100 : Math.max(0, Math.min(100, parseInt(task.progress, 10) || 0));
-  const trackerColor = trackerProgress >= 100 ? "#2e7d32" : trackerProgress >= 50 ? "#f57f17" : "#c62828";
+  const priorityLabel =
+    task.priority === "high"
+      ? "Tinggi"
+      : task.priority === "low"
+        ? "Rendah"
+        : "Sedang";
+  const priorityColor =
+    task.priority === "high"
+      ? "#c62828"
+      : task.priority === "low"
+        ? "#666"
+        : "#f57f17";
+  const trackerProgress = task.done
+    ? 100
+    : Math.max(0, Math.min(100, parseInt(task.progress, 10) || 0));
+  const trackerColor =
+    trackerProgress >= 100
+      ? "#2e7d32"
+      : trackerProgress >= 50
+        ? "#f57f17"
+        : "#c62828";
   const trackerActivity = task.aktivitas || task.description || "-";
-  const statusLabel = task.done ? '<span class="badge badge-success">Selesai</span>' : task.tanggal < todayStr() ? '<span class="badge badge-danger">Terlambat</span>' : '<span class="badge badge-info">Aktif</span>';
+  const statusLabel = task.done
+    ? '<span class="badge badge-success">Selesai</span>'
+    : task.tanggal < todayStr()
+      ? '<span class="badge badge-danger">Terlambat</span>'
+      : '<span class="badge badge-info">Aktif</span>';
 
+  // Specific Feedback Section for Kaizen (Latest Superior Feedback)
   let feedbackHtml = "";
-  if (task.source === "FORM KAIZEN" && (task.kaizenStatus === "pending" || task.kaizenStatus === "rejected")) {
+  if (
+    task.source === "FORM KAIZEN" &&
+    (task.kaizenStatus === "pending" || task.kaizenStatus === "rejected")
+  ) {
     const color = task.kaizenStatus === "pending" ? "#f57f17" : "#c62828";
-    const label = task.kaizenStatus === "pending" ? "⚠️ REVISI ATASAN (PENDING)" : "❌ TUGAS DITOLAK (REJECT)";
+    const label =
+      task.kaizenStatus === "pending"
+        ? "⚠️ REVISI ATASAN (PENDING)"
+        : "❌ TUGAS DITOLAK (REJECT)";
     feedbackHtml = `
       <div style="margin-top:16px; padding:14px; background:#fff8e1; border-radius:10px; border:2px solid ${color}">
           <div class="fw-700 mb-4" style="color:${color}; font-size:0.85rem">${label}</div>
@@ -2204,34 +2287,57 @@ function _showDailyTaskDetail(task) {
       </div>`;
   }
 
+  // Build Logs History for Kaizen
   let logsHtml = "";
-  if (task.source === "FORM KAIZEN" && task.kaizenLogs && task.kaizenLogs.length > 0) {
-    logsHtml = '<div style="margin-top:16px; border-top:1px solid #eee; padding-top:12px"><div class="fw-700 mb-8" style="font-size:0.85rem; color:#555">💬 Riwayat Komentar & Keputusan:</div>';
+  if (
+    task.source === "FORM KAIZEN" &&
+    task.kaizenLogs &&
+    task.kaizenLogs.length > 0
+  ) {
+    logsHtml =
+      '<div style="margin-top:16px; border-top:1px solid #eee; padding-top:12px"><div class="fw-700 mb-8" style="font-size:0.85rem; color:#555">💬 Riwayat Komentar & Keputusan:</div>';
     task.kaizenLogs.forEach((log) => {
       const date = formatDateTime(log.timestamp);
       let color = "#333";
-      let actionLabel = log.action === "comment" ? "" : "PUTUSAN: " + log.action;
+      let actionLabel =
+        log.action === "comment" ? "" : "PUTUSAN: " + log.action;
       if (log.action === "approved") color = "#2e7d32";
       else if (log.action === "pending") color = "#f57f17";
       else if (log.action === "rejected") color = "#c62828";
-      else if (log.action === "update_progress" || log.action === "submit_done") {
+      else if (
+        log.action === "update_progress" ||
+        log.action === "submit_done"
+      ) {
         color = "var(--primary)";
         actionLabel = `UPDATE PROGRESS: ${log.progress || 0}%`;
       }
+
       const isMyLog = log.userId === currentUser.id;
-      const deleteBtn = isMyLog ? `<button class="btn btn-xs btn-outline" style="color:#ccc; border:none; padding:2px; min-width:auto" onclick="deleteKaizenLog('${task.id}', '${log.timestamp}')" title="Hapus Komentar/Log">🗑️</button>` : "";
+      const deleteBtn = isMyLog
+        ? `<button class="btn btn-xs btn-outline" style="color:#ccc; border:none; padding:2px; min-width:auto" onclick="deleteKaizenLog('${task.id}', '${log.timestamp}')" title="Hapus Komentar/Log">🗑️</button>`
+        : "";
+
+      // Attachments for this specific log entry
       let attachHtml = "";
       if (log.attachments && log.attachments.length > 0) {
-        attachHtml = '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px">';
-        log.attachments.forEach((a) => {
-          attachHtml += `<div style="cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify(a))}')"><img src="${a.data}" style="width:50px; height:50px; object-fit:cover; border-radius:4px; border:1px solid #ddd" title="${escHtml(a.name)}"></div>`;
+        attachHtml =
+          '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px">';
+        log.attachments.forEach((a, i) => {
+          attachHtml += `<div style="cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify(a))}')">
+                    <img src="${a.data}" style="width:50px; height:50px; object-fit:cover; border-radius:4px; border:1px solid #ddd" title="${escHtml(a.name)}">
+                </div>`;
         });
         attachHtml += "</div>";
       }
-      logsHtml += `<div style="margin-bottom:10px; font-size:0.78rem; background:#fff; border:1px solid #f0f0f0; padding:8px; border-radius:6px">
+
+      logsHtml += `
+        <div style="margin-bottom:10px; font-size:0.78rem; background:#fff; border:1px solid #f0f0f0; padding:8px; border-radius:6px">
             <div style="display:flex; justify-content:space-between; margin-bottom:4px">
                 <b style="color:var(--primary)">${escHtml(log.userName)}</b>
-                <div style="display:flex; align-items:center; gap:8px"><span style="color:#999">${date}</span>${deleteBtn}</div>
+                <div style="display:flex; align-items:center; gap:8px">
+                    <span style="color:#999">${date}</span>
+                    ${deleteBtn}
+                </div>
             </div>
             <div style="color:${color}; font-weight:600; text-transform:uppercase; font-size:0.65rem; margin-bottom:2px">${actionLabel}</div>
             <div style="white-space:pre-wrap">${escHtml(log.comment)}</div>
@@ -2241,90 +2347,63 @@ function _showDailyTaskDetail(task) {
     logsHtml += "</div>";
   }
 
+  // General Comment Input for Kaizen
   let commentInput = "";
   if (task.source === "FORM KAIZEN") {
-    commentInput = `<div style="margin-top:12px; display:flex; gap:8px"><input class="form-control" id="kzGenComment" placeholder="Tambah komentar..." style="font-size:0.8rem"><button class="btn btn-primary btn-sm" onclick="addKaizenGeneralComment('${task.id}')">Kirim</button></div>`;
+    commentInput = `
+      <div style="margin-top:12px; display:flex; gap:8px">
+          <input class="form-control" id="kzGenComment" placeholder="Tambah komentar..." style="font-size:0.8rem">
+          <button class="btn btn-primary btn-sm" onclick="addKaizenGeneralComment('${task.id}')">Kirim</button>
+      </div>`;
   }
 
-  openModal(`<div class="modal-title">📋 Detail Task</div>
-    <table style="width:100%;border-collapse:collapse">
-      <tr><td style="padding:8px;font-weight:700;width:140px">Judul</td><td style="padding:8px">${escHtml(task.title)}</td></tr>
-      <tr><td style="padding:8px;font-weight:700;width:140px;vertical-align:top">Deskripsi</td><td style="padding:8px;white-space:pre-line;word-break:break-word">${escHtml(task.description || "-")}</td></tr>
-      <tr><td style="padding:8px;font-weight:700">Tanggal</td><td style="padding:8px">${formatDate(task.tanggal)}</td></tr>
-      <tr><td style="padding:8px;font-weight:700">Waktu</td><td style="padding:8px">${task.waktu || "-"}</td></tr>
-      <tr><td style="padding:8px;font-weight:700">Prioritas</td><td style="padding:8px"><span style="color:${priorityColor};font-weight:600">${priorityLabel}</span></td></tr>
-      <tr><td style="padding:8px;font-weight:700">Pengingat</td><td style="padding:8px">${task.reminder || "Tidak ada"}</td></tr>
-      <tr><td style="padding:8px;font-weight:700">Status</td><td style="padding:8px">${statusLabel}</td></tr>
-      ${task.assignedByName ? `<tr><td style="padding:8px;font-weight:700">Ditugaskan oleh</td><td style="padding:8px">${escHtml(task.assignedByName)}</td></tr>` : ""}
-      ${task.targetUserName ? `<tr><td style="padding:8px;font-weight:700">Untuk</td><td style="padding:8px">${escHtml(task.targetUserName)}</td></tr>` : ""}
-      ${task.doneAt ? `<tr><td style="padding:8px;font-weight:700">Selesai pada</td><td style="padding:8px">${formatDate(task.doneAt.split("T")[0])} ${task.doneAt.split("T")[1]?.substring(0, 5) || ""}</td></tr>` : ""}
-    </table>
-    <div style="margin-top:16px;padding:14px;background:#f9f9f9;border-radius:10px;border:1px solid #dfe7ff">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-        <div class="fw-700" style="color:#1565c0">📈 Tracker Aktivitas</div>
-        <div style="font-weight:700;color:${trackerColor}">${trackerProgress}%</div>
+  openModal(
+    `<div class="modal-title">📋 Detail Task</div>
+    <div style="font-size:1.1rem; line-height:1.6">
+      <table style="width:100%;border-collapse:collapse">
+        <tr><td style="padding:10px;font-weight:700;width:160px;color:#555">Judul</td><td style="padding:10px;font-weight:600">${escHtml(task.title)}</td></tr>
+        <tr><td style="padding:10px;font-weight:700;vertical-align:top;color:#555">Deskripsi</td><td style="padding:10px;white-space:pre-line;word-break:break-word">${escHtml(task.description || "-")}</td></tr>
+        <tr><td style="padding:10px;font-weight:700;color:#555">Tanggal</td><td style="padding:10px">${formatDate(task.tanggal)}</td></tr>
+        <tr><td style="padding:10px;font-weight:700;color:#555">Waktu</td><td style="padding:10px">${task.waktu || "-"}</td></tr>
+        <tr><td style="padding:10px;font-weight:700;color:#555">Prioritas</td><td style="padding:10px"><span style="color:${priorityColor};font-weight:600">${priorityLabel}</span></td></tr>
+        <tr><td style="padding:10px;font-weight:700;color:#555">Pengingat</td><td style="padding:10px">${task.reminder || "Tidak ada"}</td></tr>
+        <tr><td style="padding:10px;font-weight:700;color:#555">Status</td><td style="padding:10px">${statusLabel}</td></tr>
+        ${task.assignedByName ? `<tr><td style="padding:10px;font-weight:700;color:#555">Ditugaskan oleh</td><td style="padding:10px">${escHtml(task.assignedByName)}</td></tr>` : ""}
+        ${task.targetUserName ? `<tr><td style="padding:10px;font-weight:700;color:#555">Untuk</td><td style="padding:10px">${escHtml(task.targetUserName)}</td></tr>` : ""}
+        ${task.doneAt ? `<tr><td style="padding:10px;font-weight:700;color:#555">Selesai pada</td><td style="padding:10px">${formatDate(task.doneAt.split("T")[0])} ${task.doneAt.split("T")[1] ? task.doneAt.split("T")[1].substring(0, 5) : ""}</td></tr>` : ""}
+      </table>
+      <div style="margin-top:20px;padding:18px;background:#f9f9f9;border-radius:12px;border:1px solid #dfe7ff">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <div class="fw-700" style="color:#1565c0; font-size:1.1rem">📈 Tracker Aktivitas</div>
+          <div style="font-weight:700;color:${trackerColor}; font-size:1.2rem">${trackerProgress}%</div>
+        </div>
+        <div style="height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin:12px 0 14px">
+          <div style="height:100%;width:${trackerProgress}%;background:${trackerColor};border-radius:999px"></div>
+        </div>
+        <div style="font-size:1rem;color:#333;white-space:pre-wrap;line-height:1.7">📋 ${escHtml(trackerActivity)}</div>
+        ${task.kendala ? `<div style="font-size:.95rem;color:#c62828;margin-top:10px;white-space:pre-wrap">⚠️ Kendala: ${escHtml(task.kendala)}</div>` : ""}
+        ${task.solusi ? `<div style="font-size:.95rem;color:#ef6c00;margin-top:8px;white-space:pre-wrap">💡 Tindak Lanjut: ${escHtml(task.solusi)}</div>` : ""}
       </div>
-      <div style="height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin:8px 0 10px">
-        <div style="height:100%;width:${trackerProgress}%;background:${trackerColor};border-radius:999px"></div>
-      </div>
-      <div style="font-size:.82rem;color:#333;white-space:pre-wrap;line-height:1.6">📋 ${escHtml(trackerActivity)}</div>
-      ${task.kendala ? `<div style="font-size:.78rem;color:#c62828;margin-top:8px;white-space:pre-wrap">⚠️ Kendala: ${escHtml(task.kendala)}</div>` : ""}
-      ${task.solusi ? `<div style="font-size:.78rem;color:#ef6c00;margin-top:6px;white-space:pre-wrap">💡 Tindak Lanjut: ${escHtml(task.solusi)}</div>` : ""}
+      ${task.attachments && task.attachments.length ? `<div style="margin-top:20px;padding:20px;background:#f9f9f9;border-radius:12px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:var(--primary)">📎 Lampiran Eviden (${task.attachments.length} file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px">${task.attachments.map((a, i) => (a.type && a.type.startsWith("image/") ? `<div style="text-align:center;cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><img src="${a.data}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.65rem;color:#666;margin-top:6px">${escHtml(a.name || "Foto " + (i + 1))}</div></div>` : `<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:16px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><div style="font-size:2.5rem">${a.name && a.name.endsWith(".pdf") ? "📕" : a.name && a.name.match(/\\.docx?$/) ? "📘" : a.name && a.name.match(/\\.xlsx?$/) ? "📗" : "📄"}</div><div style="font-size:.7rem;color:#333;margin-top:6px;text-align:center;word-break:break-all">${escHtml(a.name)}</div><div style="font-size:.65rem;color:#1565c0;margin-top:6px">👁️ Lihat</div></div>`)).join("")}</div></div>` : ""}
+
+      ${feedbackHtml}
+      ${logsHtml}
+      ${commentInput}
     </div>
-    ${task.attachments?.length ? `<div style="margin-top:16px;padding:16px;background:#f9f9f9;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:var(--primary)">📎 Lampiran Eviden (${task.attachments.length} file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px">${task.attachments.map((a, i) => (a.type?.startsWith("image/") ? `<div style="text-align:center;cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify(a))}')"><img src="${a.data}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.6rem;color:#666;margin-top:4px">${escHtml(a.name || "Foto " + (i + 1))}</div></div>` : `<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:12px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden('${encodeURIComponent(JSON.stringify(a))}')"><div style="font-size:2rem">${a.name?.endsWith(".pdf") ? "📕" : a.name?.match(/\\.docx?$/) ? "📘" : a.name?.match(/\\.xlsx?$/) ? "📗" : "📄"}</div><div style="font-size:.65rem;color:#333;margin-top:4px;text-align:center;word-break:break-all">${escHtml(a.name)}</div><div style="font-size:.6rem;color:#1565c0;margin-top:4px">👁️ Lihat</div></div>`)).join("")}</div></div>` : ""}
 
-    ${feedbackHtml}
-    ${logsHtml}
-    ${commentInput}
-
-    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-      ${hasAccess(6) || (doesTaskBelongToUser(task) && !isGA) || wasTaskAssignedByUser(task) ? `<button class="btn btn-sm btn-warning" onclick="closeModalDirect();editDailyTask('${task.id}')">✏️ Edit</button>` : ""}
-      <a href="${buildGCalUrl(task)}" target="_blank" class="btn btn-sm btn-info" style="text-decoration:none">📅 Google Calendar</a>
-      <button class="btn btn-sm btn-outline" onclick="closeModalDirect()">Tutup</button>
-    </div>`);
+    <div style="margin-top:24px;display:flex;gap:12px;justify-content:flex-end">
+      ${hasAccess(6) || (doesTaskBelongToUser(task) && !isGA) || wasTaskAssignedByUser(task) ? `<button class="btn btn-warning" onclick="closeModalDirect();editDailyTask('${task.id}')">✏️ Edit Task</button>` : ""}
+      <a href="${buildGCalUrl(task)}" target="_blank" class="btn btn-info" style="text-decoration:none">📅 Google Calendar</a>
+      <button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>
+    </div>`,
+    "modal-xl",
+  );
 }
 
 async function modalAddTask() {
-  // Admin/HR can assign to everyone
+  // Leader/Manager/Head can assign tasks to subordinates
   let assignHtml = "";
-  if (hasAccess(6)) {
-    try {
-      const usersSnap = await db.collection("hrd_users").get();
-      let checkboxes = "";
-      for (const d of usersSnap.docs) {
-        var u = d.data();
-        if (u.status !== "nonaktif" && d.id !== currentUser.id) {
-          checkboxes +=
-            '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">';
-          checkboxes +=
-            '<input type="checkbox" class="dt-assign-cb" value="' +
-            d.id +
-            '" data-nama="' +
-            escHtml(u.nama) +
-            '"> ';
-          checkboxes +=
-            "<span>" +
-            escHtml(u.nama) +
-            ' <span style="color:#999;font-size:.75rem">(' +
-            escHtml(u.departemen || "-") +
-            ")</span></span></label>";
-        }
-      }
-      assignHtml = '<div class="form-group"><label>Tugaskan Ke</label>';
-      assignHtml +=
-        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:4px;background:#f9f9f9;border-radius:6px;cursor:pointer"><input type="checkbox" id="dtAssignSelf" checked> <span class="fw-700">📝 Untuk Diri Sendiri</span></label>';
-      assignHtml +=
-        '<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
-      assignHtml +=
-        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #eee;cursor:pointer"><input type="checkbox" id="dtAssignAll" onchange="document.querySelectorAll(\'.dt-assign-cb\').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="fw-700 text-sm">Pilih Semua</span></label>';
-      assignHtml += checkboxes;
-      assignHtml +=
-        '</div><div class="text-xs" style="color:#999;margin-top:4px">Centang satu atau lebih karyawan</div></div>';
-    } catch (_e) {
-      assignHtml = "";
-    }
-  } else if (hasAccess(2) && !hasAccess(5)) {
-    // Leader/Manager/Head can assign tasks to subordinates
+  if (hasAccess(2) && !hasAccess(5)) {
     try {
       const usersSnap = await db.collection("hrd_users").get();
       const myDept = (currentUser.departemen || "").toLowerCase().trim();
@@ -2427,6 +2506,42 @@ async function modalAddTask() {
     } catch (_e) {
       assignHtml = "";
     }
+  } else if (hasAccess(6)) {
+    try {
+      const usersSnap = await db.collection("hrd_users").get();
+      let checkboxes = "";
+      for (const d of usersSnap.docs) {
+        var u = d.data();
+        if (u.status !== "nonaktif" && d.id !== currentUser.id) {
+          checkboxes +=
+            '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">';
+          checkboxes +=
+            '<input type="checkbox" class="dt-assign-cb" value="' +
+            d.id +
+            '" data-nama="' +
+            escHtml(u.nama) +
+            '"> ';
+          checkboxes +=
+            "<span>" +
+            escHtml(u.nama) +
+            ' <span style="color:#999;font-size:.75rem">(' +
+            escHtml(u.departemen || "-") +
+            ")</span></span></label>";
+        }
+      }
+      assignHtml = '<div class="form-group"><label>Tugaskan Ke</label>';
+      assignHtml +=
+        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:4px;background:#f9f9f9;border-radius:6px;cursor:pointer"><input type="checkbox" id="dtAssignSelf" checked> <span class="fw-700">📝 Untuk Diri Sendiri</span></label>';
+      assignHtml +=
+        '<div style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">';
+      assignHtml +=
+        '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #eee;cursor:pointer"><input type="checkbox" id="dtAssignAll" onchange="document.querySelectorAll(\'.dt-assign-cb\').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="fw-700 text-sm">Pilih Semua</span></label>';
+      assignHtml += checkboxes;
+      assignHtml +=
+        '</div><div class="text-xs" style="color:#999;margin-top:4px">Centang satu atau lebih karyawan</div></div>';
+    } catch (_e) {
+      assignHtml = "";
+    }
   }
   const catHtml =
     hasAccess(2) && !hasAccess(3)
@@ -2451,10 +2566,6 @@ async function simpanDailyTask() {
   const title = document.getElementById("dtTitle").value.trim();
   const tanggal = document.getElementById("dtDate").value;
   if (!title || !tanggal) return toast("Judul dan tanggal wajib", "warning");
-
-  const btn = document.querySelector(".modal .btn-primary");
-  const originalText = btn ? btn.innerHTML : "Simpan";
-
   // Collect selected users from checkboxes
   var targets = [];
   var selfCb = document.getElementById("dtAssignSelf");
@@ -2465,53 +2576,47 @@ async function simpanDailyTask() {
   assignCbs.forEach(function (cb) {
     targets.push({ id: cb.value, nama: cb.getAttribute("data-nama") || "" });
   });
-
-  if (!targets.length) targets.push({ id: currentUser.id, nama: currentUser.nama });
-
-  try {
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ⏳ Memproses...';
+  // Fallback: if nothing selected, assign to self (old dropdown compatibility)
+  var oldSelect = document.getElementById("dtAssignUser");
+  if (!targets.length && oldSelect) {
+    if (oldSelect.value === "self") {
+      targets.push({ id: currentUser.id, nama: currentUser.nama });
+    } else {
+      var opt = oldSelect.options[oldSelect.selectedIndex];
+      targets.push({
+        id: oldSelect.value,
+        nama: opt.getAttribute("data-nama") || opt.text,
+      });
     }
-
+  }
+  if (!targets.length)
+    targets.push({ id: currentUser.id, nama: currentUser.nama });
+  try {
     const kategoriEl = document.getElementById("dtKategori");
     const attachments = await getFilesAsBase64("dtFiles");
-
-    // Check total size to prevent Firestore 1MB limit crash
-    const totalSize = attachments.reduce((acc, cur) => acc + (cur.size || 0), 0);
-    if (totalSize > 800 * 1024) {
-        throw new Error("Total ukuran lampiran terlalu besar (maks 800KB untuk Firestore). Silakan gunakan file yang lebih kecil atau kurangi jumlah file.");
-    }
-
-    const desc = document.getElementById("dtDesc").value.trim();
-    const aktivitas = document.getElementById("dtAktivitas").value.trim();
-    const progress = Math.max(0, Math.min(100, parseInt(document.getElementById("dtProgress").value, 10) || 0));
-    const kendala = document.getElementById("dtKendala").value.trim();
-    const solusi = document.getElementById("dtSolusi").value.trim();
-    const waktu = document.getElementById("dtTime").value || "";
-    const priority = document.getElementById("dtPriority").value;
-    const reminder = document.getElementById("dtReminder").value;
-    const repeat = document.getElementById("dtRepeat").value || "";
-    const kategori = kategoriEl ? kategoriEl.value : "";
-    const createdAt = new Date().toISOString();
-
     for (var i = 0; i < targets.length; i++) {
       var t = targets[i];
-      var isSelf = (t.id === currentUser.id);
-
-      const taskData = {
+      var assignedBy = t.id !== currentUser.id ? currentUser.id : "";
+      var assignedByName = t.id !== currentUser.id ? currentUser.nama : "";
+      await db.collection("hrd_daily_tasks").add({
         title: title,
-        description: desc,
-        aktivitas: aktivitas,
-        progress: progress,
-        kendala: kendala,
-        solusi: solusi,
+        description: document.getElementById("dtDesc").value.trim(),
+        aktivitas: document.getElementById("dtAktivitas").value.trim(),
+        progress: Math.max(
+          0,
+          Math.min(
+            100,
+            parseInt(document.getElementById("dtProgress").value, 10) || 0,
+          ),
+        ),
+        kendala: document.getElementById("dtKendala").value.trim(),
+        solusi: document.getElementById("dtSolusi").value.trim(),
         tanggal: tanggal,
-        waktu: waktu,
-        priority: priority,
-        reminder: reminder,
-        repeat: repeat,
-        kategori: kategori,
+        waktu: document.getElementById("dtTime").value || "",
+        priority: document.getElementById("dtPriority").value,
+        reminder: document.getElementById("dtReminder").value,
+        repeat: document.getElementById("dtRepeat").value || "",
+        kategori: kategoriEl ? kategoriEl.value : "",
         attachments: attachments,
         done: false,
         type: "task",
@@ -2519,39 +2624,28 @@ async function simpanDailyTask() {
         targetUserName: t.nama,
         departemen: currentUser.departemen || "",
         ownerLevel: ROLES[currentUser.role] || 0,
-        assignedBy: isSelf ? "" : currentUser.id,
-        assignedByName: isSelf ? "" : currentUser.nama,
-        createdAt: createdAt,
-      };
-
-      await db.collection("hrd_daily_tasks").add(taskData);
-
+        assignedBy: assignedBy,
+        assignedByName: assignedByName,
+        createdAt: new Date().toISOString(),
+      });
       // Notify target user if assigned to someone else
-      if (!isSelf) {
-        try {
-            await db.collection("hrd_notifikasi").add({
-              targetUser: t.id,
-              title: "📋 Task Baru Ditugaskan",
-              message: currentUser.nama + " menugaskan: " + title,
-              read: false,
-              type: "daily-task",
-              createdAt: createdAt,
-            });
-        } catch (notifErr) { console.warn("Failed to send notification:", notifErr); }
+      if (t.id !== currentUser.id) {
+        await db.collection("hrd_notifikasi").add({
+          targetUser: t.id,
+          title: "📋 Task Baru Ditugaskan",
+          message: currentUser.nama + " menugaskan: " + title,
+          read: false,
+          type: "daily-task",
+          createdAt: new Date().toISOString(),
+        });
       }
     }
-
-    toast("Task berhasil ditambahkan untuk " + targets.length + " orang", "success");
-    closeModalDirect();
-    await loadDailyTasks(_dailyTaskFilter);
+    toast("Task ditambahkan untuk " + targets.length + " orang", "success");
   } catch (e) {
-    console.error("[simpanDailyTask Error]", e);
     toast("Gagal: " + e.message, "error");
-    if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-    }
   }
+  closeModalDirect();
+  await loadDailyTasks(_dailyTaskFilter);
 }
 
 async function toggleDailyTask(id) {
@@ -2677,7 +2771,7 @@ async function updateDailyTask(id) {
   await loadDailyTasks(_dailyTaskFilter);
 }
 
-window.hapusDailyTask = async function(id) {
+async function hapusDailyTask(id) {
   if (!confirm("Hapus task ini?")) return;
   try {
     await db.collection("hrd_daily_tasks").doc(id).delete();
@@ -2759,14 +2853,7 @@ async function checkTaskReminders() {
 }
 
 async function editDailyReport(id) {
-  let col = "hrd_daily_tasks";
-  let docId = id;
-  if (id && id.includes("::")) {
-    const parts = id.split("::");
-    col = parts[0];
-    docId = parts[1];
-  }
-  const doc = await db.collection(col).doc(docId).get();
+  const doc = await db.collection("hrd_daily_tasks").doc(id).get();
   if (!doc.exists) return toast("Data tidak ditemukan", "warning");
   const t = doc.data();
   const showKategori = !hasAccess(3);
@@ -2784,21 +2871,21 @@ async function editDailyReport(id) {
   openModal(
     `<div class="modal-title">✏️ Edit Daily Report</div>
     <div class="grid-2">
-      <div class="form-group"><label>Tanggal</label><input class="form-control" type="date" id="erTanggal" value="${t.tanggal || t.bulan || ""}"></div>
+      <div class="form-group"><label>Tanggal</label><input class="form-control" type="date" id="erTanggal" value="${t.tanggal || ""}"></div>
       ${catHtml}
     </div>
     <div class="grid-2">
       <div class="form-group"><label>Jam Masuk</label><input class="form-control" type="time" id="erJamMasuk" value="${t.jamMasuk || ""}"></div>
       <div class="form-group"><label>Jam Keluar</label><input class="form-control" type="time" id="erJamKeluar" value="${t.jamKeluar || ""}"></div>
     </div>
-    <div class="form-group"><label>Aktivitas *</label><textarea class="form-control" id="erAktivitas" rows="3">${escHtml(t.aktivitas || t.description || "")}</textarea></div>
+    <div class="form-group"><label>Aktivitas *</label><textarea class="form-control" id="erAktivitas" rows="3">${escHtml(t.aktivitas || "")}</textarea></div>
     <div class="form-group"><label>Hasil / Output</label><textarea class="form-control" id="erHasil" rows="2">${escHtml(t.hasil || "")}</textarea></div>
-    <div class="form-group"><label>Kendala</label><textarea class="form-control" id="erKendala" rows="2">${escHtml(t.kendala || t.case_desc || "")}</textarea></div>
-    <div class="form-group"><label>Solusi</label><textarea class="form-control" id="erSolusi" rows="2">${escHtml(t.solusi || t.solution || "")}</textarea></div>
-    <div class="form-group"><label>Rencana Besok</label><textarea class="form-control" id="erRencana" rows="2">${escHtml(t.rencana || t.rencanaBesok || t.planning || "")}</textarea></div>
+    <div class="form-group"><label>Kendala</label><textarea class="form-control" id="erKendala" rows="2">${escHtml(t.kendala || "")}</textarea></div>
+    <div class="form-group"><label>Solusi</label><textarea class="form-control" id="erSolusi" rows="2">${escHtml(t.solusi || "")}</textarea></div>
+    <div class="form-group"><label>Rencana Besok</label><textarea class="form-control" id="erRencana" rows="2">${escHtml(t.rencana || "")}</textarea></div>
     <div class="grid-2">
       <div class="form-group"><label>Durasi (hari)</label><input class="form-control" type="number" id="erDurasi" value="${t.durasi || 1}" step="0.5"></div>
-      <div class="form-group"><label>Progress (%)</label><input class="form-control" type="number" id="erProgress" value="${parseInt(t.progress) || 0}" min="0" max="100"></div>
+      <div class="form-group"><label>Progress (%)</label><input class="form-control" type="number" id="erProgress" value="${t.progress || 0}" min="0" max="100"></div>
     </div>
     <button class="btn btn-primary" onclick="updateDailyReport('${id}')">💾 Simpan</button>`,
     true,
@@ -2806,18 +2893,10 @@ async function editDailyReport(id) {
 }
 
 async function updateDailyReport(id) {
-  let col = "hrd_daily_tasks";
-  let docId = id;
-  if (id && id.includes("::")) {
-    const parts = id.split("::");
-    col = parts[0];
-    docId = parts[1];
-  }
   const aktivitas = document.getElementById("erAktivitas").value.trim();
   if (!aktivitas) return toast("Aktivitas wajib", "warning");
-  const tgl = document.getElementById("erTanggal").value;
   const updateData = {
-    tanggal: tgl,
+    tanggal: document.getElementById("erTanggal").value,
     jamMasuk: document.getElementById("erJamMasuk").value,
     jamKeluar: document.getElementById("erJamKeluar").value,
     aktivitas,
@@ -2828,22 +2907,14 @@ async function updateDailyReport(id) {
     durasi: parseFloat(document.getElementById("erDurasi").value) || 0,
     progress: parseInt(document.getElementById("erProgress").value) || 0,
     description: aktivitas,
-    title: "📝 Daily Report — " + formatDate(tgl),
+    title:
+      "📝 Daily Report — " +
+      formatDate(document.getElementById("erTanggal").value),
     updatedAt: new Date().toISOString(),
   };
-
-  // Field mapping for hrd_weekly_reports compatibility
-  if (col === "hrd_weekly_reports") {
-    updateData.bulan = tgl;
-    updateData.case_desc = updateData.kendala;
-    updateData.solution = updateData.solusi;
-    updateData.planning = updateData.rencana;
-    updateData.rencanaBesok = updateData.rencana;
-  }
-
   const katEl = document.getElementById("erKategori");
   if (katEl) updateData.kategori = katEl.value;
-  await db.collection(col).doc(docId).update(updateData);
+  await db.collection("hrd_daily_tasks").doc(id).update(updateData);
   closeModalDirect();
   toast("Report diperbarui", "success");
   await loadDailyTasks(_dailyTaskFilter);
@@ -2855,27 +2926,29 @@ function previewTaskFiles(input, previewId) {
   if (!preview) return;
   const files = Array.from(input.files).slice(0, 5);
   files.forEach((file) => {
-    if (file.size > 50 * 1024 * 1024) {
-      toast(`File "${file.name}" terlalu besar (maks 50MB)`, "warning");
+    if (file.size > 10 * 1024 * 1024) {
+      toast(`File "${file.name}" terlalu besar (maks 10MB)`, "warning");
       return;
     }
     const isImage = file.type.startsWith("image/");
     const reader = new FileReader();
     reader.onload = (e) => {
-      const item = document.createElement("div");
-      item.style.cssText = "position:relative;display:inline-block";
-      item.className = "file-preview-item";
-
-      const removeBtn = `<div style="position:absolute;top:-6px;right:-6px;background:#c62828;color:#fff;border-radius:50%;width:18px;height:18px;font-size:.65rem;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3)" onclick="this.parentElement.remove(); if(document.getElementById('${previewId}').children.length === 0) document.getElementById('${input.id}').value=''">✕</div>`;
-
       if (isImage) {
-        item.innerHTML = `<img src="${e.target.result}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:2px solid var(--border);cursor:pointer" onclick="window.open(this.src,'_blank')">${removeBtn}<div style="font-size:.55rem;text-align:center;color:#666;margin-top:2px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(file.name.substring(0, 12))}</div>`;
+        preview.innerHTML += `<div style="position:relative;display:inline-block" class="file-preview-item"><img src="${e.target.result}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:2px solid var(--border);cursor:pointer" onclick="window.open(this.src,'_blank')"><div style="position:absolute;top:-6px;right:-6px;background:#c62828;color:#fff;border-radius:50%;width:18px;height:18px;font-size:.65rem;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3)" onclick="this.parentElement.remove()">✕</div><div style="font-size:.55rem;text-align:center;color:#666;margin-top:2px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(file.name.substring(0, 12))}</div></div>`;
       } else {
         const ext = file.name.split(".").pop().toUpperCase();
-        const icon = ext === "PDF" ? "📕" : ext.includes("DOC") ? "📘" : ext.includes("XLS") ? "📗" : ext.includes("PPT") ? "📙" : "📄";
-        item.innerHTML = `<div style="display:inline-flex;flex-direction:column;align-items:center;padding:8px 12px;background:#f5f5f5;border-radius:8px;border:1px solid var(--border);min-width:70px">${removeBtn}<div style="font-size:1.5rem">${icon}</div><div style="font-size:.55rem;color:#666;margin-top:4px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(file.name.substring(0, 12))}</div><div style="font-size:.5rem;color:#999">${(file.size / 1024 / 1024).toFixed(1)}MB</div></div>`;
+        const icon =
+          ext === "PDF"
+            ? "📕"
+            : ext.includes("DOC")
+              ? "📘"
+              : ext.includes("XLS")
+                ? "📗"
+                : ext.includes("PPT")
+                  ? "📙"
+                  : "📄";
+        preview.innerHTML += `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;padding:8px 12px;background:#f5f5f5;border-radius:8px;border:1px solid var(--border);min-width:70px" class="file-preview-item"><div style="font-size:1.5rem">${icon}</div><div style="font-size:.55rem;color:#666;margin-top:4px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(file.name.substring(0, 12))}</div><div style="font-size:.5rem;color:#999">${(file.size / 1024 / 1024).toFixed(1)}MB</div><div style="position:absolute;top:-6px;right:-6px;background:#c62828;color:#fff;border-radius:50%;width:18px;height:18px;font-size:.65rem;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3)" onclick="this.parentElement.remove()">✕</div></div>`;
       }
-      preview.appendChild(item);
     };
     reader.readAsDataURL(file);
   });
@@ -2884,56 +2957,20 @@ function previewTaskFiles(input, previewId) {
 async function getFilesAsBase64(inputId) {
   const input = document.getElementById(inputId);
   const results = [];
-
-  const compressImage = (base64Str, maxWidth = 800, maxHeight = 800) => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        if (width > height) {
-          if (width > maxWidth) {
-            height *= maxWidth / width;
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width *= maxHeight / height;
-            height = maxHeight;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.7)); // 70% quality
-      };
-      img.onerror = () => resolve(base64Str); // Fallback to original
-      img.src = base64Str;
-    });
-  };
-
   if (input && input.files && input.files.length) {
     const files = Array.from(input.files).slice(0, 5);
     for (const file of files) {
-      if (file.size > 50 * 1024 * 1024) continue;
+      if (file.size > 10 * 1024 * 1024) continue;
       const base64 = await new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target.result);
         reader.readAsDataURL(file);
       });
-
-      let finalData = base64;
-      if (file.type.startsWith('image/')) {
-          finalData = await compressImage(base64);
-      }
-
       results.push({
         name: file.name,
         type: file.type,
-        size: finalData.length,
-        data: finalData,
+        size: file.size,
+        data: base64,
       });
     }
   }
@@ -2943,12 +2980,7 @@ async function getFilesAsBase64(inputId) {
   if (cameraEl && cameraEl.value) {
     try {
       const cam = JSON.parse(cameraEl.value);
-      for (const p of cam) {
-          if (p.data) {
-              const compressed = await compressImage(p.data);
-              results.push({ ...p, data: compressed, size: compressed.length });
-          }
-      }
+      cam.forEach((p) => results.push(p));
     } catch (e) {}
   }
   return results.slice(0, 5);
@@ -3860,14 +3892,7 @@ const REPORT_CATEGORIES = {
 };
 
 const SISWA_REPORT_DATA = {
-  LEVELS: [
-    "NYUMON",
-    "SHOKYU 1",
-    "SHOKYU 2",
-    "MENSETSU",
-    "JFT",
-    "SSW",
-  ],
+  LEVELS: ["NYUMON", "SHOKYU 1", "SHOKYU 2"],
   MATERI: {
     NYUMON: [
       "KANA",
@@ -3930,27 +3955,6 @@ const SISWA_REPORT_DATA = {
       "S2 BAB 17",
       "S2 BAB 18",
     ],
-    "MENSETSU": [
-      "Persiapan Dokumen",
-      "Latihan Jikoshoukai",
-      "Q&A Dasar",
-      "Etika Mensetsu",
-      "Mock Interview"
-    ],
-    "JFT": [
-      "Latihan Soal Dasar",
-      "Kanji & Kosakata",
-      "Listening JFT",
-      "Reading JFT",
-      "Try Out JFT"
-    ],
-    "SSW": [
-      "Materi Teknis 1",
-      "Materi Teknis 2",
-      "Bahasa Jepang Teknis",
-      "Ujian Kompetensi",
-      "Try Out SSW"
-    ]
   },
   PENCAPAIAN: {
     KANA: "Mampu membaca, menulis huruf Hiragana juga Katakana, serta mampu membedakan kedua jenis huruf tersebut.",
@@ -4048,21 +4052,6 @@ const SISWA_REPORT_DATA = {
     "S2 BAB 17":
       "Mampu menceritakan hal-hal yang sudah dilalui selama ini, beserta kesannya.",
     "S2 BAB 18": "Mampu menyebutkan mimpi atau tujuan yang ingin dicapai dimasa depan.",
-    "Persiapan Dokumen": "Mampu menyiapkan berkas-berkas penting yang diperlukan untuk proses interview kerja.",
-    "Latihan Jikoshoukai": "Mampu memperkenalkan diri dengan lancar dan sopan dalam bahasa Jepang formal (keigo).",
-    "Q&A Dasar": "Mampu menjawab pertanyaan umum seputar motivasi kerja dan pengalaman pribadi.",
-    "Etika Mensetsu": "Memahami tata krama, cara duduk, cara masuk ruangan, dan etika komunikasi saat interview.",
-    "Mock Interview": "Mampu menjalani simulasi interview secara utuh dari awal hingga akhir dengan percaya diri.",
-    "Latihan Soal Dasar": "Mampu mengerjakan soal-soal latihan JFT dengan tingkat akurasi yang baik.",
-    "Kanji & Kosakata": "Menguasai daftar kanji dan kosakata penting yang sering muncul dalam ujian JFT.",
-    "Listening JFT": "Mampu memahami instruksi lisan dan percakapan harian sesuai standar JFT.",
-    "Reading JFT": "Mampu membaca dan memahami teks pendek serta informasi umum dalam format JFT.",
-    "Try Out JFT": "Mampu menyelesaikan simulasi ujian JFT dalam batas waktu yang ditentukan.",
-    "Materi Teknis 1": "Memahami materi teknis tahap awal sesuai bidang SSW yang dipilih.",
-    "Materi Teknis 2": "Menguasai rincian operasional dan keselamatan kerja pada bidang SSW.",
-    "Bahasa Jepang Teknis": "Mampu menggunakan istilah-istilah khusus industri dalam bahasa Jepang.",
-    "Ujian Kompetensi": "Siap mengikuti ujian keterampilan khusus (SSW) di bidang yang ditekuni.",
-    "Try Out SSW": "Mampu mengerjakan simulasi ujian SSW dengan skor di atas ambang kelulusan.",
   },
 };
 
@@ -4079,15 +4068,6 @@ window.onDailyReportKategoriChange = function () {
 window.onDailyReportLevelChange = function () {
   const level = document.getElementById("drLevel").value;
   const materiEl = document.getElementById("drMateri");
-  const pencapaianEl = document.getElementById("drPencapaian");
-
-  const fieldsBox = document.getElementById("drSiswaFields");
-  const devMsgEl = document.getElementById("drSiswaDevMsg");
-
-  // Removed restriction to allow all levels to have materi and pencapaian
-  if (fieldsBox) fieldsBox.style.display = "grid";
-  if (devMsgEl) devMsgEl.style.display = "none";
-
   materiEl.innerHTML = '<option value="">-- Pilih Materi --</option>';
   if (level && SISWA_REPORT_DATA.MATERI[level]) {
     SISWA_REPORT_DATA.MATERI[level].forEach((m) => {
@@ -4117,117 +4097,56 @@ async function modalAddDailyReport() {
   // Kategori only for staff and leader (level 1-2), not manager+
   const showKategori = !hasAccess(3);
   const catHtml = showKategori
-    ? `<div class="form-group"><label>Kategori *</label><select class="form-control" id="drKategori" onchange="onDailyReportKategoriChange();saveDailyReportDraft()">${getReportCategoryOptions()}</select></div>`
-    : '<input type="hidden" id="drKategori" value="" onchange="saveDailyReportDraft()">';
+    ? `<div class="form-group"><label>Kategori *</label><select class="form-control" id="drKategori" onchange="onDailyReportKategoriChange()">${getReportCategoryOptions()}</select></div>`
+    : '<input type="hidden" id="drKategori" value="">';
   openModal(
     `<div class="modal-title">📝 Daily Report</div>
     <p class="text-sm mb-16" style="color:#666">Isi laporan aktivitas harian Anda.</p>
-    <div id="draftNotice" style="display:none; background:#fff3e0; padding:10px; border-radius:8px; border-left:4px solid var(--warning); margin-bottom:16px; font-size:.8rem">
-        ✨ Draft laporan sebelumnya telah dimuat otomatis.
-    </div>
     <div class="grid-2">
-      <div class="form-group"><label>Tanggal Laporan *</label><input class="form-control" type="date" id="drTanggal" value="${todayStr()}" oninput="saveDailyReportDraft()"></div>
+      <div class="form-group"><label>Tanggal Laporan *</label><input class="form-control" type="date" id="drTanggal" value="${todayStr()}"></div>
       ${catHtml}
     </div>
 
     <!-- SISWA SPECIFIC FIELDS -->
     <div id="drExtraSiswa" style="display:none; background:#f0f7ff; padding:15px; border-radius:10px; border:1px solid #c2e0ff; margin-bottom:15px">
-      <div class="form-group"><label>LEVEL</label>
-        <select class="form-control" id="drLevel" onchange="onDailyReportLevelChange();saveDailyReportDraft()">
-          <option value="">-- Pilih Level --</option>
-          ${SISWA_REPORT_DATA.LEVELS.map((l) => `<option value="${l}">${l}</option>`).join("")}
-        </select>
-      </div>
-
-      <div id="drSiswaDevMsg" style="display:none; margin-top:8px; font-size:0.75rem; color:#c62828; font-style:italic">
-          untuk materi dan pencapaian bab masih dalam proses pengembangan
-      </div>
-
-      <div id="drSiswaFields" class="grid-2" style="margin-top:10px">
+      <div class="grid-2">
+        <div class="form-group"><label>LEVEL</label>
+          <select class="form-control" id="drLevel" onchange="onDailyReportLevelChange()">
+            <option value="">-- Pilih Level --</option>
+            ${SISWA_REPORT_DATA.LEVELS.map((l) => `<option value="${l}">${l}</option>`).join("")}
+          </select>
+        </div>
         <div class="form-group"><label>MATERI</label>
-          <select class="form-control" id="drMateri" onchange="onDailyReportMateriChange();saveDailyReportDraft()">
+          <select class="form-control" id="drMateri" onchange="onDailyReportMateriChange()">
             <option value="">-- Pilih Materi --</option>
           </select>
         </div>
-        <div class="form-group"><label>PENCAPAIAN BAB</label>
-          <textarea class="form-control" id="drPencapaian" rows="2" readonly style="background:#f9f9f9; font-size:.85rem"></textarea>
-        </div>
+      </div>
+      <div class="form-group"><label>PENCAPAIAN BAB</label>
+        <textarea class="form-control" id="drPencapaian" rows="2" readonly style="background:#f9f9f9; font-size:.85rem"></textarea>
       </div>
     </div>
 
     <div class="grid-2">
-      <div class="form-group"><label>Jam Masuk</label><input class="form-control" type="time" id="drJamMasuk" value="08:00" oninput="saveDailyReportDraft()"></div>
-      <div class="form-group"><label>Jam Keluar</label><input class="form-control" type="time" id="drJamKeluar" value="17:00" oninput="saveDailyReportDraft()"></div>
+      <div class="form-group"><label>Jam Masuk</label><input class="form-control" type="time" id="drJamMasuk" value="08:00"></div>
+      <div class="form-group"><label>Jam Keluar</label><input class="form-control" type="time" id="drJamKeluar" value="17:00"></div>
     </div>
-    <div class="form-group"><label>Aktivitas Hari Ini *</label><textarea class="form-control" id="drAktivitas" rows="4" placeholder="1. Meeting dengan tim marketing\n2. Follow up client ABC\n3. Buat proposal project X\n..." oninput="saveDailyReportDraft()"></textarea></div>
-    <div class="form-group"><label>Hasil / Output</label><textarea class="form-control" id="drHasil" rows="2" placeholder="Proposal selesai 80%, meeting berhasil dapat approval..." oninput="saveDailyReportDraft()"></textarea></div>
-    <div class="form-group"><label>Kendala / Hambatan</label><textarea class="form-control" id="drKendala" rows="2" placeholder="Tidak ada / Menunggu data dari divisi lain..." oninput="saveDailyReportDraft()"></textarea></div>
-    <div class="form-group"><label>Solusi / Tindakan atas Kendala</label><textarea class="form-control" id="drSolusi" rows="2" placeholder="Koordinasi dengan divisi terkait / Eskalasi ke atasan..." oninput="saveDailyReportDraft()"></textarea></div>
-    <div class="form-group"><label>Rencana Besok</label><textarea class="form-control" id="drRencana" rows="2" placeholder="1. Finalisasi proposal\n2. Kirim ke client..." oninput="saveDailyReportDraft()"></textarea></div>
+    <div class="form-group"><label>Aktivitas Hari Ini *</label><textarea class="form-control" id="drAktivitas" rows="4" placeholder="1. Meeting dengan tim marketing\n2. Follow up client ABC\n3. Buat proposal project X\n..."></textarea></div>
+    <div class="form-group"><label>Hasil / Output</label><textarea class="form-control" id="drHasil" rows="2" placeholder="Proposal selesai 80%, meeting berhasil dapat approval..."></textarea></div>
+    <div class="form-group"><label>Kendala / Hambatan</label><textarea class="form-control" id="drKendala" rows="2" placeholder="Tidak ada / Menunggu data dari divisi lain..."></textarea></div>
+    <div class="form-group"><label>Solusi / Tindakan atas Kendala</label><textarea class="form-control" id="drSolusi" rows="2" placeholder="Koordinasi dengan divisi terkait / Eskalasi ke atasan..."></textarea></div>
+    <div class="form-group"><label>Rencana Besok</label><textarea class="form-control" id="drRencana" rows="2" placeholder="1. Finalisasi proposal\n2. Kirim ke client..."></textarea></div>
     <div class="grid-2">
-      <div class="form-group"><label>Durasi Pekerjaan (hari)</label><input class="form-control" type="number" id="drDurasi" min="0" max="30" step="0.5" value="1" placeholder="Contoh: 1" oninput="saveDailyReportDraft()"></div>
-      <div class="form-group"><label>Progress Keseluruhan (%)</label><input class="form-control" type="number" id="drProgress" min="0" max="100" value="100" placeholder="0-100" oninput="saveDailyReportDraft()"></div>
+      <div class="form-group"><label>Durasi Pekerjaan (hari)</label><input class="form-control" type="number" id="drDurasi" min="0" max="30" step="0.5" value="1" placeholder="Contoh: 1"></div>
+      <div class="form-group"><label>Progress Keseluruhan (%)</label><input class="form-control" type="number" id="drProgress" min="0" max="100" value="100" placeholder="0-100"></div>
     </div>
-    <div class="form-group"><label>Mood Hari Ini</label><select class="form-control" id="drMood" onchange="saveDailyReportDraft()"><option value="sangat_baik">🤩 Sangat Baik / Luar Biasa Produktif</option><option value="baik">😊 Baik / Produktif</option><option value="cukup">😐 Cukup / Biasa Saja</option><option value="kurang">😟 Kurang / Ada Hambatan</option><option value="buruk">😞 Buruk / Banyak Masalah</option><option value="sangat_buruk">😫 Sangat Buruk / Overwhelmed</option></select></div>
-    <div class="form-group"><label>Komentar untuk Atasan</label><textarea class="form-control" id="drKomentarAtasan" rows="2" placeholder="Pesan/catatan khusus untuk atasan (opsional)..." oninput="saveDailyReportDraft()"></textarea></div>
-    <div class="form-group"><label>Komentar untuk Rekan Kerja</label><textarea class="form-control" id="drKomentarRekan" rows="2" placeholder="Apresiasi/pesan untuk rekan tim (opsional)..." oninput="saveDailyReportDraft()"></textarea></div>
-    <div class="form-group"><label>📎 Lampiran Eviden</label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-        <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('drFiles').click()">📁 Pilih File (JPG/PNG/Dokumen)</button>
-        <button type="button" class="btn btn-sm btn-info" onclick="openCamera('drFilePreview','drCameraData')">📷 Kamera</button>
-      </div>
-      <input type="file" id="drFiles" multiple accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" onchange="previewTaskFiles(this,'drFilePreview')" style="display:none">
-      <input type="hidden" id="drCameraData">
-      <div id="drFilePreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
-      <div class="text-xs" style="color:#999;margin-top:4px">Maks 5 file, 50MB per file. Format: Gambar (JPG/PNG), PDF, DOC, XLS, PPT, ZIP.</div>
-    </div>
-    <div class="flex gap-8 mt-16">
-      <button class="btn btn-primary" style="flex:1; padding:12px" onclick="simpanDailyReport()">📤 Kirim Daily Report</button>
-      <button class="btn btn-outline" style="padding:12px" onclick="closeModalDirect()">✕ Tutup Laporan</button>
-    </div>`,
-    true,
+    <div class="form-group"><label>Mood Hari Ini</label><select class="form-control" id="drMood"><option value="sangat_baik">🤩 Sangat Baik / Luar Biasa Produktif</option><option value="baik">😊 Baik / Produktif</option><option value="cukup">😐 Cukup / Biasa Saja</option><option value="kurang">😟 Kurang / Ada Hambatan</option><option value="buruk">😞 Buruk / Banyak Masalah</option><option value="sangat_buruk">😫 Sangat Buruk / Overwhelmed</option></select></div>
+    <div class="form-group"><label>Komentar untuk Atasan</label><textarea class="form-control" id="drKomentarAtasan" rows="2" placeholder="Pesan/catatan khusus untuk atasan (opsional)..."></textarea></div>
+    <div class="form-group"><label>Komentar untuk Rekan Kerja</label><textarea class="form-control" id="drKomentarRekan" rows="2" placeholder="Apresiasi/pesan untuk rekan tim (opsional)..."></textarea></div>
+    <div class="form-group"><label>📎 Lampiran Eviden</label><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('drFiles').click()">📁 Pilih File</button><button type="button" class="btn btn-sm btn-info" onclick="openCamera('drFilePreview','drCameraData')">📷 Kamera</button></div><input type="file" id="drFiles" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" onchange="previewTaskFiles(this,'drFilePreview')" style="display:none"><input type="hidden" id="drCameraData"><div id="drFilePreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div><div class="text-xs" style="color:#999;margin-top:4px">Maks 5 file, 10MB per file. Format: Gambar, PDF, DOC, XLS, PPT, ZIP. Bisa juga foto langsung via kamera.</div></div>
+    <button class="btn btn-primary" onclick="simpanDailyReport()">📤 Kirim Daily Report</button>`,
     true,
   );
-
-  // Restore draft if exists
-  const draftKey = "dr_draft_" + currentUser.id;
-  const draftRaw = localStorage.getItem(draftKey);
-  if (draftRaw) {
-    try {
-      const d = JSON.parse(draftRaw);
-      // Only auto-restore if updated within last 24h
-      if (new Date().getTime() - (d.updatedAt || 0) < 86400000) {
-        if (d.tanggal) document.getElementById("drTanggal").value = d.tanggal;
-        if (d.kategori) {
-            document.getElementById("drKategori").value = d.kategori;
-            onDailyReportKategoriChange(); // Trigger UI shift
-        }
-        if (d.level) {
-            document.getElementById("drLevel").value = d.level;
-            onDailyReportLevelChange();
-        }
-        if (d.materi) {
-            document.getElementById("drMateri").value = d.materi;
-            onDailyReportMateriChange();
-        }
-        if (d.jamMasuk) document.getElementById("drJamMasuk").value = d.jamMasuk;
-        if (d.jamKeluar) document.getElementById("drJamKeluar").value = d.jamKeluar;
-        if (d.aktivitas) document.getElementById("drAktivitas").value = d.aktivitas;
-        if (d.hasil) document.getElementById("drHasil").value = d.hasil;
-        if (d.kendala) document.getElementById("drKendala").value = d.kendala;
-        if (d.solusi) document.getElementById("drSolusi").value = d.solusi;
-        if (d.rencana) document.getElementById("drRencana").value = d.rencana;
-        if (d.durasi) document.getElementById("drDurasi").value = d.durasi;
-        if (d.progress) document.getElementById("drProgress").value = d.progress;
-        if (d.mood) document.getElementById("drMood").value = d.mood;
-        if (d.komentarAtasan) document.getElementById("drKomentarAtasan").value = d.komentarAtasan;
-        if (d.komentarRekan) document.getElementById("drKomentarRekan").value = d.komentarRekan;
-
-        const notice = document.getElementById("draftNotice");
-        if (notice) notice.style.display = "block";
-      }
-    } catch (e) {}
-  }
 }
 
 async function simpanDailyReport() {
@@ -4238,82 +4157,53 @@ async function simpanDailyReport() {
     return toast("Tanggal dan aktivitas wajib diisi", "warning");
   if (!hasAccess(3) && !kategori)
     return toast("Kategori wajib dipilih", "warning");
-
-  const btn = document.querySelector(".modal button.btn-primary");
-  const originalText = btn ? btn.innerHTML : "Kirim Daily Report";
-
+  const data = {
+    type: "report",
+    title: "📝 Daily Report — " + formatDate(tanggal),
+    tanggal,
+    kategori,
+    jamMasuk: document.getElementById("drJamMasuk").value || "",
+    jamKeluar: document.getElementById("drJamKeluar").value || "",
+    aktivitas,
+    hasil: document.getElementById("drHasil").value.trim(),
+    kendala: document.getElementById("drKendala").value.trim(),
+    solusi: document.getElementById("drSolusi").value.trim(),
+    rencana: document.getElementById("drRencana").value.trim(),
+    durasi: parseFloat(document.getElementById("drDurasi").value) || 0,
+    progress: parseInt(document.getElementById("drProgress").value) || 0,
+    mood: document.getElementById("drMood").value,
+    komentarAtasan: document.getElementById("drKomentarAtasan").value.trim(),
+    komentarRekan: document.getElementById("drKomentarRekan").value.trim(),
+    description: aktivitas,
+    done: true,
+    doneAt: new Date().toISOString(),
+    priority: "medium",
+    userId: currentUser.id,
+    targetUserName: currentUser.nama,
+    departemen: currentUser.departemen || "",
+    ownerLevel: ROLES[currentUser.role] || 0,
+    ownerRole: currentUser.role || "",
+    level: document.getElementById("drLevel")?.value || "",
+    materi: document.getElementById("drMateri")?.value || "",
+    pencapaian: document.getElementById("drPencapaian")?.value || "",
+    attachments: [],
+    createdAt: new Date().toISOString(),
+  };
+  // Get file attachments
+  data.attachments = await getFilesAsBase64("drFiles");
   try {
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ⏳ Mengirim...';
-    }
-
-    const attachments = await getFilesAsBase64("drFiles");
-    const totalSize = attachments.reduce((acc, cur) => acc + (cur.size || 0), 0);
-    if (totalSize > 900 * 1024) {
-        throw new Error("Total ukuran lampiran terlalu besar (maks 900KB). Silakan gunakan file yang lebih kecil.");
-    }
-
-    const data = {
-      type: "report",
-      title: "📝 Daily Report — " + formatDate(tanggal),
-      tanggal,
-      kategori,
-      jamMasuk: document.getElementById("drJamMasuk").value || "",
-      jamKeluar: document.getElementById("drJamKeluar").value || "",
-      aktivitas,
-      hasil: document.getElementById("drHasil").value.trim(),
-      kendala: document.getElementById("drKendala").value.trim(),
-      solusi: document.getElementById("drSolusi").value.trim(),
-      rencana: document.getElementById("drRencana").value.trim(),
-      durasi: parseFloat(document.getElementById("drDurasi").value) || 0,
-      progress: parseInt(document.getElementById("drProgress").value) || 0,
-      mood: document.getElementById("drMood").value,
-      komentarAtasan: document.getElementById("drKomentarAtasan").value.trim(),
-      komentarRekan: document.getElementById("drKomentarRekan").value.trim(),
-      description: aktivitas,
-      done: true,
-      doneAt: new Date().toISOString(),
-      priority: "medium",
-      userId: currentUser.id,
-      targetUserName: currentUser.nama,
-      departemen: currentUser.departemen || "",
-      ownerLevel: ROLES[currentUser.role] || 0,
-      ownerRole: currentUser.role || "",
-      level: document.getElementById("drLevel")?.value || "",
-      materi: document.getElementById("drMateri")?.value || "",
-      pencapaian: document.getElementById("drPencapaian")?.value || "",
-      attachments: attachments,
-      createdAt: new Date().toISOString(),
-    };
-
     await db.collection("hrd_daily_tasks").add(data);
     toast("Daily Report berhasil dikirim", "success");
-    localStorage.removeItem("dr_draft_" + currentUser.id);
-    closeModalDirect();
-    await loadDailyTasks("report");
   } catch (e) {
-    console.error("[simpanDailyReport Error]", e);
     toast("Gagal: " + e.message, "error");
-    if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-    }
   }
+  closeModalDirect();
+  await loadDailyTasks("report");
 }
 
-async function viewDailyReport(id) {
-  let task = _dailyTaskData.find((t) => t.id === id);
-  if (!task) {
-    try {
-      const doc = await db.collection("hrd_daily_tasks").doc(id).get();
-      if (!doc.exists) return toast("Data tidak ditemukan", "warning");
-      task = { id: doc.id, ...doc.data() };
-    } catch (e) {
-      return toast("Gagal memuat data", "error");
-    }
-  }
-
+function viewDailyReport(id) {
+  const task = _dailyTaskData.find((t) => t.id === id);
+  if (!task) return;
   const moodMap = {
     sangat_baik: "🤩 Sangat Baik",
     baik: "😊 Baik",
@@ -4329,160 +4219,47 @@ async function viewDailyReport(id) {
       : task.progress >= 50
         ? "#f57f17"
         : "#c62828";
-  openModal(
-    `<div class="modal-title">📝 Daily Report</div>
-    <div style="background:#f9f9f9;padding:16px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--primary);cursor:pointer" onclick="viewUserProfile('${escHtml(task.targetUserName || task.nama || currentUser.nama)}')">
-      <div class="fw-700" style="color:var(--primary)">${escHtml(task.targetUserName || currentUser.nama)} <span style="font-size:.7rem;color:#999;font-weight:400">👤 klik untuk lihat profil</span></div>
-      <div class="text-sm" style="color:#666">📅 ${formatDate(task.tanggal)} | ⏰ ${task.jamMasuk || "-"} - ${task.jamKeluar || "-"}</div>
-      <div class="text-sm mt-4">🏢 ${escHtml(task.departemen || "-")} | 📂 ${escHtml(task.kategori || "-")}</div>
-      ${task.kategori === "SISWA" ? `
-        <div class="text-sm mt-4" style="background:#e3f2fd; padding:8px; border-radius:6px; border-left:3px solid #1565c0">
-          📍 <b>LEVEL:</b> ${escHtml(task.level || "-")} | 📚 <b>MATERI:</b> ${escHtml(task.materi || "-")}
+
+  let siswaHtml = "";
+  if (task.kategori === "SISWA" && task.level) {
+    siswaHtml = `
+      <div style="background:#f0f7ff; padding:18px; border-radius:12px; border:1px solid #c2e0ff; margin-bottom:20px">
+        <div style="font-size:1.05rem; font-weight:700; color:#0056b3; margin-bottom:6px">
+          📍 LEVEL: ${escHtml(task.level)} | 📚 MATERI: ${escHtml(task.materi || "-")}
         </div>
-      ` : ""}
-      <div class="text-sm mt-4">Progress: <span style="color:${progressColor};font-weight:700">${task.progress || 0}%</span> | Durasi: <b>${task.durasi || "-"} hari</b> | Mood: ${moodLabel}</div>
-    </div>
-    <div class="mb-16"><div class="fw-700 mb-4" style="color:var(--primary)">📋 Aktivitas</div><div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap;line-height:1.7">${escHtml(task.aktivitas || task.description || "-")}</div></div>
-    ${task.kategori === "SISWA" && task.pencapaian ? `
-      <div class="mb-16"><div class="fw-700 mb-4" style="color:#1565c0">📈 Pencapaian Bab</div><div style="background:#f0f7ff;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.pencapaian)}</div></div>
-    ` : ""}
-    ${task.hasil ? `<div class="mb-16"><div class="fw-700 mb-4" style="color:#2e7d32">✅ Hasil / Output</div><div style="background:#f1f8e9;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.hasil)}</div></div>` : ""}
-    ${task.kendala || task.case_desc ? `<div class="mb-16"><div class="fw-700 mb-4" style="color:#c62828">⚠️ Kendala / Case</div><div style="background:#fff8f8;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.kendala || task.case_desc)}</div></div>` : ""}
-    ${task.solusi || task.solution ? `<div class="mb-16"><div class="fw-700 mb-4" style="color:#ff6f00">💡 Solusi / Tindakan</div><div style="background:#fff8e1;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.solusi || task.solution)}</div></div>` : ""}
-    ${task.rencanaBesok || task.rencana || task.planning ? `<div class="mb-16"><div class="fw-700 mb-4" style="color:#1565c0">🌟 Planning & Target / Rencana</div><div style="background:#e3f2fd;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.rencanaBesok || task.rencana || task.planning)}</div></div>` : ""}
-    ${task.komentar || task.komentarAtasan ? `<div class="mb-16"><div class="fw-700 mb-4" style="color:#6a1b9a">💬 Komentar</div><div style="background:#f3e5f5;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.komentar || task.komentarAtasan)}</div></div>` : ""}
-    ${task.komentarRekan ? `<div class="mb-16"><div class="fw-700 mb-4" style="color:#00695c">🤝 Komentar untuk Rekan Kerja</div><div style="background:#e0f2f1;border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">${escHtml(task.komentarRekan)}</div></div>` : ""}
-    ${task.attachments && task.attachments.length ? `<div class="mb-16" style="padding:16px;background:#f9f9f9;border-radius:10px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:#37474f">📎 Lampiran Eviden (${task.attachments.length} file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px">${task.attachments.map((a, i) => (a.type && a.type.startsWith("image/") ? `<div style="text-align:center;cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><img src="${a.data}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.6rem;color:#666;margin-top:4px">${escHtml(a.name || "Foto " + (i + 1))}</div></div>` : `<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:14px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><div style="font-size:2.5rem">${a.name && a.name.endsWith(".pdf") ? "📕" : a.name && a.name.match(/\\.docx?$/) ? "📘" : a.name && a.name.match(/\\.xlsx?$/) ? "📗" : "📄"}</div><div style="font-size:.65rem;color:#333;margin-top:6px;text-align:center;word-break:break-all">${escHtml(a.name)}</div><div style="font-size:.6rem;color:#1565c0;margin-top:4px;font-weight:600">👁️ Lihat</div></div>`)).join("")}</div></div>` : ""}
-    <div class="text-xs" style="color:#999">Dikirim: ${formatDateTime(task.createdAt)}</div>`,
-    true,
-  );
-}
-
-// == DAILY REPORT DRAFT & AUTO-FILL HELPERS ====================
-function saveDailyReportDraft() {
-  try {
-    const draft = {
-      tanggal: document.getElementById("drTanggal")?.value,
-      kategori: document.getElementById("drKategori")?.value,
-      level: document.getElementById("drLevel")?.value,
-      materi: document.getElementById("drMateri")?.value,
-      jamMasuk: document.getElementById("drJamMasuk")?.value,
-      jamKeluar: document.getElementById("drJamKeluar")?.value,
-      aktivitas: document.getElementById("drAktivitas")?.value,
-      hasil: document.getElementById("drHasil")?.value,
-      kendala: document.getElementById("drKendala")?.value,
-      solusi: document.getElementById("drSolusi")?.value,
-      rencana: document.getElementById("drRencana")?.value,
-      durasi: document.getElementById("drDurasi")?.value,
-      progress: document.getElementById("drProgress")?.value,
-      mood: document.getElementById("drMood")?.value,
-      komentarAtasan: document.getElementById("drKomentarAtasan")?.value,
-      komentarRekan: document.getElementById("drKomentarRekan")?.value,
-      updatedAt: new Date().getTime(),
-    };
-    localStorage.setItem("dr_draft_" + currentUser.id, JSON.stringify(draft));
-  } catch (e) {}
-}
-
-async function autoFillDailyReport(input) {
-  const file = input.files[0];
-  if (!file) return;
-
-  toast("⏳ Menganalisis file dan mengisi form otomatis...", "info");
-
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    const base64Data = e.target.result.split(",")[1];
-    const mimeType = file.type || "application/octet-stream";
-
-    try {
-      const result = await _callGeminiToParseReport(base64Data, mimeType);
-      if (result) {
-        if (result.aktivitas) document.getElementById("drAktivitas").value = result.aktivitas;
-        if (result.hasil) document.getElementById("drHasil").value = result.hasil;
-        if (result.kendala) document.getElementById("drKendala").value = result.kendala;
-        if (result.solusi) document.getElementById("drSolusi").value = result.solusi;
-        if (result.rencana) document.getElementById("drRencana").value = result.rencana;
-        if (result.durasi) document.getElementById("drDurasi").value = result.durasi;
-        if (result.progress) document.getElementById("drProgress").value = result.progress;
-        if (result.mood) document.getElementById("drMood").value = result.mood;
-
-        toast("✅ Form berhasil diisi otomatis!", "success");
-        saveDailyReportDraft(); // Save the new state as draft
-      }
-    } catch (err) {
-      console.error("[Auto-Fill Error]", err);
-      toast("❌ Gagal membaca file: " + err.message, "danger");
-    }
-    input.value = ""; // Reset input
-  };
-  reader.readAsDataURL(file);
-}
-
-async function _callGeminiToParseReport(base64Data, mimeType) {
-  // CONFIRMED WORKING API KEYS FROM THE PROJECT
-  const key1 = "AIzaSyAWlNi_iBOWxZBD6E20aHOSrRpPsirDdOM"; // Firebase Key
-  const key2 = ["AQ.Ab8RN6", "IT3OlxagKVizWxq", "T8N_di_bXkk-hjKxUWbPdmoaK0tjg"].join(""); // Secondary Key (missing prefix fixed below)
-  const key3 = "AIzaSy" + key2; // Likely the correct full key
-
-  const keysToTry = [key1, key3, key2];
-  let lastError = null;
-
-  const prompt = `Analisis file laporan kerja harian ini dan ekstrak informasi ke dalam format JSON dengan kunci berikut:
-  - aktivitas: daftar aktivitas yang dilakukan (string, gunakan penomoran 1. 2. dst)
-  - hasil: hasil atau output dari pekerjaan tersebut (string)
-  - kendala: kendala atau hambatan jika ada (string)
-  - solusi: solusi atau tindak lanjut atas kendala (string)
-  - rencana: rencana pekerjaan untuk besok (string)
-  - durasi: estimasi durasi dalam hari (angka)
-  - progress: progres keseluruhan dalam persen (angka 0-100)
-  - mood: salah satu dari (sangat_baik, baik, cukup, kurang, buruk, sangat_buruk) berdasarkan nada laporan
-
-  PENTING: Hanya kembalikan JSON murni tanpa markdown atau teks lainnya. Jika tidak ada informasi untuk suatu kolom, gunakan string kosong.`;
-
-  const body = {
-    contents: [
-      {
-        parts: [
-          { text: prompt },
-          { inline_data: { mime_type: mimeType, data: base64Data } }
-        ]
-      }
-    ]
-  };
-
-  for (const apiKey of keysToTry) {
-      if (!apiKey) continue;
-      try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-          const resp = await fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body)
-          });
-
-          if (resp.ok) {
-              const json = await resp.json();
-              if (json.candidates && json.candidates[0]) {
-                  const text = json.candidates[0].content.parts[0].text;
-                  const cleanText = text.replace(/```json|```/g, "").trim();
-                  try {
-                      return JSON.parse(cleanText);
-                  } catch (e) {
-                      const match = text.match(/\{[\s\S]*\}/);
-                      if (match) return JSON.parse(match[0]);
-                      throw e;
-                  }
-              }
-          } else {
-              lastError = `API Error ${resp.status}`;
-          }
-      } catch (err) {
-          lastError = err.message;
-      }
+        <div class="fw-700 text-xs text-secondary uppercase mb-4">🎯 Pencapaian Bab:</div>
+        <div style="font-size:0.95rem; line-height:1.6; color:#333">${escHtml(task.pencapaian || "-")}</div>
+      </div>`;
   }
 
-  throw new Error(lastError || "Semua kunci AI gagal.");
+  openModal(
+    `<div class="modal-title">📝 Daily Report</div>
+    <div style="font-size:1.1rem; line-height:1.6">
+      <div style="background:#f9f9f9;padding:20px;border-radius:12px;margin-bottom:20px;border-left:5px solid var(--primary);cursor:pointer" onclick="viewUserProfile('${escHtml(task.targetUserName || task.nama || currentUser.nama)}')">
+        <div class="fw-700" style="color:var(--primary); font-size:1.25rem">${escHtml(task.targetUserName || currentUser.nama)} <span style="font-size:.8rem;color:#999;font-weight:400">👤 klik untuk lihat profil</span></div>
+        <div class="text-sm" style="color:#666; margin-top:4px; font-size:0.95rem">📅 ${formatDate(task.tanggal)} | ⏰ ${task.jamMasuk || "-"} - ${task.jamKeluar || "-"}</div>
+        <div class="text-sm mt-8" style="font-size:0.95rem">🏢 ${escHtml(task.departemen || "-")} | 📂 ${escHtml(task.kategori || "-")}</div>
+        <div class="text-sm mt-4" style="font-size:0.95rem">Progress: <span style="color:${progressColor};font-weight:700">${task.progress || 0}%</span> | Durasi: <b>${task.durasi || "-"} hari</b> | Mood: ${moodLabel}</div>
+      </div>
+
+      ${siswaHtml}
+
+      <div class="mb-20">
+        <div class="fw-700 mb-6" style="color:var(--primary); font-size:1.1rem">📋 Aktivitas</div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;font-size:1rem;white-space:pre-wrap;line-height:1.7; min-height:60px">${escHtml(task.aktivitas || task.description || "-")}</div>
+      </div>
+
+      ${task.hasil ? `<div class="mb-20"><div class="fw-700 mb-6" style="color:#2e7d32; font-size:1.1rem">✅ Hasil / Output</div><div style="background:#f1f8e9;border-radius:10px;padding:16px;font-size:1rem;white-space:pre-wrap;line-height:1.6">${escHtml(task.hasil)}</div></div>` : ""}
+      ${task.kendala || task.case_desc ? `<div class="mb-20"><div class="fw-700 mb-6" style="color:#c62828; font-size:1.1rem">⚠️ Kendala / Case</div><div style="background:#fff8f8;border-radius:10px;padding:16px;font-size:1rem;white-space:pre-wrap;line-height:1.6">${escHtml(task.kendala || task.case_desc)}</div></div>` : ""}
+      ${task.solusi || task.solution ? `<div class="mb-20"><div class="fw-700 mb-6" style="color:#ff6f00; font-size:1.1rem">💡 Solusi / Tindakan</div><div style="background:#fff8e1;border-radius:10px;padding:16px;font-size:1rem;white-space:pre-wrap;line-height:1.6">${escHtml(task.solusi || task.solution)}</div></div>` : ""}
+      ${task.rencanaBesok || task.rencana || task.planning ? `<div class="mb-20"><div class="fw-700 mb-6" style="color:#1565c0; font-size:1.1rem">🌟 Planning & Target / Rencana</div><div style="background:#e3f2fd;border-radius:10px;padding:16px;font-size:1rem;white-space:pre-wrap;line-height:1.6">${escHtml(task.rencanaBesok || task.rencana || task.planning)}</div></div>` : ""}
+      ${task.komentar || task.komentarAtasan ? `<div class="mb-20"><div class="fw-700 mb-6" style="color:#6a1b9a; font-size:1.1rem">💬 Komentar</div><div style="background:#f3e5f5;border-radius:10px;padding:16px;font-size:1rem;white-space:pre-wrap;line-height:1.6">${escHtml(task.komentar || task.komentarAtasan)}</div></div>` : ""}
+      ${task.komentarRekan ? `<div class="mb-20"><div class="fw-700 mb-6" style="color:#00695c; font-size:1.1rem">🤝 Komentar untuk Rekan Kerja</div><div style="background:#e0f2f1;border-radius:10px;padding:16px;font-size:1rem;white-space:pre-wrap;line-height:1.6">${escHtml(task.komentarRekan)}</div></div>` : ""}
+      ${task.attachments && task.attachments.length ? `<div class="mb-20" style="padding:20px;background:#f9f9f9;border-radius:12px;border:1px solid var(--border)"><div class="fw-700 mb-12" style="color:#37474f; font-size:1.1rem">📎 Lampiran Eviden (${task.attachments.length} file)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px">${task.attachments.map((a, i) => (a.type && a.type.startsWith("image/") ? `<div style="text-align:center;cursor:pointer" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><img src="${a.data}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;border:2px solid var(--border)"><div style="font-size:.65rem;color:#666;margin-top:6px">${escHtml(a.name || "Foto " + (i + 1))}</div></div>` : `<div style="cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:16px;background:#fff;border-radius:8px;border:1px solid var(--border)" onclick="viewEviden('${encodeURIComponent(JSON.stringify({ name: a.name, type: a.type, data: a.data }))}')"><div style="font-size:2.5rem">${a.name && a.name.endsWith(".pdf") ? "📕" : a.name && a.name.match(/\\.docx?$/) ? "📘" : a.name && a.name.match(/\\.xlsx?$/) ? "📗" : "📄"}</div><div style="font-size:.7rem;color:#333;margin-top:6px;text-align:center;word-break:break-all">${escHtml(a.name)}</div><div style="font-size:.65rem;color:#1565c0;margin-top:6px;font-weight:600">👁️ Lihat</div></div>`)).join("")}</div></div>` : ""}
+      <div class="text-xs" style="color:#999; margin-top:16px">Dikirim: ${formatDateTime(task.createdAt)}</div>
+    </div>`,
+    "modal-xl",
+  );
 }
 
 // == IMPORT LAPORAN MINGGUAN (dari Spreadsheet) ========================
@@ -5134,7 +4911,6 @@ var _wrDateFrom = "";
 var _wrDateTo = "";
 var _wrSummaryFilter = "";
 var _weeklyReportLookup = {};
-var _weeklyReportDataCache = null; // Global cache to improve performance
 var WEEKLY_REPORT_DEFAULT_COL = "hrd_daily_tasks";
 var WEEKLY_REPORT_PREVIEW_MAX_LENGTH = 140;
 
@@ -5142,7 +4918,6 @@ async function loadWeeklyReports(divFilter) {
   if (divFilter !== undefined) {
     _weeklyReportFilter = divFilter;
     _wrSummaryFilter = "";
-    window._wrNameFilter = ""; // Reset name filter when division changes
   }
 
   if (!document.getElementById("taskList")) {
@@ -5159,154 +4934,127 @@ async function loadWeeklyReports(divFilter) {
   });
   var listEl = document.getElementById("taskList");
   if (!listEl) return;
-
-  if (!_weeklyReportDataCache) {
-      listEl.innerHTML = '<p class="text-sm" style="color:#999">Memuat laporan mingguan...</p>';
-      _setupWeeklyReportsListeners();
-  } else {
-      _renderWeeklyReportsContent();
-  }
-}
-
-async function _setupWeeklyReportsListeners() {
-    try {
-        const myDept = (currentUser.departemen || "").toLowerCase().trim();
-        const myLevel = ROLES[currentUser.role] || 0;
-
-        let directSubNames = window._directSubNamesCache || [];
-        if (directSubNames.length === 0 && myLevel >= 2 && myLevel <= 4) {
-            const kSnap = await db.collection("hrd_karyawan").where("atasan", "==", currentUser.nama).get();
-            kSnap.forEach(sk => directSubNames.push(normalizePersonName(sk.data().nama)));
-        }
-
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-        const dateLimit = oneYearAgo.toISOString().split("T")[0];
-
-        const handleUpdate = (snap1, snap2) => {
-            let items = [];
-            snap1.forEach(d => items.push({ id: d.id, col: "hrd_daily_tasks", ...d.data() }));
-            snap2.forEach(d => items.push({ id: d.id, col: "hrd_weekly_reports", ...d.data() }));
-
-            if (!hasAccess(3)) {
-                const isAcademic = myDept.includes("academic") || myDept.includes("akademik");
-                const isOffice = myDept.includes("office") || myDept.includes("manajemen");
-                items = items.filter(r => {
-                    if (doesTaskBelongToUser(r)) return true;
-                    const dept = (r.departemen || r.divisi || "").toLowerCase().trim();
-                    if (isAcademic) return dept.includes("academic") || dept.includes("akademik");
-                    if (isOffice) return dept.includes("office") || dept.includes("manajemen");
-                    return dept === myDept || dept.includes(myDept) || !dept;
-                });
-            }
-
-            _weeklyReportDataCache = items;
-            _renderWeeklyReportsContent();
-        };
-
-        let s1 = [], s2 = [];
-        const trigger = () => handleUpdate(s1, s2);
-
-        // Listen to daily tasks (reports only)
-        const unsub1 = db.collection("hrd_daily_tasks")
-            .where("type", "==", "report")
-            .where("tanggal", ">=", dateLimit)
-            .onSnapshot(snap => { s1 = snap; trigger(); });
-
-        // Broaden hrd_weekly_reports query: use 'bulan' as fallback filter or fetch all recent
-        const unsub2 = db.collection("hrd_weekly_reports")
-            .where("bulan", ">=", dateLimit.substring(0, 7))
-            .onSnapshot(snap => { s2 = snap; trigger(); },
-            () => {
-                // Fallback for very old data or missing 'bulan' index
-                db.collection("hrd_weekly_reports").limit(500).onSnapshot(snap => { s2 = snap; trigger(); });
-            });
-
-        if (typeof unsubscribers !== 'undefined') {
-            unsubscribers.push(unsub1);
-            unsubscribers.push(unsub2);
-        }
-    } catch (e) {
-        console.error("Weekly Reports Listener Error:", e);
+  listEl.innerHTML =
+    '<p class="text-sm" style="color:#999">Memuat laporan mingguan...</p>';
+  try {
+    var items = [];
+    var [snap1, snap2] = await Promise.all([
+      db.collection("hrd_daily_tasks").where("type", "==", "report").get(),
+      db.collection("hrd_weekly_reports").get(),
+    ]);
+    for (const d of snap1.docs) {
+      items.push({ id: d.id, col: "hrd_daily_tasks", ...d.data() });
     }
-}
+    snap2.forEach(function (d) {
+      items.push({ id: d.id, col: "hrd_weekly_reports", ...d.data() });
+    });
 
-function _renderWeeklyReportsContent() {
-    const listEl = document.getElementById("taskList");
-    if (!listEl || !_weeklyReportDataCache) return;
-
-    let items = [..._weeklyReportDataCache];
-    items.sort((a, b) => (b.tanggal || b.bulan || "").localeCompare(a.tanggal || a.bulan || ""));
+    items.sort(function (a, b) {
+      return (b.tanggal || b.bulan || "").localeCompare(
+        a.tanggal || a.bulan || "",
+      );
+    });
 
     if (!items.length) {
-      listEl.innerHTML = '<div style="text-align:center;padding:32px;color:#999"><div style="font-size:2rem;margin-bottom:8px">📈</div><p>Belum ada laporan mingguan.</p></div>';
+      listEl.innerHTML =
+        '<div style="text-align:center;padding:32px;color:#999"><div style="font-size:2rem;margin-bottom:8px">📈</div><p>Belum ada laporan mingguan.</p></div>';
       return;
+    }
+
+    // Hierarchical visibility for Weekly Reports: Manager+ see all, Staff/Leader see own division
+    if (!hasAccess(3) && !hasHeadLevelAccess()) {
+      var myDept = (currentUser.departemen || "").toUpperCase().trim();
+      if (myDept) {
+        items = items.filter(function (r) {
+          var d = (r.departemen || r.divisi || "").toUpperCase().trim();
+          const isOwn = doesTaskBelongToUser(r);
+          return (
+            isOwn ||
+            d === myDept ||
+            d.includes(myDept) ||
+            myDept.includes(d) ||
+            !d
+          );
+        });
+      }
     }
 
     var filtered = items;
     if (_weeklyReportFilter === "akademik")
-      filtered = items.filter(r => (r.departemen || r.divisi || "").toUpperCase().includes("ACADEMIC") || (r.departemen || r.divisi || "").toUpperCase().includes("AKADEMIK"));
+      filtered = items.filter(function (r) {
+        var d = (r.departemen || r.divisi || "").toUpperCase();
+        return d.includes("ACADEMIC") || d.includes("AKADEMIK");
+      });
     else if (_weeklyReportFilter === "manajemen")
-      filtered = items.filter(r => (r.departemen || r.divisi || "").toUpperCase().includes("OFFICE") || (r.departemen || r.divisi || "").toUpperCase().includes("MANAJEMEN"));
+      filtered = items.filter(function (r) {
+        var d = (r.departemen || r.divisi || "").toUpperCase();
+        return d.includes("OFFICE") || d.includes("MANAJEMEN");
+      });
 
-    var filterFrom = document.getElementById("wrDateFrom")?.value || _wrDateFrom;
+    var filterFrom =
+      document.getElementById("wrDateFrom")?.value || _wrDateFrom;
     var filterTo = document.getElementById("wrDateTo")?.value || _wrDateTo;
-    _wrDateFrom = filterFrom; _wrDateTo = filterTo;
-
-    if (filterFrom) {
-      filtered = filtered.filter(r => {
-        let tgl = r.tanggal || r.bulan || "";
-        if (tgl.includes('/')) {
-            // Convert MM/DD/YYYY to YYYY-MM-DD for comparison
-            const parts = tgl.split('/');
-            if (parts.length === 3) tgl = `${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
-        }
-        return tgl >= filterFrom;
+    _wrDateFrom = filterFrom;
+    _wrDateTo = filterTo;
+    if (filterFrom)
+      filtered = filtered.filter(function (r) {
+        return (r.tanggal || "") >= filterFrom;
       });
-    }
-    if (filterTo) {
-      filtered = filtered.filter(r => {
-        let tgl = r.tanggal || r.bulan || "";
-        if (tgl.includes('/')) {
-            const parts = tgl.split('/');
-            if (parts.length === 3) tgl = `${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
-        }
-        return tgl <= filterTo;
+    if (filterTo)
+      filtered = filtered.filter(function (r) {
+        return (r.tanggal || "") <= filterTo;
       });
-    }
-
-    const uniqueNames = [...new Set(filtered.map(r => r.targetUserName || r.nama || r.pic || "-"))].sort();
 
     if (window._wrCatFilter) {
-      filtered = filtered.filter(r => {
+      filtered = filtered.filter(function (r) {
         var kat = (r.kategori || "").toLowerCase();
         var fv = (window._wrCatFilter || "").toLowerCase();
-        return fv === "tanpa kategori" ? (!r.kategori || r.kategori.trim() === "") : kat.includes(fv);
+        if (fv === "tanpa kategori")
+          return !r.kategori || r.kategori.trim() === "";
+        return kat.includes(fv);
       });
     }
 
-    if (window._wrNameFilter) {
-      const targetName = window._wrNameFilter.trim().toLowerCase();
-      filtered = filtered.filter(r => {
-          const name = (r.targetUserName || r.nama || r.pic || "-").trim().toLowerCase();
-          return name === targetName;
-      });
-    }
+    var html = "";
 
+    // --- RANGKUMAN DATA LAPORAN MINGGUAN (DASHBOARD BOX) ---
     const totalReportsSummary = filtered.length;
-    const avgProgressSummary = totalReportsSummary > 0 ? Math.round(filtered.reduce((acc, cur) => acc + (parseInt(cur.progress) || 0), 0) / totalReportsSummary) : 0;
-    const totalObstaclesSummary = filtered.filter(it => (it.kendala || it.case_desc || "").trim().length > 0 && (parseInt(it.progress) || 0) < 100).length;
+    const avgProgressSummary =
+      totalReportsSummary > 0
+        ? Math.round(
+            filtered.reduce(
+              (acc, cur) => acc + (parseInt(cur.progress) || 0),
+              0,
+            ) / totalReportsSummary,
+          )
+        : 0;
+    const totalObstaclesSummary = filtered.filter(
+      (it) =>
+        (it.kendala || it.case_desc || "").trim().length > 0 &&
+        (parseInt(it.progress) || 0) < 100,
+    ).length;
 
+    // Apply summary filter (set by clicking on summary boxes)
     var filteredForList = filtered;
-    if (_wrSummaryFilter === "low_progress") filteredForList = filtered.filter(r => (parseInt(r.progress) || 0) < 70);
-    else if (_wrSummaryFilter === "kendala") filteredForList = filtered.filter(r => (r.kendala || r.case_desc || "").trim().length > 0 && (parseInt(r.progress) || 0) < 100);
+    if (_wrSummaryFilter === "low_progress") {
+      filteredForList = filtered.filter(function (r) {
+        return (parseInt(r.progress) || 0) < 70;
+      });
+    } else if (_wrSummaryFilter === "kendala") {
+      filteredForList = filtered.filter(function (r) {
+        return (
+          (r.kendala || r.case_desc || "").trim().length > 0 &&
+          (parseInt(r.progress) || 0) < 100
+        );
+      });
+    }
     filtered = filteredForList;
 
     var _sfTotal = _wrSummaryFilter === "" || _wrSummaryFilter === "total";
     var _sfProgress = _wrSummaryFilter === "low_progress";
     var _sfKendala = _wrSummaryFilter === "kendala";
 
-    let html = `
+    html += `
     <div id="weeklySummaryBox" style="background:#f9f9f9; border:1px solid #d0d9ff; border-radius:12px; padding:16px; margin-bottom:20px; display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:16px">
         <div onclick="filterWeeklySummary('')" style="text-align:center;cursor:pointer;border-radius:8px;padding:8px;transition:background .2s${_sfTotal ? ";background:#e8eaf6;outline:2px solid var(--primary)" : ""}" title="Klik untuk lihat semua data">
             <div style="font-size:0.75rem; color:#666; margin-bottom:4px">📊 Total Laporan</div>
@@ -5326,107 +5074,215 @@ function _renderWeeklyReportsContent() {
     </div>`;
 
     if (_wrSummaryFilter) {
-      var _sfLabel = _wrSummaryFilter === "low_progress" ? "📈 Menampilkan: Progress &lt;70%" : "⚠️ Menampilkan: Data Berkendala";
+      var _sfLabel =
+        _wrSummaryFilter === "low_progress"
+          ? "📈 Menampilkan: Progress &lt;70%"
+          : "⚠️ Menampilkan: Data Berkendala";
       html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#fff3e0;border:1px solid #ff9800;border-radius:8px;margin-bottom:10px;font-size:.82rem;font-weight:700;color:#e65100">
         <span>${_sfLabel}</span>
         <button class="btn btn-xs btn-outline" style="margin-left:auto" onclick="filterWeeklySummary('')">✕ Hapus Filter</button>
       </div>`;
     }
 
-    html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">';
-    html += `<button class="btn btn-xs ${_weeklyReportFilter === "all" ? "btn-primary" : "btn-outline"}" onclick="loadWeeklyReports('all')">Semua</button>`;
-    html += `<button class="btn btn-xs ${_weeklyReportFilter === "akademik" ? "btn-primary" : "btn-outline"}" onclick="loadWeeklyReports('akademik')">📚 ACADEMIC</button>`;
-    html += `<button class="btn btn-xs ${_weeklyReportFilter === "manajemen" ? "btn-primary" : "btn-outline"}" onclick="loadWeeklyReports('manajemen')">🏢 OFFICE</button>`;
-    html += '<button class="btn btn-xs btn-info" style="margin-left:8px" onclick="showWeeklyReportSummaryModal()">📊 Lihat Rangkuman</button>';
+    html +=
+      '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">';
+    html +=
+      '<button class="btn btn-xs ' +
+      (_weeklyReportFilter === "all" ? "btn-primary" : "btn-outline") +
+      '" onclick="loadWeeklyReports(\'all\')">Semua</button>';
+    html +=
+      '<button class="btn btn-xs ' +
+      (_weeklyReportFilter === "akademik" ? "btn-primary" : "btn-outline") +
+      '" onclick="loadWeeklyReports(\'akademik\')">📚 ACADEMIC</button>';
+    html +=
+      '<button class="btn btn-xs ' +
+      (_weeklyReportFilter === "manajemen" ? "btn-primary" : "btn-outline") +
+      '" onclick="loadWeeklyReports(\'manajemen\')">🏢 OFFICE</button>';
+    html +=
+      '<button class="btn btn-xs btn-info" style="margin-left:8px" onclick="showWeeklyReportSummaryModal()">📊 Lihat Rangkuman</button>';
 
     let wrCatOpts = '<option value="">Semua Kategori</option>';
-    const categories = _weeklyReportFilter === "akademik" ? ["Siswa", "Sensei", "Curriculum", "TSK-Job", "Tanpa Kategori"] : _weeklyReportFilter === "manajemen" ? ["HR & Legal", "Document", "Facility's", "Finance", "Marketing & Sales", "Promosi"] : ["Siswa", "Sensei", "Curriculum", "TSK-Job", "HR & Legal", "Document", "Facility's", "Finance", "Marketing & Sales", "Promosi", "Tanpa Kategori"];
-    categories.forEach(c => wrCatOpts += `<option value="${c}" ${window._wrCatFilter === c ? "selected" : ""}>${c}</option>`);
-    html += `<select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window._wrCatFilter=this.value;loadWeeklyReports()">${wrCatOpts}</select>`;
-
-    let wrNameOpts = '<option value="">Semua User</option>';
-    uniqueNames.forEach(n => wrNameOpts += `<option value="${escAttr(n)}" ${window._wrNameFilter === n ? "selected" : ""}>${escHtml(n)}</option>`);
-    html += `<select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window._wrNameFilter=this.value;loadWeeklyReports()">${wrNameOpts}</select>`;
-
+    const categories =
+      _weeklyReportFilter === "akademik"
+        ? ["Siswa", "Sensei", "Curriculum", "TSK-Job", "Tanpa Kategori"]
+        : _weeklyReportFilter === "manajemen"
+          ? [
+              "HR & Legal",
+              "Document",
+              "Facility's",
+              "Finance",
+              "Marketing & Sales",
+              "Promosi",
+            ]
+          : [
+              "Siswa",
+              "Sensei",
+              "Curriculum",
+              "TSK-Job",
+              "HR & Legal",
+              "Document",
+              "Facility's",
+              "Finance",
+              "Marketing & Sales",
+              "Promosi",
+              "Tanpa Kategori",
+            ];
+    categories.forEach(function (c) {
+      wrCatOpts +=
+        '<option value="' +
+        c +
+        '" ' +
+        (window._wrCatFilter === c ? "selected" : "") +
+        ">" +
+        c +
+        "</option>";
+    });
+    html +=
+      '<select class="form-control" style="max-width:180px;padding:4px 8px;font-size:.8rem" onchange="window._wrCatFilter=this.value;loadWeeklyReports()">' +
+      wrCatOpts +
+      "</select>";
     html += '<span style="margin-left:auto"></span>';
     if (currentUser.role !== "bod") {
-      html += '<button class="btn btn-xs btn-danger" onclick="deleteSelectedWeeklyReports()">🗑️ Hapus Terpilih</button> ';
-      html += '<button class="btn btn-xs btn-warning" onclick="resetAllWeeklyReports()">⚠️ Reset Semua</button>';
+      html +=
+        '<button class="btn btn-xs btn-danger" onclick="deleteSelectedWeeklyReports()">🗑️ Hapus Terpilih</button> ';
+      html +=
+        '<button class="btn btn-xs btn-warning" onclick="resetAllWeeklyReports()">⚠️ Reset Semua</button>';
     }
     html += "</div>";
 
-    html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:8px 12px;background:#f9f9f9;border-radius:8px">';
+    html +=
+      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:8px 12px;background:#f9f9f9;border-radius:8px">';
     html += '<span class="text-sm fw-700">📅 Periode:</span>';
-    html += `<input type="date" class="form-control" id="wrDateFrom" value="${filterFrom}" style="max-width:140px;padding:4px 8px;font-size:.82rem" onchange="_wrDateFrom=this.value;loadWeeklyReports()">`;
+    html +=
+      '<input type="date" class="form-control" id="wrDateFrom" value="' +
+      filterFrom +
+      '" style="max-width:140px;padding:4px 8px;font-size:.82rem" onchange="_wrDateFrom=this.value;loadWeeklyReports()">';
     html += '<span class="text-sm">—</span>';
-    html += `<input type="date" class="form-control" id="wrDateTo" value="${filterTo}" style="max-width:140px;padding:4px 8px;font-size:.82rem" onchange="_wrDateTo=this.value;loadWeeklyReports()">`;
-    if (filterFrom || filterTo) html += "<button class=\"btn btn-xs btn-outline\" onclick=\"_wrDateFrom='';_wrDateTo='';loadWeeklyReports()\">✕</button>";
+    html +=
+      '<input type="date" class="form-control" id="wrDateTo" value="' +
+      filterTo +
+      '" style="max-width:140px;padding:4px 8px;font-size:.82rem" onchange="_wrDateTo=this.value;loadWeeklyReports()">';
+    if (filterFrom || filterTo)
+      html +=
+        "<button class=\"btn btn-xs btn-outline\" onclick=\"_wrDateFrom='';_wrDateTo='';loadWeeklyReports()\">✕</button>";
     html += "</div>";
 
     if (currentUser.role !== "bod") {
-      html += `<div style="margin-bottom:8px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="wrSelectAll" onchange="document.querySelectorAll('.wr-check').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="text-sm fw-700">Pilih Semua (${filtered.length} data)</span></label></div>`;
+      html +=
+        '<div style="margin-bottom:8px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="wrSelectAll" onchange="document.querySelectorAll(\'.wr-check\').forEach(function(c){c.checked=this.checked}.bind(this))"> <span class="text-sm fw-700">Pilih Semua (' +
+        filtered.length +
+        " data)</span></label></div>";
     }
 
     _weeklyReportLookup = {};
     var groups = {};
-    filtered.forEach(r => {
+    filtered.forEach(function (r) {
       var div = r.departemen || r.divisi || "Tanpa Divisi";
       if (!groups[div]) groups[div] = [];
       groups[div].push(r);
     });
 
-    Object.keys(groups).sort().forEach(div => {
+    Object.keys(groups)
+      .sort()
+      .forEach(function (div) {
         var rows = groups[div];
         html += '<div style="margin-bottom:20px">';
-        html += `<div style="padding:8px 14px;background:#e8eaf6;border-radius:8px;font-weight:700;font-size:.88rem;color:#283593;border-left:4px solid #3f51b5;margin-bottom:8px">🏢 ${escHtml(div)} (${rows.length} data)</div>`;
+        html +=
+          '<div style="padding:8px 14px;background:#e8eaf6;border-radius:8px;font-weight:700;font-size:.88rem;color:#283593;border-left:4px solid #3f51b5;margin-bottom:8px">🏢 ' +
+          escHtml(div) +
+          " (" +
+          rows.length +
+          " data)</div>";
         var byPic = {};
-        rows.forEach(r => {
+        rows.forEach(function (r) {
           var picKey = r.targetUserName || r.pic || r.nama || "-";
           if (!byPic[picKey]) byPic[picKey] = [];
           byPic[picKey].push(r);
         });
-        Object.keys(byPic).sort().forEach(pic => {
+        Object.keys(byPic)
+          .sort()
+          .forEach(function (pic) {
             var userRows = byPic[pic];
-            html += `<div style="padding:8px 12px;margin:10px 0 8px;background:#f4f6ff;border-radius:8px;border-left:4px solid #5c6bc0;font-weight:700;font-size:.82rem;color:#3949ab">👤 ${escHtml(pic)} (${userRows.length} report)</div>`;
-            userRows.forEach(r => {
+            html +=
+              '<div style="padding:8px 12px;margin:10px 0 8px;background:#f4f6ff;border-radius:8px;border-left:4px solid #5c6bc0;font-weight:700;font-size:.82rem;color:#3949ab">👤 ' +
+              escHtml(pic) +
+              " (" +
+              userRows.length +
+              " report)</div>";
+            userRows.forEach(function (r) {
               var tgl = r.tanggal || r.bulan || "-";
               var kat = r.kategori || "-";
-              var subKatHtml = (kat.toUpperCase() === "SISWA") ? ` | 📍 <b>LVL:</b> ${escHtml(r.level || "-")} | 📚 <b>MAT:</b> ${escHtml(r.materi || "-")}` : "";
               var wrKey = (r.col || WEEKLY_REPORT_DEFAULT_COL) + "::" + r.id;
               _weeklyReportLookup[wrKey] = r;
-
-              var previewText = [r.aktivitas, r.kendala, r.solusi, r.rencanaBesok, r.rencana, r.planning, r.komentar, r.keterangan].find(t => t && t.trim()) || "-";
-              if (previewText.length > WEEKLY_REPORT_PREVIEW_MAX_LENGTH) previewText = previewText.substring(0, WEEKLY_REPORT_PREVIEW_MAX_LENGTH) + "...";
+              var previewText =
+                [
+                  r.aktivitas,
+                  r.kendala,
+                  r.solusi,
+                  r.rencanaBesok,
+                  r.rencana,
+                  r.planning,
+                  r.komentar,
+                  r.keterangan,
+                ].find((t) => t && t.trim()) || "-";
+              if (previewText.length > WEEKLY_REPORT_PREVIEW_MAX_LENGTH)
+                previewText =
+                  previewText.substring(0, WEEKLY_REPORT_PREVIEW_MAX_LENGTH) +
+                  "...";
 
               var progressNum = parseInt(r.progress, 10);
-              var progressColor = !isNaN(progressNum) ? (progressNum >= 100 ? "#2e7d32" : progressNum >= 70 ? "#f57f17" : "#c62828") : "#1565c0";
+              var progressColor = !isNaN(progressNum)
+                ? progressNum >= 100
+                  ? "#2e7d32"
+                  : progressNum >= 70
+                    ? "#f57f17"
+                    : "#c62828"
+                : "#1565c0";
 
-              html += `<div class="wr-item" onclick="viewWeeklyReportItem('${escAttr(wrKey)}')" style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;cursor:pointer">
-                <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
-                  ${currentUser.role !== "bod" ? `<input type="checkbox" class="wr-check" value="${escAttr(r.id)}" data-col="${escAttr(r.col || WEEKLY_REPORT_DEFAULT_COL)}" onclick="event.stopPropagation()">` : ""}
-                  <div style="flex:1"><div class="fw-700">${escHtml(pic)}</div>
-                  <div class="text-xs" style="color:#666">📅 ${escHtml(tgl)} | 🏢 ${escHtml(div)} | 🏷️ ${escHtml(kat)}${subKatHtml}</div></div></div>
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-                  <div style="font-size:.8rem;font-weight:700;color:${progressColor}">📈 Progress: ${escHtml(r.progress || "-")}${!isNaN(progressNum) && String(r.progress).indexOf("%") === -1 ? "%" : ""}</div>
-                  <div style="display:flex;gap:4px">
-                      <button class="btn btn-xs btn-info" onclick="event.stopPropagation();viewWeeklyReportItem('${escAttr(wrKey)}')">👁️ View</button>
-                      ${hasAccess(6) ? `<button class="btn btn-xs btn-warning" onclick="event.stopPropagation();editDailyReport('${escAttr(wrKey)}')">✏️ Edit</button>` : ""}
-                  </div>
-                </div>
-                <div style="font-size:.82rem;color:#333;line-height:1.5;background:#f9f9f9;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ${escHtml(previewText)}</div>
-              </div>`;
+              html += `<div class="wr-item" data-report-key="${escAttr(encodeURIComponent(wrKey))}" style="border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;cursor:pointer">
+            <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+              ${currentUser.role !== "bod" ? `<input type="checkbox" class="wr-check" value="${escAttr(r.id)}" data-col="${escAttr(r.col || WEEKLY_REPORT_DEFAULT_COL)}">` : ""}
+              <div style="flex:1"><div class="fw-700">${escHtml(pic)}</div>
+              <div class="text-xs" style="color:#666">📅 ${escHtml(tgl)} | 🏢 ${escHtml(div)} | 🏷️ ${escHtml(kat)}</div></div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+              <div style="font-size:.8rem;font-weight:700;color:${progressColor}">📈 Progress: ${escHtml(r.progress || "-")}${!isNaN(progressNum) && String(r.progress).indexOf("%") === -1 ? "%" : ""}</div>
+              <button class="btn btn-xs btn-info wr-view-btn" data-report-key="${escAttr(encodeURIComponent(wrKey))}">👁️ View</button>
+            </div>
+            <div style="font-size:.82rem;color:#333;line-height:1.5;background:#f9f9f9;border:1px solid #dfe7ff;border-radius:8px;padding:8px">📝 ${escHtml(previewText)}</div>
+          </div>`;
             });
             html += _buildReportTrackerStats(userRows);
-        });
+          });
         html += _buildReportTrackerStats(rows);
         html += "</div>";
-    });
-
+      });
     if (Object.keys(groups).length > 0) {
       html += `<div style="margin-top:20px;padding:10px 14px;background:#fafafa;border-radius:8px;border:1px solid #ddd;font-weight:700;font-size:.82rem;color:#555">📊 Ringkasan Keseluruhan Laporan Mingguan (${filtered.length} data)</div>`;
       html += _buildReportTrackerStats(filtered);
     }
     listEl.innerHTML = html;
+    listEl.querySelectorAll(".wr-item").forEach((itemEl) => {
+      itemEl.addEventListener("click", function () {
+        viewWeeklyReportItem(this.dataset.reportKey || "");
+      });
+    });
+    listEl.querySelectorAll(".wr-view-btn").forEach((btn) => {
+      btn.addEventListener("click", function (event) {
+        event.stopPropagation();
+        viewWeeklyReportItem(this.dataset.reportKey || "");
+      });
+    });
+    listEl.querySelectorAll(".wr-check").forEach((checkbox) => {
+      checkbox.addEventListener("click", function (event) {
+        event.stopPropagation();
+      });
+    });
+  } catch (e) {
+    listEl.innerHTML =
+      '<p class="text-sm" style="color:#c62828">Gagal memuat: ' +
+      escHtml(e.message) +
+      "</p>";
+  }
 }
 
 /**
@@ -5462,30 +5318,16 @@ function showWeeklyReportSummaryModal() {
 }
 
 function viewWeeklyReportItem(key) {
+  key = decodeURIComponent(key || "");
   var report = _weeklyReportLookup[key];
   if (!report) return toast("Data laporan tidak ditemukan", "warning");
   var tgl = report.tanggal ? formatDate(report.tanggal) : report.bulan || "-";
   var pic = report.targetUserName || report.pic || report.nama || "-";
   var div = report.departemen || report.divisi || "-";
-  var kategori = report.kategori || "-";
+  var kat = report.kategori || "-";
   var progressText = String(report.progress || "-").trim() || "-";
   var progressNum = parseInt(progressText, 10);
   var hasProgressNum = !isNaN(progressNum);
-
-  let extraSiswaHtml = "";
-  if ((kategori || "").toUpperCase() === "SISWA") {
-    extraSiswaHtml = `
-      <div style="background:#e3f2fd; padding:12px; border-radius:8px; margin-bottom:12px; border-left:4px solid #1565c0">
-        <div class="grid-2">
-          <div><b>LEVEL:</b> ${escHtml(report.level || "-")}</div>
-          <div><b>MATERI:</b> ${escHtml(report.materi || "-")}</div>
-        </div>
-        <div class="mt-8"><b>PENCAPAIAN BAB:</b></div>
-        <div style="font-size:.85rem; color:#444">${escHtml(report.pencapaian || "-")}</div>
-      </div>
-    `;
-  }
-
   var aktivitas = report.aktivitas || report.description || "-";
   var kendala = report.kendala || report.case_desc || "";
   var solusi = report.solusi || report.solution || "";
@@ -5503,14 +5345,13 @@ function viewWeeklyReportItem(key) {
       " | 🏢 " +
       escHtml(div) +
       " | 📂 " +
-      escHtml(kategori) +
+      escHtml(kat) +
       "</div>" +
       '<div class="text-sm mt-4">📈 Progress: <b>' +
       escHtml(progressText) +
       (hasProgressNum && progressText.indexOf("%") === -1 ? "%" : "") +
       "</b></div>" +
       "</div>" +
-      extraSiswaHtml +
       '<div class="mb-12"><div class="fw-700 mb-4" style="color:#1565c0">📋 Aktivitas</div><div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.84rem;white-space:pre-wrap;line-height:1.6">' +
       escHtml(aktivitas) +
       "</div></div>" +
@@ -5828,18 +5669,10 @@ function _buildReportTrackerRow(r) {
       r.id +
       "')\">\ud83d\uddd1\ufe0f</button>"
     : "";
-  var levelMateriHtml = "";
-  if ((r.kategori || "").toUpperCase() === "SISWA") {
-    levelMateriHtml = `<div style="font-size:.7rem; color:#1565c0; margin-bottom:4px; font-weight:600">
-        📍 LEVEL: ${escHtml(r.level || "-")} | 📚 MATERI: ${escHtml(r.materi || "-")}
-    </div>`;
-  }
-
   return (
     '<div style="margin-bottom:8px;padding:10px 12px;border:1px solid #e8e8e8;border-radius:8px;background:#fff;cursor:pointer" onclick="viewDailyReport(\'' +
     r.id +
     "')\">" +
-    levelMateriHtml +
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
     '<div style="font-weight:600;font-size:.85rem">' +
     statusIcon +
@@ -6835,9 +6668,3 @@ async function doInputCutiBersamaMassal() {
     toast("Error: " + e.message, "error");
   }
 }
-
-window.renderDailyTask = renderDailyTask;
-window.loadDailyTasks = loadDailyTasks;
-window.editDailyReport = editDailyReport;
-window.viewDailyReport = viewDailyReport;
-window.hapusDailyTask = hapusDailyTask;
