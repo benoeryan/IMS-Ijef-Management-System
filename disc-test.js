@@ -1111,11 +1111,40 @@ async function saveResult(r) {
     });
     // Sync calon karyawan to recruitment pipeline
     if (testState.mode === 'calon') {
+      let healthTestId = '';
+      try {
+        // Auto check or create hrd_test_kesehatan record for calon
+        const hSnap = await db.collection('hrd_test_kesehatan')
+          .where('tipe', '==', 'calon')
+          .where('nama', '==', testState.nama)
+          .where('status', '==', 'pending')
+          .get();
+
+        if (!hSnap.empty) {
+          healthTestId = hSnap.docs[0].id;
+        } else {
+          const newH = await db.collection('hrd_test_kesehatan').add({
+            nama: testState.nama,
+            posisi: testState.posisi || '',
+            tipe: 'calon',
+            status: 'pending',
+            pelamarId: testState.pelamarId || '',
+            kontak: testState.kontak || '',
+            tanggal: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+            createdAt: new Date().toISOString()
+          });
+          healthTestId = newH.id;
+        }
+        testState.healthTestId = healthTestId;
+      } catch (hErr) {
+        console.warn('Auto create health test error:', hErr);
+      }
+
       await db.collection('hrd_kandidat').add({
         nama: testState.nama,
         email: testState.kontak || '',
         posisi: testState.posisi,
-        stage: 'DISC Test Done',
+        stage: 'disc',
         sumber: 'DISC Test Online',
         discPattern: r.pattern,
         discProfile: r.profile.name,
@@ -1124,6 +1153,7 @@ async function saveResult(r) {
         jenisKelamin: testState.jenisKelamin,
         kontak: testState.kontak || '',
         pelamarId: testState.pelamarId || '',
+        healthTestId: healthTestId,
         createdAt: new Date().toISOString(),
       });
 
@@ -1135,14 +1165,15 @@ async function saveResult(r) {
             discPattern: r.pattern,
             discProfile: r.profile.name,
             discScore: kpiScore,
-            discDoneAt: new Date().toISOString()
+            discDoneAt: new Date().toISOString(),
+            healthTestId: healthTestId
           });
         } catch (err) {
           console.warn('Update pelamar failed:', err);
         }
       }
 
-      toast('Hasil tes disimpan & data masuk ke pipeline rekrutmen', 'success');
+      toast('Tes DISC Selesai! Mengalihkan ke Test Kesehatan...', 'success');
     } else {
       toast('Hasil tes berhasil disimpan', 'success');
     }
@@ -1153,16 +1184,37 @@ async function saveResult(r) {
 }
 
 function renderResult(r) {
-  // Calon karyawan: jangan tampilkan hasil, hanya ucapan terima kasih
+  // Calon karyawan: Lanjutkan ke Test Kesehatan
   if (testState.mode === 'calon') {
+    const healthUrl = `test-kesehatan.html?id=${testState.healthTestId || ''}&pelamarId=${testState.pelamarId || ''}`;
     document.getElementById('app').innerHTML = `
-    <div style="max-width:600px;margin:60px auto;text-align:center">
-      <div style="background:#fff;border-radius:16px;padding:40px 30px;box-shadow:0 4px 20px rgba(0,0,0,.1)">
-        <div style="font-size:3rem;margin-bottom:16px">✅</div>
-        <h2 style="color:var(--primary);margin-bottom:12px">TERIMA KASIH</h2>
-        <p style="font-size:1rem;color:var(--text);line-height:1.8;margin-bottom:24px">Tes DISC Anda telah selesai dan tersimpan.<br><br><strong style="color:var(--primary);font-size:1.1rem">SEGERA HUBUNGI PIC UNTUK MENGETAHUI HASIL TEST ANDA</strong></p>
-        <p style="font-size:.85rem;color:var(--text-light);margin-bottom:24px">Hasil tes akan dievaluasi oleh tim HR IJEF Corp dan akan diinformasikan melalui kontak yang Anda berikan.</p>
-        <button onclick="startMode('calon')" style="padding:12px 28px;border:none;background:var(--primary);color:#fff;border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer">🔄 Tes Baru</button>
+    <div style="max-width:650px;margin:50px auto;text-align:center">
+      <div style="background:#fff;border-radius:16px;padding:40px 30px;box-shadow:0 4px 20px rgba(0,0,0,.1);border-top:6px solid var(--success)">
+        <div style="font-size:3.5rem;margin-bottom:16px">✅</div>
+        <h2 style="color:var(--primary);margin-bottom:12px">TES DISC SELESAI</h2>
+        <p style="font-size:1rem;color:var(--text);line-height:1.8;margin-bottom:20px">
+          Terima kasih, <strong>${escHtml(testState.nama)}</strong>.<br>
+          Tes DISC Anda telah berhasil disimpan.<br><br>
+          <strong style="color:var(--primary);font-size:1.05rem">Langkah Terakhir (3/3): Mengisi Test Kesehatan Calon Karyawan</strong>
+        </p>
+        <p style="font-size:.85rem;color:var(--text-light);margin-bottom:24px">
+          Silakan klik tombol di bawah ini untuk melanjutkan mengisi form <strong>Test Kesehatan</strong> guna melengkapi seluruh proses rekrutmen.
+        </p>
+        <a href="${healthUrl}" class="btn" style="padding:14px 32px;background:var(--primary);color:#fff;border-radius:30px;font-size:1rem;font-weight:700;text-decoration:none;display:inline-block;box-shadow:0 4px 12px rgba(26,35,126,.3)">
+          🏥 Lanjutkan ke Test Kesehatan ➔
+        </a>
+      </div>
+      <p style="margin-top:20px;font-size:.72rem;color:#999">© 2026 LPK IJEF Corp — HR Assessment System</p>
+    </div>`;
+
+    // Auto redirect after 3 seconds if healthTestId exists
+    if (testState.healthTestId) {
+      setTimeout(() => {
+        window.location.href = healthUrl;
+      }, 3000);
+    }
+    return;
+  }
       </div>
       <p style="margin-top:20px;font-size:.72rem;color:#999">© 2026 LPK IJEF Corp — HR Assessment System</p>
     </div>`;

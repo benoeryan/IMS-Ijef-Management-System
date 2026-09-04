@@ -1234,12 +1234,21 @@ async function simpanLowongan(id) {
 async function renderPipeline() {
   const main = document.getElementById('mainContent');
   if (!main) return;
-  const stages = ['applied', 'disc', 'interview', 'offering', 'hired'];
+  const stages = ['applied', 'disc', 'health', 'interview', 'offering', 'hired'];
+  const stageLabels = {
+    applied: '1. APPLIED / FORM PELAMAR',
+    disc: '2. TEST DISC',
+    health: '3. TEST KESEHATAN',
+    interview: '4. INTERVIEW',
+    offering: '5. OFFERING',
+    hired: '6. HIRED'
+  };
   main.innerHTML = `<div class="page-title">
-    <span>${renderBackButton()}🔄 Pipeline Kandidat</span>
+    <span>${renderBackButton()}🔄 Pipeline Kanban Rekrutmen</span>
     <div class="flex gap-8" style="flex-wrap:wrap">
       <button class="btn btn-outline btn-sm" onclick="copyLinkPelamar()">📋 Copy Link Form Pelamar</button>
       <button class="btn btn-outline btn-sm" onclick="copyLinkDISC()">🧠 Copy Link Tes DISC</button>
+      <button class="btn btn-outline btn-sm" onclick="copyLinkTestKesehatan()">🏥 Copy Link Test Kesehatan</button>
     </div>
   </div>
   <div id="pipelineWrap" style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>`;
@@ -1253,10 +1262,21 @@ async function renderPipeline() {
   });
   let h = '';
   stages.forEach((st) => {
-    h += `<div class="card"><div class="card-title">${st.toUpperCase()} (${data[st].length})</div>`;
-    if (!data[st].length) h += '<p class="text-sm color-gray">Kosong</p>';
+    const label = stageLabels[st] || st.toUpperCase();
+    h += `<div class="card"><div class="card-title" style="font-size:.82rem">${label} (${data[st].length})</div>`;
+    if (!data[st].length) h += '<p class="text-xs color-gray mt-8">Kosong</p>';
     data[st].forEach((p) => {
-      h += `<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px"><div class="fw-700">${escHtml(p.nama || '-')}</div><div class="text-xs color-gray mb-8">${escHtml(p.posisi || '-')} ${p.discProfile ? '• DISC: ' + escHtml(p.discProfile) : ''}</div><select class="form-control" onchange="updateKandidatStage('${p.id}', this.value)">${stages.map((s) => `<option value="${s}" ${s === st ? 'selected' : ''}>${s.toUpperCase()}</option>`).join('')}</select></div>`;
+      const discTag = p.discProfile ? `<div class="text-xs color-primary fw-700 mt-4">🧠 DISC: ${escHtml(p.discProfile)}</div>` : '';
+      const healthTag = p.kesehatanStatus ? `<div class="text-xs mt-4">🏥 Health: ${getStatusBadgeKesehatan(p.kesehatanStatus)}</div>` : '';
+      h += `<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:#fff">
+        <div class="fw-700" style="font-size:.88rem">${escHtml(p.nama || '-')}</div>
+        <div class="text-xs color-gray mb-4">${escHtml(p.posisi || '-')}</div>
+        ${discTag}
+        ${healthTag}
+        <select class="form-control mt-8 text-xs" onchange="updateKandidatStage('${p.id}', this.value)">
+          ${stages.map((s) => `<option value="${s}" ${s === st ? 'selected' : ''}>${stageLabels[s] || s.toUpperCase()}</option>`).join('')}
+        </select>
+      </div>`;
     });
     h += '</div>';
   });
@@ -1265,7 +1285,7 @@ async function renderPipeline() {
 
 async function updateKandidatStage(id, stage) {
   await db.collection('hrd_kandidat').doc(id).update({ stage, updatedAt: new Date().toISOString() });
-  toast('Stage diperbarui', 'success');
+  toast('Stage kandidat diperbarui', 'success');
   renderPipeline();
 }
 
@@ -1277,18 +1297,30 @@ async function renderKandidat() {
     <div class="flex gap-8" style="flex-wrap:wrap">
       <button class="btn btn-outline btn-sm" onclick="copyLinkPelamar()">📋 Copy Link Form Pelamar</button>
       <button class="btn btn-outline btn-sm" onclick="copyLinkDISC()">🧠 Copy Link Tes DISC</button>
+      <button class="btn btn-outline btn-sm" onclick="copyLinkTestKesehatan()">🏥 Copy Link Test Kesehatan</button>
       <button class="btn btn-primary btn-sm" onclick="modalKandidat()">+ Tambah</button>
     </div>
   </div>
-  <div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Kontak</th><th>Stage / DISC</th><th>Aksi</th></tr></thead><tbody id="tblKandidat"></tbody></table></div></div>`;
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Kontak</th><th>Stage Pipeline</th><th>Hasil DISC & Kesehatan</th><th>Aksi</th></tr></thead><tbody id="tblKandidat"></tbody></table></div></div>`;
   const snap = await db.collection('hrd_kandidat').orderBy('createdAt', 'desc').get();
   let h = '';
   snap.forEach((d) => {
     const p = d.data();
-    const discInfo = p.discProfile ? `<br><small class="color-primary fw-700">🧠 ${escHtml(p.discProfile)}</small>` : '';
-    h += `<tr><td class="fw-700">${escHtml(p.nama || '-')}</td><td>${escHtml(p.posisi || '-')}</td><td>${escHtml(p.kontak || p.email || '-')}</td><td>${escHtml((p.stage || 'applied').toUpperCase())}${discInfo}</td><td><button class="btn btn-xs btn-info" onclick="modalKandidat('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kandidat','${d.id}','kandidat')">🗑️</button></td></tr>`;
+    const discInfo = p.discProfile ? `<span class="badge badge-info">🧠 ${escHtml(p.discProfile)}</span> ` : '';
+    const healthInfo = p.kesehatanStatus ? getStatusBadgeKesehatan(p.kesehatanStatus) : '';
+    h += `<tr>
+      <td class="fw-700">${escHtml(p.nama || '-')}</td>
+      <td>${escHtml(p.posisi || '-')}</td>
+      <td>${escHtml(p.kontak || p.email || '-')}</td>
+      <td><span class="badge badge-primary">${escHtml((p.stage || 'applied').toUpperCase())}</span></td>
+      <td>${discInfo}${healthInfo || '<span class="text-xs color-gray">-</span>'}</td>
+      <td>
+        <button class="btn btn-xs btn-info" onclick="modalKandidat('${d.id}')">✏️</button>
+        <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kandidat','${d.id}','kandidat')">🗑️</button>
+      </td>
+    </tr>`;
   });
-  document.getElementById('tblKandidat').innerHTML = h || '<tr><td colspan="5" class="text-center">Belum ada kandidat</td></tr>';
+  document.getElementById('tblKandidat').innerHTML = h || '<tr><td colspan="6" class="text-center">Belum ada kandidat</td></tr>';
 }
 
 
@@ -1377,12 +1409,22 @@ function copyLinkDISC() {
   });
 }
 
+function copyLinkTestKesehatan() {
+  const url = window.location.origin + '/test-kesehatan.html';
+  navigator.clipboard.writeText(url).then(() => {
+    toast('🏥 Link Test Kesehatan disalin: ' + url, 'success');
+  }).catch(() => {
+    prompt('Salin link Test Kesehatan:', url);
+  });
+}
+
 async function renderFormPelamarMgmt() {
   const main = document.getElementById('mainContent');
   if (!main) return;
 
   const linkPelamarUrl = window.location.origin + '/form-pelamar.html';
   const linkDiscUrl = window.location.origin + '/disc-test.html';
+  const linkHealthUrl = window.location.origin + '/test-kesehatan.html';
 
   main.innerHTML = `
     <div class="page-title">
@@ -1391,19 +1433,24 @@ async function renderFormPelamarMgmt() {
         <button class="btn btn-outline btn-sm" onclick="copyLinkPelamar()">📋 Copy Link Form Pelamar</button>
         <button class="btn btn-outline btn-sm" onclick="window.open('${linkPelamarUrl}', '_blank')">↗️ Buka Form Pelamar</button>
         <button class="btn btn-outline btn-sm" onclick="copyLinkDISC()">🧠 Copy Link Tes DISC</button>
+        <button class="btn btn-outline btn-sm" onclick="copyLinkTestKesehatan()">🏥 Copy Link Test Kesehatan</button>
       </div>
     </div>
 
     <div class="card mb-16" style="border-left:4px solid var(--primary);background:#f8f9ff">
-      <div class="fw-700 color-primary mb-4">🔗 Link Rekrutmen Calon Karyawan:</div>
-      <div class="grid-2 text-xs" style="gap:10px">
+      <div class="fw-700 color-primary mb-4">🔗 Link Rekrutmen Calon Karyawan Terintegrasi (3 Tahap):</div>
+      <div class="grid-3 text-xs" style="gap:10px">
         <div>
-          <b>Form Isian Data Pelamar:</b><br>
+          <b>1. Form Data Pelamar:</b><br>
           <code style="background:#fff;padding:3px 6px;border-radius:4px;border:1px solid #ccc;word-break:break-all">${linkPelamarUrl}</code>
         </div>
         <div>
-          <b>Tes Kepribadian DISC:</b><br>
+          <b>2. Tes Kepribadian DISC:</b><br>
           <code style="background:#fff;padding:3px 6px;border-radius:4px;border:1px solid #ccc;word-break:break-all">${linkDiscUrl}</code>
+        </div>
+        <div>
+          <b>3. Test Kesehatan Calon:</b><br>
+          <code style="background:#fff;padding:3px 6px;border-radius:4px;border:1px solid #ccc;word-break:break-all">${linkHealthUrl}</code>
         </div>
       </div>
     </div>
@@ -1422,6 +1469,7 @@ async function renderFormPelamarMgmt() {
               <th>Posisi Dilamar</th>
               <th>No. HP / Email</th>
               <th>Status DISC</th>
+              <th>Status Kesehatan</th>
               <th>Aksi</th>
             </tr>
           </thead>
@@ -1457,12 +1505,16 @@ function filterTblPelamar() {
 
   let h = '';
   if (!filtered.length) {
-    h = '<tr><td colspan="6" class="text-center color-gray">Belum ada data pelamar. Bagikan link Form Pelamar kepada calon karyawan.</td></tr>';
+    h = '<tr><td colspan="7" class="text-center color-gray">Belum ada data pelamar. Bagikan link Form Pelamar kepada calon karyawan.</td></tr>';
   } else {
     filtered.forEach(p => {
       const isDiscDone = p.discStatus === 'Selesai' || p.discProfile;
       const discBadge = isDiscDone
         ? `<span class="badge badge-success">✓ Selesai (${escHtml(p.discProfile || 'Done')})</span>`
+        : `<span class="badge badge-warning">Belum Tes</span>`;
+
+      const healthBadge = p.kesehatanStatus
+        ? getStatusBadgeKesehatan(p.kesehatanStatus)
         : `<span class="badge badge-warning">Belum Tes</span>`;
 
       h += `<tr>
@@ -1471,6 +1523,7 @@ function filterTblPelamar() {
         <td><span class="badge badge-info">${escHtml(p.posisi || '-')}</span></td>
         <td class="text-xs">${escHtml(p.telepon || '-')}<br>${escHtml(p.email || '-')}</td>
         <td>${discBadge}</td>
+        <td>${healthBadge}</td>
         <td>
           <div class="flex gap-4">
             <button class="btn btn-xs btn-info" onclick="modalDetailPelamar('${p.id}')">👁️ Detail</button>
@@ -1774,6 +1827,7 @@ async function cetakFormPelamar(id) {
 
 window.copyLinkPelamar = copyLinkPelamar;
 window.copyLinkDISC = copyLinkDISC;
+window.copyLinkTestKesehatan = copyLinkTestKesehatan;
 window.renderFormPelamarMgmt = renderFormPelamarMgmt;
 window.modalDetailPelamar = modalDetailPelamar;
 window.cetakFormPelamar = cetakFormPelamar;

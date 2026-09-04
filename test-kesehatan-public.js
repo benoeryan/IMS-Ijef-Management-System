@@ -328,15 +328,18 @@ function renderCompleted() {
 // == RENDER THANK YOU PAGE ==
 function renderThankYou() {
   document.getElementById('app').innerHTML =
-    '<div style="background:#fff;border-radius:10px;padding:40px;max-width:500px;' +
-    'margin:40px auto;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06)">' +
+    '<div style="background:#fff;border-radius:16px;padding:40px 30px;max-width:600px;' +
+    'margin:50px auto;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.1);border-top:6px solid #2e7d32">' +
     '<div style="font-size:3.5rem;margin-bottom:16px">&#x2705;</div>' +
-    '<h2 style="color:var(--success);margin-bottom:12px">TERIMA KASIH</h2>' +
-    '<p style="color:var(--text-light);font-size:.9rem;line-height:1.7">' +
-    'Form test kesehatan Anda telah berhasil dikirim.<br>' +
-    'Tim HRD akan mereview hasil pemeriksaan Anda.</p>' +
-    '<div style="margin-top:20px;padding:12px;background:#e8f5e9;border-radius:8px;font-size:.82rem;color:#2e7d32">' +
-    'Anda dapat menutup halaman ini.</div></div>';
+    '<h2 style="color:#2e7d32;margin-bottom:12px">SELAMAT & TERIMA KASIH!</h2>' +
+    '<p style="color:var(--text);font-size:1rem;line-height:1.8;margin-bottom:20px">' +
+    'Seluruh tahapan proses rekrutmen di LPK IJEF Corp:<br>' +
+    '<b>1. Form Data Pelamar IJEF ✅</b><br>' +
+    '<b>2. Tes Kepribadian DISC ✅</b><br>' +
+    '<b>3. Test Kesehatan Calon Karyawan ✅</b><br>' +
+    'telah berhasil Anda selesaikan!</p>' +
+    '<div style="margin-top:20px;padding:16px;background:#e8f5e9;border-radius:10px;font-size:.88rem;color:#2e7d32;line-height:1.6">' +
+    'Tim HRD IJEF Corp akan mengevaluasi seluruh berkas dan hasil tes Anda. Hasil seleksi akan diinformasikan melalui kontak yang Anda daftarkan.</div></div>';
 }
 
 // == RENDER FORM ==
@@ -864,6 +867,42 @@ async function submitTestKesehatan(docId) {
 
   try {
     await db.collection('hrd_test_kesehatan').doc(docId).update(updateData);
+
+    // Sync back to pelamar & kandidat pipeline
+    var pId = window._currentPelamarId || window._currentTestData?.pelamarId;
+    var candidateNama = dataUmum.nama || window._currentTestData?.nama;
+
+    if (pId) {
+      try {
+        await db.collection('hrd_pelamar').doc(pId).update({
+          kesehatanStatus: kesimpulan.status,
+          kesehatanCatatan: kesimpulan.catatan,
+          kesehatanRekomendasi: kesimpulan.rekomendasi,
+          kesehatanDoneAt: new Date().toISOString()
+        });
+      } catch (pErr) {
+        console.warn('Pelamar health update failed:', pErr);
+      }
+    }
+
+    // Update kandidat pipeline stage to 'health'
+    if (candidateNama) {
+      try {
+        var kSnap = await db.collection('hrd_kandidat')
+          .where('nama', '==', candidateNama)
+          .get();
+        if (!kSnap.empty) {
+          kSnap.docs[0].ref.update({
+            stage: 'health',
+            kesehatanStatus: kesimpulan.status,
+            updatedAt: new Date().toISOString()
+          });
+        }
+      } catch (kErr) {
+        console.warn('Kandidat pipeline update failed:', kErr);
+      }
+    }
+
     renderThankYou();
   } catch (e) {
     toast('Gagal menyimpan data: ' + e.message, 'error');
@@ -874,9 +913,12 @@ async function submitTestKesehatan(docId) {
 document.addEventListener('DOMContentLoaded', async function () {
   var params = new URLSearchParams(window.location.search);
   var docId = params.get('id');
+  var pelamarId = params.get('pelamarId') || sessionStorage.getItem('pelamar_id');
+
+  if (pelamarId) window._currentPelamarId = pelamarId;
 
   if (!docId) {
-    renderError('Link tidak valid');
+    renderError('Link tidak valid atau belum diisi dengan benar');
     return;
   }
 
@@ -887,10 +929,31 @@ document.addEventListener('DOMContentLoaded', async function () {
       return;
     }
     var data = doc.data();
+    window._currentTestData = data;
+
     if (data.status === 'selesai') {
       renderCompleted();
       return;
     }
+
+    // Auto fill candidate data if linked
+    if (pelamarId && !data.dataUmum?.nama) {
+      try {
+        var pDoc = await db.collection('hrd_pelamar').doc(pelamarId).get();
+        if (pDoc.exists) {
+          var pData = pDoc.data();
+          data.nama = data.nama || pData.nama;
+          data.dataUmum = data.dataUmum || {};
+          data.dataUmum.nama = pData.nama;
+          data.dataUmum.usia = pData.usia;
+          data.dataUmum.jenisKelamin = pData.jenisKelamin;
+          data.dataUmum.golonganDarah = pData.golDarah;
+        }
+      } catch (pEx) {
+        console.warn('Auto fill candidate info failed:', pEx);
+      }
+    }
+
     renderForm(docId, data);
   } catch (e) {
     renderError('Terjadi kesalahan: ' + e.message);
