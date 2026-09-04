@@ -287,7 +287,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.1.9";
+const APP_VERSION = "16.6.5";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -423,7 +423,7 @@ const HARI_LIBUR_NASIONAL_2026 = [
   { tanggal: "2026-06-01", nama: "Hari Lahir Pancasila", tipe: "nasional" },
   { tanggal: "2026-06-16", nama: "Tahun Baru Islam 1448 H", tipe: "nasional" },
   { tanggal: "2026-08-17", nama: "Hari Kemerdekaan RI", tipe: "nasional" },
-  { tanggal: "2026-08-26", nama: "Maulid Nabi Muhammad SAW", tipe: "nasional" },
+  { tanggal: "2026-08-25", nama: "Maulid Nabi Muhammad SAW", tipe: "nasional" },
   { tanggal: "2026-12-24", nama: "Cuti Bersama Natal", tipe: "cuti_bersama" },
   { tanggal: "2026-12-25", nama: "Hari Natal", tipe: "nasional" },
   {
@@ -443,6 +443,18 @@ async function autoLoadHariLiburNasional() {
         .collection("hrd_hari_libur")
         .where("tahun", "==", year)
         .get();
+
+      // Proactive Fix: Correct Maulid Nabi 2026 if it exists on the wrong date (Aug 26 -> Aug 25)
+      if (year === 2026) {
+          existingSnap.forEach(doc => {
+              const d = doc.data();
+              if (d.tanggal === "2026-08-26" && d.nama.includes("Maulid")) {
+                  console.log("[HOLIDAY] Correcting Maulid Nabi 2026 date...");
+                  doc.ref.update({ tanggal: "2026-08-25" });
+              }
+          });
+      }
+
       let alreadyPopulated = false;
       existingSnap.forEach((d) => {
         const t = d.data().tipe;
@@ -769,8 +781,8 @@ function buildNavItems(isPortalUser) {
       ["inbox", "📥", "Inbox"],
       ["chat", "💬", "Obrolan"],
     ]);
-    // Leader gets approval access
-    if (currentUser.role === "leader")
+    // Leader gets approval access, also Siti Sofuroh for Finance Approval
+    if (currentUser.role === "leader" || (currentUser.nama || "").toLowerCase().includes("siti sofuroh"))
       nav += navGroup("✅ Approval", [
         ["approval-center", "✅", "Approval Center"],
       ]);
@@ -1200,25 +1212,25 @@ function closeSidebar() {
   }
 }
 
-function openModal(html, size) {
+let _modalPersistent = false;
+function openModal(html, large, persistent = false) {
+  _modalPersistent = persistent;
   const o = document.getElementById("modalOverlay"),
     c = document.getElementById("modalContent");
-  let sizeClass = "";
-  if (size === true) sizeClass = " modal-lg";
-  else if (typeof size === "string") sizeClass = " " + size;
-
-  c.className = "modal" + sizeClass;
+  c.className = "modal" + (large ? " modal-lg" : "");
   c.innerHTML = html;
   o.classList.add("active");
 }
 function closeModal(e) {
-  if (e && e.target !== document.getElementById("modalOverlay")) return;
+  if (_modalPersistent && e && e.target === document.getElementById("modalOverlay")) return;
   runPageResourceCleanup("modal-close");
   document.getElementById("modalOverlay").classList.remove("active");
+  _modalPersistent = false;
 }
 function closeModalDirect() {
   runPageResourceCleanup("modal-close");
   document.getElementById("modalOverlay").classList.remove("active");
+  _modalPersistent = false;
   // Clean up zoom drag listeners
   if (typeof handleZoomDrag === "function") {
     document.removeEventListener("mousemove", handleZoomDrag);
@@ -1889,6 +1901,8 @@ async function updateNotifBadge() {
   if (_notifUnsubscribe.length === 0) {
     const q1 = db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.id);
     const q2 = db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.role);
+    const q3 = db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.nama);
+    const q4 = db.collection("hrd_notifikasi").where("targetUser", "==", (currentUser.posisi || ""));
 
     const handleSnapshot = (snap) => {
       let hasNewAdded = false;
@@ -1909,16 +1923,20 @@ async function updateNotifBadge() {
 
     _notifUnsubscribe.push(q1.onSnapshot(handleSnapshot));
     _notifUnsubscribe.push(q2.onSnapshot(handleSnapshot));
+    _notifUnsubscribe.push(q3.onSnapshot(handleSnapshot));
+    _notifUnsubscribe.push(q4.onSnapshot(handleSnapshot));
   }
 }
 
 async function _calculateTotalUnread() {
-  const [s1, s2] = await Promise.all([
+  const [s1, s2, s3, s4] = await Promise.all([
     db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.id).where("read", "==", false).get(),
     db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.role).where("read", "==", false).get(),
+    db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.nama).where("read", "==", false).get(),
+    db.collection("hrd_notifikasi").where("targetUser", "==", (currentUser.posisi || "")).where("read", "==", false).get(),
   ]);
 
-  const count = s1.size + s2.size;
+  const count = s1.size + s2.size + s3.size + s4.size;
   const badge = document.getElementById("notifCount");
   if (badge) {
     badge.textContent = count;
