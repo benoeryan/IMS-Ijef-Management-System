@@ -655,6 +655,21 @@ function hasHeadLevelAccess() {
   );
 }
 
+function canSeeRekrutmen() {
+  if (hasAccess(6)) return true; // Admin
+  const nama = (currentUser?.nama || "").toLowerCase().trim();
+  const dept = (currentUser?.departemen || "").toLowerCase().trim();
+  const allowedNames = [
+    "irsan janwar wibawa",
+    "agus puriyanto",
+    "muhammad agus ryanda",
+    "maharani ali putri",
+  ];
+  if (allowedNames.includes(nama)) return true;
+  if (dept.includes("hr") && dept.includes("legal")) return true;
+  return false;
+}
+
 function renderLogin() {
   const logo = localStorage.getItem("ims_company_logo");
   const logoHtml = logo
@@ -827,8 +842,8 @@ function buildNavItems(isPortalUser) {
     ["offboarding", "📦", "Offboarding"],
     ["test-kesehatan", "🏥", "Test Kesehatan"],
   ]);
-  // Manager+ gets Rekrutmen
-  if (hasAccess(3) && currentUser.role !== "bod")
+  // Specific users/roles get Rekrutmen
+  if (canSeeRekrutmen())
     nav += navGroup("🔍 Rekrutmen", [
       ["lowongan", "📝", "Lowongan"],
       ["pipeline", "🔄", "Pipeline Kanban"],
@@ -1049,6 +1064,11 @@ function runPageResourceCleanup(reason) {
 
 function navigateTo(page) {
   runPageResourceCleanup("navigate");
+  if (["lowongan", "pipeline", "kandidat"].includes(page) && !canSeeRekrutmen()) {
+    toast("Akses menu Rekrutmen ditolak", "error");
+    navigateTo("dashboard");
+    return;
+  }
   if (currentPage !== page) {
     lastPage = currentPage;
   }

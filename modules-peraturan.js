@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '16.1.8',
+            version: '16.6.6',
             updatedAt: new Date().toISOString(),
-            note: 'Daily Report View: Enhanced layout, larger size (modal-xl), and added SISWA level/materi info'
+            note: 'Remove raw link text boxes in QR share and restrict Rekrutmen menu by specific roles/departments'
         }, { merge: true });
 
     } catch (e) {

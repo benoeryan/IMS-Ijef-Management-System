@@ -3289,8 +3289,7 @@ function renderQRShare() {
       <div class="card text-center">
         <div class="card-title mb-16">📱 QR Code Aplikasi</div>
         <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}" style="width:200px;height:200px;border-radius:12px;border:2px solid var(--border)">
-        <p class="text-sm mt-16">${url}</p>
-        <div class="flex gap-8 mt-8" style="justify-content:center">
+        <div class="flex gap-8 mt-16" style="justify-content:center">
           <button class="btn btn-primary btn-sm" onclick="navigator.clipboard?.writeText('${url}').then(()=>toast('Disalin!','success'))">📋 Copy</button>
           <button class="btn btn-success btn-sm" onclick="shareAppWA()">💬 Share WA</button>
         </div>
