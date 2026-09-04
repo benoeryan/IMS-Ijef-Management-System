@@ -1437,24 +1437,6 @@ async function renderFormPelamarMgmt() {
       </div>
     </div>
 
-    <div class="card mb-16" style="border-left:4px solid var(--primary);background:#f8f9ff">
-      <div class="fw-700 color-primary mb-4">🔗 Link Rekrutmen Calon Karyawan Terintegrasi (3 Tahap):</div>
-      <div class="grid-3 text-xs" style="gap:10px">
-        <div>
-          <b>1. Form Data Pelamar:</b><br>
-          <code style="background:#fff;padding:3px 6px;border-radius:4px;border:1px solid #ccc;word-break:break-all">${linkPelamarUrl}</code>
-        </div>
-        <div>
-          <b>2. Tes Kepribadian DISC:</b><br>
-          <code style="background:#fff;padding:3px 6px;border-radius:4px;border:1px solid #ccc;word-break:break-all">${linkDiscUrl}</code>
-        </div>
-        <div>
-          <b>3. Test Kesehatan Calon:</b><br>
-          <code style="background:#fff;padding:3px 6px;border-radius:4px;border:1px solid #ccc;word-break:break-all">${linkHealthUrl}</code>
-        </div>
-      </div>
-    </div>
-
     <div class="card">
       <div class="card-header mb-16" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
         <div class="card-title">📋 Daftar Pelamar Kerja</div>
