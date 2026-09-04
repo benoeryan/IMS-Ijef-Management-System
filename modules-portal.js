@@ -1361,6 +1361,7 @@ async function renderPublicPortalCalon() {
     <div style="max-width:900px;margin:0 auto;padding:20px">
       <div class="tabs" id="calonTabs">
         <div class="tab active" onclick="loadCalonTab('lowongan')">📝 Lowongan</div>
+        <div class="tab" onclick="window.location.href='form-pelamar.html'">📋 Form Data Pelamar</div>
         <div class="tab" onclick="loadCalonTab('lamar')">📤 Kirim Lamaran</div>
         <div class="tab" onclick="loadCalonTab('tentang')">🏛️ Tentang Perusahaan</div>
         <div class="tab" onclick="loadCalonTab('peraturan')">📜 Peraturan</div>
@@ -1373,6 +1374,12 @@ async function renderPublicPortalCalon() {
     </div>`;
   loadCalonTab("lowongan");
 }
+
+function renderPublicFormPelamar() {
+  window.location.href = 'form-pelamar.html';
+}
+window.renderPublicFormPelamar = renderPublicFormPelamar;
+
 
 async function loadCalonTab(tab) {
   document

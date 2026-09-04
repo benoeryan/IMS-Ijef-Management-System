@@ -824,6 +824,34 @@ async function loadLowonganOptions() {
     }
     opts += '<option value="Lainnya">Lainnya (Posisi tidak terdaftar)</option>';
     sel.innerHTML = opts;
+
+    // Check URL query parameters and sessionStorage for Candidate Form auto-fill
+    const params = new URLSearchParams(window.location.search);
+    const urlNama = params.get('nama') || sessionStorage.getItem('pelamar_nama') || '';
+    const urlPosisi = params.get('posisi') || sessionStorage.getItem('pelamar_posisi') || '';
+    const urlKontak = params.get('kontak') || sessionStorage.getItem('pelamar_kontak') || '';
+    const urlGender = params.get('gender') || sessionStorage.getItem('pelamar_gender') || '';
+    const urlUsia = params.get('usia') || sessionStorage.getItem('pelamar_usia') || '';
+    const urlPelamarId = params.get('pelamarId') || sessionStorage.getItem('pelamar_id') || '';
+
+    if (urlPelamarId) testState.pelamarId = urlPelamarId;
+    if (urlNama && document.getElementById('fNama')) document.getElementById('fNama').value = urlNama;
+    if (urlUsia && document.getElementById('fUsia')) document.getElementById('fUsia').value = urlUsia;
+    if (urlGender && document.getElementById('fGender')) document.getElementById('fGender').value = urlGender;
+    if (urlKontak && document.getElementById('fKontak')) document.getElementById('fKontak').value = urlKontak;
+
+    if (urlPosisi && sel) {
+      const matchOpt = Array.from(sel.options).find(o => o.value === urlPosisi || o.value.includes(urlPosisi));
+      if (matchOpt) {
+        sel.value = matchOpt.value;
+      } else {
+        const opt = document.createElement('option');
+        opt.value = urlPosisi;
+        opt.textContent = urlPosisi;
+        opt.selected = true;
+        sel.appendChild(opt);
+      }
+    }
   } catch (e) {
     const sel = document.getElementById('fPosisi');
     if (sel) sel.innerHTML = '<option value="">-- Pilih posisi --</option>';
@@ -1095,8 +1123,25 @@ async function saveResult(r) {
         usia: testState.usia,
         jenisKelamin: testState.jenisKelamin,
         kontak: testState.kontak || '',
+        pelamarId: testState.pelamarId || '',
         createdAt: new Date().toISOString(),
       });
+
+      // Update hrd_pelamar record if linked
+      if (testState.pelamarId) {
+        try {
+          await db.collection('hrd_pelamar').doc(testState.pelamarId).update({
+            discStatus: 'Selesai',
+            discPattern: r.pattern,
+            discProfile: r.profile.name,
+            discScore: kpiScore,
+            discDoneAt: new Date().toISOString()
+          });
+        } catch (err) {
+          console.warn('Update pelamar failed:', err);
+        }
+      }
+
       toast('Hasil tes disimpan & data masuk ke pipeline rekrutmen', 'success');
     } else {
       toast('Hasil tes berhasil disimpan', 'success');

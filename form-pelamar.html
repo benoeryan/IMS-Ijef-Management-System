@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Form Isian Data Pelamar Kerja — LPK IJEF Corp</title>
+<meta name="theme-color" content="#1a237e">
+<link rel="icon" type="image/png" href="assets/logo-ijef.png">
+<link rel="manifest" href="manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#1a237e;--primary-light:#283593;--primary-dark:#0d1642;--accent:#ff6f00;--success:#2e7d32;--danger:#c62828;--warning:#f57f17;--info:#0277bd;--bg:#f0f2f5;--card:#fff;--text:#212121;--text-light:#666;--border:#e0e0e0;--radius:10px}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;padding-bottom:40px}
+.header-bar{background:linear-gradient(135deg,var(--primary-dark),var(--primary));color:#fff;padding:20px;text-align:center;position:sticky;top:0;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.container{max-width:920px;margin:20px auto;padding:0 16px}
+.card{background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,.05);margin-bottom:20px;border:1px solid var(--border)}
+.section-title{font-size:1.05rem;font-weight:700;color:var(--primary);margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e8eaf6;display:flex;align-items:center;gap:8px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:640px){.grid-2,.grid-3{grid-template-columns:1fr}}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:.82rem;font-weight:600;margin-bottom:5px;color:#333}
+.form-control{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem;font-family:inherit;transition:border-color .2s;background:#fff}
+.form-control:focus{outline:none;border-color:var(--primary)}
+textarea.form-control{min-height:70px;resize:vertical}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border-radius:6px;font-size:.85rem;font-weight:600;cursor:pointer;border:none;transition:all .2s;text-decoration:none}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-light)}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-accent:hover{background:#e66400}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:#333}
+.btn-sm{padding:6px 12px;font-size:.78rem}
+.badge{display:inline-block;padding:3px 8px;border-radius:12px;font-size:.72rem;font-weight:600}
+.badge-info{background:#e1f5fe;color:#0277bd}
+.badge-success{background:#e8f5e9;color:#2e7d32}
+.toast-container{position:fixed;top:80px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{padding:12px 18px;border-radius:8px;color:#fff;font-size:.85rem;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.15);animation:fadeIn .3s}
+.table-wrap{overflow-x:auto;margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th,td{padding:8px 10px;border:1px solid var(--border);text-align:left}
+th{background:#f5f5f5;font-weight:600;color:#444}
+.nav-stepper{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:20px;scrollbar-width:thin}
+.step-item{padding:8px 14px;background:#fff;border:1px solid var(--border);border-radius:20px;font-size:.78rem;font-weight:600;color:#666;white-space:nowrap;cursor:pointer}
+.step-item.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+</style>
+</head>
+<body>
+<div class="header-bar">
+  <h1 style="font-size:1.25rem;font-weight:700">🏛️ LPK IJEF CORP</h1>
+  <div style="font-size:.85rem;opacity:.9;margin-top:3px">Form Isian Data Pelamar Kerja (Recruitment Application Form)</div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="container">
+  <div class="card" style="border-left:5px solid var(--accent);background:#fffde7">
+    <div style="display:flex;align-items:flex-start;gap:12px">
+      <div style="font-size:1.8rem">📢</div>
+      <div style="font-size:.85rem;line-height:1.6;color:#555">
+        <strong style="color:var(--primary);font-size:.95rem">Petunjuk Pengisian Form Data Pelamar:</strong><br>
+        1. Harap isi seluruh data diri dengan benar, jujur, dan lengkap.<br>
+        2. Setelah selesai mengisi form data pelamar ini, Anda akan <strong>otomatis dilanjutkan ke Tes DISC (Tes Kepribadian)</strong>.<br>
+        3. Tanda <span style="color:var(--danger)">*</span> menunjukkan kolom wajib diisi.
+      </div>
+    </div>
+  </div>
+
+  <form id="pelamarForm" onsubmit="event.preventDefault();submitPelamarForm()">
+    <!-- SEKSI I: IDENTITAS PRIBADI -->
+    <div class="card">
+      <div class="section-title"><span>I. IDENTITAS PRIBADI</span></div>
+      <div class="grid-2">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Posisi yang Dilamar <span style="color:var(--danger)">*</span></label>
+          <select class="form-control" id="fPosisi" required>
+            <option value="">-- Memuat daftar lowongan... --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Nama Lengkap (Sesuai KTP) <span style="color:var(--danger)">*</span></label>
+          <input class="form-control" id="fNama" required placeholder="Nama lengkap Anda">
+        </div>
+        <div class="form-group">
+          <label>Nama Sebelumnya (Bagi yang pernah ganti nama)</label>
+          <input class="form-control" id="fNamaSebelumnya" placeholder="Kosongkan jika tidak ada">
+        </div>
+        <div class="form-group">
+          <label>Tempat Lahir <span style="color:var(--danger)">*</span></label>
+          <input class="form-control" id="fTempatLahir" required placeholder="Kota tempat lahir">
+        </div>
+        <div class="form-group">
+          <label>Tanggal Lahir <span style="color:var(--danger)">*</span></label>
+          <input class="form-control" type="date" id="fTanggalLahir" required>
+        </div>
+        <div class="form-group">
+          <label>Jenis Kelamin <span style="color:var(--danger)">*</span></label>
+          <select class="form-control" id="fJenisKelamin" required>
+            <option value="">-- Pilih --</option>
+            <option value="Laki-laki">Laki-laki (L)</option>
+            <option value="Perempuan">Perempuan (P)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Kewarganegaraan</label>
+          <input class="form-control" id="fKewarganegaraan" value="Indonesia">
+        </div>
+        <div class="form-group">
+          <label>Agama / Kepercayaan</label>
+          <select class="form-control" id="fAgama">
+            <option value="">-- Pilih --</option>
+            <option>Islam</option><option>Kristen Protestan</option><option>Katolik</option><option>Hindu</option><option>Buddha</option><option>Khonghucu</option><option>Lainnya</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Nomor KTP (NIK) <span style="color:var(--danger)">*</span></label>
+          <input class="form-control" id="fNik" required placeholder="16 digit NIK KTP">
+        </div>
+        <div class="form-group">
+          <label>Kota Penerbit KTP</label>
+          <input class="form-control" id="fKotaKtp" placeholder="Kota pembuatan KTP">
+        </div>
+        <div class="form-group">
+          <label>Golongan Darah</label>
+          <select class="form-control" id="fGolDarah">
+            <option value="">-- Pilih --</option>
+            <option>A</option><option>B</option><option>AB</option><option>O</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Status Pernikahan</label>
+          <select class="form-control" id="fStatusNikah" onchange="toggleStatusNikahExtra()">
+            <option value="Single">Single / Belum Menikah</option>
+            <option value="Menikah">Menikah</option>
+            <option value="Bercerai">Bercerai</option>
+          </select>
+        </div>
+        <div class="form-group" id="boxTglNikah" style="display:none">
+          <label>Tanggal Menikah / Bercerai</label>
+          <input class="form-control" type="date" id="fTglStatusNikah">
+        </div>
+        <div class="form-group">
+          <label>Kepemilikan SIM</label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;padding-top:4px">
+            <label><input type="checkbox" id="simC"> SIM C</label>
+            <label><input type="checkbox" id="simA"> SIM A</label>
+            <label><input type="checkbox" id="simB1"> SIM B1</label>
+          </div>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Alamat Tetap (Sesuai KTP)</label>
+          <textarea class="form-control" id="fAlamatTetap" placeholder="Alamat sesuai KTP lengkap"></textarea>
+        </div>
+        <div class="form-group">
+          <label>No. Telp Rumah / Tetap</label>
+          <input class="form-control" id="fTelpTetap" placeholder="No. telp rumah (jika ada)">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Alamat Sekarang (Domisili) <span style="color:var(--danger)">*</span></label>
+          <textarea class="form-control" id="fAlamatSekarang" required placeholder="Alamat tempat tinggal saat ini"></textarea>
+        </div>
+        <div class="form-group">
+          <label>No. HP / WhatsApp <span style="color:var(--danger)">*</span></label>
+          <input class="form-control" id="fTelepon" required placeholder="08xxxxxxxxxx">
+        </div>
+        <div class="form-group">
+          <label>Email <span style="color:var(--danger)">*</span></label>
+          <input class="form-control" type="email" id="fEmail" required placeholder="email@domain.com">
+        </div>
+      </div>
+    </div>
+
+    <!-- SEKSI II: KELUARGA DAN LINGKUNGAN -->
+    <div class="card">
+      <div class="section-title"><span>II. KELUARGA DAN LINGKUNGAN</span></div>
+      <div class="grid-2">
+        <div class="form-group"><label>Nama Suami / Istri</label><input class="form-control" id="fNamaPasangan" placeholder="Nama suami/istri (jika ada)"></div>
+        <div class="form-group"><label>Tempat/Tgl Lahir Suami/Istri</label><input class="form-control" id="fTtlPasangan" placeholder="Kota, DD-MM-YYYY"></div>
+        <div class="form-group"><label>Pendidikan Terakhir Suami/Istri</label><input class="form-control" id="fPendPasangan"></div>
+        <div class="form-group"><label>No. Telp/HP Suami/Istri</label><input class="form-control" id="fTelpPasangan"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Pekerjaan Suami/Istri Sekarang</label><input class="form-control" id="fPekerjaanPasangan"></div>
+      </div>
+
+      <!-- Tabel Anak -->
+      <div style="margin-top:10px;margin-bottom:16px">
+        <label style="font-weight:600;font-size:.82rem">Anak-Anak:</label>
+        <div class="table-wrap">
+          <table id="tblAnak">
+            <thead><tr><th>Nama Anak</th><th>Tempat / Tgl Lahir</th><th>Pendidikan</th><th>No. Telp/HP</th><th style="width:50px">Aksi</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm mt-8" onclick="addBarisAnak()">+ Tambah Baris Anak</button>
+      </div>
+
+      <div class="grid-2 mt-16">
+        <div class="form-group"><label>Nama Ayah / Ibu / Wali</label><input class="form-control" id="fNamaOrangTua" placeholder="Nama ayah/ibu/wali"></div>
+        <div class="form-group"><label>Pekerjaan Orang Tua / Wali Sekarang</label><input class="form-control" id="fPekerjaanOrangTua"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Alamat Orang Tua / Wali</label><textarea class="form-control" id="fAlamatOrangTua"></textarea></div>
+      </div>
+
+      <!-- Tabel Saudara Kandung -->
+      <div style="margin-top:10px;margin-bottom:16px">
+        <label style="font-weight:600;font-size:.82rem">Saudara Kandung:</label>
+        <div class="table-wrap">
+          <table id="tblSaudara">
+            <thead><tr><th>Nama Saudara</th><th>Usia</th><th>Pendidikan / Pekerjaan</th><th>No. Telp/HP</th><th style="width:50px">Aksi</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm mt-8" onclick="addBarisSaudara()">+ Tambah Baris Saudara</button>
+      </div>
+
+      <!-- Tabel Kerabat DekatTidak Serumah -->
+      <div style="margin-top:10px;margin-bottom:16px">
+        <label style="font-weight:600;font-size:.82rem">Kerabat Dekat Tidak Serumah:</label>
+        <div class="table-wrap">
+          <table id="tblKerabat">
+            <thead><tr><th>Nama Kerabat</th><th>Hubungan</th><th>Pendidikan / Pekerjaan</th><th>No. Telp/HP</th><th style="width:50px">Aksi</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm mt-8" onclick="addBarisKerabat()">+ Tambah Baris Kerabat</button>
+      </div>
+
+      <div class="grid-2 mt-12">
+        <div class="form-group">
+          <label>Status Rumah Tempat Tinggal Saat Ini</label>
+          <select class="form-control" id="fStatusRumah">
+            <option value="Rumah Pribadi">Rumah Pribadi</option>
+            <option value="Rumah Kontrakan">Rumah Kontrakan</option>
+            <option value="Rumah Keluarga">Rumah Keluarga (Istri/Suami/Ortu)</option>
+            <option value="Pondokan">Pondokan / Kost</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Apakah Saudara masih mendapat bantuan keuangan/lainnya?</label>
+          <select class="form-control" id="fDapatBantuan" onchange="document.getElementById('boxSumberBantuan').style.display=this.value==='Ya'?'block':'none'">
+            <option value="Tidak">Tidak</option>
+            <option value="Ya">Ya</option>
+          </select>
+        </div>
+        <div class="form-group" id="boxSumberBantuan" style="display:none">
+          <label>Bila "Ya", dari mana?</label>
+          <input class="form-control" id="fSumberBantuan">
+        </div>
+        <div class="form-group">
+          <label>Apakah Saudara mempunyai tanggungan lain selain istri & anak?</label>
+          <select class="form-control" id="fAdaTanggunganLain" onchange="document.getElementById('boxRincianTanggungan').style.display=this.value==='Ya'?'block':'none'">
+            <option value="Tidak">Tidak</option>
+            <option value="Ya">Ya</option>
+          </select>
+        </div>
+        <div class="form-group" id="boxRincianTanggungan" style="display:none;grid-column:1/-1">
+          <label>Bila "Ya", siapa dan berapa besarnya?</label>
+          <input class="form-control" id="fRincianTanggunganLain" placeholder="Contoh: Ortu, Rp 1.000.000/bln">
+        </div>
+        <div class="form-group">
+          <label>Apakah Saudara pernah meninggalkan keluarga?</label>
+          <select class="form-control" id="fPernahTinggalkanKeluarga" onchange="document.getElementById('boxTinggalkanKeluarga').style.display=this.value==='Ya'?'block':'none'">
+            <option value="Tidak">Tidak</option>
+            <option value="Ya">Ya</option>
+          </select>
+        </div>
+        <div class="form-group" id="boxTinggalkanKeluarga" style="display:none;grid-column:1/-1">
+          <label>Bila "Ya", untuk apa dan berapa lama?</label>
+          <textarea class="form-control" id="fRincianTinggalkanKeluarga"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEKSI III: RIWAYAT PENDIDIKAN -->
+    <div class="card">
+      <div class="section-title"><span>III. RIWAYAT PENDIDIKAN</span></div>
+      <!-- Pendidikan Formal -->
+      <div style="margin-bottom:16px">
+        <label style="font-weight:600;font-size:.82rem">1. Pendidikan Formal:</label>
+        <div class="table-wrap">
+          <table id="tblPendidikanFormal">
+            <thead><tr><th>Tingkat</th><th>Dari Tahun</th><th>Sampai Tahun</th><th>Nama Sekolah / Kampus</th><th>Jurusan</th><th>Kota</th><th>Ijazah</th></tr></thead>
+            <tbody>
+              <tr><td>SD</td><td><input class="form-control p-sd-from" placeholder="Thn"></td><td><input class="form-control p-sd-to" placeholder="Thn"></td><td><input class="form-control p-sd-nama"></td><td><input class="form-control p-sd-jurusan" value="-"></td><td><input class="form-control p-sd-kota"></td><td><select class="form-control p-sd-ijazah"><option>Ada</option><option>Tidak</option></select></td></tr>
+              <tr><td>SMP</td><td><input class="form-control p-smp-from" placeholder="Thn"></td><td><input class="form-control p-smp-to" placeholder="Thn"></td><td><input class="form-control p-smp-nama"></td><td><input class="form-control p-smp-jurusan" value="-"></td><td><input class="form-control p-smp-kota"></td><td><select class="form-control p-smp-ijazah"><option>Ada</option><option>Tidak</option></select></td></tr>
+              <tr><td>SMA/SMK</td><td><input class="form-control p-sma-from" placeholder="Thn"></td><td><input class="form-control p-sma-to" placeholder="Thn"></td><td><input class="form-control p-sma-nama"></td><td><input class="form-control p-sma-jurusan"></td><td><input class="form-control p-sma-kota"></td><td><select class="form-control p-sma-ijazah"><option>Ada</option><option>Tidak</option></select></td></tr>
+              <tr><td>D3 / S1 / S2</td><td><input class="form-control p-pt-from" placeholder="Thn"></td><td><input class="form-control p-pt-to" placeholder="Thn"></td><td><input class="form-control p-pt-nama"></td><td><input class="form-control p-pt-jurusan"></td><td><input class="form-control p-pt-kota"></td><td><select class="form-control p-pt-ijazah"><option>Ada</option><option>Tidak</option></select></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Kursus / Training -->
+      <div style="margin-bottom:16px">
+        <label style="font-weight:600;font-size:.82rem">2. Kursus / Training / Sertifikasi yang selesai diikuti:</label>
+        <div class="table-wrap">
+          <table id="tblKursus">
+            <thead><tr><th>Bidang Kursus / Sertifikasi</th><th>Lamanya</th><th>Tempat / Lembaga</th><th style="width:50px">Aksi</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm mt-8" onclick="addBarisKursus()">+ Tambah Baris Kursus</button>
+      </div>
+
+      <div class="form-group"><label>3. Di pendidikan manakah Saudara merasa paling puas dengan prestasi yang dicapai dan apa sebabnya?</label><textarea class="form-control" id="fPendPuas"></textarea></div>
+      <div class="form-group"><label>4. Di pendidikan manakah Saudara merasa paling tidak puas dan apa sebabnya?</label><textarea class="form-control" id="fPendTidakPuas"></textarea></div>
+      <div class="form-group"><label>5. Siapa yang membiayai pendidikan Saudara selama ini?</label><input class="form-control" id="fPembiayaPend"></div>
+
+      <!-- Bahasa Asing -->
+      <div style="margin-top:14px;margin-bottom:16px">
+        <label style="font-weight:600;font-size:.82rem">Penguasaan Bahasa Asing:</label>
+        <div class="table-wrap">
+          <table id="tblBahasaAsing">
+            <thead><tr><th>Bahasa Asing</th><th>Tertulis</th><th>Lisan</th><th>Keterangan / Sertifikat</th><th style="width:50px">Aksi</th></tr></thead>
+            <tbody>
+              <tr><td><input class="form-control b-nama" value="Bahasa Jepang"></td><td><select class="form-control b-tertulis"><option>Baik</option><option>Cukup</option><option>Kurang</option></select></td><td><select class="form-control b-lisan"><option>Baik</option><option>Cukup</option><option>Kurang</option></select></td><td><input class="form-control b-ket" placeholder="Contoh: JLPT N3 / JFT A2"></td><td></td></tr>
+              <tr><td><input class="form-control b-nama" value="Bahasa Inggris"></td><td><select class="form-control b-tertulis"><option>Baik</option><option>Cukup</option><option>Kurang</option></select></td><td><select class="form-control b-lisan"><option>Baik</option><option>Cukup</option><option>Kurang</option></select></td><td><input class="form-control b-ket"></td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm mt-8" onclick="addBarisBahasaAsing()">+ Tambah Bahasa Asing</button>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group"><label>Bahasa Daerah yang Dikuasai (1)</label><input class="form-control" id="fBahasaDaerah1" placeholder="Misal: Bahasa Sunda"></div>
+        <div class="form-group"><label>Tingkat Penguasaan</label><select class="form-control" id="fTingkatBahasaDaerah1"><option>Aktif</option><option>Pasif</option></select></div>
+        <div class="form-group"><label>Bahasa Daerah yang Dikuasai (2)</label><input class="form-control" id="fBahasaDaerah2" placeholder="Misal: Bahasa Jawa"></div>
+        <div class="form-group"><label>Tingkat Penguasaan</label><select class="form-control" id="fTingkatBahasaDaerah2"><option>Aktif</option><option>Pasif</option></select></div>
+      </div>
+    </div>
+
+    <!-- SEKSI IV: REFERENSI KERJA / RIWAYAT PEKERJAAN -->
+    <div class="card">
+      <div class="section-title"><span>IV. REFERENSI KERJA / RIWAYAT PEKERJAAN</span></div>
+      <div style="margin-bottom:16px">
+        <label style="font-weight:600;font-size:.82rem">Riwayat Perusahaan / Tempat Kerja Sebelumnya:</label>
+        <div class="table-wrap">
+          <table id="tblPengalamanKerja">
+            <thead><tr><th>Nama Perusahaan</th><th>Dari - Sampai Tahun</th><th>Jabatan</th><th>Gaji Terakhir</th><th>Alasan Pindah</th><th style="width:50px">Aksi</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm mt-8" onclick="addBarisPengalaman()">+ Tambah Pengalaman Kerja</button>
+      </div>
+
+      <div class="form-group"><label>1. Uraikan pokok-pokok tugas dari jabatan terakhir yang Saudara jabat?</label><textarea class="form-control" id="fTugasTerakhir"></textarea></div>
+      <div class="form-group"><label>2. Berapa banyak bawahan yang pernah Saudara pimpin dalam dua tahun terakhir?</label><input class="form-control" id="fJumlahBawahan" placeholder="Contoh: 5 orang / Tidak ada"></div>
+      <div class="form-group">
+        <label>3. Apakah Saudara pernah melakukan perubahan / pembaharuan di perusahaan terdahulu?</label>
+        <select class="form-control" id="fPernahPerubahan" onchange="document.getElementById('boxRincianPerubahan').style.display=this.value==='Ya'?'block':'none'">
+          <option value="Tidak">Tidak</option>
+          <option value="Ya">Ya</option>
+        </select>
+      </div>
+      <div class="form-group" id="boxRincianPerubahan" style="display:none">
+        <label>Bila "Ya", perubahan / pembaharuan apa?</label>
+        <textarea class="form-control" id="fRincianPerubahan"></textarea>
+      </div>
+    </div>
+
+    <!-- SEKSI V: REFERENSI DIRI -->
+    <div class="card">
+      <div class="section-title"><span>V. REFERENSI DIRI (DILUAR KELUARGA)</span></div>
+      <p class="text-xs color-gray mb-12">Sebutkan nama orang-orang yang dapat memberikan referensi mengenai keadaan diri Saudara (bukan anggota keluarga):</p>
+      <div class="table-wrap">
+        <table id="tblReferensiDiri">
+          <thead><tr><th>Nama</th><th>Alamat & Telp Kantor</th><th>Jabatan</th><th>Hubungan</th><th style="width:50px">Aksi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <button type="button" class="btn btn-outline btn-sm mt-8" onclick="addBarisReferensiDiri()">+ Tambah Referensi Diri</button>
+    </div>
+
+    <!-- SEKSI VI: MINAT DAN KONSEP DIRI -->
+    <div class="card">
+      <div class="section-title"><span>VI. MINAT DAN KONSEP DIRI</span></div>
+      <div class="form-group"><label>1. Jabatan apa yang Saudara ingin tuju?</label><input class="form-control" id="fJabatanDituju"></div>
+      <div class="form-group"><label>2. Mengapa Saudara ingin kerja pada jabatan itu?</label><textarea class="form-control" id="fAlasanJabatan"></textarea></div>
+      <div class="form-group"><label>3. Apakah yang Saudara ketahui tentang jabatan itu? (Gambarkan tugas & tanggung jawabnya)</label><textarea class="form-control" id="fPengetahuanJabatan"></textarea></div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>4. Lingkungan kerja apa yang Saudara senangi?</label>
+          <select class="form-control" id="fLingkunganDisukai">
+            <option>Kantor</option><option>Lapangan</option><option>Pabrik</option><option>Laboratorium</option><option>Lainnya</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Sebab-sebabnya:</label><input class="form-control" id="fSebabDisukai"></div>
+        <div class="form-group">
+          <label>Pekerjaan dan lingkungan kerja apa yang TIDAK Saudara sukai?</label>
+          <select class="form-control" id="fLingkunganTidakDisukai">
+            <option>Tidak Ada</option><option>Pabrik</option><option>Lapangan</option><option>Kantor</option><option>Laboratorium</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Sebab-sebabnya:</label><input class="form-control" id="fSebabTidakDisukai"></div>
+      </div>
+      <div class="form-group"><label>5. Apa cita-cita hidup Saudara?</label><textarea class="form-control" id="fCitaCita"></textarea></div>
+      <div class="form-group"><label>6. Terhadap hal-hal apa saja Saudara paling sulit untuk mengambil keputusan?</label><textarea class="form-control" id="fKesulitanKeputusan"></textarea></div>
+    </div>
+
+    <!-- SEKSI VII: AKTIVITAS SOSIAL -->
+    <div class="card">
+      <div class="section-title"><span>VII. AKTIVITAS SOSIAL DAN KEMASYARAKATAN</span></div>
+      <div class="form-group"><label>1. Apa hobi / kegemaran Saudara?</label><input class="form-control" id="fHobi"></div>
+      <div class="form-group"><label>2. Bagaimana Saudara mengisi waktu luang?</label><input class="form-control" id="fWaktuLuang"></div>
+      <div class="form-group">
+        <label>3. Apakah Saudara pernah keluar negeri?</label>
+        <select class="form-control" id="fPernahLuarNegeri" onchange="document.getElementById('boxRincianLuarNegeri').style.display=this.value==='Ya'?'block':'none'">
+          <option value="Tidak">Tidak</option>
+          <option value="Ya">Ya</option>
+        </select>
+      </div>
+      <div class="form-group" id="boxRincianLuarNegeri" style="display:none">
+        <label>Bila "Ya", kapan, untuk keperluan apa dan berapa lama?</label>
+        <textarea class="form-control" id="fRincianLuarNegeri"></textarea>
+      </div>
+
+      <div style="margin-top:10px;margin-bottom:16px">
+        <label style="font-weight:600;font-size:.82rem">4. Organisasi yang pernah diikuti:</label>
+        <div class="table-wrap">
+          <table id="tblOrganisasi">
+            <thead><tr><th>Nama Organisasi</th><th>Periode / Tahun</th><th>Jabatan</th><th>Keterangan</th><th style="width:50px">Aksi</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm mt-8" onclick="addBarisOrganisasi()">+ Tambah Organisasi</button>
+      </div>
+
+      <div class="form-group"><label>5. Faktor-faktor apakah yang merupakan KEKUATAN bagi diri Anda?</label><textarea class="form-control" id="fKekuatanDiri"></textarea></div>
+      <div class="form-group"><label>6. Faktor-faktor apakah dalam diri Saudara yang dianggap perlu untuk DIPERBAIKI atau DITINGKATKAN?</label><textarea class="form-control" id="fKelemahanDiri"></textarea></div>
+    </div>
+
+    <!-- SEKSI VIII: INTERN PERUSAHAAN -->
+    <div class="card">
+      <div class="section-title"><span>VIII. INTERN PERUSAHAAN</span></div>
+      <div class="grid-2">
+        <div class="form-group"><label>1. Berapa gaji minimal yang Saudara harapkan? (Rp)</label><input class="form-control" type="number" id="fGajiDiharapkan" placeholder="Contoh: 5000000"></div>
+        <div class="form-group"><label>2. Kapan Saudara dapat mulai bekerja?</label><input class="form-control" id="fTglMulaiKerja" placeholder="Contoh: Segera / 2 Minggu lagi"></div>
+      </div>
+      <div class="form-group"><label>Fasilitas apa saja yang Saudara harapkan disamping gaji?</label><input class="form-control" id="fFasilitasDiharapkan" placeholder="Contoh: Asuransi, Mess, dll"></div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>3. Bersediakah Saudara kami tempatkan di unit-unit yang lain?</label>
+          <select class="form-control" id="fBersediaDitempatkan" onchange="document.getElementById('boxAlasanTidakBersedia').style.display=this.value==='Tidak'?'block':'none'">
+            <option value="Ya">Ya</option>
+            <option value="Tidak">Tidak</option>
+          </select>
+        </div>
+        <div class="form-group" id="boxAlasanTidakBersedia" style="display:none">
+          <label>Bila "Tidak", mengapa?</label>
+          <input class="form-control" id="fAlasanTidakBersedia">
+        </div>
+      </div>
+      <div class="form-group"><label>4. Kendaraan apa yang sudah Saudara miliki saat ini?</label><input class="form-control" id="fKendaraan" placeholder="Motor / Mobil / Tidak ada"></div>
+    </div>
+
+    <!-- SEKSI IX: LAIN-LAIN -->
+    <div class="card">
+      <div class="section-title"><span>IX. LAIN-LAIN</span></div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>1. Apakah Saudara pernah menderita sakit keras atau lama?</label>
+          <select class="form-control" id="fPernahSakitKeras" onchange="document.getElementById('boxRincianSakit').style.display=this.value==='Ya'?'block':'none'">
+            <option value="Tidak">Tidak</option>
+            <option value="Ya">Ya</option>
+          </select>
+        </div>
+        <div class="form-group" id="boxRincianSakit" style="display:none">
+          <label>Bila "Ya", sakit apa dan berapa lama?</label>
+          <input class="form-control" id="fRincianSakitKeras">
+        </div>
+      </div>
+      <div class="form-group"><label>2. Apakah ada gangguan jasmani / jiwa tetap atau kerap kali baik-baik saja?</label><input class="form-control" id="fGangguanJasmani" value="Baik-baik saja"></div>
+      <div class="form-group"><label>3. Apakah kesehatan keluarga Saudara baik-baik saja?</label><input class="form-control" id="fKesehatanKeluarga" value="Baik-baik saja"></div>
+      <div class="form-group"><label>4. Reputasi Nasional atau Internasional apa yang pernah Saudara peroleh?</label><textarea class="form-control" id="fReputasi" placeholder="Penghargaan / Prestasi jika ada"></textarea></div>
+    </div>
+
+    <!-- SUBMIT BUTTON -->
+    <div class="card text-center" style="background:#f8f9ff;border:2px solid var(--primary)">
+      <div style="font-size:1.1rem;font-weight:700;color:var(--primary);margin-bottom:8px">Sudah Selesai Mengisi Form Data Pelamar?</div>
+      <p class="text-sm mb-16" style="color:#555">Setelah klik tombol di bawah, data Anda akan disimpan dan Anda akan <strong>langsung terhubung ke Tes DISC (Tes Kepribadian)</strong>.</p>
+      <button type="submit" id="btnSubmitPelamar" class="btn btn-primary" style="padding:14px 32px;font-size:1rem;border-radius:30px">
+        💾 Simpan Data & Lanjutkan ke Tes DISC ➔
+      </button>
+    </div>
+  </form>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAWlNi_iBOWxZBD6E20aHOSrRpPsirDdOM",
+  authDomain: "test-kesehatan-ijef-corp-7c278.firebaseapp.com",
+  projectId: "test-kesehatan-ijef-corp-7c278",
+  storageBucket: "test-kesehatan-ijef-corp-7c278.firebasestorage.app",
+  messagingSenderId: "48180557823",
+  appId: "1:48180557823:web:47ea8db8126737dbc0d9ca",
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+function toast(msg, type='info') {
+  const container = document.getElementById('toastContainer');
+  const div = document.createElement('div');
+  div.className = 'toast';
+  div.style.background = type === 'success' ? '#2e7d32' : type === 'warning' ? '#f57f17' : type === 'danger' ? '#c62828' : '#1565c0';
+  div.textContent = msg;
+  container.appendChild(div);
+  setTimeout(() => div.remove(), 4000);
+}
+
+function escHtml(str) { return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+// Initialize dynamic rows & load positions
+window.addEventListener('DOMContentLoaded', () => {
+  loadLowonganList();
+  // Add initial empty rows
+  addBarisAnak();
+  addBarisSaudara();
+  addBarisKerabat();
+  addBarisKursus();
+  addBarisPengalaman();
+  addBarisReferensiDiri();
+  addBarisOrganisasi();
+});
+
+async function loadLowonganList() {
+  try {
+    const snap = await db.collection('hrd_lowongan').where('status', '==', 'open').get();
+    const sel = document.getElementById('fPosisi');
+    let opts = '<option value="">-- Pilih Posisi Lowongan --</option>';
+    if (!snap.empty) {
+      snap.forEach(d => {
+        const p = d.data();
+        opts += `<option value="${escHtml(p.posisi)}">${escHtml(p.posisi)}${p.departemen ? ' (' + escHtml(p.departemen) + ')' : ''}</option>`;
+      });
+    } else {
+      opts += '<option value="General Staff">General Staff (Umum)</option>';
+    }
+    opts += '<option value="Lainnya">Lainnya</option>';
+    sel.innerHTML = opts;
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+function toggleStatusNikahExtra() {
+  const val = document.getElementById('fStatusNikah').value;
+  document.getElementById('boxTglNikah').style.display = (val === 'Menikah' || val === 'Bercerai') ? 'block' : 'none';
+}
+
+// Dynamic Row Helper Functions
+function addBarisAnak() {
+  const tbody = document.querySelector('#tblAnak tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input class="form-control a-nama" placeholder="Nama anak"></td><td><input class="form-control a-ttl" placeholder="Kota, Tgl Lahir"></td><td><input class="form-control a-pend" placeholder="Pendidikan/Kelas"></td><td><input class="form-control a-telp" placeholder="No HP/WA"></td><td style="text-align:center"><button type="button" class="btn btn-sm btn-outline" style="color:var(--danger)" onclick="this.closest('tr').remove()">🗑️</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function addBarisSaudara() {
+  const tbody = document.querySelector('#tblSaudara tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input class="form-control s-nama" placeholder="Nama saudara"></td><td><input class="form-control s-usia" placeholder="Usia"></td><td><input class="form-control s-pend" placeholder="Pendidikan/Pekerjaan"></td><td><input class="form-control s-telp" placeholder="No HP/WA"></td><td style="text-align:center"><button type="button" class="btn btn-sm btn-outline" style="color:var(--danger)" onclick="this.closest('tr').remove()">🗑️</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function addBarisKerabat() {
+  const tbody = document.querySelector('#tblKerabat tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input class="form-control k-nama" placeholder="Nama kerabat"></td><td><input class="form-control k-hub" placeholder="Paman/Bibi/dll"></td><td><input class="form-control k-pend" placeholder="Pekerjaan"></td><td><input class="form-control k-telp" placeholder="No HP/WA"></td><td style="text-align:center"><button type="button" class="btn btn-sm btn-outline" style="color:var(--danger)" onclick="this.closest('tr').remove()">🗑️</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function addBarisKursus() {
+  const tbody = document.querySelector('#tblKursus tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input class="form-control kr-bidang" placeholder="Nama kursus/sertifikasi"></td><td><input class="form-control kr-lama" placeholder="Misal: 3 Bulan"></td><td><input class="form-control kr-tempat" placeholder="Lembaga/Kota"></td><td style="text-align:center"><button type="button" class="btn btn-sm btn-outline" style="color:var(--danger)" onclick="this.closest('tr').remove()">🗑️</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function addBarisBahasaAsing() {
+  const tbody = document.querySelector('#tblBahasaAsing tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input class="form-control b-nama" placeholder="Nama Bahasa"></td><td><select class="form-control b-tertulis"><option>Baik</option><option>Cukup</option><option>Kurang</option></select></td><td><select class="form-control b-lisan"><option>Baik</option><option>Cukup</option><option>Kurang</option></select></td><td><input class="form-control b-ket" placeholder="Sertifikat/Keterangan"></td><td style="text-align:center"><button type="button" class="btn btn-sm btn-outline" style="color:var(--danger)" onclick="this.closest('tr').remove()">🗑️</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function addBarisPengalaman() {
+  const tbody = document.querySelector('#tblPengalamanKerja tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input class="form-control p-perusahaan" placeholder="Nama Perusahaan"></td><td><input class="form-control p-tahun" placeholder="2022 - 2024"></td><td><input class="form-control p-jabatan" placeholder="Jabatan"></td><td><input class="form-control p-gaji" placeholder="Gaji terakhir"></td><td><input class="form-control p-alasan" placeholder="Alasan pindah"></td><td style="text-align:center"><button type="button" class="btn btn-sm btn-outline" style="color:var(--danger)" onclick="this.closest('tr').remove()">🗑️</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function addBarisReferensiDiri() {
+  const tbody = document.querySelector('#tblReferensiDiri tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input class="form-control r-nama" placeholder="Nama referensi"></td><td><input class="form-control r-alamat" placeholder="Alamat & Telp Kantor"></td><td><input class="form-control r-jabatan" placeholder="Jabatan"></td><td><input class="form-control r-hubungan" placeholder="Mantan Atasan / Rekan kerja"></td><td style="text-align:center"><button type="button" class="btn btn-sm btn-outline" style="color:var(--danger)" onclick="this.closest('tr').remove()">🗑️</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function addBarisOrganisasi() {
+  const tbody = document.querySelector('#tblOrganisasi tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input class="form-control o-nama" placeholder="Nama organisasi"></td><td><input class="form-control o-periode" placeholder="Tahun/Periode"></td><td><input class="form-control o-jabatan" placeholder="Jabatan"></td><td><input class="form-control o-ket" placeholder="Keterangan"></td><td style="text-align:center"><button type="button" class="btn btn-sm btn-outline" style="color:var(--danger)" onclick="this.closest('tr').remove()">🗑️</button></td>`;
+  tbody.appendChild(tr);
+}
+
+// Table Data Exporters
+function collectTableData(tableId, fieldClassMap) {
+  const rows = document.querySelectorAll('#' + tableId + ' tbody tr');
+  const data = [];
+  rows.forEach(tr => {
+    const item = {};
+    let hasVal = false;
+    Object.keys(fieldClassMap).forEach(key => {
+      const input = tr.querySelector('.' + fieldClassMap[key]);
+      const val = input ? input.value.trim() : '';
+      item[key] = val;
+      if (val && val !== '-') hasVal = true;
+    });
+    if (hasVal) data.push(item);
+  });
+  return data;
+}
+
+async function submitPelamarForm() {
+  const btn = document.getElementById('btnSubmitPelamar');
+  btn.disabled = true;
+  btn.textContent = '⏳ Menyimpan & Menghubungkan ke Tes DISC...';
+
+  try {
+    const nama = document.getElementById('fNama').value.trim();
+    const tglLahir = document.getElementById('fTanggalLahir').value;
+    const posisi = document.getElementById('fPosisi').value;
+    const telepon = document.getElementById('fTelepon').value.trim();
+    const email = document.getElementById('fEmail').value.trim();
+    const gender = document.getElementById('fJenisKelamin').value;
+    const nik = document.getElementById('fNik').value.trim();
+
+    if (!nama || !tglLahir || !posisi || !telepon || !email || !nik || !gender) {
+      toast('Lengkapi kolom wajib (*)', 'danger');
+      btn.disabled = false;
+      btn.textContent = '💾 Simpan Data & Lanjutkan ke Tes DISC ➔';
+      return;
+    }
+
+    // Hitung Usia dari Tgl Lahir
+    let usia = '';
+    if (tglLahir) {
+      const birth = new Date(tglLahir);
+      const now = new Date();
+      let age = now.getFullYear() - birth.getFullYear();
+      if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) age--;
+      usia = age > 0 ? String(age) : '';
+    }
+
+    // Collect SIM
+    const simArr = [];
+    if (document.getElementById('simC').checked) simArr.push('SIM C');
+    if (document.getElementById('simA').checked) simArr.push('SIM A');
+    if (document.getElementById('simB1').checked) simArr.push('SIM B1');
+
+    // Collect Table Data
+    const anakList = collectTableData('tblAnak', { nama: 'a-nama', ttl: 'a-ttl', pendidikan: 'a-pend', telp: 'a-telp' });
+    const saudaraList = collectTableData('tblSaudara', { nama: 's-nama', usia: 's-usia', pekerjaan: 's-pend', telp: 's-telp' });
+    const kerabatList = collectTableData('tblKerabat', { nama: 'k-nama', hubungan: 'k-hub', pekerjaan: 'k-pend', telp: 'k-telp' });
+    const kursusList = collectTableData('tblKursus', { bidang: 'kr-bidang', lamanya: 'kr-lama', tempat: 'kr-tempat' });
+    const bahasaList = collectTableData('tblBahasaAsing', { bahasa: 'b-nama', tertulis: 'b-tertulis', lisan: 'b-lisan', keterangan: 'b-ket' });
+    const pengalamanList = collectTableData('tblPengalamanKerja', { perusahaan: 'p-perusahaan', tahun: 'p-tahun', jabatan: 'p-jabatan', gaji: 'p-gaji', alasan: 'p-alasan' });
+    const referensiList = collectTableData('tblReferensiDiri', { nama: 'r-nama', alamat: 'r-alamat', jabatan: 'r-jabatan', hubungan: 'r-hubungan' });
+    const organisasiList = collectTableData('tblOrganisasi', { nama: 'o-nama', periode: 'o-periode', jabatan: 'o-jabatan', keterangan: 'o-ket' });
+
+    // Collect Formal Education
+    const pendFormal = [
+      { tingkat: 'SD', dari: document.querySelector('.p-sd-from').value, sampai: document.querySelector('.p-sd-to').value, sekolah: document.querySelector('.p-sd-nama').value, jurusan: '-', kota: document.querySelector('.p-sd-kota').value, ijazah: document.querySelector('.p-sd-ijazah').value },
+      { tingkat: 'SMP', dari: document.querySelector('.p-smp-from').value, sampai: document.querySelector('.p-smp-to').value, sekolah: document.querySelector('.p-smp-nama').value, jurusan: '-', kota: document.querySelector('.p-smp-kota').value, ijazah: document.querySelector('.p-smp-ijazah').value },
+      { tingkat: 'SMA/SMK', dari: document.querySelector('.p-sma-from').value, sampai: document.querySelector('.p-sma-to').value, sekolah: document.querySelector('.p-sma-nama').value, jurusan: document.querySelector('.p-sma-jurusan').value, kota: document.querySelector('.p-sma-kota').value, ijazah: document.querySelector('.p-sma-ijazah').value },
+      { tingkat: 'D3/S1/S2', dari: document.querySelector('.p-pt-from').value, sampai: document.querySelector('.p-pt-to').value, sekolah: document.querySelector('.p-pt-nama').value, jurusan: document.querySelector('.p-pt-jurusan').value, kota: document.querySelector('.p-pt-kota').value, ijazah: document.querySelector('.p-pt-ijazah').value },
+    ];
+
+    const payload = {
+      // Seksi I
+      posisi,
+      nama,
+      namaSebelumnya: document.getElementById('fNamaSebelumnya').value.trim(),
+      tempatLahir: document.getElementById('fTempatLahir').value.trim(),
+      tanggalLahir: tglLahir,
+      usia,
+      kewarganegaraan: document.getElementById('fKewarganegaraan').value.trim(),
+      jenisKelamin: gender,
+      agama: document.getElementById('fAgama').value,
+      nik,
+      kotaKtp: document.getElementById('fKotaKtp').value.trim(),
+      sim: simArr.join(', '),
+      golDarah: document.getElementById('fGolDarah').value,
+      statusNikah: document.getElementById('fStatusNikah').value,
+      tglStatusNikah: document.getElementById('fTglStatusNikah').value,
+      alamatTetap: document.getElementById('fAlamatTetap').value.trim(),
+      telpTetap: document.getElementById('fTelpTetap').value.trim(),
+      alamatSekarang: document.getElementById('fAlamatSekarang').value.trim(),
+      telepon,
+      email,
+
+      // Seksi II
+      namaPasangan: document.getElementById('fNamaPasangan').value.trim(),
+      ttlPasangan: document.getElementById('fTtlPasangan').value.trim(),
+      pendidikanPasangan: document.getElementById('fPendPasangan').value.trim(),
+      telpPasangan: document.getElementById('fTelpPasangan').value.trim(),
+      pekerjaanPasangan: document.getElementById('fPekerjaanPasangan').value.trim(),
+      anak: anakList,
+      namaOrangTua: document.getElementById('fNamaOrangTua').value.trim(),
+      pekerjaanOrangTua: document.getElementById('fPekerjaanOrangTua').value.trim(),
+      alamatOrangTua: document.getElementById('fAlamatOrangTua').value.trim(),
+      saudara: saudaraList,
+      kerabat: kerabatList,
+      statusRumah: document.getElementById('fStatusRumah').value,
+      dapatBantuan: document.getElementById('fDapatBantuan').value,
+      sumberBantuan: document.getElementById('fSumberBantuan').value.trim(),
+      adaTanggunganLain: document.getElementById('fAdaTanggunganLain').value,
+      rincianTanggunganLain: document.getElementById('fRincianTanggunganLain').value.trim(),
+      pernahTinggalkanKeluarga: document.getElementById('fPernahTinggalkanKeluarga').value,
+      rincianTinggalkanKeluarga: document.getElementById('fRincianTinggalkanKeluarga').value.trim(),
+
+      // Seksi III
+      pendidikanFormal: pendFormal,
+      kursus: kursusList,
+      pendidikanPalingPuas: document.getElementById('fPendPuas').value.trim(),
+      pendidikanPalingTidakPuas: document.getElementById('fPendTidakPuas').value.trim(),
+      pembiayaPendidikan: document.getElementById('fPembiayaPend').value.trim(),
+      bahasaAsing: bahasaList,
+      bahasaDaerah: [
+        { bahasa: document.getElementById('fBahasaDaerah1').value.trim(), tingkat: document.getElementById('fTingkatBahasaDaerah1').value },
+        { bahasa: document.getElementById('fBahasaDaerah2').value.trim(), tingkat: document.getElementById('fTingkatBahasaDaerah2').value }
+      ].filter(b => b.bahasa),
+
+      // Seksi IV
+      pengalamanKerja: pengalamanList,
+      tugasTerakhir: document.getElementById('fTugasTerakhir').value.trim(),
+      jumlahBawahan: document.getElementById('fJumlahBawahan').value.trim(),
+      pernahPerubahan: document.getElementById('fPernahPerubahan').value,
+      rincianPerubahan: document.getElementById('fRincianPerubahan').value.trim(),
+
+      // Seksi V
+      referensiDiri: referensiList,
+
+      // Seksi VI
+      jabatanDituju: document.getElementById('fJabatanDituju').value.trim(),
+      alasanJabatan: document.getElementById('fAlasanJabatan').value.trim(),
+      pengetahuanJabatan: document.getElementById('fPengetahuanJabatan').value.trim(),
+      lingkunganDisukai: document.getElementById('fLingkunganDisukai').value,
+      sebabDisukai: document.getElementById('fSebabDisukai').value.trim(),
+      lingkunganTidakDisukai: document.getElementById('fLingkunganTidakDisukai').value,
+      sebabTidakDisukai: document.getElementById('fSebabTidakDisukai').value.trim(),
+      citaCita: document.getElementById('fCitaCita').value.trim(),
+      kesulitanKeputusan: document.getElementById('fKesulitanKeputusan').value.trim(),
+
+      // Seksi VII
+      hobi: document.getElementById('fHobi').value.trim(),
+      waktuLuang: document.getElementById('fWaktuLuang').value.trim(),
+      pernahLuarNegeri: document.getElementById('fPernahLuarNegeri').value,
+      rincianLuarNegeri: document.getElementById('fRincianLuarNegeri').value.trim(),
+      organisasi: organisasiList,
+      kekuatanDiri: document.getElementById('fKekuatanDiri').value.trim(),
+      kelemahanDiri: document.getElementById('fKelemahanDiri').value.trim(),
+
+      // Seksi VIII
+      gajiDiharapkan: document.getElementById('fGajiDiharapkan').value.trim(),
+      tglMulaiKerja: document.getElementById('fTglMulaiKerja').value.trim(),
+      fasilitasDiharapkan: document.getElementById('fFasilitasDiharapkan').value.trim(),
+      bersediaDitempatkan: document.getElementById('fBersediaDitempatkan').value,
+      alasanTidakBersedia: document.getElementById('fAlasanTidakBersedia').value.trim(),
+      kendaraan: document.getElementById('fKendaraan').value.trim(),
+
+      // Seksi IX
+      pernahSakitKeras: document.getElementById('fPernahSakitKeras').value,
+      rincianSakitKeras: document.getElementById('fRincianSakitKeras').value.trim(),
+      gangguanJasmani: document.getElementById('fGangguanJasmani').value.trim(),
+      kesehatanKeluarga: document.getElementById('fKesehatanKeluarga').value.trim(),
+      reputasi: document.getElementById('fReputasi').value.trim(),
+
+      // Meta
+      discStatus: 'Belum Tes',
+      stage: 'Applied / Data Pelamar Complete',
+      createdAt: new Date().toISOString()
+    };
+
+    // Save full applicant record to hrd_pelamar
+    const pelamarRef = await db.collection('hrd_pelamar').add(payload);
+
+    // Save / update to hrd_kandidat pipeline
+    await db.collection('hrd_kandidat').add({
+      pelamarId: pelamarRef.id,
+      nama,
+      email,
+      kontak: telepon,
+      posisi,
+      stage: 'Applied',
+      sumber: 'Form Pelamar Online',
+      createdAt: new Date().toISOString()
+    });
+
+    // Save to sessionStorage for DISC auto-fill
+    sessionStorage.setItem('pelamar_id', pelamarRef.id);
+    sessionStorage.setItem('pelamar_nama', nama);
+    sessionStorage.setItem('pelamar_posisi', posisi);
+    sessionStorage.setItem('pelamar_kontak', telepon || email);
+    sessionStorage.setItem('pelamar_gender', gender);
+    sessionStorage.setItem('pelamar_usia', usia);
+
+    toast('✅ Data Pelamar Berhasil Disimpan!', 'success');
+
+    // Build DISC URL with query params
+    const discUrl = `disc-test.html?nama=${encodeURIComponent(nama)}&posisi=${encodeURIComponent(posisi)}&kontak=${encodeURIComponent(telepon || email)}&gender=${encodeURIComponent(gender)}&usia=${encodeURIComponent(usia)}&pelamarId=${pelamarRef.id}#calon`;
+
+    document.querySelector('.container').innerHTML = `
+      <div class="card text-center" style="padding:40px;margin-top:40px">
+        <div style="font-size:3.5rem;margin-bottom:16px">✅</div>
+        <h2 style="color:var(--primary);margin-bottom:12px">Data Pelamar Berhasil Disimpan!</h2>
+        <p style="font-size:1rem;color:#333;margin-bottom:24px;line-height:1.7">
+          Terima kasih, <strong>${escHtml(nama)}</strong>.<br>
+          Langkah selanjutnya adalah mengikuti <strong>Tes Kepribadian DISC</strong>.
+        </p>
+        <a href="${discUrl}" class="btn btn-accent" style="padding:14px 32px;font-size:1rem;border-radius:30px;text-decoration:none">
+          🧠 Lanjutkan Ke Tes DISC Sekarang ➔
+        </a>
+      </div>
+    `;
+
+    // Auto redirect after 2.5 seconds
+    setTimeout(() => {
+      window.location.href = discUrl;
+    }, 2500);
+
+  } catch (err) {
+    console.error(err);
+    toast('Gagal menyimpan data: ' + err.message, 'danger');
+    btn.disabled = false;
+    btn.textContent = '💾 Simpan Data & Lanjutkan ke Tes DISC ➔';
+  }
+}
+</script>
+</body>
+</html>

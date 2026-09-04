@@ -1235,7 +1235,14 @@ async function renderPipeline() {
   const main = document.getElementById('mainContent');
   if (!main) return;
   const stages = ['applied', 'disc', 'interview', 'offering', 'hired'];
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🔄 Pipeline Kandidat</span></div><div id="pipelineWrap" style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>`;
+  main.innerHTML = `<div class="page-title">
+    <span>${renderBackButton()}🔄 Pipeline Kandidat</span>
+    <div class="flex gap-8" style="flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="copyLinkPelamar()">📋 Copy Link Form Pelamar</button>
+      <button class="btn btn-outline btn-sm" onclick="copyLinkDISC()">🧠 Copy Link Tes DISC</button>
+    </div>
+  </div>
+  <div id="pipelineWrap" style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>`;
   const snap = await db.collection('hrd_kandidat').get();
   const data = {};
   stages.forEach((s) => (data[s] = []));
@@ -1249,7 +1256,7 @@ async function renderPipeline() {
     h += `<div class="card"><div class="card-title">${st.toUpperCase()} (${data[st].length})</div>`;
     if (!data[st].length) h += '<p class="text-sm color-gray">Kosong</p>';
     data[st].forEach((p) => {
-      h += `<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px"><div class="fw-700">${escHtml(p.nama || '-')}</div><div class="text-xs color-gray mb-8">${escHtml(p.posisi || '-')}</div><select class="form-control" onchange="updateKandidatStage('${p.id}', this.value)">${stages.map((s) => `<option value="${s}" ${s === st ? 'selected' : ''}>${s.toUpperCase()}</option>`).join('')}</select></div>`;
+      h += `<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px"><div class="fw-700">${escHtml(p.nama || '-')}</div><div class="text-xs color-gray mb-8">${escHtml(p.posisi || '-')} ${p.discProfile ? '• DISC: ' + escHtml(p.discProfile) : ''}</div><select class="form-control" onchange="updateKandidatStage('${p.id}', this.value)">${stages.map((s) => `<option value="${s}" ${s === st ? 'selected' : ''}>${s.toUpperCase()}</option>`).join('')}</select></div>`;
     });
     h += '</div>';
   });
@@ -1265,15 +1272,25 @@ async function updateKandidatStage(id, stage) {
 async function renderKandidat() {
   const main = document.getElementById('mainContent');
   if (!main) return;
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🧑‍💼 Kandidat</span><button class="btn btn-primary btn-sm" onclick="modalKandidat()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Kontak</th><th>Stage</th><th>Aksi</th></tr></thead><tbody id="tblKandidat"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title">
+    <span>${renderBackButton()}🧑‍💼 Kandidat</span>
+    <div class="flex gap-8" style="flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="copyLinkPelamar()">📋 Copy Link Form Pelamar</button>
+      <button class="btn btn-outline btn-sm" onclick="copyLinkDISC()">🧠 Copy Link Tes DISC</button>
+      <button class="btn btn-primary btn-sm" onclick="modalKandidat()">+ Tambah</button>
+    </div>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Kontak</th><th>Stage / DISC</th><th>Aksi</th></tr></thead><tbody id="tblKandidat"></tbody></table></div></div>`;
   const snap = await db.collection('hrd_kandidat').orderBy('createdAt', 'desc').get();
   let h = '';
   snap.forEach((d) => {
     const p = d.data();
-    h += `<tr><td class="fw-700">${escHtml(p.nama || '-')}</td><td>${escHtml(p.posisi || '-')}</td><td>${escHtml(p.kontak || p.email || '-')}</td><td>${escHtml((p.stage || 'applied').toUpperCase())}</td><td><button class="btn btn-xs btn-info" onclick="modalKandidat('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kandidat','${d.id}','kandidat')">🗑️</button></td></tr>`;
+    const discInfo = p.discProfile ? `<br><small class="color-primary fw-700">🧠 ${escHtml(p.discProfile)}</small>` : '';
+    h += `<tr><td class="fw-700">${escHtml(p.nama || '-')}</td><td>${escHtml(p.posisi || '-')}</td><td>${escHtml(p.kontak || p.email || '-')}</td><td>${escHtml((p.stage || 'applied').toUpperCase())}${discInfo}</td><td><button class="btn btn-xs btn-info" onclick="modalKandidat('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kandidat','${d.id}','kandidat')">🗑️</button></td></tr>`;
   });
   document.getElementById('tblKandidat').innerHTML = h || '<tr><td colspan="5" class="text-center">Belum ada kandidat</td></tr>';
 }
+
 
 function modalKandidat(id) {
   if (id) db.collection('hrd_kandidat').doc(id).get().then((d) => showKandidatForm(id, d.data() || {}));
@@ -1339,3 +1356,425 @@ function lihatFotoKaryawan(url, nama, posisi) {
   );
 }
 window.lihatFotoKaryawan = lihatFotoKaryawan;
+
+// == FORM DATA PELAMAR IJEF MANAGEMENT (REKRUTMEN) =====================
+
+function copyLinkPelamar() {
+  const url = window.location.origin + '/form-pelamar.html';
+  navigator.clipboard.writeText(url).then(() => {
+    toast('📋 Link Form Data Pelamar disalin: ' + url, 'success');
+  }).catch(() => {
+    prompt('Salin link Form Data Pelamar:', url);
+  });
+}
+
+function copyLinkDISC() {
+  const url = window.location.origin + '/disc-test.html';
+  navigator.clipboard.writeText(url).then(() => {
+    toast('🧠 Link Tes DISC (Calon Karyawan) disalin: ' + url, 'success');
+  }).catch(() => {
+    prompt('Salin link Tes DISC:', url);
+  });
+}
+
+async function renderFormPelamarMgmt() {
+  const main = document.getElementById('mainContent');
+  if (!main) return;
+
+  const linkPelamarUrl = window.location.origin + '/form-pelamar.html';
+  const linkDiscUrl = window.location.origin + '/disc-test.html';
+
+  main.innerHTML = `
+    <div class="page-title">
+      <span>${renderBackButton()}📋 Form Data Pelamar IJEF</span>
+      <div class="flex gap-8" style="flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="copyLinkPelamar()">📋 Copy Link Form Pelamar</button>
+        <button class="btn btn-outline btn-sm" onclick="window.open('${linkPelamarUrl}', '_blank')">↗️ Buka Form Pelamar</button>
+        <button class="btn btn-outline btn-sm" onclick="copyLinkDISC()">🧠 Copy Link Tes DISC</button>
+      </div>
+    </div>
+
+    <div class="card mb-16" style="border-left:4px solid var(--primary);background:#f8f9ff">
+      <div class="fw-700 color-primary mb-4">🔗 Link Rekrutmen Calon Karyawan:</div>
+      <div class="grid-2 text-xs" style="gap:10px">
+        <div>
+          <b>Form Isian Data Pelamar:</b><br>
+          <code style="background:#fff;padding:3px 6px;border-radius:4px;border:1px solid #ccc;word-break:break-all">${linkPelamarUrl}</code>
+        </div>
+        <div>
+          <b>Tes Kepribadian DISC:</b><br>
+          <code style="background:#fff;padding:3px 6px;border-radius:4px;border:1px solid #ccc;word-break:break-all">${linkDiscUrl}</code>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header mb-16" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div class="card-title">📋 Daftar Pelamar Kerja</div>
+        <input class="form-control" id="searchPelamar" placeholder="🔍 Cari nama pelamar / posisi..." oninput="filterTblPelamar()" style="max-width:250px">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Tanggal Isi</th>
+              <th>Nama Pelamar</th>
+              <th>Posisi Dilamar</th>
+              <th>No. HP / Email</th>
+              <th>Status DISC</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblPelamar">Loading...</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // Real-time listener on hrd_pelamar
+  const unsub = db.collection('hrd_pelamar').onSnapshot((snap) => {
+    window._allPelamarData = [];
+    snap.forEach((d) => window._allPelamarData.push({ id: d.id, ...d.data() }));
+    window._allPelamarData.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    filterTblPelamar();
+  });
+  if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
+}
+
+function filterTblPelamar() {
+  const q = (document.getElementById('searchPelamar')?.value || '').toLowerCase().trim();
+  const list = window._allPelamarData || [];
+  const filtered = list.filter(p => {
+    if (!q) return true;
+    return (p.nama || '').toLowerCase().includes(q) ||
+           (p.posisi || '').toLowerCase().includes(q) ||
+           (p.telepon || '').toLowerCase().includes(q) ||
+           (p.email || '').toLowerCase().includes(q);
+  });
+
+  const tbody = document.getElementById('tblPelamar');
+  if (!tbody) return;
+
+  let h = '';
+  if (!filtered.length) {
+    h = '<tr><td colspan="6" class="text-center color-gray">Belum ada data pelamar. Bagikan link Form Pelamar kepada calon karyawan.</td></tr>';
+  } else {
+    filtered.forEach(p => {
+      const isDiscDone = p.discStatus === 'Selesai' || p.discProfile;
+      const discBadge = isDiscDone
+        ? `<span class="badge badge-success">✓ Selesai (${escHtml(p.discProfile || 'Done')})</span>`
+        : `<span class="badge badge-warning">Belum Tes</span>`;
+
+      h += `<tr>
+        <td class="text-xs color-gray">${formatDate(p.createdAt)}</td>
+        <td class="fw-700">${escHtml(p.nama)}</td>
+        <td><span class="badge badge-info">${escHtml(p.posisi || '-')}</span></td>
+        <td class="text-xs">${escHtml(p.telepon || '-')}<br>${escHtml(p.email || '-')}</td>
+        <td>${discBadge}</td>
+        <td>
+          <div class="flex gap-4">
+            <button class="btn btn-xs btn-info" onclick="modalDetailPelamar('${p.id}')">👁️ Detail</button>
+            <button class="btn btn-xs btn-primary" onclick="cetakFormPelamar('${p.id}')">🖨️ Cetak</button>
+            <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_pelamar','${p.id}','pelamar')">🗑️</button>
+          </div>
+        </td>
+      </tr>`;
+    });
+  }
+  tbody.innerHTML = h;
+}
+
+async function modalDetailPelamar(id) {
+  const doc = await db.collection('hrd_pelamar').doc(id).get();
+  if (!doc.exists) return toast('Data tidak ditemukan', 'warning');
+  const p = doc.data();
+
+  const renderArrayTable = (arr, headers, keys) => {
+    if (!arr || !arr.length) return '<p class="text-xs color-gray">- Tidak ada data -</p>';
+    let ths = headers.map(h => `<th>${h}</th>`).join('');
+    let trs = arr.map(item => {
+      let tds = keys.map(k => `<td>${escHtml(item[k] || '-')}</td>`).join('');
+      return `<tr>${tds}</tr>`;
+    }).join('');
+    return `<div class="table-wrap"><table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div>`;
+  };
+
+  openModal(`
+    <div class="modal-title">📋 Form Isian Data Pelamar IJEF — ${escHtml(p.nama)}</div>
+    <div style="max-height:80vh;overflow-y:auto;padding-right:8px">
+
+      <!-- Status Bar -->
+      <div style="background:#f8f9ff;border-radius:10px;padding:12px 16px;border:1px solid #d0d9ff;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div>
+          <div class="fw-700 color-primary" style="font-size:1.1rem">${escHtml(p.nama)}</div>
+          <div class="text-xs color-gray">Posisi: <b>${escHtml(p.posisi)}</b> | Tgl Isi: ${formatDateTime(p.createdAt)}</div>
+        </div>
+        <div>
+          <span class="badge ${p.discProfile ? 'badge-success' : 'badge-warning'}" style="font-size:.85rem;padding:6px 12px">
+            DISC: ${p.discProfile ? escHtml(p.discProfile) + ' (' + escHtml(p.discPattern || '') + ')' : 'Belum Tes'}
+          </span>
+          <button class="btn btn-xs btn-primary ml-8" onclick="cetakFormPelamar('${id}')">🖨️ Cetak Form</button>
+        </div>
+      </div>
+
+      <!-- SEKSI I: IDENTITAS PRIBADI -->
+      <div class="card mb-12" style="border-left:4px solid var(--primary)">
+        <div class="fw-700 color-primary mb-8">I. IDENTITAS PRIBADI</div>
+        <div class="grid-2 text-sm" style="gap:8px">
+          <div><b>Nama Lengkap:</b> ${escHtml(p.nama)}</div>
+          <div><b>Nama Sebelumnya:</b> ${escHtml(p.namaSebelumnya || '-')}</div>
+          <div><b>Tempat, Tgl Lahir:</b> ${escHtml(p.tempatLahir || '-')}, ${formatDate(p.tanggalLahir)} (${p.usia || '-'} thn)</div>
+          <div><b>Jenis Kelamin:</b> ${escHtml(p.jenisKelamin || '-')}</div>
+          <div><b>Agama:</b> ${escHtml(p.agama || '-')}</div>
+          <div><b>Kewarganegaraan:</b> ${escHtml(p.kewarganegaraan || '-')}</div>
+          <div><b>NIK (KTP):</b> ${escHtml(p.nik || '-')} (${escHtml(p.kotaKtp || '-')})</div>
+          <div><b>SIM:</b> ${escHtml(p.sim || '-')}</div>
+          <div><b>Golongan Darah:</b> ${escHtml(p.golDarah || '-')}</div>
+          <div><b>Status Nikah:</b> ${escHtml(p.statusNikah || '-')} ${p.tglStatusNikah ? '(' + formatDate(p.tglStatusNikah) + ')' : ''}</div>
+          <div><b>No. HP / WA:</b> ${escHtml(p.telepon || '-')}</div>
+          <div><b>Email:</b> ${escHtml(p.email || '-')}</div>
+          <div style="grid-column: span 2"><b>Alamat Tetap (KTP):</b> ${escHtml(p.alamatTetap || '-')}</div>
+          <div style="grid-column: span 2"><b>Alamat Sekarang (Domisili):</b> ${escHtml(p.alamatSekarang || '-')}</div>
+        </div>
+      </div>
+
+      <!-- SEKSI II: KELUARGA DAN LINGKUNGAN -->
+      <div class="card mb-12" style="border-left:4px solid var(--info)">
+        <div class="fw-700 color-primary mb-8">II. KELUARGA DAN LINGKUNGAN</div>
+        <div class="grid-2 text-sm mb-12" style="gap:8px">
+          <div><b>Suami / Istri:</b> ${escHtml(p.namaPasangan || '-')}</div>
+          <div><b>TTL Suami/Istri:</b> ${escHtml(p.ttlPasangan || '-')}</div>
+          <div><b>Pendidikan:</b> ${escHtml(p.pendidikanPasangan || '-')}</div>
+          <div><b>Telp/HP:</b> ${escHtml(p.telpPasangan || '-')}</div>
+          <div style="grid-column: span 2"><b>Pekerjaan Suami/Istri:</b> ${escHtml(p.pekerjaanPasangan || '-')}</div>
+        </div>
+
+        <div class="fw-700 text-xs mb-4">Anak-anak:</div>
+        ${renderArrayTable(p.anak, ['Nama Anak', 'TTL', 'Pendidikan', 'Telp/HP'], ['nama', 'ttl', 'pendidikan', 'telp'])}
+
+        <div class="grid-2 text-sm mt-12 mb-12" style="gap:8px">
+          <div><b>Orang Tua / Wali:</b> ${escHtml(p.namaOrangTua || '-')}</div>
+          <div><b>Pekerjaan Ortu:</b> ${escHtml(p.pekerjaanOrangTua || '-')}</div>
+          <div style="grid-column: span 2"><b>Alamat Ortu:</b> ${escHtml(p.alamatOrangTua || '-')}</div>
+        </div>
+
+        <div class="fw-700 text-xs mb-4">Saudara Kandung:</div>
+        ${renderArrayTable(p.saudara, ['Nama', 'Usia', 'Pendidikan / Pekerjaan', 'Telp/HP'], ['nama', 'usia', 'pekerjaan', 'telp'])}
+
+        <div class="fw-700 text-xs mt-12 mb-4">Kerabat Dekat Tidak Serumah:</div>
+        ${renderArrayTable(p.kerabat, ['Nama', 'Hubungan', 'Pekerjaan', 'Telp/HP'], ['nama', 'hubungan', 'pekerjaan', 'telp'])}
+
+        <div class="grid-2 text-sm mt-12" style="gap:8px">
+          <div><b>Status Rumah:</b> ${escHtml(p.statusRumah || '-')}</div>
+          <div><b>Bantuan Keuangan:</b> ${escHtml(p.dapatBantuan || '-')} ${p.sumberBantuan ? '(' + escHtml(p.sumberBantuan) + ')' : ''}</div>
+          <div><b>Tanggungan Lain:</b> ${escHtml(p.adaTanggunganLain || '-')} ${p.rincianTanggunganLain ? '(' + escHtml(p.rincianTanggunganLain) + ')' : ''}</div>
+          <div><b>Meninggalkan Keluarga:</b> ${escHtml(p.pernahTinggalkanKeluarga || '-')} ${p.rincianTinggalkanKeluarga ? '(' + escHtml(p.rincianTinggalkanKeluarga) + ')' : ''}</div>
+        </div>
+      </div>
+
+      <!-- SEKSI III: RIWAYAT PENDIDIKAN -->
+      <div class="card mb-12" style="border-left:4px solid var(--success)">
+        <div class="fw-700 color-primary mb-8">III. RIWAYAT PENDIDIKAN</div>
+        <div class="fw-700 text-xs mb-4">Pendidikan Formal:</div>
+        ${renderArrayTable(p.pendidikanFormal, ['Tingkat', 'Dari', 'Sampai', 'Sekolah/Kampus', 'Jurusan', 'Kota', 'Ijazah'], ['tingkat', 'dari', 'sampai', 'sekolah', 'jurusan', 'kota', 'ijazah'])}
+
+        <div class="fw-700 text-xs mt-12 mb-4">Kursus / Training / Sertifikasi:</div>
+        ${renderArrayTable(p.kursus, ['Bidang', 'Lamanya', 'Tempat'], ['bidang', 'lamanya', 'tempat'])}
+
+        <div class="text-sm mt-12 mb-8">
+          <div><b>Pendidikan Paling Puas & Sebabnya:</b><br><span style="color:#555">${escHtml(p.pendidikanPalingPuas || '-')}</span></div>
+          <div class="mt-8"><b>Pendidikan Paling Tidak Puas & Sebabnya:</b><br><span style="color:#555">${escHtml(p.pendidikanPalingTidakPuas || '-')}</span></div>
+          <div class="mt-8"><b>Pembiaya Pendidikan:</b> ${escHtml(p.pembiayaPendidikan || '-')}</div>
+        </div>
+
+        <div class="fw-700 text-xs mt-12 mb-4">Penguasaan Bahasa Asing & Daerah:</div>
+        ${renderArrayTable(p.bahasaAsing, ['Bahasa', 'Tertulis', 'Lisan', 'Keterangan'], ['bahasa', 'tertulis', 'lisan', 'keterangan'])}
+      </div>
+
+      <!-- SEKSI IV: PEKERJAAN -->
+      <div class="card mb-12" style="border-left:4px solid var(--warning)">
+        <div class="fw-700 color-primary mb-8">IV. REFERENSI KERJA / RIWAYAT PEKERJAAN</div>
+        ${renderArrayTable(p.pengalamanKerja, ['Perusahaan', 'Tahun', 'Jabatan', 'Gaji', 'Alasan Pindah'], ['perusahaan', 'tahun', 'jabatan', 'gaji', 'alasan'])}
+
+        <div class="text-sm mt-12">
+          <div><b>Tugas Jabatan Terakhir:</b><br><span style="color:#555">${escHtml(p.tugasTerakhir || '-')}</span></div>
+          <div class="mt-8"><b>Jumlah Bawahan (2 Thn Terakhir):</b> ${escHtml(p.jumlahBawahan || '-')}</div>
+          <div class="mt-8"><b>Pernah Perubahan/Pembaharuan:</b> ${escHtml(p.pernahPerubahan || '-')} ${p.rincianPerubahan ? '(' + escHtml(p.rincianPerubahan) + ')' : ''}</div>
+        </div>
+      </div>
+
+      <!-- SEKSI V: REFERENSI DIRI -->
+      <div class="card mb-12" style="border-left:4px solid #6a1b9a">
+        <div class="fw-700 color-primary mb-8">V. REFERENSI DIRI (NON-KELUARGA)</div>
+        ${renderArrayTable(p.referensiDiri, ['Nama', 'Alamat/Telp Kantor', 'Jabatan', 'Hubungan'], ['nama', 'alamat', 'jabatan', 'hubungan'])}
+      </div>
+
+      <!-- SEKSI VI: MINAT & KONSEP DIRI -->
+      <div class="card mb-12" style="border-left:4px solid #00838f">
+        <div class="fw-700 color-primary mb-8">VI. MINAT DAN KONSEP DIRI</div>
+        <div class="text-sm">
+          <div><b>Jabatan Dituju:</b> ${escHtml(p.jabatanDituju || p.posisi || '-')}</div>
+          <div class="mt-8"><b>Alasan Ingin Kerja Pada Jabatan Itu:</b><br><span style="color:#555">${escHtml(p.alasanJabatan || '-')}</span></div>
+          <div class="mt-8"><b>Pengetahuan Tugas & Tanggung Jawab Jabatan:</b><br><span style="color:#555">${escHtml(p.pengetahuanJabatan || '-')}</span></div>
+          <div class="mt-8"><b>Lingkungan Disukai:</b> ${escHtml(p.lingkunganDisukai || '-')} (Sebab: ${escHtml(p.sebabDisukai || '-')})</div>
+          <div class="mt-8"><b>Lingkungan Tidak Disukai:</b> ${escHtml(p.lingkunganTidakDisukai || '-')} (Sebab: ${escHtml(p.sebabTidakDisukai || '-')})</div>
+          <div class="mt-8"><b>Cita-cita Hidup:</b><br><span style="color:#555">${escHtml(p.citaCita || '-')}</span></div>
+          <div class="mt-8"><b>Hal Paling Sulit Mengambil Keputusan:</b><br><span style="color:#555">${escHtml(p.kesulitanKeputusan || '-')}</span></div>
+        </div>
+      </div>
+
+      <!-- SEKSI VII: AKTIVITAS SOSIAL -->
+      <div class="card mb-12" style="border-left:4px solid #ef6c00">
+        <div class="fw-700 color-primary mb-8">VII. AKTIVITAS SOSIAL DAN KEMASYARAKATAN</div>
+        <div class="text-sm mb-12">
+          <div><b>Hobi / Kegemaran:</b> ${escHtml(p.hobi || '-')}</div>
+          <div class="mt-8"><b>Mengisi Waktu Luang:</b> ${escHtml(p.waktuLuang || '-')}</div>
+          <div class="mt-8"><b>Pernah Keluar Negeri:</b> ${escHtml(p.pernahLuarNegeri || '-')} ${p.rincianLuarNegeri ? '(' + escHtml(p.rincianLuarNegeri) + ')' : ''}</div>
+        </div>
+
+        <div class="fw-700 text-xs mb-4">Organisasi Diikuti:</div>
+        ${renderArrayTable(p.organisasi, ['Nama Organisasi', 'Periode', 'Jabatan', 'Keterangan'], ['namaOrganisasi', 'periode', 'jabatan', 'keterangan'])}
+
+        <div class="text-sm mt-12">
+          <div><b>Faktor Kekuatan Diri:</b><br><span style="color:#555">${escHtml(p.kekuatanDiri || '-')}</span></div>
+          <div class="mt-8"><b>Faktor Perlu Diperbaiki:</b><br><span style="color:#555">${escHtml(p.kelemahanDiri || '-')}</span></div>
+        </div>
+      </div>
+
+      <!-- SEKSI VIII: INTERN PERUSAHAAN & IX: LAIN-LAIN -->
+      <div class="card mb-12" style="border-left:4px solid #37474f">
+        <div class="fw-700 color-primary mb-8">VIII. INTERN PERUSAHAAN & IX. LAIN-LAIN</div>
+        <div class="grid-2 text-sm" style="gap:8px">
+          <div><b>Gaji Minimal Diharapkan:</b> ${p.gajiDiharapkan ? formatCurrency(p.gajiDiharapkan) : '-'}</div>
+          <div><b>Mulai Bekerja:</b> ${escHtml(p.tglMulaiKerja || '-')}</div>
+          <div><b>Fasilitas Diharapkan:</b> ${escHtml(p.fasilitasDiharapkan || '-')}</div>
+          <div><b>Bersedia Ditempatkan di Unit Lain:</b> ${escHtml(p.bersediaDitempatkan || '-')} ${p.alasanTidakBersedia ? '(' + escHtml(p.alasanTidakBersedia) + ')' : ''}</div>
+          <div><b>Kendaraan Dimiliki:</b> ${escHtml(p.kendaraan || '-')}</div>
+          <div><b>Pernah Sakit Keras/Lama:</b> ${escHtml(p.pernahSakitKeras || '-')} ${p.rincianSakitKeras ? '(' + escHtml(p.rincianSakitKeras) + ')' : ''}</div>
+          <div><b>Gangguan Jasmani/Jiwa:</b> ${escHtml(p.gangguanJasmani || 'Baik-baik saja')}</div>
+          <div><b>Kesehatan Keluarga:</b> ${escHtml(p.kesehatanKeluarga || 'Baik-baik saja')}</div>
+          <div style="grid-column: span 2"><b>Reputasi Nasional/Internasional:</b> ${escHtml(p.reputasi || '-')}</div>
+        </div>
+      </div>
+
+      <div class="flex gap-8 justify-end mt-16">
+        <button class="btn btn-primary" onclick="cetakFormPelamar('${id}')">🖨️ Cetak Form Isian (PDF)</button>
+        <button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>
+      </div>
+
+    </div>
+  `, true);
+}
+
+async function cetakFormPelamar(id) {
+  const doc = await db.collection('hrd_pelamar').doc(id).get();
+  if (!doc.exists) return toast('Data tidak ditemukan', 'warning');
+  const p = doc.data();
+
+  const win = window.open('', '_blank');
+  win.document.write(`<html><head><title>Form Isian Data Pelamar - ${escHtml(p.nama)}</title>
+  <style>
+    body{font-family:'Segoe UI',Times,serif;padding:30px;max-width:850px;margin:auto;font-size:12px;color:#000;line-height:1.5}
+    h2,h3{text-align:center;margin:4px 0}
+    .header{text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:20px}
+    .sec-head{font-weight:bold;background:#eee;padding:6px 8px;margin:15px 0 8px 0;border:1px solid #aaa}
+    table{width:100%;border-collapse:collapse;margin:8px 0 14px 0}
+    td,th{padding:5px 8px;border:1px solid #666;font-size:11px}
+    th{background:#f0f0f0}
+    .no-border td{border:none;padding:3px 6px}
+    .sign{display:flex;justify-content:space-between;margin-top:40px;text-align:center}
+    .sign div{width:220px}
+    @media print{button{display:none}}
+  </style></head><body>
+  <div class="header">
+    <h2>LPK IJEF CORP</h2>
+    <h3>DATA PRIBADI PELAMAR KERJA</h3>
+  </div>
+
+  <div class="sec-head">I. IDENTITAS PRIBADI</div>
+  <table class="no-border">
+    <tr><td width="25%"><b>Posisi Dilamar</b></td><td width="2%">:</td><td><b>${escHtml(p.posisi)}</b></td></tr>
+    <tr><td>1. Nama Lengkap</td><td>:</td><td>${escHtml(p.nama)}</td></tr>
+    <tr><td>2. Nama Sebelumnya</td><td>:</td><td>${escHtml(p.namaSebelumnya || '-')}</td></tr>
+    <tr><td>3. Tempat, Tgl Lahir</td><td>:</td><td>${escHtml(p.tempatLahir || '-')}, ${formatDate(p.tanggalLahir)} (${p.usia || '-'} thn)</td></tr>
+    <tr><td>4. Kewarganegaraan</td><td>:</td><td>${escHtml(p.kewarganegaraan || '-')}</td></tr>
+    <tr><td>5. Jenis Kelamin</td><td>:</td><td>${escHtml(p.jenisKelamin || '-')}</td></tr>
+    <tr><td>6. Alamat Tetap (KTP)</td><td>:</td><td>${escHtml(p.alamatTetap || '-')} (Telp: ${escHtml(p.telpTetap || '-')})</td></tr>
+    <tr><td>7. Alamat Sekarang</td><td>:</td><td>${escHtml(p.alamatSekarang || '-')} (Telp/WA: ${escHtml(p.telepon || '-')})</td></tr>
+    <tr><td>8. Agama</td><td>:</td><td>${escHtml(p.agama || '-')}</td></tr>
+    <tr><td>9. No KTP (NIK)</td><td>:</td><td>${escHtml(p.nik || '-')} (${escHtml(p.kotaKtp || '-')})</td></tr>
+    <tr><td>10. SIM</td><td>:</td><td>${escHtml(p.sim || '-')}</td></tr>
+    <tr><td>11. Golongan Darah</td><td>:</td><td>${escHtml(p.golDarah || '-')}</td></tr>
+    <tr><td>12. Status Pernikahan</td><td>:</td><td>${escHtml(p.statusNikah || '-')} ${p.tglStatusNikah ? '(' + formatDate(p.tglStatusNikah) + ')' : ''}</td></tr>
+  </table>
+
+  <div class="sec-head">II. KELUARGA DAN LINGKUNGAN</div>
+  <table class="no-border">
+    <tr><td width="25%">1. Suami / Istri</td><td width="2%">:</td><td>${escHtml(p.namaPasangan || '-')} (TTL: ${escHtml(p.ttlPasangan || '-')}, Pend: ${escHtml(p.pendidikanPasangan || '-')}, Telp: ${escHtml(p.telpPasangan || '-')}, Kerja: ${escHtml(p.pekerjaanPasangan || '-')})</td></tr>
+    <tr><td>2. Orang Tua / Wali</td><td>:</td><td>${escHtml(p.namaOrangTua || '-')} (Kerja: ${escHtml(p.pekerjaanOrangTua || '-')}, Alamat: ${escHtml(p.alamatOrangTua || '-')})</td></tr>
+  </table>
+
+  <b>Anak-Anak:</b>
+  <table><thead><tr><th>No</th><th>Nama Anak</th><th>Tempat / Tgl Lahir</th><th>Pendidikan</th><th>Telp</th></tr></thead><tbody>
+    ${(p.anak && p.anak.length) ? p.anak.map((a,i)=>`<tr><td>${i+1}</td><td>${escHtml(a.nama)}</td><td>${escHtml(a.ttl)}</td><td>${escHtml(a.pendidikan)}</td><td>${escHtml(a.telp)}</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center">-</td></tr>'}
+  </tbody></table>
+
+  <b>Saudara Kandung:</b>
+  <table><thead><tr><th>No</th><th>Nama</th><th>Usia</th><th>Pendidikan / Pekerjaan</th><th>Telp</th></tr></thead><tbody>
+    ${(p.saudara && p.saudara.length) ? p.saudara.map((s,i)=>`<tr><td>${i+1}</td><td>${escHtml(s.nama)}</td><td>${escHtml(s.usia)}</td><td>${escHtml(s.pekerjaan)}</td><td>${escHtml(s.telp)}</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center">-</td></tr>'}
+  </tbody></table>
+
+  <table class="no-border">
+    <tr><td width="30%">Status Rumah Tempat Tinggal</td><td width="2%">:</td><td>${escHtml(p.statusRumah || '-')}</td></tr>
+    <tr><td>Dapat Bantuan Keuangan</td><td>:</td><td>${escHtml(p.dapatBantuan || '-')} ${p.sumberBantuan ? '(' + escHtml(p.sumberBantuan) + ')' : ''}</td></tr>
+    <tr><td>Tanggungan Lain</td><td>:</td><td>${escHtml(p.adaTanggunganLain || '-')} ${p.rincianTanggunganLain ? '(' + escHtml(p.rincianTanggunganLain) + ')' : ''}</td></tr>
+  </table>
+
+  <div class="sec-head">III. RIWAYAT PENDIDIKAN</div>
+  <b>Pendidikan Formal:</b>
+  <table><thead><tr><th>Tingkat</th><th>Dari</th><th>Sampai</th><th>Nama Sekolah / PT</th><th>Jurusan</th><th>Kota</th><th>Ijazah</th></tr></thead><tbody>
+    ${(p.pendidikanFormal && p.pendidikanFormal.length) ? p.pendidikanFormal.map(f=>`<tr><td>${escHtml(f.tingkat)}</td><td>${escHtml(f.dari)}</td><td>${escHtml(f.sampai)}</td><td>${escHtml(f.sekolah)}</td><td>${escHtml(f.jurusan)}</td><td>${escHtml(f.kota)}</td><td>${escHtml(f.ijazah)}</td></tr>`).join('') : ''}
+  </tbody></table>
+
+  <b>Kursus / Training:</b>
+  <table><thead><tr><th>Bidang</th><th>Lamanya</th><th>Tempat / Lembaga</th></tr></thead><tbody>
+    ${(p.kursus && p.kursus.length) ? p.kursus.map(k=>`<tr><td>${escHtml(k.bidang)}</td><td>${escHtml(k.lamanya)}</td><td>${escHtml(k.tempat)}</td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center">-</td></tr>'}
+  </tbody></table>
+
+  <div class="sec-head">IV. REFERENSI KERJA / PEKERJAAN</div>
+  <table><thead><tr><th>Nama Perusahaan</th><th>Tahun</th><th>Jabatan</th><th>Gaji Terakhir</th><th>Alasan Pindah</th></tr></thead><tbody>
+    ${(p.pengalamanKerja && p.pengalamanKerja.length) ? p.pengalamanKerja.map(pk=>`<tr><td>${escHtml(pk.perusahaan)}</td><td>${escHtml(pk.tahun)}</td><td>${escHtml(pk.jabatan)}</td><td>${escHtml(pk.gaji)}</td><td>${escHtml(pk.alasan)}</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center">-</td></tr>'}
+  </tbody></table>
+
+  <div class="sec-head">VIII. INTERN PERUSAHAAN & LAIN-LAIN</div>
+  <table class="no-border">
+    <tr><td width="30%">Gaji Minimal Diharapkan</td><td width="2%">:</td><td><b>${p.gajiDiharapkan ? formatCurrency(p.gajiDiharapkan) : '-'}</b></td></tr>
+    <tr><td>Dapat Mulai Bekerja</td><td>:</td><td>${escHtml(p.tglMulaiKerja || '-')}</td></tr>
+    <tr><td>Fasilitas Diharapkan</td><td>:</td><td>${escHtml(p.fasilitasDiharapkan || '-')}</td></tr>
+    <tr><td>Bersedia Ditempatkan di Unit Lain</td><td>:</td><td>${escHtml(p.bersediaDitempatkan || '-')}</td></tr>
+    <tr><td>Hasil Tes DISC</td><td>:</td><td><b>${escHtml(p.discProfile || 'Belum Tes')} (${escHtml(p.discPattern || '-')})</b></td></tr>
+  </table>
+
+  <div class="sign">
+    <div>
+      <p>Mengetahui (HRD),</p><br><br><br><br>
+      <p><b>_______________________</b></p>
+    </div>
+    <div>
+      <p>Garut, ${formatDate(p.createdAt)}<br>Pelamar,</p><br><br><br>
+      <p><b>${escHtml(p.nama)}</b></p>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:30px">
+    <button onclick="window.print()" style="padding:10px 24px;font-size:14px;cursor:pointer">🖨️ Cetak Dokumen</button>
+  </div>
+  </body></html>`);
+}
+
+window.copyLinkPelamar = copyLinkPelamar;
+window.copyLinkDISC = copyLinkDISC;
+window.renderFormPelamarMgmt = renderFormPelamarMgmt;
+window.modalDetailPelamar = modalDetailPelamar;
+window.cetakFormPelamar = cetakFormPelamar;
+

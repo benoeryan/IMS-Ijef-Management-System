@@ -532,7 +532,21 @@ function checkAppVersion() {
 async function initApp() {
   checkAppVersion();
 
-  // Check if public portal (calon karyawan) via hash
+  // Check if public portal (calon karyawan) or public form pelamar via hash
+  if (
+    window.location.hash === "#form-pelamar" ||
+    window.location.hash.startsWith("#form-pelamar") ||
+    window.location.hash === "#pelamar" ||
+    window.location.hash.startsWith("#pelamar")
+  ) {
+    if (typeof renderPublicFormPelamar === "function") {
+      renderPublicFormPelamar();
+    } else {
+      window.location.href = "form-pelamar.html";
+    }
+    return;
+  }
+
   if (
     window.location.hash === "#calon" ||
     window.location.hash.startsWith("#calon-")
@@ -819,6 +833,7 @@ function buildNavItems(isPortalUser) {
       ["lowongan", "📝", "Lowongan"],
       ["pipeline", "🔄", "Pipeline Kanban"],
       ["kandidat", "🧑‍💼", "Kandidat"],
+      ["form-pelamar-mgmt", "📋", "Form Data Pelamar"],
     ]);
   nav += navGroup("📍 Kehadiran", [
     ["absensi", "📍", "Absensi IJEF"],
@@ -1073,6 +1088,9 @@ function navigateTo(page) {
     lowongan: "renderLowongan",
     pipeline: "renderPipeline",
     kandidat: "renderKandidat",
+    "form-pelamar-mgmt": "renderFormPelamarMgmt",
+    "form-pelamar": "renderPublicFormPelamar",
+    pelamar: "renderPublicFormPelamar",
     absensi: "renderAbsensiIJEF",
     cuti: "renderCuti",
     overtime: "renderOvertime",
