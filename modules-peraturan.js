@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '16.6.8',
+            version: '16.6.10',
             updatedAt: new Date().toISOString(),
-            note: 'Add password visibility toggle on login screen and fix dashboard task query for BOD accounts'
+            note: 'Replace Nanda Yoga name references with Muhammad Rizky across Kaizen and reports'
         }, { merge: true });
 
     } catch (e) {

@@ -5381,13 +5381,15 @@ function _renderWeeklyReportsContent() {
         html += `<div style="padding:8px 14px;background:#e8eaf6;border-radius:8px;font-weight:700;font-size:.88rem;color:#283593;border-left:4px solid #3f51b5;margin-bottom:8px">🏢 ${escHtml(div)} (${rows.length} data)</div>`;
         var byPic = {};
         rows.forEach(r => {
-          var picKey = r.targetUserName || r.pic || r.nama || "-";
+          var rawPic = r.targetUserName || r.pic || r.nama || "-";
+          var picKey = normalizeGAStaffName(rawPic);
           if (!byPic[picKey]) byPic[picKey] = [];
           byPic[picKey].push(r);
         });
         Object.keys(byPic).sort().forEach(pic => {
             var userRows = byPic[pic];
-            html += `<div style="padding:8px 12px;margin:10px 0 8px;background:#f4f6ff;border-radius:8px;border-left:4px solid #5c6bc0;font-weight:700;font-size:.82rem;color:#3949ab">👤 ${escHtml(pic)} (${userRows.length} report)</div>`;
+            var displayPic = normalizeGAStaffName(pic);
+            html += `<div style="padding:8px 12px;margin:10px 0 8px;background:#f4f6ff;border-radius:8px;border-left:4px solid #5c6bc0;font-weight:700;font-size:.82rem;color:#3949ab">👤 ${escHtml(displayPic)} (${userRows.length} report)</div>`;
             userRows.forEach(r => {
               var tgl = r.tanggal || r.bulan || "-";
               var kat = r.kategori || "-";
@@ -5844,7 +5846,7 @@ function _buildReportTrackerRow(r) {
     '<div style="font-weight:600;font-size:.85rem">' +
     statusIcon +
     " " +
-    escHtml((r.targetUserName || r.nama || "-").toUpperCase()) +
+    escHtml(normalizeGAStaffName(r.targetUserName || r.nama || "-").toUpperCase()) +
     "</div>" +
     '<div style="display:flex;align-items:center;gap:6px">' +
     '<span style="font-weight:700;color:' +
@@ -6649,18 +6651,13 @@ async function deleteKaizenLog(taskId, timestamp) {
 async function fixKaizenNamingData() {
   if (
     !confirm(
-      "Sistem akan mengganti seluruh teks 'Nanda Yoga Maulana' menjadi 'Muhammad Rizky Nur Fadilah' di data Kaizen. Lanjutkan?",
+      "Sistem akan mengganti seluruh teks 'Nanda Yoga Maulana' menjadi 'Muhammad Rizky Nur Fadilah' di seluruh data Kaizen & Laporan. Lanjutkan?",
     )
   )
     return;
 
-  toast("⏳ Membersihkan data Kaizen...", "info");
-  const snap = await db
-    .collection("hrd_daily_tasks")
-    .where("source", "==", "FORM KAIZEN")
-    .get();
+  toast("⏳ Membersihkan data...", "info");
 
-  // Find Muhammad Rizky Nur Fadilah's user ID
   let gaUser = null;
   try {
     const uSnap = await db.collection("hrd_users").get();
@@ -6676,9 +6673,11 @@ async function fixKaizenNamingData() {
   const batch = db.batch();
   let count = 0;
 
-  snap.forEach((doc) => {
+  // 1. Clean hrd_daily_tasks
+  const snapTasks = await db.collection("hrd_daily_tasks").get();
+  snapTasks.forEach((doc) => {
     const d = doc.data();
-    const fields = ["title", "description", "aktivitas", "hasil"];
+    const fields = ["title", "description", "aktivitas", "hasil", "kendala", "solusi", "rencana", "komentar"];
     let changed = false;
     const updateObj = {};
 
@@ -6707,6 +6706,62 @@ async function fixKaizenNamingData() {
       changed = true;
     }
 
+    if (
+      d.nama &&
+      (d.nama.toUpperCase().includes("NANDA") ||
+        d.nama.toUpperCase().includes("YOGA"))
+    ) {
+      updateObj.nama = gaUser.nama;
+      changed = true;
+    }
+
+    if (
+      d.assignedByName &&
+      (d.assignedByName.toUpperCase().includes("NANDA") ||
+        d.assignedByName.toUpperCase().includes("YOGA"))
+    ) {
+      updateObj.assignedByName = gaUser.nama;
+      changed = true;
+    }
+
+    if (changed) {
+      batch.update(doc.ref, updateObj);
+      count++;
+    }
+  });
+
+  // 2. Clean hrd_weekly_reports
+  const snapWeekly = await db.collection("hrd_weekly_reports").get();
+  snapWeekly.forEach((doc) => {
+    const d = doc.data();
+    const fields = ["pic", "keterangan", "aktivitas", "case_desc", "solution", "planning"];
+    let changed = false;
+    const updateObj = {};
+
+    fields.forEach((f) => {
+      if (
+        d[f] &&
+        typeof d[f] === "string" &&
+        (d[f].toUpperCase().includes("NANDA") ||
+          d[f].toUpperCase().includes("YOGA"))
+      ) {
+        updateObj[f] = d[f]
+          .replace(/Nanda Yoga Maulana/gi, gaUser.nama)
+          .replace(/Nanda Yoga/gi, gaUser.nama)
+          .replace(/Nanda/gi, gaUser.nama);
+        changed = true;
+      }
+    });
+
+    if (
+      d.pic &&
+      (d.pic.toUpperCase().includes("NANDA") ||
+        d.pic.toUpperCase().includes("YOGA"))
+    ) {
+      updateObj.pic = gaUser.nama;
+      changed = true;
+    }
+
     if (changed) {
       batch.update(doc.ref, updateObj);
       count++;
@@ -6716,7 +6771,8 @@ async function fixKaizenNamingData() {
   if (count > 0) {
     await batch.commit();
     toast(`✅ Berhasil membersihkan ${count} data!`, "success");
-    renderFormKaizen();
+    if (typeof renderFormKaizen === "function") renderFormKaizen();
+    if (typeof loadWeeklyReports === "function") loadWeeklyReports();
   } else {
     toast("Semua data sudah bersih.", "success");
   }

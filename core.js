@@ -287,7 +287,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.6.8";
+const APP_VERSION = "16.6.10";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -1307,6 +1307,15 @@ function escHtml(str) {
   const d = document.createElement("div");
   d.textContent = str || "";
   return d.innerHTML;
+}
+
+function normalizeGAStaffName(name) {
+  if (!name) return name;
+  const upper = String(name).toUpperCase();
+  if (upper.includes("NANDA") || upper.includes("YOGA")) {
+    return "MUHAMMAD RIZKY NUR FADILAH";
+  }
+  return name;
 }
 
 function escAttr(str) {
