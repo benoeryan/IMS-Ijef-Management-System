@@ -173,12 +173,15 @@ async function loadDashBodTasks() {
   const el = document.getElementById('dashBodTaskList');
   if (!el) return;
   try {
-    const snap = await db.collection('hrd_daily_tasks').where('ownerLevel', '==', 2).orderBy('createdAt', 'desc').limit(5).get();
+    const snap = await db.collection('hrd_daily_tasks').where('ownerLevel', '==', 2).get();
+    let docs = [];
+    snap.forEach((d) => docs.push({ id: d.id, ...d.data() }));
+    docs.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    docs = docs.slice(0, 5);
     let h = '';
-    if (snap.empty) h = '<p class="text-sm" style="color:#999">Tidak ada tugas aktif</p>';
+    if (docs.length === 0) h = '<p class="text-sm" style="color:#999">Tidak ada tugas aktif</p>';
     else {
-      snap.forEach((d) => {
-        const p = d.data();
+      docs.forEach((p) => {
         const badge = p.done ? 'badge-success' : 'badge-warning';
         h += `<div style="padding:10px 0;border-bottom:1px solid #eee"><div class="flex justify-between"><b>${escHtml(p.targetUserName || '-')}</b> <span class="badge ${badge}">${p.done ? 'Selesai' : 'Proses'}</span></div><div class="text-sm">${escHtml(p.title)}</div><div class="text-xs color-gray">${formatDate(p.tanggal)}</div></div>`;
       });

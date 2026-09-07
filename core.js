@@ -287,7 +287,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.6.7";
+const APP_VERSION = "16.6.8";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -680,11 +680,29 @@ function renderLogin() {
     ${logoHtml}
     <h2 style="color:#c62828">IMS</h2><p class="subtitle">IJEF Management System</p>
     <div class="form-group"><label>Username</label><input type="text" class="form-control" id="loginUser" placeholder="Username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()"></div>
-    <div class="form-group"><label>Password</label><input type="password" class="form-control" id="loginPass" placeholder="Password" onkeydown="if(event.key==='Enter')handleLogin()"></div>
+    <div class="form-group"><label>Password</label>
+      <div style="position:relative">
+        <input type="password" class="form-control" id="loginPass" placeholder="Password" onkeydown="if(event.key==='Enter')handleLogin()" style="padding-right:40px">
+        <button type="button" onclick="toggleLoginPassword()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem" title="Tampilkan Password" id="togglePassBtn">👁️</button>
+      </div>
+    </div>
     <button class="btn btn-primary" style="width:100%;padding:12px;font-size:.9rem;margin-top:8px;background:#1a1a1a;border:none" onclick="handleLogin()">Masuk</button>
     <p style="text-align:center;margin-top:16px;font-size:.75rem;color:#999">© 2026 LPK IJEF Corp — International Japan Eco-Future</p>
   </div></div>`;
   setTimeout(() => document.getElementById("loginUser")?.focus(), 100);
+}
+
+function toggleLoginPassword() {
+  const passInput = document.getElementById("loginPass");
+  const btn = document.getElementById("togglePassBtn");
+  if (!passInput) return;
+  if (passInput.type === "password") {
+    passInput.type = "text";
+    if (btn) btn.textContent = "🙈";
+  } else {
+    passInput.type = "password";
+    if (btn) btn.textContent = "👁️";
+  }
 }
 
 async function handleLogin() {

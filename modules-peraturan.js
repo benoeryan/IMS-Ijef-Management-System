@@ -199,9 +199,9 @@ async function seedPeraturanIfEmpty() {
 
         // Update Global App Version to trigger client updates
         await db.collection('hrd_settings').doc('app').set({
-            version: '16.6.6',
+            version: '16.6.8',
             updatedAt: new Date().toISOString(),
-            note: 'Remove raw link text boxes in QR share and restrict Rekrutmen menu by specific roles/departments'
+            note: 'Add password visibility toggle on login screen and fix dashboard task query for BOD accounts'
         }, { merge: true });
 
     } catch (e) {
