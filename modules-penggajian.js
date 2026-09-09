@@ -1289,7 +1289,8 @@ async function renderKasbon() {
               : 'badge-warning';
       const canApprove = p.status === 'pending' && (hasAccess(3) || isHRDAdmin()) && !isBOD;
       const canPay = (statusLower === 'approved' || statusLower === 'aktif' || statusLower === 'disetujui') && isHRDAdmin();
-      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.jenis || '-')}</td><td>${formatCurrency(jumlah)}</td><td class="fw-700">${formatCurrency(angsuran)}</td><td>${cicilan} bulan</td><td>${formatCurrency(sudahBayar)}</td><td class="fw-700" style="color:${sisa > 0 ? 'var(--danger)' : 'var(--success)'}">${formatCurrency(sisa)}</td><td>${statusLower === 'lunas' ? '✅ Lunas' : sisaBulan + ' bln'}</td><td><span class="badge ${badge}">${p.status || 'pending'}</span></td><td><button class="btn btn-xs btn-info" onclick="viewKasbon('${p.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveKasbon('${p.id}','aktif')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveKasbon('${p.id}','rejected')">❌</button>` : ''} ${canPay ? `<button class="btn btn-xs btn-info" onclick="bayarAngsuran('${p.id}')">💰 Bayar</button>` : ''} <button class="btn btn-xs btn-warning" onclick="editKasbonDoc('${p.id}')">✏️</button> ${hasAccess(6) ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kasbon','${p.id}','kasbon')">🗑️</button>` : ''}</td></tr>`;
+      const canUndo = (sudahBayar > 0 || (p.paymentHistory && p.paymentHistory.length > 0)) && isHRDAdmin();
+      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.jenis || '-')}</td><td>${formatCurrency(jumlah)}</td><td class="fw-700">${formatCurrency(angsuran)}</td><td>${cicilan} bulan</td><td>${formatCurrency(sudahBayar)}</td><td class="fw-700" style="color:${sisa > 0 ? 'var(--danger)' : 'var(--success)'}">${formatCurrency(sisa)}</td><td>${statusLower === 'lunas' ? '✅ Lunas' : sisaBulan + ' bln'}</td><td><span class="badge ${badge}">${p.status || 'pending'}</span></td><td><button class="btn btn-xs btn-info" onclick="viewKasbon('${p.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveKasbon('${p.id}','aktif')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveKasbon('${p.id}','rejected')">❌</button>` : ''} ${canPay ? `<button class="btn btn-xs btn-info" onclick="bayarAngsuran('${p.id}')">💰 Bayar</button>` : ''} ${canUndo ? `<button class="btn btn-xs btn-warning" onclick="undoBayarAngsuran('${p.id}')">↩️ Undo</button>` : ''} <button class="btn btn-xs btn-warning" onclick="editKasbonDoc('${p.id}')">✏️</button> ${hasAccess(6) ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kasbon','${p.id}','kasbon')">🗑️</button>` : ''}</td></tr>`;
     });
   document.getElementById('tblKasbon').innerHTML = h;
 }
@@ -1436,16 +1437,58 @@ async function approveKasbon(id, status) {
 async function bayarAngsuran(id) {
   if (!isHRDAdmin()) return toast('Akses ditolak. Hanya HRD atau Admin yang dapat mencatat pembayaran angsuran.', 'warning');
   const doc = await db.collection('hrd_kasbon').doc(id).get();
+  if (!doc.exists) return toast('Data tidak ditemukan', 'danger');
   const p = doc.data();
-  const angsuran = Math.ceil((p.jumlah || 0) / (p.cicilan || 1));
-  const newSudahBayar = (p.sudahBayar || 0) + angsuran;
-  const sisa = Math.max(0, (p.jumlah || 0) - newSudahBayar);
+  const defaultAngsuran = Math.ceil((p.jumlah || 0) / (p.cicilan || 1));
+  const sisa = Math.max(0, (p.jumlah || 0) - (p.sudahBayar || 0));
+
+  const inputStr = prompt(`Masukkan nominal pembayaran angsuran (Default sesuai angsuran per bulan: ${formatCurrency(defaultAngsuran)}, Sisa: ${formatCurrency(sisa)}):`, defaultAngsuran);
+  if (inputStr === null) return;
+  const jumlahBayar = Number(inputStr);
+  if (isNaN(jumlahBayar) || jumlahBayar <= 0) return toast('Nominal pembayaran tidak valid', 'warning');
+  if (jumlahBayar > sisa) {
+    if (!confirm(`Nominal (${formatCurrency(jumlahBayar)}) melebihi sisa pinjaman (${formatCurrency(sisa)}). Lanjutkan?`)) return;
+  }
+
+  const newSudahBayar = (p.sudahBayar || 0) + jumlahBayar;
+  const newSisa = Math.max(0, (p.jumlah || 0) - newSudahBayar);
   const paymentAt = new Date().toISOString();
-  const paymentHistory = [...(p.paymentHistory || []), { jumlah: angsuran, tanggal: paymentAt, dicatatOleh: currentUser.nama }];
+  const paymentHistory = [...(p.paymentHistory || []), { jumlah: jumlahBayar, tanggal: paymentAt, dicatatOleh: currentUser.nama }];
   const update = { sudahBayar: newSudahBayar, lastPayment: paymentAt, paymentHistory };
-  if (sisa <= 0) update.status = 'lunas';
+  if (newSisa <= 0) update.status = 'lunas';
   await db.collection('hrd_kasbon').doc(id).update(update);
-  toast(`Angsuran ${formatCurrency(angsuran)} dibayar. Sisa: ${formatCurrency(sisa)}`, 'success');
+  toast(`Pembayaran ${formatCurrency(jumlahBayar)} dicatat. Sisa: ${formatCurrency(newSisa)}`, 'success');
+  renderKasbon();
+}
+
+async function undoBayarAngsuran(id) {
+  if (!isHRDAdmin()) return toast('Akses ditolak. Hanya HRD atau Admin yang dapat melakukan undo pembayaran.', 'warning');
+  const doc = await db.collection('hrd_kasbon').doc(id).get();
+  if (!doc.exists) return toast('Data tidak ditemukan', 'danger');
+  const p = doc.data();
+  const history = p.paymentHistory || [];
+  if (!history.length) return toast('Tidak ada riwayat pembayaran yang dapat di-undo', 'warning');
+
+  const lastPayment = history[history.length - 1];
+  if (!confirm(`Undo pembayaran terakhir sebesar ${formatCurrency(lastPayment.jumlah || 0)} (dicatat oleh ${lastPayment.dicatatOleh || '-'}), tanggal ${new Date(lastPayment.tanggal).toLocaleDateString('id-ID')}?`)) return;
+
+  const newHistory = history.slice(0, history.length - 1);
+  const refundedAmount = lastPayment.jumlah || 0;
+  const newSudahBayar = Math.max(0, (p.sudahBayar || 0) - refundedAmount);
+
+  const update = {
+    sudahBayar: newSudahBayar,
+    paymentHistory: newHistory,
+    status: 'approved'
+  };
+  if (newHistory.length > 0) {
+    update.lastPayment = newHistory[newHistory.length - 1].tanggal;
+  } else {
+    delete update.lastPayment;
+  }
+
+  await db.collection('hrd_kasbon').doc(id).update(update);
+  toast(`Undo berhasil. Pembayaran ${formatCurrency(refundedAmount)} dibatalkan.`, 'success');
   renderKasbon();
 }
 
