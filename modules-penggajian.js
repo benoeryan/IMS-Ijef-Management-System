@@ -1120,7 +1120,7 @@ async function renderReimbursement() {
           : p.status === 'rejected'
             ? 'badge-danger'
             : 'badge-warning';
-      const canApprove = p.status === 'pending' && hasAccess(3) && !isBOD;
+      const canApprove = p.status === 'pending' && (hasAccess(3) || isHRDAdmin()) && !isBOD;
       const pendingInfo = pendingApproverHtml(flows, p, p.status, p.approvalStep, getApprovalCategory('hrd_reimbursement', p));
       h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.kategori)}</td><td>${formatCurrency(p.jumlah)}</td><td><span class="badge ${badge}">${p.status}</span>${pendingInfo}</td><td><button class="btn btn-xs btn-info" onclick="viewReimb('${d.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveReimb('${d.id}','approved')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveReimb('${d.id}','rejected')">❌</button>` : ''} <button class="btn btn-xs btn-warning" onclick="editReimb('${d.id}')">✏️</button> ${hasAccess(6) ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_reimbursement','${d.id}','reimbursement')">🗑️</button>` : ''}</td></tr>`;
     });
@@ -1278,16 +1278,18 @@ async function renderKasbon() {
       const sudahBayar = p.sudahBayar || 0;
       const sisa = Math.max(0, jumlah - sudahBayar);
       const sisaBulan = Math.ceil(sisa / angsuran) || 0;
+      const statusLower = (p.status || '').toLowerCase().trim();
       const badge =
-        p.status === 'approved' || p.status === 'aktif'
+        statusLower === 'approved' || statusLower === 'aktif' || statusLower === 'disetujui'
           ? 'badge-success'
-          : p.status === 'lunas'
+          : statusLower === 'lunas'
             ? 'badge-primary'
-            : p.status === 'rejected'
+            : statusLower === 'rejected' || statusLower === 'ditolak'
               ? 'badge-danger'
               : 'badge-warning';
-      const canApprove = p.status === 'pending' && hasAccess(3) && !isBOD;
-      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.jenis || '-')}</td><td>${formatCurrency(jumlah)}</td><td class="fw-700">${formatCurrency(angsuran)}</td><td>${cicilan} bulan</td><td>${formatCurrency(sudahBayar)}</td><td class="fw-700" style="color:${sisa > 0 ? 'var(--danger)' : 'var(--success)'}">${formatCurrency(sisa)}</td><td>${p.status === 'lunas' ? '✅ Lunas' : sisaBulan + ' bln'}</td><td><span class="badge ${badge}">${p.status || 'pending'}</span></td><td><button class="btn btn-xs btn-info" onclick="viewKasbon('${p.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveKasbon('${p.id}','aktif')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveKasbon('${p.id}','rejected')">❌</button>` : ''} ${p.status === 'aktif' ? `<button class="btn btn-xs btn-info" onclick="bayarAngsuran('${p.id}')">💰 Bayar</button>` : ''} <button class="btn btn-xs btn-warning" onclick="editKasbonDoc('${p.id}')">✏️</button> ${hasAccess(6) ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kasbon','${p.id}','kasbon')">🗑️</button>` : ''}</td></tr>`;
+      const canApprove = p.status === 'pending' && (hasAccess(3) || isHRDAdmin()) && !isBOD;
+      const canPay = (statusLower === 'approved' || statusLower === 'aktif' || statusLower === 'disetujui') && isHRDAdmin();
+      h += `<tr><td class="fw-700">${escHtml(p.nama)}</td><td>${escHtml(p.jenis || '-')}</td><td>${formatCurrency(jumlah)}</td><td class="fw-700">${formatCurrency(angsuran)}</td><td>${cicilan} bulan</td><td>${formatCurrency(sudahBayar)}</td><td class="fw-700" style="color:${sisa > 0 ? 'var(--danger)' : 'var(--success)'}">${formatCurrency(sisa)}</td><td>${statusLower === 'lunas' ? '✅ Lunas' : sisaBulan + ' bln'}</td><td><span class="badge ${badge}">${p.status || 'pending'}</span></td><td><button class="btn btn-xs btn-info" onclick="viewKasbon('${p.id}')">👁️</button> ${canApprove ? `<button class="btn btn-xs btn-success" onclick="approveKasbon('${p.id}','aktif')">✅</button> <button class="btn btn-xs btn-danger" onclick="approveKasbon('${p.id}','rejected')">❌</button>` : ''} ${canPay ? `<button class="btn btn-xs btn-info" onclick="bayarAngsuran('${p.id}')">💰 Bayar</button>` : ''} <button class="btn btn-xs btn-warning" onclick="editKasbonDoc('${p.id}')">✏️</button> ${hasAccess(6) ? `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kasbon','${p.id}','kasbon')">🗑️</button>` : ''}</td></tr>`;
     });
   document.getElementById('tblKasbon').innerHTML = h;
 }
@@ -1432,6 +1434,7 @@ async function approveKasbon(id, status) {
   renderKasbon();
 }
 async function bayarAngsuran(id) {
+  if (!isHRDAdmin()) return toast('Akses ditolak. Hanya HRD atau Admin yang dapat mencatat pembayaran angsuran.', 'warning');
   const doc = await db.collection('hrd_kasbon').doc(id).get();
   const p = doc.data();
   const angsuran = Math.ceil((p.jumlah || 0) / (p.cicilan || 1));

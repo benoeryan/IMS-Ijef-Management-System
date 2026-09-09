@@ -670,6 +670,22 @@ function canSeeRekrutmen() {
   return false;
 }
 
+function isHRDAdmin() {
+  if (!currentUser) return false;
+  if (hasAccess(3) || hasAccess(6) || ['admin', 'manager', 'head', 'bod'].includes((currentUser.role || '').toLowerCase())) return true;
+  const nama = (currentUser?.nama || '').toLowerCase().trim();
+  const dept = (currentUser?.departemen || '').toLowerCase().trim();
+  const allowedNames = [
+    'irsan janwar wibawa',
+    'agus puriyanto',
+    'muhammad agus ryanda',
+    'maharani ali putri',
+  ];
+  if (allowedNames.some(n => nama.includes(n))) return true;
+  if (dept.includes('hr') || dept.includes('legal') || dept.includes('human resource') || dept.includes('hrd')) return true;
+  return false;
+}
+
 function renderLogin() {
   const logo = localStorage.getItem("ims_company_logo");
   const logoHtml = logo
