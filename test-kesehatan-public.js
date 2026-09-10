@@ -10,8 +10,17 @@ const firebaseConfig = {
   messagingSenderId: '48180557823',
   appId: '1:48180557823:web:47ea8db8126737dbc0d9ca',
 };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+let db = null;
+try {
+  if (typeof firebase !== 'undefined') {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    db = firebase.firestore();
+  }
+} catch (e) {
+  console.error('Firebase init error in test-kesehatan-public:', e);
+}
 
 // == HELPERS ==
 function toast(m, t) {
@@ -918,8 +927,22 @@ document.addEventListener('DOMContentLoaded', async function () {
   if (pelamarId) window._currentPelamarId = pelamarId;
 
   if (!docId) {
-    renderError('Link tidak valid atau belum diisi dengan benar');
-    return;
+    try {
+      var newDoc = await db.collection('hrd_test_kesehatan').add({
+        nama: 'Calon Karyawan',
+        tipe: 'calon',
+        status: 'pending',
+        tanggal: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+        createdAt: new Date().toISOString()
+      });
+      docId = newDoc.id;
+      var newUrl = window.location.pathname + '?id=' + docId + (pelamarId ? '&pelamarId=' + pelamarId : '');
+      window.history.replaceState({}, '', newUrl);
+    } catch (createErr) {
+      console.warn('Auto create test kesehatan doc failed:', createErr);
+      renderError('Link tidak valid atau belum diisi dengan benar');
+      return;
+    }
   }
 
   try {

@@ -8,8 +8,17 @@ const firebaseConfig = {
   messagingSenderId: '48180557823',
   appId: '1:48180557823:web:47ea8db8126737dbc0d9ca',
 };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+let db = null;
+try {
+  if (typeof firebase !== 'undefined') {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    db = firebase.firestore();
+  }
+} catch (e) {
+  console.error('Firebase init error in disc-test:', e);
+}
 let testState = {
   mode: null,
   nama: '',
