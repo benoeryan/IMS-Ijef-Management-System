@@ -1224,11 +1224,6 @@ function renderResult(r) {
     }
     return;
   }
-      </div>
-      <p style="margin-top:20px;font-size:.72rem;color:#999">© 2026 LPK IJEF Corp — HR Assessment System</p>
-    </div>`;
-    return;
-  }
   const { s1, s2, s3, pattern, profile, desc, rawP, rawK } = r;
   function buildLineGraph(data, title, subtitle) {
     const vals = ['D', 'I', 'S', 'C'].map((t) => data[t] || 0);
