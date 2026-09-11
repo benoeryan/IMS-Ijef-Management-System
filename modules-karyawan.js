@@ -1418,6 +1418,15 @@ function copyLinkDISC() {
   });
 }
 
+function copyLinkPsychology() {
+  const url = window.location.origin + '/psychology-test.html';
+  navigator.clipboard.writeText(url).then(() => {
+    toast('🧩 Link Tes Psikologi disalin: ' + url, 'success');
+  }).catch(() => {
+    prompt('Salin link Tes Psikologi:', url);
+  });
+}
+
 function copyLinkTestKesehatan() {
   const url = window.location.origin + '/test-kesehatan.html';
   navigator.clipboard.writeText(url).then(() => {
@@ -1433,6 +1442,7 @@ async function renderFormPelamarMgmt() {
 
   const linkPelamarUrl = window.location.origin + '/form-pelamar.html';
   const linkDiscUrl = window.location.origin + '/disc-test.html';
+  const linkPsychologyUrl = window.location.origin + '/psychology-test.html';
   const linkHealthUrl = window.location.origin + '/test-kesehatan.html';
 
   main.innerHTML = `
@@ -1442,7 +1452,30 @@ async function renderFormPelamarMgmt() {
         <button class="btn btn-outline btn-sm" onclick="copyLinkPelamar()">📋 Copy Link Form Pelamar</button>
         <button class="btn btn-outline btn-sm" onclick="window.open('${linkPelamarUrl}', '_blank')">↗️ Buka Form Pelamar</button>
         <button class="btn btn-outline btn-sm" onclick="copyLinkDISC()">🧠 Copy Link Tes DISC</button>
+        <button class="btn btn-outline btn-sm" onclick="copyLinkPsychology()">🧩 Copy Link Tes Psikologi</button>
         <button class="btn btn-outline btn-sm" onclick="copyLinkTestKesehatan()">🏥 Copy Link Test Kesehatan</button>
+      </div>
+    </div>
+
+    <div class="card mb-16" style="border-left:4px solid var(--primary);background:#f8f9ff">
+      <div class="fw-700 color-primary mb-6">🔗 Link Rekrutmen Calon Karyawan Terintegrasi (4 Tahap):</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px" class="text-xs">
+        <div>
+          <b>1. Form Data Pelamar:</b><br>
+          <code style="background:#fff;padding:3px 6px;border-radius:4px;border:1px solid #ccc;word-break:break-all">${linkPelamarUrl}</code>
+        </div>
+        <div>
+          <b>2. Tes Kepribadian DISC:</b><br>
+          <code style="background:#fff;padding:3px 6px;border-radius:4px;border:1px solid #ccc;word-break:break-all">${linkDiscUrl}</code>
+        </div>
+        <div>
+          <b>3. Tes Psikologi IJEF:</b><br>
+          <code style="background:#fff;padding:3px 6px;border-radius:4px;border:1px solid #ccc;word-break:break-all">${linkPsychologyUrl}</code>
+        </div>
+        <div>
+          <b>4. Test Kesehatan Calon:</b><br>
+          <code style="background:#fff;padding:3px 6px;border-radius:4px;border:1px solid #ccc;word-break:break-all">${linkHealthUrl}</code>
+        </div>
       </div>
     </div>
 
@@ -1460,6 +1493,7 @@ async function renderFormPelamarMgmt() {
               <th>Posisi Dilamar</th>
               <th>No. HP / Email</th>
               <th>Status DISC</th>
+              <th>Status Psikotes</th>
               <th>Status Kesehatan</th>
               <th>Aksi</th>
             </tr>
@@ -1496,12 +1530,17 @@ function filterTblPelamar() {
 
   let h = '';
   if (!filtered.length) {
-    h = '<tr><td colspan="7" class="text-center color-gray">Belum ada data pelamar. Bagikan link Form Pelamar kepada calon karyawan.</td></tr>';
+    h = '<tr><td colspan="8" class="text-center color-gray">Belum ada data pelamar. Bagikan link Form Pelamar kepada calon karyawan.</td></tr>';
   } else {
     filtered.forEach(p => {
       const isDiscDone = p.discStatus === 'Selesai' || p.discProfile;
       const discBadge = isDiscDone
         ? `<span class="badge badge-success">✓ Selesai (${escHtml(p.discProfile || 'Done')})</span>`
+        : `<span class="badge badge-warning">Belum Tes</span>`;
+
+      const isPsychologyDone = p.psychologyStatus === 'Selesai' || p.psychologyScore !== undefined;
+      const psychologyBadge = isPsychologyDone
+        ? `<span class="badge" style="background:#f3e5f5;color:#6a1b9a">✓ Selesai (${p.psychologyScore || 0} Poin)</span>`
         : `<span class="badge badge-warning">Belum Tes</span>`;
 
       const healthBadge = p.kesehatanStatus
@@ -1514,6 +1553,7 @@ function filterTblPelamar() {
         <td><span class="badge badge-info">${escHtml(p.posisi || '-')}</span></td>
         <td class="text-xs">${escHtml(p.telepon || '-')}<br>${escHtml(p.email || '-')}</td>
         <td>${discBadge}</td>
+        <td>${psychologyBadge}</td>
         <td>${healthBadge}</td>
         <td>
           <div class="flex gap-4">
@@ -1553,9 +1593,15 @@ async function modalDetailPelamar(id) {
           <div class="fw-700 color-primary" style="font-size:1.1rem">${escHtml(p.nama)}</div>
           <div class="text-xs color-gray">Posisi: <b>${escHtml(p.posisi)}</b> | Tgl Isi: ${formatDateTime(p.createdAt)}</div>
         </div>
-        <div>
-          <span class="badge ${p.discProfile ? 'badge-success' : 'badge-warning'}" style="font-size:.85rem;padding:6px 12px">
-            DISC: ${p.discProfile ? escHtml(p.discProfile) + ' (' + escHtml(p.discPattern || '') + ')' : 'Belum Tes'}
+        <div class="flex gap-4" style="flex-wrap:wrap">
+          <span class="badge ${p.discProfile ? 'badge-success' : 'badge-warning'}" style="font-size:.78rem;padding:5px 10px">
+            🧠 DISC: ${p.discProfile ? escHtml(p.discProfile) + ' (' + escHtml(p.discPattern || '') + ')' : 'Belum Tes'}
+          </span>
+          <span class="badge" style="font-size:.78rem;padding:5px 10px;background:${p.psychologyScore !== undefined ? '#f3e5f5' : '#fff3e0'};color:${p.psychologyScore !== undefined ? '#6a1b9a' : '#f57f17'}">
+            🧩 Psikotes: ${p.psychologyScore !== undefined ? p.psychologyScore + ' Poin (' + escHtml(p.psychologyResult || '') + ')' : 'Belum Tes'}
+          </span>
+          <span class="badge ${p.kesehatanStatus ? 'badge-success' : 'badge-warning'}" style="font-size:.78rem;padding:5px 10px">
+            🏥 Health: ${p.kesehatanStatus ? getStatusBadgeKesehatan(p.kesehatanStatus) : 'Belum Tes'}
           </span>
           <button class="btn btn-xs btn-primary ml-8" onclick="cetakFormPelamar('${id}')">🖨️ Cetak Form</button>
         </div>
@@ -1790,13 +1836,15 @@ async function cetakFormPelamar(id) {
     ${(p.pengalamanKerja && p.pengalamanKerja.length) ? p.pengalamanKerja.map(pk=>`<tr><td>${escHtml(pk.perusahaan)}</td><td>${escHtml(pk.tahun)}</td><td>${escHtml(pk.jabatan)}</td><td>${escHtml(pk.gaji)}</td><td>${escHtml(pk.alasan)}</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center">-</td></tr>'}
   </tbody></table>
 
-  <div class="sec-head">VIII. INTERN PERUSAHAAN & LAIN-LAIN</div>
+  <div class="sec-head">VIII. INTERN PERUSAHAAN & hasil tes assessment</div>
   <table class="no-border">
-    <tr><td width="30%">Gaji Minimal Diharapkan</td><td width="2%">:</td><td><b>${p.gajiDiharapkan ? formatCurrency(p.gajiDiharapkan) : '-'}</b></td></tr>
+    <tr><td width="35%">Gaji Minimal Diharapkan</td><td width="2%">:</td><td><b>${p.gajiDiharapkan ? formatCurrency(p.gajiDiharapkan) : '-'}</b></td></tr>
     <tr><td>Dapat Mulai Bekerja</td><td>:</td><td>${escHtml(p.tglMulaiKerja || '-')}</td></tr>
     <tr><td>Fasilitas Diharapkan</td><td>:</td><td>${escHtml(p.fasilitasDiharapkan || '-')}</td></tr>
     <tr><td>Bersedia Ditempatkan di Unit Lain</td><td>:</td><td>${escHtml(p.bersediaDitempatkan || '-')}</td></tr>
-    <tr><td>Hasil Tes DISC</td><td>:</td><td><b>${escHtml(p.discProfile || 'Belum Tes')} (${escHtml(p.discPattern || '-')})</b></td></tr>
+    <tr><td>1. Hasil Tes DISC</td><td>:</td><td><b>${escHtml(p.discProfile || 'Belum Tes')} (${escHtml(p.discPattern || '-')})</b></td></tr>
+    <tr><td>2. Hasil Tes Psikologi IJEF</td><td>:</td><td><b>${p.psychologyScore !== undefined ? p.psychologyScore + ' Poin — ' + escHtml(p.psychologyResult || '-') : 'Belum Tes'}</b></td></tr>
+    <tr><td>3. Hasil Test Kesehatan</td><td>:</td><td><b>${p.kesehatanStatus ? escHtml(p.kesehatanStatus.toUpperCase()) : 'Belum Tes'}</b></td></tr>
   </table>
 
   <div class="sign">
