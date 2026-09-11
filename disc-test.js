@@ -1243,13 +1243,6 @@ function renderResult(r) {
     }, 2000);
     return;
   }
-
-    // Auto redirect after 3 seconds
-    setTimeout(() => {
-      window.location.href = psychUrl;
-    }, 3000);
-    return;
-  }
   const { s1, s2, s3, pattern, profile, desc, rawP, rawK } = r;
   function buildLineGraph(data, title, subtitle) {
     const vals = ['D', 'I', 'S', 'C'].map((t) => data[t] || 0);
