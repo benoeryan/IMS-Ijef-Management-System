@@ -113,20 +113,45 @@ function readQueryParams() {
 
 function renderCandidateForm() {
   document.getElementById('app').innerHTML = `
-    <div class="card" style="max-width:600px;margin:30px auto">
-      <div style="font-size:1.1rem;font-weight:700;color:var(--primary);margin-bottom:12px">🧩 Langkah 3 dari 4: IJEF Psychological Test</div>
-      <div style="background:#e3f2fd;padding:12px;border-radius:8px;border-left:4px solid var(--info);margin-bottom:16px;font-size:.85rem;line-height:1.6">
-        Konfirmasi data Anda sebelum memulai Tes Psikologi (50 Soal Pilihan Ganda).
-      </div>
-      <div class="form-group"><label>Nama Lengkap *</label><input class="form-control" id="fNama" value="${escHtml(testState.nama)}" required placeholder="Nama lengkap"></div>
-      <div class="grid-2">
-        <div class="form-group"><label>Usia</label><input class="form-control" type="number" id="fUsia" value="${escHtml(testState.usia)}" placeholder="Usia"></div>
-        <div class="form-group"><label>Jenis Kelamin</label><select class="form-control" id="fGender"><option value="">-- Pilih --</option><option ${testState.jenisKelamin==='Laki-laki'?'selected':''}>Laki-laki</option><option ${testState.jenisKelamin==='Perempuan'?'selected':''}>Perempuan</option></select></div>
-      </div>
-      <div class="form-group"><label>Posisi Dilamar *</label><input class="form-control" id="fPosisi" value="${escHtml(testState.posisi)}" required placeholder="Posisi"></div>
-      <div class="form-group"><label>Email / No. HP</label><input class="form-control" id="fKontak" value="${escHtml(testState.kontak)}" placeholder="No HP/WA/Email"></div>
+    <div class="card" style="max-width:620px;margin:30px auto;padding:28px;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,.08)">
+      <div style="font-size:1.15rem;font-weight:700;color:var(--primary);margin-bottom:6px">🧩 Langkah 3 dari 4: IJEF Psychological Test</div>
+      <div style="font-size:.82rem;color:var(--text-light);margin-bottom:18px">Tes Kemampuan Berpikir & Logika Psikotes (50 Soal Pilihan Ganda)</div>
 
-      <button class="btn btn-primary" style="width:100%;padding:12px;margin-top:10px" onclick="startPsychologyTest()">
+      <div style="background:#e3f2fd;padding:14px 16px;border-radius:10px;border-left:4px solid var(--info);margin-bottom:20px;font-size:.85rem;line-height:1.6;color:#0d47a1">
+        <strong>Konfirmasi Data Diri:</strong> Silakan periksa atau lengkapi data Anda di bawah ini sebelum memulai pengerjaan tes.
+      </div>
+
+      <div class="form-group">
+        <label>Nama Lengkap <span style="color:var(--danger)">*</span></label>
+        <input class="form-control" id="fNama" value="${escHtml(testState.nama)}" required placeholder="Masukkan nama lengkap Anda">
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Usia (Tahun)</label>
+          <input class="form-control" type="number" id="fUsia" value="${escHtml(testState.usia)}" placeholder="Contoh: 23">
+        </div>
+        <div class="form-group">
+          <label>Jenis Kelamin</label>
+          <select class="form-control" id="fGender">
+            <option value="">-- Pilih Jenis Kelamin --</option>
+            <option ${testState.jenisKelamin==='Laki-laki'?'selected':''}>Laki-laki</option>
+            <option ${testState.jenisKelamin==='Perempuan'?'selected':''}>Perempuan</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Posisi yang Dilamar <span style="color:var(--danger)">*</span></label>
+        <input class="form-control" id="fPosisi" value="${escHtml(testState.posisi)}" required placeholder="Contoh: Staff Admin / Marketing / Sensei">
+      </div>
+
+      <div class="form-group">
+        <label>Email / No. HP (WhatsApp)</label>
+        <input class="form-control" id="fKontak" value="${escHtml(testState.kontak)}" placeholder="Contoh: 08123456789 / email@domain.com">
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;border-radius:30px;margin-top:10px;box-shadow:0 4px 12px rgba(26,35,126,.3)" onclick="startPsychologyTest()">
         🧩 Mulai Tes Psikologi Sekarang ➔
       </button>
     </div>
