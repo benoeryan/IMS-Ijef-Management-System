@@ -287,7 +287,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.6.10";
+const APP_VERSION = "16.6.11";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -532,7 +532,21 @@ function checkAppVersion() {
 async function initApp() {
   checkAppVersion();
 
-  // Check if public portal (calon karyawan) or public form pelamar via hash
+  // Check if public portal (calon karyawan), form pelamar, or psychology test via hash
+  if (
+    window.location.hash === "#psychology-test" ||
+    window.location.hash.startsWith("#psychology-test") ||
+    window.location.hash === "#tes-psikologi" ||
+    window.location.hash.startsWith("#tes-psikologi")
+  ) {
+    if (typeof renderPublicPsychologyTest === "function") {
+      renderPublicPsychologyTest();
+    } else {
+      window.location.href = "psychology-test.html";
+    }
+    return;
+  }
+
   if (
     window.location.hash === "#form-pelamar" ||
     window.location.hash.startsWith("#form-pelamar") ||
@@ -1145,6 +1159,8 @@ function navigateTo(page) {
     "form-pelamar-mgmt": "renderFormPelamarMgmt",
     "form-pelamar": "renderPublicFormPelamar",
     pelamar: "renderPublicFormPelamar",
+    "psychology-test": "renderPublicPsychologyTest",
+    "tes-psikologi": "renderPublicPsychologyTest",
     absensi: "renderAbsensiIJEF",
     cuti: "renderCuti",
     overtime: "renderOvertime",

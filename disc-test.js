@@ -1182,7 +1182,7 @@ async function saveResult(r) {
         }
       }
 
-      toast('Tes DISC Selesai! Mengalihkan ke Test Kesehatan...', 'success');
+      toast('Tes DISC Selesai! Mengalihkan ke Tes Psikologi...', 'success');
     } else {
       toast('Hasil tes berhasil disimpan', 'success');
     }
@@ -1193,9 +1193,9 @@ async function saveResult(r) {
 }
 
 function renderResult(r) {
-  // Calon karyawan: Lanjutkan ke Test Kesehatan
+  // Calon karyawan: Lanjutkan ke Tes Psikologi
   if (testState.mode === 'calon') {
-    const healthUrl = `test-kesehatan.html?id=${testState.healthTestId || ''}&pelamarId=${testState.pelamarId || ''}`;
+    const psychUrl = `psychology-test.html?nama=${encodeURIComponent(testState.nama)}&posisi=${encodeURIComponent(testState.posisi)}&kontak=${encodeURIComponent(testState.kontak || '')}&gender=${encodeURIComponent(testState.jenisKelamin || '')}&usia=${encodeURIComponent(testState.usia || '')}&pelamarId=${testState.pelamarId || ''}`;
     document.getElementById('app').innerHTML = `
     <div style="max-width:650px;margin:50px auto;text-align:center">
       <div style="background:#fff;border-radius:16px;padding:40px 30px;box-shadow:0 4px 20px rgba(0,0,0,.1);border-top:6px solid var(--success)">
@@ -1204,24 +1204,22 @@ function renderResult(r) {
         <p style="font-size:1rem;color:var(--text);line-height:1.8;margin-bottom:20px">
           Terima kasih, <strong>${escHtml(testState.nama)}</strong>.<br>
           Tes DISC Anda telah berhasil disimpan.<br><br>
-          <strong style="color:var(--primary);font-size:1.05rem">Langkah Terakhir (3/3): Mengisi Test Kesehatan Calon Karyawan</strong>
+          <strong style="color:var(--primary);font-size:1.05rem">Langkah 3 dari 4: Mengisi Tes Psikologi (IJEF Psychological Test)</strong>
         </p>
         <p style="font-size:.85rem;color:var(--text-light);margin-bottom:24px">
-          Silakan klik tombol di bawah ini untuk melanjutkan mengisi form <strong>Test Kesehatan</strong> guna melengkapi seluruh proses rekrutmen.
+          Silakan klik tombol di bawah untuk melanjutkan pengisian <strong>Tes Psikologi (50 Soal)</strong>.
         </p>
-        <a href="${healthUrl}" class="btn" style="padding:14px 32px;background:var(--primary);color:#fff;border-radius:30px;font-size:1rem;font-weight:700;text-decoration:none;display:inline-block;box-shadow:0 4px 12px rgba(26,35,126,.3)">
-          🏥 Lanjutkan ke Test Kesehatan ➔
+        <a href="${psychUrl}" class="btn" style="padding:14px 32px;background:var(--primary);color:#fff;border-radius:30px;font-size:1rem;font-weight:700;text-decoration:none;display:inline-block;box-shadow:0 4px 12px rgba(26,35,126,.3)">
+          🧩 Lanjutkan ke Tes Psikologi IJEF ➔
         </a>
       </div>
       <p style="margin-top:20px;font-size:.72rem;color:#999">© 2026 LPK IJEF Corp — HR Assessment System</p>
     </div>`;
 
-    // Auto redirect after 3 seconds if healthTestId exists
-    if (testState.healthTestId) {
-      setTimeout(() => {
-        window.location.href = healthUrl;
-      }, 3000);
-    }
+    // Auto redirect after 3 seconds
+    setTimeout(() => {
+      window.location.href = psychUrl;
+    }, 3000);
     return;
   }
   const { s1, s2, s3, pattern, profile, desc, rawP, rawK } = r;

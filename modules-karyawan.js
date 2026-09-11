@@ -1237,20 +1237,22 @@ async function simpanLowongan(id) {
 async function renderPipeline() {
   const main = document.getElementById('mainContent');
   if (!main) return;
-  const stages = ['applied', 'disc', 'health', 'interview', 'offering', 'hired'];
+  const stages = ['applied', 'disc', 'psychology', 'health', 'interview', 'offering', 'hired'];
   const stageLabels = {
     applied: '1. APPLIED / FORM PELAMAR',
     disc: '2. TEST DISC',
-    health: '3. TEST KESEHATAN',
-    interview: '4. INTERVIEW',
-    offering: '5. OFFERING',
-    hired: '6. HIRED'
+    psychology: '3. TEST PSIKOLOGI',
+    health: '4. TEST KESEHATAN',
+    interview: '5. INTERVIEW',
+    offering: '6. OFFERING',
+    hired: '7. HIRED'
   };
   main.innerHTML = `<div class="page-title">
     <span>${renderBackButton()}🔄 Pipeline Kanban Rekrutmen</span>
     <div class="flex gap-8" style="flex-wrap:wrap">
       <button class="btn btn-outline btn-sm" onclick="copyLinkPelamar()">📋 Copy Link Form Pelamar</button>
       <button class="btn btn-outline btn-sm" onclick="copyLinkDISC()">🧠 Copy Link Tes DISC</button>
+      <button class="btn btn-outline btn-sm" onclick="copyLinkPsychology()">🧩 Copy Link Tes Psikologi</button>
       <button class="btn btn-outline btn-sm" onclick="copyLinkTestKesehatan()">🏥 Copy Link Test Kesehatan</button>
     </div>
   </div>
@@ -1270,11 +1272,13 @@ async function renderPipeline() {
     if (!data[st].length) h += '<p class="text-xs color-gray mt-8">Kosong</p>';
     data[st].forEach((p) => {
       const discTag = p.discProfile ? `<div class="text-xs color-primary fw-700 mt-4">🧠 DISC: ${escHtml(p.discProfile)}</div>` : '';
-      const healthTag = p.kesehatanStatus ? `<div class="text-xs mt-4">🏥 Health: ${getStatusBadgeKesehatan(p.kesehatanStatus)}</div>` : '';
+      const psychTag = p.psychologyScore !== undefined ? `<div class="text-xs fw-700 mt-2" style="color:#6a1b9a">🧩 Psikotes: ${p.psychologyScore} Poin</div>` : '';
+      const healthTag = p.kesehatanStatus ? `<div class="text-xs mt-2">🏥 Health: ${getStatusBadgeKesehatan(p.kesehatanStatus)}</div>` : '';
       h += `<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:#fff">
         <div class="fw-700" style="font-size:.88rem">${escHtml(p.nama || '-')}</div>
         <div class="text-xs color-gray mb-4">${escHtml(p.posisi || '-')}</div>
         ${discTag}
+        ${psychTag}
         ${healthTag}
         <select class="form-control mt-8 text-xs" onchange="updateKandidatStage('${p.id}', this.value)">
           ${stages.map((s) => `<option value="${s}" ${s === st ? 'selected' : ''}>${stageLabels[s] || s.toUpperCase()}</option>`).join('')}
@@ -1300,23 +1304,25 @@ async function renderKandidat() {
     <div class="flex gap-8" style="flex-wrap:wrap">
       <button class="btn btn-outline btn-sm" onclick="copyLinkPelamar()">📋 Copy Link Form Pelamar</button>
       <button class="btn btn-outline btn-sm" onclick="copyLinkDISC()">🧠 Copy Link Tes DISC</button>
+      <button class="btn btn-outline btn-sm" onclick="copyLinkPsychology()">🧩 Copy Link Tes Psikologi</button>
       <button class="btn btn-outline btn-sm" onclick="copyLinkTestKesehatan()">🏥 Copy Link Test Kesehatan</button>
       <button class="btn btn-primary btn-sm" onclick="modalKandidat()">+ Tambah</button>
     </div>
   </div>
-  <div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Kontak</th><th>Stage Pipeline</th><th>Hasil DISC & Kesehatan</th><th>Aksi</th></tr></thead><tbody id="tblKandidat"></tbody></table></div></div>`;
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Kontak</th><th>Stage Pipeline</th><th>Hasil Tes (DISC / Psikologi / Kesehatan)</th><th>Aksi</th></tr></thead><tbody id="tblKandidat"></tbody></table></div></div>`;
   const snap = await db.collection('hrd_kandidat').orderBy('createdAt', 'desc').get();
   let h = '';
   snap.forEach((d) => {
     const p = d.data();
     const discInfo = p.discProfile ? `<span class="badge badge-info">🧠 ${escHtml(p.discProfile)}</span> ` : '';
+    const psychInfo = p.psychologyScore !== undefined ? `<span class="badge" style="background:#f3e5f5;color:#6a1b9a">🧩 ${p.psychologyScore} Poin</span> ` : '';
     const healthInfo = p.kesehatanStatus ? getStatusBadgeKesehatan(p.kesehatanStatus) : '';
     h += `<tr>
       <td class="fw-700">${escHtml(p.nama || '-')}</td>
       <td>${escHtml(p.posisi || '-')}</td>
       <td>${escHtml(p.kontak || p.email || '-')}</td>
       <td><span class="badge badge-primary">${escHtml((p.stage || 'applied').toUpperCase())}</span></td>
-      <td>${discInfo}${healthInfo || '<span class="text-xs color-gray">-</span>'}</td>
+      <td>${discInfo}${psychInfo}${healthInfo || '<span class="text-xs color-gray">-</span>'}</td>
       <td>
         <button class="btn btn-xs btn-info" onclick="modalKandidat('${d.id}')">✏️</button>
         <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kandidat','${d.id}','kandidat')">🗑️</button>

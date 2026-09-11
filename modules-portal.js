@@ -1378,7 +1378,11 @@ async function renderPublicPortalCalon() {
 function renderPublicFormPelamar() {
   window.location.href = 'form-pelamar.html';
 }
+function renderPublicPsychologyTest() {
+  window.location.href = 'psychology-test.html';
+}
 window.renderPublicFormPelamar = renderPublicFormPelamar;
+window.renderPublicPsychologyTest = renderPublicPsychologyTest;
 
 
 async function loadCalonTab(tab) {
