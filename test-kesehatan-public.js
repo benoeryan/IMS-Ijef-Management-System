@@ -771,6 +771,8 @@ function renderForm(docId, data) {
 
 // == SUBMIT TEST ==
 async function submitTestKesehatan(docId) {
+  if (window._submittingHealth) return;
+
   var penyakitArr = [];
   document.querySelectorAll('.tkDisease:checked').forEach(function (c) {
     penyakitArr.push(c.value);
@@ -798,6 +800,22 @@ async function submitTestKesehatan(docId) {
   if (!(document.getElementById('tkfStres').value || '').trim())
     missingFields.push('Tingkat Stres');
   if (!(document.getElementById('tkfTidur').value || '').trim())
+    missingFields.push('Kualitas Tidur');
+  if (!(document.getElementById('tkfMerokok').value || '').trim()) missingFields.push('Merokok');
+  if (!(document.getElementById('tkfAlkohol').value || '').trim()) missingFields.push('Alkohol');
+  if (!(document.getElementById('tkfOlahraga').value || '').trim()) missingFields.push('Olahraga');
+
+  if (missingFields.length > 0) {
+    toast('Field wajib belum diisi: ' + missingFields.join(', '), 'warning');
+    return;
+  }
+
+  window._submittingHealth = true;
+  var btn = document.querySelector("button[onclick*='submitTestKesehatan']");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Mengirim Hasil Test...';
+  }
     missingFields.push('Kualitas Tidur');
   if (!(document.getElementById('tkfMerokok').value || '').trim()) missingFields.push('Merokok');
   if (!(document.getElementById('tkfAlkohol').value || '').trim()) missingFields.push('Alkohol');

@@ -1029,7 +1029,9 @@ function showNav() {
   </div>`;
 }
 
-function finishTest() {
+async function finishTest() {
+  if (testState.submitting) return;
+
   const answered = Object.values(testState.answers).filter(
     (a) => a && a.p !== null && a.k !== null
   ).length;
@@ -1037,8 +1039,18 @@ function finishTest() {
     toast(`Masih ada ${Q.length - answered} soal belum dijawab`, 'warning');
     return;
   }
+
+  testState.submitting = true;
+  document.getElementById('app').innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:40px;max-width:550px;margin:50px auto;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.08)">
+      <div style="font-size:3.5rem;margin-bottom:16px">⏳</div>
+      <h3 style="color:var(--primary);margin-bottom:8px">Menyimpan Hasil Tes DISC...</h3>
+      <p style="font-size:.88rem;color:var(--text-light)">Mohon tunggu sebentar, Anda akan otomatis terhubung ke Tes Psikologi.</p>
+    </div>
+  `;
+
   const result = calcDISC();
-  saveResult(result);
+  await saveResult(result);
   renderResult(result);
 }
 
@@ -1195,7 +1207,16 @@ async function saveResult(r) {
 function renderResult(r) {
   // Calon karyawan: Lanjutkan ke Tes Psikologi
   if (testState.mode === 'calon') {
+    // Store in sessionStorage
+    sessionStorage.setItem('pelamar_nama', testState.nama || '');
+    sessionStorage.setItem('pelamar_posisi', testState.posisi || '');
+    sessionStorage.setItem('pelamar_kontak', testState.kontak || '');
+    sessionStorage.setItem('pelamar_gender', testState.jenisKelamin || '');
+    sessionStorage.setItem('pelamar_usia', testState.usia || '');
+    if (testState.pelamarId) sessionStorage.setItem('pelamar_id', testState.pelamarId);
+
     const psychUrl = `psychology-test.html?nama=${encodeURIComponent(testState.nama)}&posisi=${encodeURIComponent(testState.posisi)}&kontak=${encodeURIComponent(testState.kontak || '')}&gender=${encodeURIComponent(testState.jenisKelamin || '')}&usia=${encodeURIComponent(testState.usia || '')}&pelamarId=${testState.pelamarId || ''}`;
+
     document.getElementById('app').innerHTML = `
     <div style="max-width:650px;margin:50px auto;text-align:center">
       <div style="background:#fff;border-radius:16px;padding:40px 30px;box-shadow:0 4px 20px rgba(0,0,0,.1);border-top:6px solid var(--success)">
@@ -1215,6 +1236,13 @@ function renderResult(r) {
       </div>
       <p style="margin-top:20px;font-size:.72rem;color:#999">© 2026 LPK IJEF Corp — HR Assessment System</p>
     </div>`;
+
+    // Auto redirect after 2 seconds
+    setTimeout(() => {
+      window.location.href = psychUrl;
+    }, 2000);
+    return;
+  }
 
     // Auto redirect after 3 seconds
     setTimeout(() => {
