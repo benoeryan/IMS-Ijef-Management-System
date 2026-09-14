@@ -1107,7 +1107,7 @@ async function saveResult(r) {
       Math.max(0, 70 + Math.min(posCount * 3, 20) - Math.min(negCount * 2, 15))
     );
     await db.collection('hrd_disc_results').add({
-      mode: testState.mode,
+      mode: testState.mode || 'calon',
       nama: testState.nama,
       usia: testState.usia,
       jenisKelamin: testState.jenisKelamin,
@@ -1130,8 +1130,9 @@ async function saveResult(r) {
       kpiScore,
       createdAt: new Date().toISOString(),
     });
-    // Sync calon karyawan to recruitment pipeline
-    if (testState.mode === 'calon') {
+
+    const isCalon = testState.mode !== 'evaluasi';
+    if (isCalon) {
       let healthTestId = '';
       try {
         // Find existing health test by pelamarId or nama without requiring composite index
@@ -1211,8 +1212,8 @@ async function saveResult(r) {
 }
 
 function renderResult(r) {
-  // Calon karyawan: Lanjutkan ke Tes Psikologi
-  if (testState.mode === 'calon') {
+  const isCalon = testState.mode !== 'evaluasi';
+  if (isCalon) {
     // Store in sessionStorage
     sessionStorage.setItem('pelamar_nama', testState.nama || '');
     sessionStorage.setItem('pelamar_posisi', testState.posisi || '');
