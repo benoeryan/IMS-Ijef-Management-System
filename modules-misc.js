@@ -3610,10 +3610,20 @@ async function updateKasbonDoc(id) {
 // == HELPER HAPUS ==============================================
 async function hapusDoc(col, id, page) {
   if (!confirm("Yakin hapus?")) return;
-  await db.collection(col).doc(id).delete();
-  if (col === "hrd_approval_flow") invalidateApprovalFlowCache();
-  toast("Dihapus", "success");
-  navigateTo(page);
+  try {
+    await db.collection(col).doc(id).delete();
+    if (col === "hrd_approval_flow") invalidateApprovalFlowCache();
+    toast("Dihapus", "success");
+    if (page) {
+      if ((page === "pelamar" || page === "form-pelamar") && typeof hasAccess === "function" && hasAccess(3)) {
+        page = "form-pelamar-mgmt";
+      }
+      navigateTo(page);
+    }
+  } catch (e) {
+    console.error("hapusDoc error:", e);
+    toast("Gagal menghapus: " + e.message, "error");
+  }
 }
 
 // == ABSENSI ADMIN (delegate to absensi-ijef.js) ==============-

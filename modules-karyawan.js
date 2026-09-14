@@ -1559,7 +1559,7 @@ function filterTblPelamar() {
           <div class="flex gap-4">
             <button class="btn btn-xs btn-info" onclick="modalDetailPelamar('${p.id}')">👁️ Detail</button>
             <button class="btn btn-xs btn-primary" onclick="cetakFormPelamar('${p.id}')">🖨️ Cetak</button>
-            <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_pelamar','${p.id}','pelamar')">🗑️</button>
+            <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_pelamar','${p.id}','form-pelamar-mgmt')">🗑️</button>
           </div>
         </td>
       </tr>`;
