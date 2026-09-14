@@ -1134,15 +1134,21 @@ async function saveResult(r) {
     if (testState.mode === 'calon') {
       let healthTestId = '';
       try {
-        // Auto check or create hrd_test_kesehatan record for calon
-        const hSnap = await db.collection('hrd_test_kesehatan')
-          .where('tipe', '==', 'calon')
-          .where('nama', '==', testState.nama)
-          .where('status', '==', 'pending')
-          .get();
+        // Find existing health test by pelamarId or nama without requiring composite index
+        let hSnap;
+        if (testState.pelamarId) {
+          hSnap = await db.collection('hrd_test_kesehatan')
+            .where('pelamarId', '==', testState.pelamarId)
+            .get();
+        } else {
+          hSnap = await db.collection('hrd_test_kesehatan')
+            .where('nama', '==', testState.nama)
+            .get();
+        }
 
-        if (!hSnap.empty) {
-          healthTestId = hSnap.docs[0].id;
+        let pendingDoc = hSnap.docs.find(d => d.data().status === 'pending' || d.data().tipe === 'calon');
+        if (pendingDoc) {
+          healthTestId = pendingDoc.id;
         } else {
           const newH = await db.collection('hrd_test_kesehatan').add({
             nama: testState.nama,

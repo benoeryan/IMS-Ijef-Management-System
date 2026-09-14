@@ -332,14 +332,20 @@ async function submitPsychologyTest() {
     // Auto Check / Create Health Test Invitation for Step 4
     let healthTestId = '';
     try {
-      const hSnap = await db.collection('hrd_test_kesehatan')
-        .where('tipe', '==', 'calon')
-        .where('nama', '==', testState.nama)
-        .where('status', '==', 'pending')
-        .get();
+      let hSnap;
+      if (testState.pelamarId) {
+        hSnap = await db.collection('hrd_test_kesehatan')
+          .where('pelamarId', '==', testState.pelamarId)
+          .get();
+      } else {
+        hSnap = await db.collection('hrd_test_kesehatan')
+          .where('nama', '==', testState.nama)
+          .get();
+      }
 
-      if (!hSnap.empty) {
-        healthTestId = hSnap.docs[0].id;
+      let pendingDoc = hSnap.docs.find(d => d.data().status === 'pending' || d.data().tipe === 'calon');
+      if (pendingDoc) {
+        healthTestId = pendingDoc.id;
       } else {
         const newH = await db.collection('hrd_test_kesehatan').add({
           nama: testState.nama,
@@ -354,7 +360,7 @@ async function submitPsychologyTest() {
         healthTestId = newH.id;
       }
       testState.healthTestId = healthTestId;
-    } catch (e2) { console.warn(e2); }
+    } catch (e2) { console.warn('Health test creation warning:', e2); }
 
     // Update hrd_kandidat pipeline to 'psychology'
     try {

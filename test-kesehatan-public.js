@@ -944,10 +944,36 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   if (pelamarId) window._currentPelamarId = pelamarId;
 
+  // Search by pelamarId if docId is missing
+  if (!docId && pelamarId) {
+    try {
+      var findSnap = await db.collection('hrd_test_kesehatan').where('pelamarId', '==', pelamarId).get();
+      if (!findSnap.empty) {
+        docId = findSnap.docs[0].id;
+      }
+    } catch (fEx) { console.warn(fEx); }
+  }
+
+  // Create new document if still missing
   if (!docId) {
     try {
+      var candidateNama = sessionStorage.getItem('pelamar_nama') || 'Calon Karyawan';
+      var candidatePosisi = sessionStorage.getItem('pelamar_posisi') || '';
+
+      if (pelamarId) {
+        try {
+          var pCheck = await db.collection('hrd_pelamar').doc(pelamarId).get();
+          if (pCheck.exists) {
+            candidateNama = pCheck.data().nama || candidateNama;
+            candidatePosisi = pCheck.data().posisi || candidatePosisi;
+          }
+        } catch (pCheckErr) { console.warn(pCheckErr); }
+      }
+
       var newDoc = await db.collection('hrd_test_kesehatan').add({
-        nama: 'Calon Karyawan',
+        nama: candidateNama,
+        posisi: candidatePosisi,
+        pelamarId: pelamarId || '',
         tipe: 'calon',
         status: 'pending',
         tanggal: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -978,17 +1004,18 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     // Auto fill candidate data if linked
-    if (pelamarId && !data.dataUmum?.nama) {
+    var targetPelamarId = pelamarId || data.pelamarId;
+    if (targetPelamarId) {
       try {
-        var pDoc = await db.collection('hrd_pelamar').doc(pelamarId).get();
+        var pDoc = await db.collection('hrd_pelamar').doc(targetPelamarId).get();
         if (pDoc.exists) {
           var pData = pDoc.data();
-          data.nama = data.nama || pData.nama;
-          data.dataUmum = data.dataUmum || {};
-          data.dataUmum.nama = pData.nama;
-          data.dataUmum.usia = pData.usia;
-          data.dataUmum.jenisKelamin = pData.jenisKelamin;
-          data.dataUmum.golonganDarah = pData.golDarah;
+          data.nama = pData.nama || data.nama;
+          if (!data.dataUmum) data.dataUmum = {};
+          data.dataUmum.nama = pData.nama || data.dataUmum.nama;
+          data.dataUmum.usia = pData.usia || data.dataUmum.usia;
+          data.dataUmum.jenisKelamin = pData.jenisKelamin || data.dataUmum.jenisKelamin;
+          data.dataUmum.golonganDarah = pData.golDarah || data.dataUmum.golonganDarah;
         }
       } catch (pEx) {
         console.warn('Auto fill candidate info failed:', pEx);

@@ -1864,9 +1864,34 @@ async function cetakFormPelamar(id) {
   </body></html>`);
 }
 
+function copyCandidateDiscLink(pelamarId, nama, posisi, kontak, gender, usia) {
+  const url = `${window.location.origin}/disc-test.html?nama=${encodeURIComponent(nama)}&posisi=${encodeURIComponent(posisi)}&kontak=${encodeURIComponent(kontak||'')}&gender=${encodeURIComponent(gender||'')}&usia=${encodeURIComponent(usia||'')}&pelamarId=${pelamarId}#calon`;
+  navigator.clipboard.writeText(url).then(() => {
+    toast(`🧠 Link Tes DISC untuk ${nama} disalin!`, 'success');
+  }).catch(() => prompt('Salin Link Tes DISC:', url));
+}
+
+function copyCandidatePsychologyLink(pelamarId, nama, posisi, kontak, gender, usia) {
+  const url = `${window.location.origin}/psychology-test.html?nama=${encodeURIComponent(nama)}&posisi=${encodeURIComponent(posisi)}&kontak=${encodeURIComponent(kontak||'')}&gender=${encodeURIComponent(gender||'')}&usia=${encodeURIComponent(usia||'')}&pelamarId=${pelamarId}`;
+  navigator.clipboard.writeText(url).then(() => {
+    toast(`🧩 Link Tes Psikologi untuk ${nama} disalin!`, 'success');
+  }).catch(() => prompt('Salin Link Tes Psikologi:', url));
+}
+
+function copyCandidateHealthLink(pelamarId, healthTestId) {
+  const url = `${window.location.origin}/test-kesehatan.html?pelamarId=${pelamarId}${healthTestId ? '&id=' + healthTestId : ''}`;
+  navigator.clipboard.writeText(url).then(() => {
+    toast('🏥 Link Test Kesehatan disalin!', 'success');
+  }).catch(() => prompt('Salin Link Test Kesehatan:', url));
+}
+
 window.copyLinkPelamar = copyLinkPelamar;
 window.copyLinkDISC = copyLinkDISC;
+window.copyLinkPsychology = copyLinkPsychology;
 window.copyLinkTestKesehatan = copyLinkTestKesehatan;
+window.copyCandidateDiscLink = copyCandidateDiscLink;
+window.copyCandidatePsychologyLink = copyCandidatePsychologyLink;
+window.copyCandidateHealthLink = copyCandidateHealthLink;
 window.renderFormPelamarMgmt = renderFormPelamarMgmt;
 window.modalDetailPelamar = modalDetailPelamar;
 window.cetakFormPelamar = cetakFormPelamar;
