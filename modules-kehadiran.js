@@ -1365,7 +1365,7 @@ async function checkHoliday(dateStr) {
 async function renderPenalty() {
   const main = document.getElementById("mainContent");
   const isBOD = currentUser.role === "bod";
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}⚠️ Penalty Point</span><div class="flex gap-8">${hasAccess(4) && !isBOD ? '<button class="btn btn-info btn-sm" onclick="syncPenaltyToKPI()">🔄 Sinkronisasi ke KPI</button>' : ""}${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalPenalty()">+ Tambah</button>' : ""}</div></div>
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}⚠️ Penalty Point</span><div class="flex gap-8">${hasAccess(4) && !isBOD ? '<button class="btn btn-success btn-sm" onclick="generateAutoKPI()">📊 Auto-Nilai KPI</button> <button class="btn btn-info btn-sm" onclick="syncPenaltyToKPI()">🔄 Sinkronisasi ke KPI</button>' : ""}${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalPenalty()">+ Tambah</button>' : ""}</div></div>
     <div class="card mb-16"><div class="card-title mb-8">📊 Ringkasan Poin per Karyawan</div><div id="penaltySummary">Loading...</div></div>
     <div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tanggal</th><th>Jenis</th><th>Poin</th><th>Keterangan</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblPenalty"></tbody></table></div></div>`;
   const [penSnap, karyawanSnap] = await Promise.all([
@@ -6897,3 +6897,111 @@ window.loadDailyTasks = loadDailyTasks;
 window.editDailyReport = editDailyReport;
 window.viewDailyReport = viewDailyReport;
 window.hapusDailyTask = hapusDailyTask;
+
+window.generateAutoKPI = async function() {
+  const periode = prompt("Masukkan periode (YYYY-MM) untuk Penilaian KPI Otomatis:", new Date().toISOString().slice(0, 7));
+  if (!periode) return;
+
+  if (!confirm(`Mulai hitung KPI otomatis untuk periode ${periode}?\nSistem akan mengambil data kehadiran dan laporan kinerja.`)) return;
+
+  toast("Menghitung KPI otomatis...", "info");
+  try {
+    const [karySnap, absenSnap, tasksSnap, penSnap, kpiSnap] = await Promise.all([
+      db.collection("hrd_karyawan").where("status", "==", "aktif").get(),
+      db.collection("hrd_absensi").where("tanggal", ">=", periode + "-01").where("tanggal", "<=", periode + "-31").get(),
+      db.collection("hrd_daily_tasks").get(),
+      db.collection("hrd_penalty").get(),
+      db.collection("hrd_kpi").where("periode", "==", periode).get()
+    ]);
+
+    const absenMap = {};
+    absenSnap.forEach(d => {
+      const data = d.data();
+      const nama = (data.nama || "").toLowerCase().trim();
+      if (!absenMap[nama]) absenMap[nama] = { hadir: 0, total: 0 };
+      absenMap[nama].total++;
+      if (['hadir', 'dinas_luar', 'lembur'].includes((data.tipe || "").toLowerCase())) {
+        absenMap[nama].hadir++;
+      }
+    });
+
+    const taskMap = {};
+    tasksSnap.forEach(d => {
+      const data = d.data();
+      if ((data.tanggal && data.tanggal.startsWith(periode)) || (data.createdAt && data.createdAt.startsWith(periode))) {
+        const nama = (data.ownerName || data.targetUserName || data.nama || "").toLowerCase().trim();
+        if (!taskMap[nama]) taskMap[nama] = { done: 0, total: 0 };
+        taskMap[nama].total++;
+        if (data.type === 'report' || data.status === 'completed' || data.status === 'done' || data.progress == 100 || data.done === true) {
+          taskMap[nama].done++;
+        }
+      }
+    });
+
+    const penMap = {};
+    penSnap.forEach(d => {
+      const data = d.data();
+      const nama = (data.nama || "").toLowerCase().trim();
+      penMap[nama] = (penMap[nama] || 0) + (parseInt(data.poin) || 0);
+    });
+
+    const kpiMap = {};
+    kpiSnap.forEach(d => {
+      const data = d.data();
+      const nama = (data.nama || "").toLowerCase().trim();
+      kpiMap[nama] = d.id;
+    });
+
+    let count = 0;
+    for (const doc of karySnap.docs) {
+      const data = doc.data();
+      const nama = data.nama;
+      if (!nama) continue;
+      const lowerNama = nama.toLowerCase().trim();
+
+      const absenInfo = absenMap[lowerNama] || { hadir: 0, total: 0 };
+      const taskInfo = taskMap[lowerNama] || { done: 0, total: 0 };
+      const penaltyPoin = penMap[lowerNama] || 0;
+
+      let kedisiplinan = absenInfo.hadir > 0 ? Math.min(100, Math.round((absenInfo.hadir / 22) * 100)) : 70;
+      let produktivitas = Math.min(100, 70 + (taskInfo.done * 2));
+      let kualitas = Math.round((kedisiplinan + produktivitas) / 2);
+      let kerjasama = 80;
+
+      let skorMurni = Math.round((kedisiplinan + produktivitas + kualitas + kerjasama) / 4);
+      let penaltyDeduction = penaltyPoin * 2;
+      let skorAkhir = Math.max(0, skorMurni - penaltyDeduction);
+
+      const kpiData = {
+        nama: nama,
+        periode: periode,
+        kedisiplinan,
+        produktivitas,
+        kualitas,
+        kerjasama,
+        skorMurni,
+        skor: skorAkhir,
+        penaltyPoin,
+        penaltyDeduction,
+        penilai: "Auto-Sync System",
+        catatan: "Di-generate otomatis dari data kehadiran & kinerja bulan " + periode,
+        syncedAt: new Date().toISOString()
+      };
+
+      if (kpiMap[lowerNama]) {
+        await db.collection("hrd_kpi").doc(kpiMap[lowerNama]).update(kpiData);
+      } else {
+        kpiData.createdAt = new Date().toISOString();
+        await db.collection("hrd_kpi").add(kpiData);
+      }
+      count++;
+    }
+
+    toast(`Berhasil auto-nilai KPI untuk ${count} karyawan.`, "success");
+    if (typeof renderKPI === 'function') renderKPI();
+
+  } catch(e) {
+    console.error(e);
+    toast("Gagal auto-nilai: " + e.message, "error");
+  }
+};
