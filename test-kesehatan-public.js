@@ -424,12 +424,13 @@ function renderForm(docId, data) {
   h +=
     '<p style="margin:0 0 14px;font-size:.8rem;color:#666;font-style:italic">Isi data diri dasar. Tinggi badan dalam satuan cm, berat badan dalam kg. BMI akan terhitung otomatis.</p>';
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
-  h +=
-    '<div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Nama</label>';
-  h +=
-    '<input id="tkfNama" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" value="' +
-    escHtml(du.nama || data.nama || '') +
-    '"></div>';
+  h += '<div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Nama Calon Karyawan</label>';
+  if (data.nama || du.nama) {
+     h += '<input id="tkfNama" readonly style="background:#f5f5f5;width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" value="' + escHtml(du.nama || data.nama || '') + '">';
+  } else {
+     h += '<input id="tkfNama" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" value="" placeholder="Ketik nama lengkap Anda...">';
+  }
+  h += '</div>';
   h +=
     '<div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Usia</label>';
   h +=
@@ -816,15 +817,6 @@ async function submitTestKesehatan(docId) {
     btn.disabled = true;
     btn.textContent = '⏳ Mengirim Hasil Test...';
   }
-    missingFields.push('Kualitas Tidur');
-  if (!(document.getElementById('tkfMerokok').value || '').trim()) missingFields.push('Merokok');
-  if (!(document.getElementById('tkfAlkohol').value || '').trim()) missingFields.push('Alkohol');
-  if (!(document.getElementById('tkfOlahraga').value || '').trim()) missingFields.push('Olahraga');
-
-  if (missingFields.length > 0) {
-    toast('Field wajib belum diisi: ' + missingFields.join(', '), 'warning');
-    return;
-  }
 
   var dataUmum = {
     nama: document.getElementById('tkfNama').value,
@@ -932,6 +924,11 @@ async function submitTestKesehatan(docId) {
 
     renderThankYou();
   } catch (e) {
+    window._submittingHealth = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '⏳ Mengirim Hasil Test...';
+    }
     toast('Gagal menyimpan data: ' + e.message, 'error');
   }
 }
