@@ -1168,22 +1168,26 @@ async function saveResult(r) {
         console.warn('Auto create health test error:', hErr);
       }
 
-      await db.collection('hrd_kandidat').add({
-        nama: testState.nama,
-        email: testState.kontak || '',
-        posisi: testState.posisi,
-        stage: 'disc',
-        sumber: 'DISC Test Online',
-        discPattern: r.pattern,
-        discProfile: r.profile.name,
-        discScore: kpiScore,
-        usia: testState.usia,
-        jenisKelamin: testState.jenisKelamin,
-        kontak: testState.kontak || '',
-        pelamarId: testState.pelamarId || '',
-        healthTestId: healthTestId,
-        createdAt: new Date().toISOString(),
-      });
+      try {
+        await db.collection('hrd_kandidat').add({
+          nama: testState.nama,
+          email: testState.kontak || '',
+          posisi: testState.posisi,
+          stage: 'disc',
+          sumber: 'DISC Test Online',
+          discPattern: r.pattern,
+          discProfile: r.profile.name,
+          discScore: kpiScore,
+          usia: testState.usia,
+          jenisKelamin: testState.jenisKelamin,
+          kontak: testState.kontak || '',
+          pelamarId: testState.pelamarId || '',
+          healthTestId: healthTestId,
+          createdAt: new Date().toISOString(),
+        });
+      } catch (kErr) {
+        console.warn('Auto create kandidat error:', kErr);
+      }
 
       // Update hrd_pelamar record if linked
       if (testState.pelamarId) {
