@@ -425,14 +425,23 @@ function renderForm(docId, data) {
     '<p style="margin:0 0 14px;font-size:.8rem;color:#666;font-style:italic">Isi data diri dasar. Tinggi badan dalam satuan cm, berat badan dalam kg. BMI akan terhitung otomatis.</p>';
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
   h += '<div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Nama Calon Karyawan</label>';
-  h += '<input id="tkfNama" list="pelamarList" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" value="' + escHtml(du.nama || data.nama || '') + '" placeholder="Ketik manual atau pilih dari daftar...">';
-  h += '<datalist id="pelamarList">';
+  h += '<select id="tkfNama" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem">';
+  h += '<option value="">-- Pilih Nama Kandidat --</option>';
+  var currentName = du.nama || data.nama || '';
+  var nameFound = false;
   if (window._pelamarList) {
      window._pelamarList.forEach(p => {
-        h += '<option value="' + escHtml(p.nama) + '"></option>';
+        var isSelected = (p.nama === currentName) ? 'selected' : '';
+        if (isSelected) nameFound = true;
+        h += '<option value="' + escHtml(p.nama) + '" ' + isSelected + '>' + escHtml(p.nama) + '</option>';
      });
   }
-  h += '</datalist>';
+  if (currentName && !nameFound) {
+      h += '<option value="' + escHtml(currentName) + '" selected>' + escHtml(currentName) + '</option>';
+  }
+  h += '<option value="Lainnya">Lainnya (Isi Manual)</option>';
+  h += '</select>';
+  h += '<input id="tkfNamaManual" style="display:none;width:100%;margin-top:8px;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" placeholder="Ketik nama lengkap Anda...">';
   h += '</div>';
   h +=
     '<div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Usia</label>';
@@ -784,7 +793,7 @@ async function submitTestKesehatan(docId) {
 
   // Mandatory field validation
   var missingFields = [];
-  if (!(document.getElementById('tkfNama').value || '').trim()) missingFields.push('Nama');
+  if (!(document.getElementById('tkfNama').value || '').trim() || (document.getElementById('tkfNama').value === 'Lainnya' && !(document.getElementById('tkfNamaManual').value || '').trim())) missingFields.push('Nama');
   if (!(document.getElementById('tkfUsia').value || '').trim()) missingFields.push('Usia');
   if (!(document.getElementById('tkfGender').value || '').trim())
     missingFields.push('Jenis Kelamin');
@@ -822,7 +831,7 @@ async function submitTestKesehatan(docId) {
   }
 
   var dataUmum = {
-    nama: document.getElementById('tkfNama').value,
+    nama: document.getElementById('tkfNama').value === 'Lainnya' ? document.getElementById('tkfNamaManual').value : document.getElementById('tkfNama').value,
     usia: document.getElementById('tkfUsia').value,
     jenisKelamin: document.getElementById('tkfGender').value,
     golonganDarah: document.getElementById('tkfGolDarah').value,
@@ -1035,8 +1044,16 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     var sel = document.getElementById('tkfNama');
     if (sel) {
-      sel.addEventListener('input', async (e) => {
+      sel.addEventListener('change', async (e) => {
         var selectedName = e.target.value;
+        var manualInput = document.getElementById('tkfNamaManual');
+        if (selectedName === 'Lainnya') {
+            manualInput.style.display = 'block';
+            manualInput.required = true;
+            return;
+        } else {
+            if(manualInput) manualInput.style.display = 'none';
+        }
         if (!selectedName) return;
         try {
           var snap = await db.collection('hrd_pelamar').where('nama', '==', selectedName).limit(1).get();

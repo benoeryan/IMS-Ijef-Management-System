@@ -99,13 +99,38 @@ const PSYCHOLOGY_QUESTIONS = [
 document.addEventListener('DOMContentLoaded', () => {
   readQueryParams();
   renderCandidateForm();
-  fetchPelamarOptions().then(html => {
-    const cont = document.getElementById('dlContainer');
-    if(cont) cont.innerHTML = html;
-    const sel = document.getElementById('fNama');
-    if (sel) {
-      sel.addEventListener('input', async (e) => {
+
+  const sel = document.getElementById('fNama');
+  if (sel) {
+     db.collection('hrd_pelamar').get().then(snap => {
+        let opts = '<option value="">-- Pilih Nama Kandidat --</option>';
+        let nameFound = false;
+        snap.forEach(d => {
+           let p = d.data();
+           if(p.nama) {
+              let isSelected = (p.nama === testState.nama) ? 'selected' : '';
+              if (isSelected) nameFound = true;
+              opts += '<option value="' + escHtml(p.nama) + '" ' + isSelected + '>' + escHtml(p.nama) + '</option>';
+           }
+        });
+        if (testState.nama && !nameFound) {
+           opts += '<option value="' + escHtml(testState.nama) + '" selected>' + escHtml(testState.nama) + '</option>';
+        }
+        opts += '<option value="Lainnya">Lainnya (Isi Manual)</option>';
+        sel.innerHTML = opts;
+     }).catch(e=>{});
+
+     sel.addEventListener('change', async (e) => {
         const selectedName = e.target.value;
+        const manualInput = document.getElementById('fNamaManual');
+        if (selectedName === 'Lainnya') {
+           manualInput.style.display = 'block';
+           manualInput.required = true;
+           return;
+        } else {
+           if(manualInput) manualInput.style.display = 'none';
+        }
+
         if (!selectedName) return;
         try {
           const snap = await db.collection('hrd_pelamar').where('nama', '==', selectedName).limit(1).get();
@@ -118,9 +143,8 @@ document.addEventListener('DOMContentLoaded', () => {
             testState.pelamarId = snap.docs[0].id;
           }
         } catch(err) {}
-      });
-    }
-  });
+     });
+  }
 });
 
 async function fetchPelamarOptions() {
@@ -159,8 +183,10 @@ function renderCandidateForm() {
 
       <div class="form-group">
         <label>Nama Lengkap <span style="color:var(--danger)">*</span></label>
-        <input class="form-control" id="fNama" list="pelamarList" value="${escHtml(testState.nama)}" required placeholder="Ketik manual atau pilih dari daftar...">
-        <div id="dlContainer"></div>
+        <select class="form-control" id="fNama">
+          <option value="">-- Pilih Nama Kandidat --</option>
+        </select>
+        <input class="form-control" id="fNamaManual" style="display:none;margin-top:8px" placeholder="Ketik nama lengkap Anda...">
       </div>
 
       <div class="grid-2">
@@ -196,7 +222,8 @@ function renderCandidateForm() {
 }
 
 function startPsychologyTest() {
-  const nama = document.getElementById('fNama').value.trim();
+  const rawName = document.getElementById('fNama').value;
+  const nama = (rawName === 'Lainnya' ? document.getElementById('fNamaManual').value : rawName).trim();
   const posisi = document.getElementById('fPosisi').value.trim();
   if (!nama || !posisi) return toast('Nama dan Posisi wajib diisi', 'warning');
 
