@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(cont) cont.innerHTML = html;
     const sel = document.getElementById('fNama');
     if (sel) {
-      sel.addEventListener('change', async (e) => {
+      sel.addEventListener('input', async (e) => {
         const selectedName = e.target.value;
         if (!selectedName) return;
         try {

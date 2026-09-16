@@ -1035,7 +1035,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     var sel = document.getElementById('tkfNama');
     if (sel) {
-      sel.addEventListener('change', async (e) => {
+      sel.addEventListener('input', async (e) => {
         var selectedName = e.target.value;
         if (!selectedName) return;
         try {
