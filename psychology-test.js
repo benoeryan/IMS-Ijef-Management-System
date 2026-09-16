@@ -99,52 +99,53 @@ const PSYCHOLOGY_QUESTIONS = [
 document.addEventListener('DOMContentLoaded', () => {
   readQueryParams();
   renderCandidateForm();
-
-  const sel = document.getElementById('fNama');
-  if (sel) {
-     db.collection('hrd_pelamar').get().then(snap => {
-        let opts = '<option value="">-- Pilih Nama Kandidat --</option>';
-        let nameFound = false;
-        snap.forEach(d => {
-           let p = d.data();
-           if(p.nama) {
-              let isSelected = (p.nama === testState.nama) ? 'selected' : '';
-              if (isSelected) nameFound = true;
-              opts += '<option value="' + escHtml(p.nama) + '" ' + isSelected + '>' + escHtml(p.nama) + '</option>';
-           }
-        });
-        if (testState.nama && !nameFound) {
-           opts += '<option value="' + escHtml(testState.nama) + '" selected>' + escHtml(testState.nama) + '</option>';
-        }
-        opts += '<option value="Lainnya">Lainnya (Isi Manual)</option>';
-        sel.innerHTML = opts;
-     }).catch(e=>{});
-
-     sel.addEventListener('change', async (e) => {
-        const selectedName = e.target.value;
-        const manualInput = document.getElementById('fNamaManual');
-        if (selectedName === 'Lainnya') {
-           manualInput.style.display = 'block';
-           manualInput.required = true;
-           return;
-        } else {
-           if(manualInput) manualInput.style.display = 'none';
-        }
-
-        if (!selectedName) return;
-        try {
-          const snap = await db.collection('hrd_pelamar').where('nama', '==', selectedName).limit(1).get();
-          if (!snap.empty) {
-            const p = snap.docs[0].data();
-            document.getElementById('fPosisi').value = p.posisi || '';
-            document.getElementById('fUsia').value = p.usia || '';
-            document.getElementById('fGender').value = p.jenisKelamin || '';
-            document.getElementById('fKontak').value = p.email || p.telepon || '';
-            testState.pelamarId = snap.docs[0].id;
+  setTimeout(() => {
+    const sel = document.getElementById('fNama');
+    if (sel) {
+       db.collection('hrd_pelamar').get().then(snap => {
+          let opts = '<option value="">-- Pilih Nama Kandidat --</option>';
+          let nameFound = false;
+          snap.forEach(d => {
+             let p = d.data();
+             if(p.nama) {
+                let isSelected = (p.nama === testState.nama) ? 'selected' : '';
+                if (isSelected) nameFound = true;
+                opts += '<option value="' + escHtml(p.nama) + '" ' + isSelected + '>' + escHtml(p.nama) + '</option>';
+             }
+          });
+          if (testState.nama && !nameFound) {
+             opts += '<option value="' + escHtml(testState.nama) + '" selected>' + escHtml(testState.nama) + '</option>';
           }
-        } catch(err) {}
-     });
-  }
+          opts += '<option value="Lainnya">Lainnya (Isi Manual)</option>';
+          sel.innerHTML = opts;
+       }).catch(e=>{});
+
+       sel.addEventListener('change', async (e) => {
+          const selectedName = e.target.value;
+          const manualInput = document.getElementById('fNamaManual');
+          if (selectedName === 'Lainnya') {
+             manualInput.style.display = 'block';
+             manualInput.required = true;
+             return;
+          } else {
+             if(manualInput) manualInput.style.display = 'none';
+          }
+
+          if (!selectedName) return;
+          try {
+            const snap = await db.collection('hrd_pelamar').where('nama', '==', selectedName).limit(1).get();
+            if (!snap.empty) {
+              const p = snap.docs[0].data();
+              document.getElementById('fPosisi').value = p.posisi || '';
+              document.getElementById('fUsia').value = p.usia || '';
+              document.getElementById('fGender').value = p.jenisKelamin || '';
+              document.getElementById('fKontak').value = p.email || p.telepon || '';
+              testState.pelamarId = snap.docs[0].id;
+            }
+          } catch(err) {}
+       });
+    }
+  }, 100);
 });
 
 async function fetchPelamarOptions() {
