@@ -6946,11 +6946,24 @@ window.generateAutoKPI = async function() {
     });
 
     const kpiMap = {};
+    const duplicateIds = [];
+
     kpiSnap.forEach(d => {
       const data = d.data();
       const nama = (data.nama || "").toLowerCase().trim();
-      kpiMap[nama] = d.id;
+
+      if (!kpiMap[nama]) {
+        kpiMap[nama] = d.id;
+      } else {
+        // If already exists, mark as duplicate to be deleted
+        duplicateIds.push(d.id);
+      }
     });
+
+    // Delete duplicate KPIs if any
+    for (const dupId of duplicateIds) {
+      await db.collection("hrd_kpi").doc(dupId).delete();
+    }
 
     let count = 0;
     for (const doc of karySnap.docs) {
