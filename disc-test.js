@@ -822,63 +822,65 @@ function renderCalonForm() {
   </div>`;
   loadLowonganOptions();
 
-  const sel = document.getElementById('fNama');
-  if (sel) {
-     db.collection('hrd_pelamar').get().then(snap => {
-        let opts = '<option value="">-- Pilih Nama Kandidat --</option>';
-        let nameFound = false;
-        snap.forEach(d => {
-           let p = d.data();
-           if(p.nama) {
-              let isSelected = (p.nama === testState.nama) ? 'selected' : '';
-              if (isSelected) nameFound = true;
-              opts += '<option value="' + escHtml(p.nama) + '" ' + isSelected + '>' + escHtml(p.nama) + '</option>';
-           }
-        });
-        if (testState.nama && !nameFound) {
-           opts += '<option value="' + escHtml(testState.nama) + '" selected>' + escHtml(testState.nama) + '</option>';
-        }
-        opts += '<option value="Lainnya">Lainnya (Isi Manual)</option>';
-        sel.innerHTML = opts;
-     }).catch(e=>{});
-
-     sel.addEventListener('change', async (e) => {
-        const selectedName = e.target.value;
-        const manualInput = document.getElementById('fNamaManual');
-        if (selectedName === 'Lainnya') {
-           manualInput.style.display = 'block';
-           manualInput.required = true;
-           return;
-        } else {
-           if(manualInput) manualInput.style.display = 'none';
-        }
-
-        if (!selectedName) return;
-        try {
-          const snap = await db.collection('hrd_pelamar').where('nama', '==', selectedName).limit(1).get();
-          if (!snap.empty) {
-            const p = snap.docs[0].data();
-            const posSel = document.getElementById('fPosisi');
-            if (posSel && p.posisi) {
-              const matchOpt = Array.from(posSel.options).find(o => o.value === p.posisi || o.value.includes(p.posisi));
-              if (matchOpt) {
-                posSel.value = matchOpt.value;
-              } else {
-                const opt = document.createElement('option');
-                opt.value = p.posisi;
-                opt.textContent = p.posisi;
-                opt.selected = true;
-                posSel.appendChild(opt);
-              }
-            }
-            if (document.getElementById('fUsia')) document.getElementById('fUsia').value = p.usia || '';
-            if (document.getElementById('fGender')) document.getElementById('fGender').value = p.jenisKelamin || '';
-            if (document.getElementById('fKontak')) document.getElementById('fKontak').value = p.email || p.telepon || '';
-            testState.pelamarId = snap.docs[0].id;
+  setTimeout(() => {
+    const sel = document.getElementById('fNama');
+    if (sel) {
+       db.collection('hrd_pelamar').get().then(snap => {
+          let opts = '<option value="">-- Pilih Nama Kandidat --</option>';
+          let nameFound = false;
+          snap.forEach(d => {
+             let p = d.data();
+             if(p.nama) {
+                let isSelected = (p.nama === testState.nama) ? 'selected' : '';
+                if (isSelected) nameFound = true;
+                opts += '<option value="' + escHtml(p.nama) + '" ' + isSelected + '>' + escHtml(p.nama) + '</option>';
+             }
+          });
+          if (testState.nama && !nameFound) {
+             opts += '<option value="' + escHtml(testState.nama) + '" selected>' + escHtml(testState.nama) + '</option>';
           }
-        } catch(err) {}
-     });
-  }
+          opts += '<option value="Lainnya">Lainnya (Isi Manual)</option>';
+          sel.innerHTML = opts;
+       }).catch(e=>{});
+
+       sel.addEventListener('change', async (e) => {
+          const selectedName = e.target.value;
+          const manualInput = document.getElementById('fNamaManual');
+          if (selectedName === 'Lainnya') {
+             manualInput.style.display = 'block';
+             manualInput.required = true;
+             return;
+          } else {
+             if(manualInput) manualInput.style.display = 'none';
+          }
+
+          if (!selectedName) return;
+          try {
+            const snap = await db.collection('hrd_pelamar').where('nama', '==', selectedName).limit(1).get();
+            if (!snap.empty) {
+              const p = snap.docs[0].data();
+              const posSel = document.getElementById('fPosisi');
+              if (posSel && p.posisi) {
+                const matchOpt = Array.from(posSel.options).find(o => o.value === p.posisi || o.value.includes(p.posisi));
+                if (matchOpt) {
+                  posSel.value = matchOpt.value;
+                } else {
+                  const opt = document.createElement('option');
+                  opt.value = p.posisi;
+                  opt.textContent = p.posisi;
+                  opt.selected = true;
+                  posSel.appendChild(opt);
+                }
+              }
+              if (document.getElementById('fUsia')) document.getElementById('fUsia').value = p.usia || '';
+              if (document.getElementById('fGender')) document.getElementById('fGender').value = p.jenisKelamin || '';
+              if (document.getElementById('fKontak')) document.getElementById('fKontak').value = p.email || p.telepon || '';
+              testState.pelamarId = snap.docs[0].id;
+            }
+          } catch(err) {}
+       });
+    }
+  }, 100);
 }
 async function fetchPelamarOptions() {
   let opts = '<datalist id="pelamarList">';
