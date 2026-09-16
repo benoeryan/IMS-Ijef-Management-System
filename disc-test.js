@@ -825,23 +825,28 @@ function renderCalonForm() {
   setTimeout(() => {
     const sel = document.getElementById('fNama');
     if (sel) {
+       try {
        db.collection('hrd_pelamar').get().then(snap => {
           let opts = '<option value="">-- Pilih Nama Kandidat --</option>';
           let nameFound = false;
+          let tempNama = testState.nama || '';
           snap.forEach(d => {
              let p = d.data();
              if(p.nama) {
-                let isSelected = (p.nama === testState.nama) ? 'selected' : '';
+                let isSelected = (p.nama === tempNama) ? 'selected' : '';
                 if (isSelected) nameFound = true;
-                opts += '<option value="' + escHtml(p.nama) + '" ' + isSelected + '>' + escHtml(p.nama) + '</option>';
+                opts += '<option value="' + (p.nama) + '" ' + isSelected + '>' + (p.nama) + '</option>';
              }
           });
-          if (testState.nama && !nameFound) {
-             opts += '<option value="' + escHtml(testState.nama) + '" selected>' + escHtml(testState.nama) + '</option>';
+          if (tempNama && !nameFound) {
+             opts += '<option value="' + (tempNama) + '" selected>' + (tempNama) + '</option>';
           }
           opts += '<option value="Lainnya">Lainnya (Isi Manual)</option>';
           sel.innerHTML = opts;
-       }).catch(e=>{});
+       }).catch(e=>{
+          sel.innerHTML = '<option value="">-- Pilih Nama Kandidat --</option><option value="Lainnya">Lainnya (Isi Manual)</option>';
+       });
+     } catch (err) {}
 
        sel.addEventListener('change', async (e) => {
           const selectedName = e.target.value;
