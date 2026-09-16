@@ -99,7 +99,25 @@ const PSYCHOLOGY_QUESTIONS = [
 document.addEventListener('DOMContentLoaded', () => {
   readQueryParams();
   renderCandidateForm();
+  fetchPelamarOptions().then(html => {
+    const cont = document.getElementById('dlContainer');
+    if(cont) cont.innerHTML = html;
+  });
 });
+
+async function fetchPelamarOptions() {
+  let opts = '<datalist id="pelamarList">';
+  try {
+    const pSnap = await db.collection('hrd_pelamar').get();
+    pSnap.forEach(d => {
+       if (d.data().nama) {
+          opts += '<option value="' + d.data().nama + '">';
+       }
+    });
+  } catch(e) {}
+  opts += '</datalist>';
+  return opts;
+}
 
 function readQueryParams() {
   const params = new URLSearchParams(window.location.search);
@@ -123,7 +141,8 @@ function renderCandidateForm() {
 
       <div class="form-group">
         <label>Nama Lengkap <span style="color:var(--danger)">*</span></label>
-        <input class="form-control" id="fNama" value="${escHtml(testState.nama)}" required placeholder="Masukkan nama lengkap Anda">
+        <input class="form-control" id="fNama" list="pelamarList" value="${escHtml(testState.nama)}" required placeholder="Ketik manual atau pilih dari daftar...">
+        <div id="dlContainer"></div>
       </div>
 
       <div class="grid-2">
