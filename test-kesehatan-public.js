@@ -425,18 +425,14 @@ function renderForm(docId, data) {
     '<p style="margin:0 0 14px;font-size:.8rem;color:#666;font-style:italic">Isi data diri dasar. Tinggi badan dalam satuan cm, berat badan dalam kg. BMI akan terhitung otomatis.</p>';
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
   h += '<div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Nama Calon Karyawan</label>';
-  if ((data.nama || du.nama) && window._currentPelamarId) {
-     h += '<input id="tkfNama" list="pelamarList" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" value="' + escHtml(du.nama || data.nama || '') + '">';
-  } else {
-     h += '<input id="tkfNama" list="pelamarList" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" value="' + escHtml(du.nama || data.nama || '') + '" placeholder="Ketik manual atau pilih dari daftar...">';
-     h += '<datalist id="pelamarList">';
-     if (window._pelamarList) {
-        window._pelamarList.forEach(p => {
-           h += '<option value="' + escHtml(p.nama) + '"></option>';
-        });
-     }
-     h += '</datalist>';
+  h += '<input id="tkfNama" list="pelamarList" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" value="' + escHtml(du.nama || data.nama || '') + '" placeholder="Ketik manual atau pilih dari daftar...">';
+  h += '<datalist id="pelamarList">';
+  if (window._pelamarList) {
+     window._pelamarList.forEach(p => {
+        h += '<option value="' + escHtml(p.nama) + '"></option>';
+     });
   }
+  h += '</datalist>';
   h += '</div>';
   h +=
     '<div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Usia</label>';
