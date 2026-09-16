@@ -801,10 +801,10 @@ function startMode(mode) {
 function renderCalonForm() {
   document.getElementById('app').innerHTML = `
   <div style="background:#fff;border-radius:10px;padding:24px;max-width:600px;margin:20px auto;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-    <h3 style="color:var(--primary);margin-bottom:16px">🧑‍💼 Data Calon Karyawan</h3>
+    <h3 style="color:var(--primary);margin-bottom:16px">🧑‍💼 Data Calon Karyawan</h3><div id="dlContainer"></div>
     <div style="background:#e3f2fd;border-radius:8px;padding:12px;margin-bottom:16px;border-left:4px solid var(--info);font-size:.82rem">Silakan isi data diri sebelum memulai tes DISC.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Nama Lengkap *</label><input id="fNama" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" placeholder="Nama lengkap"></div>
+      <div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Nama Lengkap *</label><input id="fNama" list="pelamarList" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" placeholder="Ketik manual atau pilih..."></div>
       <div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Usia</label><input id="fUsia" type="number" min="17" max="65" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" placeholder="Usia"></div>
       <div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Jenis Kelamin</label><select id="fGender" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem"><option value="">-- Pilih --</option><option>Laki-laki</option><option>Perempuan</option></select></div>
       <div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Posisi yang Dilamar *</label><select id="fPosisi" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem"><option value="">Memuat lowongan...</option></select></div>
@@ -816,7 +816,25 @@ function renderCalonForm() {
     </div>
   </div>`;
   loadLowonganOptions();
+  fetchPelamarOptions().then(html => {
+    const cont = document.getElementById('dlContainer');
+    if(cont) cont.innerHTML = html;
+  });
 }
+async function fetchPelamarOptions() {
+  let opts = '<datalist id="pelamarList">';
+  try {
+    const pSnap = await db.collection('hrd_pelamar').get();
+    pSnap.forEach(d => {
+       if (d.data().nama) {
+          opts += '<option value="' + d.data().nama + '"></option>';
+       }
+    });
+  } catch(e) { console.warn(e); }
+  opts += '</datalist>';
+  return opts;
+}
+
 async function loadLowonganOptions() {
   try {
     const snap = await db.collection('hrd_lowongan').where('status', '==', 'open').get();

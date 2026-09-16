@@ -111,10 +111,10 @@ async function fetchPelamarOptions() {
     const pSnap = await db.collection('hrd_pelamar').get();
     pSnap.forEach(d => {
        if (d.data().nama) {
-          opts += '<option value="' + d.data().nama + '">';
+          opts += '<option value="' + d.data().nama + '"></option>';
        }
     });
-  } catch(e) {}
+  } catch(e) { console.warn(e); }
   opts += '</datalist>';
   return opts;
 }
