@@ -1365,7 +1365,7 @@ async function checkHoliday(dateStr) {
 async function renderPenalty() {
   const main = document.getElementById("mainContent");
   const isBOD = currentUser.role === "bod";
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}⚠️ Penalty Point</span><div class="flex gap-8">${hasAccess(4) && !isBOD ? '<button class="btn btn-success btn-sm" onclick="generateAutoKPI()">📊 Auto-Nilai KPI</button> <button class="btn btn-info btn-sm" onclick="syncPenaltyToKPI()">🔄 Sinkronisasi ke KPI</button>' : ""}${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalPenalty()">+ Tambah</button>' : ""}</div></div>
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}⚠️ Penalty Point</span><div class="flex gap-8">${hasAccess(4) && !isBOD ? '<button class="btn btn-success btn-sm" onclick="generateAutoKPI()">📊 Auto-Nilai & Sinkron KPI</button>' : ""}${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalPenalty()">+ Tambah</button>' : ""}</div></div>
     <div class="card mb-16"><div class="card-title mb-8">📊 Ringkasan Poin per Karyawan</div><div id="penaltySummary">Loading...</div></div>
     <div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tanggal</th><th>Jenis</th><th>Poin</th><th>Keterangan</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblPenalty"></tbody></table></div></div>`;
   const [penSnap, karyawanSnap] = await Promise.all([
