@@ -102,6 +102,24 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchPelamarOptions().then(html => {
     const cont = document.getElementById('dlContainer');
     if(cont) cont.innerHTML = html;
+    const sel = document.getElementById('fNama');
+    if (sel) {
+      sel.addEventListener('change', async (e) => {
+        const selectedName = e.target.value;
+        if (!selectedName) return;
+        try {
+          const snap = await db.collection('hrd_pelamar').where('nama', '==', selectedName).limit(1).get();
+          if (!snap.empty) {
+            const p = snap.docs[0].data();
+            document.getElementById('fPosisi').value = p.posisi || '';
+            document.getElementById('fUsia').value = p.usia || '';
+            document.getElementById('fGender').value = p.jenisKelamin || '';
+            document.getElementById('fKontak').value = p.email || p.telepon || '';
+            testState.pelamarId = snap.docs[0].id;
+          }
+        } catch(err) {}
+      });
+    }
   });
 });
 

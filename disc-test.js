@@ -819,6 +819,36 @@ function renderCalonForm() {
   fetchPelamarOptions().then(html => {
     const cont = document.getElementById('dlContainer');
     if(cont) cont.innerHTML = html;
+    const sel = document.getElementById('fNama');
+    if (sel) {
+      sel.addEventListener('change', async (e) => {
+        const selectedName = e.target.value;
+        if (!selectedName) return;
+        try {
+          const snap = await db.collection('hrd_pelamar').where('nama', '==', selectedName).limit(1).get();
+          if (!snap.empty) {
+            const p = snap.docs[0].data();
+            const posSel = document.getElementById('fPosisi');
+            if (posSel && p.posisi) {
+              const matchOpt = Array.from(posSel.options).find(o => o.value === p.posisi || o.value.includes(p.posisi));
+              if (matchOpt) {
+                posSel.value = matchOpt.value;
+              } else {
+                const opt = document.createElement('option');
+                opt.value = p.posisi;
+                opt.textContent = p.posisi;
+                opt.selected = true;
+                posSel.appendChild(opt);
+              }
+            }
+            if (document.getElementById('fUsia')) document.getElementById('fUsia').value = p.usia || '';
+            if (document.getElementById('fGender')) document.getElementById('fGender').value = p.jenisKelamin || '';
+            if (document.getElementById('fKontak')) document.getElementById('fKontak').value = p.email || p.telepon || '';
+            testState.pelamarId = snap.docs[0].id;
+          }
+        } catch(err) {}
+      });
+    }
   });
 }
 async function fetchPelamarOptions() {

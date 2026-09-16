@@ -426,7 +426,7 @@ function renderForm(docId, data) {
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
   h += '<div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Nama Calon Karyawan</label>';
   if ((data.nama || du.nama) && window._currentPelamarId) {
-     h += '<input id="tkfNama" readonly style="background:#f5f5f5;width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" value="' + escHtml(du.nama || data.nama || '') + '">';
+     h += '<input id="tkfNama" list="pelamarList" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" value="' + escHtml(du.nama || data.nama || '') + '">';
   } else {
      h += '<input id="tkfNama" list="pelamarList" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" value="' + escHtml(du.nama || data.nama || '') + '" placeholder="Ketik manual atau pilih dari daftar...">';
      h += '<datalist id="pelamarList">';
@@ -1036,6 +1036,24 @@ document.addEventListener('DOMContentLoaded', async function () {
     } catch(e) { console.warn('Failed to load pelamar for public form:', e); }
 
     renderForm(docId, data);
+
+    var sel = document.getElementById('tkfNama');
+    if (sel) {
+      sel.addEventListener('change', async (e) => {
+        var selectedName = e.target.value;
+        if (!selectedName) return;
+        try {
+          var snap = await db.collection('hrd_pelamar').where('nama', '==', selectedName).limit(1).get();
+          if (!snap.empty) {
+            var p = snap.docs[0].data();
+            if (document.getElementById('tkfUsia')) document.getElementById('tkfUsia').value = p.usia || '';
+            if (document.getElementById('tkfGender')) document.getElementById('tkfGender').value = p.jenisKelamin || '';
+            if (document.getElementById('tkfGolDarah') && p.golDarah) document.getElementById('tkfGolDarah').value = p.golDarah;
+            window._currentPelamarId = snap.docs[0].id;
+          }
+        } catch(err) {}
+      });
+    }
   } catch (e) {
     renderError('Terjadi kesalahan: ' + e.message);
   }
