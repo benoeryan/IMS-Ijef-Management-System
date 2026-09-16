@@ -432,7 +432,7 @@ function renderForm(docId, data) {
      h += '<datalist id="pelamarList">';
      if (window._pelamarList) {
         window._pelamarList.forEach(p => {
-           h += '<option value="' + escHtml(p.nama) + '">';
+           h += '<option value="' + escHtml(p.nama) + '"></option>';
         });
      }
      h += '</datalist>';
@@ -942,15 +942,6 @@ async function submitTestKesehatan(docId) {
 
 // == INIT ON PAGE LOAD ==
 document.addEventListener('DOMContentLoaded', async function () {
-  window._pelamarList = [];
-  try {
-    const pSnap = await db.collection('hrd_pelamar').get();
-    pSnap.forEach(d => {
-       const p = d.data();
-       if (p.nama) window._pelamarList.push({ id: d.id, nama: p.nama, posisi: p.posisi || '' });
-    });
-  } catch(e) { console.warn('Failed to load pelamar for public form:', e); }
-
   var params = new URLSearchParams(window.location.search);
   var docId = params.get('id');
   var pelamarId = params.get('pelamarId') || sessionStorage.getItem('pelamar_id');
@@ -1034,6 +1025,15 @@ document.addEventListener('DOMContentLoaded', async function () {
         console.warn('Auto fill candidate info failed:', pEx);
       }
     }
+
+    window._pelamarList = [];
+    try {
+      const pSnap = await db.collection('hrd_pelamar').get();
+      pSnap.forEach(d => {
+         const p = d.data();
+         if (p.nama) window._pelamarList.push({ id: d.id, nama: p.nama, posisi: p.posisi || '' });
+      });
+    } catch(e) { console.warn('Failed to load pelamar for public form:', e); }
 
     renderForm(docId, data);
   } catch (e) {
