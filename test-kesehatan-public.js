@@ -425,10 +425,17 @@ function renderForm(docId, data) {
     '<p style="margin:0 0 14px;font-size:.8rem;color:#666;font-style:italic">Isi data diri dasar. Tinggi badan dalam satuan cm, berat badan dalam kg. BMI akan terhitung otomatis.</p>';
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
   h += '<div><label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:4px">Nama Calon Karyawan</label>';
-  if (data.nama || du.nama) {
+  if ((data.nama || du.nama) && window._currentPelamarId) {
      h += '<input id="tkfNama" readonly style="background:#f5f5f5;width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" value="' + escHtml(du.nama || data.nama || '') + '">';
   } else {
-     h += '<input id="tkfNama" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" value="" placeholder="Ketik nama lengkap Anda...">';
+     h += '<input id="tkfNama" list="pelamarList" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:.85rem" value="' + escHtml(du.nama || data.nama || '') + '" placeholder="Ketik manual atau pilih dari daftar...">';
+     h += '<datalist id="pelamarList">';
+     if (window._pelamarList) {
+        window._pelamarList.forEach(p => {
+           h += '<option value="' + escHtml(p.nama) + '">';
+        });
+     }
+     h += '</datalist>';
   }
   h += '</div>';
   h +=
@@ -935,6 +942,15 @@ async function submitTestKesehatan(docId) {
 
 // == INIT ON PAGE LOAD ==
 document.addEventListener('DOMContentLoaded', async function () {
+  window._pelamarList = [];
+  try {
+    const pSnap = await db.collection('hrd_pelamar').get();
+    pSnap.forEach(d => {
+       const p = d.data();
+       if (p.nama) window._pelamarList.push({ id: d.id, nama: p.nama, posisi: p.posisi || '' });
+    });
+  } catch(e) { console.warn('Failed to load pelamar for public form:', e); }
+
   var params = new URLSearchParams(window.location.search);
   var docId = params.get('id');
   var pelamarId = params.get('pelamarId') || sessionStorage.getItem('pelamar_id');
