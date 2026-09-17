@@ -1638,6 +1638,7 @@ async function simpanInsentifSiswa() {
     nominalPerSiswa: rate,
     nominal: jml * rate,
     periode: document.getElementById('insSiswaPeriode').value,
+    keterangan: document.getElementById('insSiswaKet') ? document.getElementById('insSiswaKet').value : '',
     status: 'approved',
     createdAt: new Date().toISOString(),
   });
@@ -1735,8 +1736,12 @@ function viewInsentifDetail(id) {
     .get()
     .then((d) => {
       const p = d.data();
-      openModal(`<div class="modal-title">🏆 Detail Insentif</div>
-      <div class="grid-2 mb-16"><div><b>Nama:</b> ${escHtml(p.nama)}</div><div><b>Departemen:</b> ${escHtml(p.departemen || '-')}</div><div><b>Jenis:</b> ${escHtml(p.jenis || 'KPI')}</div><div><b>Periode:</b> ${escHtml(p.periode || '-')}</div><div><b>Nominal:</b> <span class="fw-700">${formatCurrency(p.nominal || 0)}</span></div>${p.jenis === 'KPI' ? `<div><b>KPI Score:</b> ${p.kpiScore || 0} (${p.persen || 0}%)</div>` : `<div><b>Siswa:</b> ${p.jumlahSiswa || 0} × ${formatCurrency(p.nominalPerSiswa || 0)}</div>`}</div>`);
+      let detailsHtml = `<div class="modal-title">🏆 Detail Insentif</div>
+      <div class="grid-2 mb-16"><div><b>Nama:</b> ${escHtml(p.nama)}</div><div><b>Departemen:</b> ${escHtml(p.departemen || '-')}</div><div><b>Jenis:</b> ${escHtml(p.jenis || 'KPI')}</div><div><b>Periode:</b> ${escHtml(p.periode || '-')}</div><div><b>Nominal:</b> <span class="fw-700">${formatCurrency(p.nominal || 0)}</span></div>${p.jenis === 'KPI' ? `<div><b>KPI Score:</b> ${p.kpiScore || 0} (${p.persen || 0}%)</div>` : `<div><b>Siswa:</b> ${p.jumlahSiswa || 0} × ${formatCurrency(p.nominalPerSiswa || 0)}</div>`}</div>`;
+      if (p.keterangan) {
+        detailsHtml += `<div style="margin-top:-8px;margin-bottom:16px;background:#f5f5f5;padding:12px;border-radius:6px;font-size:.85rem"><b>Keterangan:</b> <br>${escHtml(p.keterangan)}</div>`;
+      }
+      openModal(detailsHtml);
     });
 }
 async function editInsentif(id) {
