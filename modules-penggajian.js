@@ -1747,20 +1747,57 @@ function viewInsentifDetail(id) {
 async function editInsentif(id) {
   const d = await db.collection('hrd_insentif').doc(id).get();
   const p = d.data();
-  openModal(`<div class="modal-title">✏️ Edit Insentif</div>
-    <div class="grid-2"><div class="form-group"><label>Nama</label><input class="form-control" id="eiNama" value="${escHtml(p.nama || '')}"></div><div class="form-group"><label>Nominal</label><input class="form-control" type="number" id="eiNominal" value="${p.nominal || 0}"></div></div>
-    <div class="form-group"><label>Periode</label><input class="form-control" id="eiPeriode" value="${escHtml(p.periode || '')}"></div>
-    <button class="btn btn-primary" onclick="simpanEditInsentif('${id}')">💾 Simpan</button>`);
+
+  if (p.jenis === 'Target Siswa') {
+    openModal(`<div class="modal-title">✏️ Edit Insentif Target Siswa</div>
+      <div class="grid-2">
+        <div class="form-group"><label>Nama</label><input class="form-control" id="eiNama" value="${escHtml(p.nama || '')}" readonly style="background:#f5f5f5;cursor:not-allowed"></div>
+        <div class="form-group"><label>Periode</label><input class="form-control" id="eiPeriode" value="${escHtml(p.periode || '')}"></div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label>Jumlah Siswa Diterima</label><input class="form-control" type="number" id="eiSiswaJml" value="${p.jumlahSiswa || 0}" oninput="calcEditInsentifSiswa()"></div>
+        <div class="form-group"><label>Nominal per Siswa (Rp)</label><input class="form-control" type="number" id="eiSiswaRate" value="${p.nominalPerSiswa || 0}" oninput="calcEditInsentifSiswa()"></div>
+      </div>
+      <div class="form-group">
+        <label>Total Nominal</label>
+        <input class="form-control" id="eiNominalTampil" readonly style="font-weight:700;font-size:1rem;color:var(--success)" value="${formatCurrency(p.nominal || 0)}">
+        <input type="hidden" id="eiNominal" value="${p.nominal || 0}">
+      </div>
+      <div class="form-group"><label>Keterangan</label><input class="form-control" id="eiKet" value="${escHtml(p.keterangan || '')}"></div>
+      <button class="btn btn-primary" onclick="simpanEditInsentif('${id}', 'Target Siswa')">💾 Simpan</button>`);
+
+    window.calcEditInsentifSiswa = function() {
+      const jml = Number(document.getElementById('eiSiswaJml').value) || 0;
+      const rate = Number(document.getElementById('eiSiswaRate').value) || 0;
+      document.getElementById('eiNominal').value = jml * rate;
+      document.getElementById('eiNominalTampil').value = formatCurrency(jml * rate);
+    };
+  } else {
+    // KPI or generic
+    openModal(`<div class="modal-title">✏️ Edit Insentif KPI</div>
+      <div class="grid-2">
+        <div class="form-group"><label>Nama</label><input class="form-control" id="eiNama" value="${escHtml(p.nama || '')}" readonly style="background:#f5f5f5;cursor:not-allowed"></div>
+        <div class="form-group"><label>Nominal</label><input class="form-control" type="number" id="eiNominal" value="${p.nominal || 0}"></div>
+      </div>
+      <div class="form-group"><label>Periode</label><input class="form-control" id="eiPeriode" value="${escHtml(p.periode || '')}"></div>
+      <div class="form-group"><label>Keterangan</label><input class="form-control" id="eiKet" value="${escHtml(p.keterangan || '')}"></div>
+      <button class="btn btn-primary" onclick="simpanEditInsentif('${id}', 'KPI')">💾 Simpan</button>`);
+  }
 }
-async function simpanEditInsentif(id) {
-  await db
-    .collection('hrd_insentif')
-    .doc(id)
-    .update({
+async function simpanEditInsentif(id, jenis) {
+  let updateData = {
       nominal: Number(document.getElementById('eiNominal').value) || 0,
       periode: document.getElementById('eiPeriode').value,
-      updatedAt: new Date().toISOString(),
-    });
+      keterangan: document.getElementById('eiKet') ? document.getElementById('eiKet').value : '',
+      updatedAt: new Date().toISOString()
+  };
+
+  if (jenis === 'Target Siswa') {
+      updateData.jumlahSiswa = Number(document.getElementById('eiSiswaJml').value) || 0;
+      updateData.nominalPerSiswa = Number(document.getElementById('eiSiswaRate').value) || 0;
+  }
+
+  await db.collection('hrd_insentif').doc(id).update(updateData);
   closeModalDirect();
   toast('Insentif diupdate', 'success');
   renderInsentif();
