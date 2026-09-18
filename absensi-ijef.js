@@ -2356,10 +2356,10 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
     const cutiMap = {};
     cutiSnap.forEach((d) => {
       const c = d.data();
-      if (c.status !== 'approved') return;
+      if (c.status !== 'approved' && c.status !== 'disetujui') return;
       if (!c.mulai || !c.selesai) return;
-      const uids = [c.userId, (c.nama || '').toLowerCase().trim()].filter(Boolean);
-      // Helper to parse potential formatted dates like "17 Sep 2026"
+      const nm = (c.nama || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const uids = [c.userId, (c.nama || '').toLowerCase().trim(), nm].filter(Boolean);
       const parseDateSafe = (dStr) => {
          if (!dStr) return new Date();
          if (dStr.includes('-') && dStr.length === 10) return new Date(dStr + 'T12:00:00');
@@ -2490,9 +2490,10 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
       const namaLow = (u.nama || '').toLowerCase().trim();
       const userAbsen = { ...(absenMap[u.id] || {}), ...(absenMap[namaLow] || {}) };
       const userJamKerja = { ...(jamKerjaMap[u.id] || {}), ...(jamKerjaMap[namaLow] || {}) };
-      const userLemburMap2 = { ...(lemburMap[u.id] || {}), ...(lemburMap[namaLow] || {}) };
-      const userCuti = { ...(cutiMap[u.id] || {}), ...(cutiMap[namaLow] || {}) };
-      const userDinas = { ...(dinasLuarMap[u.id] || {}), ...(dinasLuarMap[namaLow] || {}) };
+      const nmKey = namaLow.replace(/[^a-z0-9]/g, '');
+      const userLemburMap2 = { ...(lemburMap[u.id] || {}), ...(lemburMap[namaLow] || {}), ...(lemburMap[nmKey] || {}) };
+      const userCuti = { ...(cutiMap[u.id] || {}), ...(cutiMap[namaLow] || {}), ...(cutiMap[nmKey] || {}) };
+      const userDinas = { ...(dinasLuarMap[u.id] || {}), ...(dinasLuarMap[namaLow] || {}), ...(dinasLuarMap[nmKey] || {}) };
       const userDinasKet = { ...(dinasAbsenKetMap[u.id] || {}), ...(dinasAbsenKetMap[namaLow] || {}) };
       const userOT = { ...(otMap[u.id] || {}), ...(otMap[namaLow] || {}) };
 
