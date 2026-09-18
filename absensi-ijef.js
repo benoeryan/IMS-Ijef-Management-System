@@ -2356,7 +2356,7 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
     const cutiMap = {};
     cutiSnap.forEach((d) => {
       const c = d.data();
-      if (c.status !== 'approved' && !c.approvedAt) return;
+      if (c.status !== 'approved') return;
       if (!c.mulai || !c.selesai) return;
       const uids = [c.userId, (c.nama || '').toLowerCase().trim()].filter(Boolean);
       const start = new Date(c.mulai + 'T00:00:00');
