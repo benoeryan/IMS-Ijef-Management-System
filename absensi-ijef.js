@@ -2362,15 +2362,38 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
       // Helper to parse potential formatted dates like "17 Sep 2026"
       const parseDateSafe = (dStr) => {
          if (!dStr) return new Date();
-         if (dStr.includes('-') && dStr.length === 10) return new Date(dStr + 'T00:00:00');
+         if (dStr.includes('-') && dStr.length === 10) return new Date(dStr + 'T12:00:00');
+
+         const months = {'jan':0, 'feb':1, 'mar':2, 'apr':3, 'mei':4, 'may':4, 'jun':5, 'jul':6, 'agu':7, 'aug':7, 'sep':8, 'okt':9, 'oct':9, 'nov':10, 'des':11, 'dec':11};
+         const parts = dStr.trim().split(/\s+/);
+         if (parts.length >= 3) {
+            const day = parseInt(parts[0]);
+            const monthStr = parts[1].toLowerCase().substring(0, 3);
+            const year = parseInt(parts[2]);
+            if (!isNaN(day) && !isNaN(year) && months[monthStr] !== undefined) {
+               return new Date(year, months[monthStr], day, 12, 0, 0);
+            }
+         }
+
          const dateObj = new Date(dStr);
-         if (!isNaN(dateObj)) return dateObj;
-         return new Date(dStr + 'T00:00:00'); // Fallback
+         if (!isNaN(dateObj)) return new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 12, 0, 0);
+
+         if (dStr.includes('/')) {
+            const p = dStr.split('/');
+            if (p.length === 3) {
+               return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]), 12, 0, 0);
+            }
+         }
+
+         return new Date(dStr + 'T12:00:00'); // Fallback
       };
 
       const start = parseDateSafe(c.mulai);
       const end = parseDateSafe(c.selesai);
-      for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+      // Add 12 hours buffer to avoid midnight timezone jumps
+      const endD = new Date(end);
+      endD.setHours(23, 59, 59);
+      for (let dt = new Date(start); dt <= endD; dt.setDate(dt.getDate() + 1)) {
         const ds = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
         if (ds >= startDate && ds <= endDate) {
           uids.forEach(uid => {
