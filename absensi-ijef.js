@@ -2359,8 +2359,17 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
       if (c.status !== 'approved') return;
       if (!c.mulai || !c.selesai) return;
       const uids = [c.userId, (c.nama || '').toLowerCase().trim()].filter(Boolean);
-      const start = new Date(c.mulai + 'T00:00:00');
-      const end = new Date(c.selesai + 'T00:00:00');
+      // Helper to parse potential formatted dates like "17 Sep 2026"
+      const parseDateSafe = (dStr) => {
+         if (!dStr) return new Date();
+         if (dStr.includes('-') && dStr.length === 10) return new Date(dStr + 'T00:00:00');
+         const dateObj = new Date(dStr);
+         if (!isNaN(dateObj)) return dateObj;
+         return new Date(dStr + 'T00:00:00'); // Fallback
+      };
+
+      const start = parseDateSafe(c.mulai);
+      const end = parseDateSafe(c.selesai);
       for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
         const ds = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
         if (ds >= startDate && ds <= endDate) {
@@ -2491,8 +2500,9 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
         let color = '#eee', text = '-', title = '';
 
         if (cutiStatus) {
+            const cutiKey = Object.keys({'WFH':1, 'Cuti Sakit':1, 'Izin Pribadi':1, 'Cuti Melahirkan':1}).find(k => cutiStatus.toLowerCase().includes(k.toLowerCase()));
             const cTypes = {'WFH':['#009688','W','WFH'], 'Cuti Sakit':['#e91e63','S','Cuti Sakit'], 'Izin Pribadi':['#ffc107','I','Izin Pribadi'], 'Cuti Melahirkan':['#9c27b0','M','Cuti Melahirkan']};
-            const ct = cTypes[cutiStatus] || ['#00bcd4','C',cutiStatus];
+            const ct = cTypes[cutiKey] || ['#00bcd4','C',cutiStatus];
             color = ct[0]; text = ct[1]; title = ` title="${ct[2]}"`;
             if (!isWeekend && !isLibur) ut++;
         } else if (isDinas) {
