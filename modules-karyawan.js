@@ -9,7 +9,10 @@ async function renderDashboard() {
   if (!main) return;
 
   main.innerHTML =
-    `<div class="page-title"><span>${renderBackButton()}🏠 Beranda</span></div><div class="stats-grid" id="dashStats">Loading...</div><div class="grid-2" id="dashWidgets"></div>`;
+    `<div class="page-title"><span>${renderBackButton()}🏠 Beranda</span></div>
+    <div id="portalBirthdaySection"></div>
+    <div class="stats-grid" id="dashStats">Loading...</div>
+    <div class="grid-2" id="dashWidgets"></div>`;
 
   const [karyawan, cuti, pengumuman, overtime, reimburse, dinas] = await Promise.all([
     db.collection('hrd_karyawan').where('status', '==', 'aktif').get(),
@@ -166,6 +169,11 @@ async function renderDashboard() {
 
   if (isBOD) {
     loadDashBodTasks();
+  }
+
+  // Load birthday reminders for Admin/BOD/Head
+  if (typeof loadBirthdayReminders === 'function') {
+      loadBirthdayReminders().catch(() => {});
   }
 }
 
