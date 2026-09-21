@@ -138,7 +138,7 @@ async function renderCuti() {
       const isMyTurn = isAdmin || currentApprover === myName;
 
       const canApprove = isPending && hasAccess(3) && isMyTurn;
-      const canEdit = (p.userId === currentUser.id || hasAccess(6)) && isPending;
+      const canEdit = (p.userId === currentUser.id && isPending) || hasAccess(6);
       const pendingInfo = pendingApproverHtml(
         flows,
         p,
@@ -561,9 +561,13 @@ async function viewCutiDetail(id) {
           <button class="btn btn-success" onclick="approveItem('hrd_cuti','${id}','approved')">✅ Setujui</button>`;
     }
 
-    if (p.userId === currentUser.id || hasAccess(6)) {
+    if (p.userId === currentUser.id) {
       editBtn = `<button class="btn btn-warning" onclick="modalEditCuti('${id}')">✏️ Edit Pengajuan</button>`;
     }
+  }
+
+  if (hasAccess(6)) {
+      editBtn = `<button class="btn btn-warning" onclick="modalEditCuti('${id}')">✏️ Edit Pengajuan (Admin)</button>`;
   }
 
   if (isPending) {
