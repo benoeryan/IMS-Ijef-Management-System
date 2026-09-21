@@ -2388,9 +2388,15 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
          return new Date(dStr + 'T12:00:00'); // Fallback
       };
 
-      const start = parseDateSafe(c.mulai);
-      const end = parseDateSafe(c.selesai);
-      // Add 12 hours buffer to avoid midnight timezone jumps
+      let start = parseDateSafe(c.mulai);
+      let end = parseDateSafe(c.selesai);
+
+      if (start > end) {
+         const temp = start;
+         start = end;
+         end = temp;
+      }
+
       const endD = new Date(end);
       endD.setHours(23, 59, 59);
       for (let dt = new Date(start); dt <= endD; dt.setDate(dt.getDate() + 1)) {
