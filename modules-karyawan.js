@@ -10,7 +10,6 @@ async function renderDashboard() {
 
   main.innerHTML =
     `<div class="page-title"><span>${renderBackButton()}🏠 Beranda</span></div>
-    <div id="portalBirthdaySection"></div>
     <div class="stats-grid" id="dashStats">Loading...</div>
     <div class="grid-2" id="dashWidgets"></div>`;
 
@@ -110,6 +109,9 @@ async function renderDashboard() {
     });
   }
   widgetLeft += '</div>';
+
+  // 4. Birthday Reminder (Moved here)
+  widgetLeft += '<div id="portalBirthdaySection"></div>';
 
   // --- RIGHT WIDGETS ---
   let widgetRight = '';
