@@ -2333,6 +2333,8 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
       hariLiburSnap,
       dinasLuarSnap,
       sppdSnap,
+      kpiSnap,
+      pelatihanSnap,
     ] = await Promise.all([
       db.collection('hrd_karyawan').where('status', '==', 'aktif').get(),
       db.collection('hrd_absensi').get(),
@@ -2342,6 +2344,8 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
       db.collection('hrd_hari_libur').get(),
       db.collection('hrd_dinas_luar').get().catch(() => ({ forEach: () => {} })),
       db.collection('hrd_perjalanan_dinas').get().catch(() => ({ forEach: () => {} })),
+      db.collection('hrd_kpi').where('periode', '==', bulan).get(),
+      db.collection('hrd_pelatihan').where('status', '==', 'selesai').get(),
     ]);
 
     const sett = settDoc.exists ? settDoc.data() : {};
@@ -2443,6 +2447,23 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
     dinasLuarSnap.forEach(processDinas);
     sppdSnap.forEach(processDinas);
 
+    const kpiMap = {};
+    kpiSnap.forEach(d => {
+      const p = d.data();
+      kpiMap[(p.nama || "").toLowerCase().trim()] = p.skor || p.skorMurni || 0;
+    });
+
+    const trainingMap = {};
+    pelatihanSnap.forEach(d => {
+      const p = d.data();
+      if (p.tanggal && p.tanggal.startsWith(bulan)) {
+        (p.peserta || []).forEach(nama => {
+          const n = (nama || "").toLowerCase().trim();
+          trainingMap[n] = (trainingMap[n] || 0) + 1;
+        });
+      }
+    });
+
     const users = [];
     usersSnap.forEach((d) => users.push({ id: d.id, ...d.data() }));
     const filteredUsers = (!hasAccess(3)) ? users.filter(u => u.nama?.toLowerCase() === currentUser.nama?.toLowerCase() || u.id === currentUser.id) : users;
@@ -2488,7 +2509,7 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
         const hdrStyle = isWknd || liburSet.has(ds) ? 'background:#9e9e9e;color:#fff;' : '';
         h += `<th style="width:28px;text-align:center;font-size:.65rem;${hdrStyle}">${day}</th>`;
     });
-    h += '<th>Total</th><th>Lembur</th><th>Aksi</th></tr></thead><tbody>';
+    h += '<th>Total</th><th>Lembur</th><th>KPI</th><th>🎓</th><th>Aksi</th></tr></thead><tbody>';
 
     let totalH = 0, totalT = 0, totalD = 0, totalK = 0, totalL = 0, totalLembur = 0, totalLemburJam = 0;
 
@@ -2571,6 +2592,10 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
 
       h += `<td class="fw-700 text-center">${ut}</td>`;
       h += `<td class="fw-700 text-center" style="color:#7b1fa2">${userLemburJamTotal > 0 ? userLemburJamTotal.toFixed(1) + 'j' : '-'}</td>`;
+      const kpiScore = kpiMap[namaLow] || '-';
+      const trainCount = trainingMap[namaLow] || '-';
+      h += `<td class="text-center fw-700">${kpiScore}</td>`;
+      h += `<td class="text-center fw-700" title="Pelatihan selesai bulan ini">${trainCount}</td>`;
       h += `<td>${hasAccess(6) ? `<button class="btn btn-xs btn-info" onclick="editAbsenKaryawan('${u.id}','${(u.nama || '').replace(/'/g, "\\'")}','${bulan}')">✏️</button>` : ''}</td></tr>`;
     });
     h += '</tbody></table></div>';

@@ -337,7 +337,7 @@ async function hitungKPIIntegrasi(nama, periode) {
 async function renderKPI() {
   const main = document.getElementById("mainContent");
   const isBOD = currentUser.role === "bod";
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📈 KPI & Penilaian</span>${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalKPI()">+ Tambah</button>' : '<button class="btn btn-primary btn-sm" onclick="modalKPI()">+ Nilai HEAD</button>'}</div><div style="margin-bottom:12px">${!isBOD ? '<button type="button" class="btn btn-sm btn-info" onclick="document.getElementById(\'kpiInfoPanelAdmin\').style.display=document.getElementById(\'kpiInfoPanelAdmin\').style.display===\'none\'?\'block\':\'none\'">ℹ️ Info Formula KPI</button> <button type="button" class="btn btn-sm btn-success" onclick="generateAutoKPI()">📊 Auto-Nilai & Sinkron KPI</button>' : ""}<div id="kpiInfoPanelAdmin" style="display:none;margin-top:12px;padding:12px;background:#f9f9f9;border-radius:8px;font-size:.82rem;line-height:1.6"><strong>Metode Penilaian Terintegrasi:</strong><br>• Sumber data: Jobdesk, Absensi, <b>Daily Task (completion)</b>, <b>Daily Report (consistency)</b>, Penalty, dan DISC<br>• Nilai komponen dibentuk dari data terintegrasi lalu bisa disesuaikan penilai<br>• Skor Murni = Rata-rata Produktivitas, Kualitas, Kedisiplinan, Kerjasama<br>• Setiap 1 penalty point mengurangi skor akhir sebesar 2 poin<br>• <strong>Skor Akhir = Skor Murni - (Total Penalty x 2)</strong><br><br><strong>Grade:</strong> A (≥90) | B (≥80) | C (≥70) | D (≥60) | E (&lt;60)</div></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Periode</th><th>Skor Murni</th><th>Penalty</th><th>Skor Akhir</th><th>Grade</th><th>Penilai</th>${!isBOD ? "<th>Aksi</th>" : ""}</tr></thead><tbody id="tblKPI"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📈 KPI & Penilaian</span>${!isBOD ? '<button class="btn btn-primary btn-sm" onclick="modalKPI()">+ Tambah</button>' : '<button class="btn btn-primary btn-sm" onclick="modalKPI()">+ Nilai HEAD</button>'}</div><div style="margin-bottom:12px">${!isBOD ? '<button type="button" class="btn btn-sm btn-info" onclick="document.getElementById(\'kpiInfoPanelAdmin\').style.display=document.getElementById(\'kpiInfoPanelAdmin\').style.display===\'none\'?\'block\':\'none\'">ℹ️ Info Formula KPI</button> <button type="button" class="btn btn-sm btn-success" onclick="generateAutoKPI()">📊 Auto-Nilai & Sinkron KPI</button> <button type="button" class="btn btn-sm btn-info" onclick="renderKpiTrainingReport()">📊 Laporan Kumulatif</button>' : ""}<div id="kpiInfoPanelAdmin" style="display:none;margin-top:12px;padding:12px;background:#f9f9f9;border-radius:8px;font-size:.82rem;line-height:1.6"><strong>Metode Penilaian Terintegrasi:</strong><br>• Sumber data: Jobdesk, Absensi, <b>Daily Task (completion)</b>, <b>Daily Report (consistency)</b>, Penalty, dan DISC<br>• Nilai komponen dibentuk dari data terintegrasi lalu bisa disesuaikan penilai<br>• Skor Murni = Rata-rata Produktivitas, Kualitas, Kedisiplinan, Kerjasama<br>• Setiap 1 penalty point mengurangi skor akhir sebesar 2 poin<br>• <strong>Skor Akhir = Skor Murni - (Total Penalty x 2)</strong><br><br><strong>Grade:</strong> A (≥90) | B (≥80) | C (≥70) | D (≥60) | E (&lt;60)</div></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Periode</th><th>Skor Murni</th><th>Penalty</th><th>Skor Akhir</th><th>Grade</th><th>Penilai</th>${!isBOD ? "<th>Aksi</th>" : ""}</tr></thead><tbody id="tblKPI"></tbody></table></div></div>`;
   const [snap, penSnap, karySnap] = await Promise.all([
     db.collection("hrd_kpi").get(),
     db.collection("hrd_penalty").get(),
@@ -4459,4 +4459,153 @@ function renderPanduan() {
   main.innerHTML = `<div class="page-title"><span>📖 Panduan Penggunaan Sistem</span></div>
     <div class="card mb-16" style="background:#f9f9f9;border:none"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:2rem">👋</div><div><div class="fw-700">Halo, ${escHtml(currentUser.nama)}!</div><div class="text-sm" style="color:#555">Role Anda: <b>${role.toUpperCase()}</b> | Departemen: <b>${escHtml(currentUser.departemen || "-")}</b></div><div class="text-xs" style="color:#999;margin-top:4px">Panduan di bawah disesuaikan dengan level akses Anda.</div></div></div></div>
     ${content}`;
+}
+
+// == KPI & TRAINING REPORT =====================================
+async function renderKpiTrainingReport() {
+  const main = document.getElementById("mainContent");
+  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📊 Laporan Kumulatif KPI & Pelatihan</span></div>
+    <div class="card mb-16">
+        <div class="flex gap-12 flex-wrap align-center">
+            <div class="form-group mb-0">
+                <label class="text-xs">Tahun</label>
+                <select class="form-control" id="rptKpiYear" onchange="loadKpiTrainingReport()" style="width:100px">
+                    ${[2024, 2025, 2026, 2027].map(y => `<option value="${y}" ${y === new Date().getFullYear() ? 'selected' : ''}>${y}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group mb-0">
+                <label class="text-xs">Departemen</label>
+                <select class="form-control" id="rptKpiDept" onchange="loadKpiTrainingReport()" style="width:160px">
+                    <option value="">Semua Dept</option>
+                </select>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="loadKpiTrainingReport()" style="align-self:flex-end">🔄 Refresh</button>
+        </div>
+    </div>
+    <div class="card mb-16">
+        <div class="card-title mb-12">📅 Histori Bulanan (KPI / 🎓)</div>
+        <div class="table-wrap">
+            <table id="tblKpiMonthly"><thead><tr><th>Karyawan</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>Mei</th><th>Jun</th><th>Jul</th><th>Agu</th><th>Sep</th><th>Okt</th><th>Nov</th><th>Des</th></tr></thead><tbody id="bodyKpiMonthly"></tbody></table>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-title mb-12">🏆 Kumulatif Tahunan</div>
+        <div class="table-wrap">
+            <table id="tblKpiYearly"><thead><tr><th>Karyawan</th><th>Departemen</th><th>Rata-rata KPI</th><th>Total Pelatihan</th><th>Grade Tahunan</th></tr></thead><tbody id="bodyKpiYearly"></tbody></table>
+        </div>
+    </div>`;
+
+  const deptsSnap = await db.collection("hrd_departemen").get();
+  let dOpts = '<option value="">Semua Dept</option>';
+  deptsSnap.forEach(d => {
+      dOpts += `<option value="${d.data().nama}">${d.data().nama}</option>`;
+  });
+  const deptEl = document.getElementById('rptKpiDept');
+  if (deptEl) deptEl.innerHTML = dOpts;
+
+  await loadKpiTrainingReport();
+}
+
+async function loadKpiTrainingReport() {
+    const year = document.getElementById('rptKpiYear').value;
+    const deptFilter = document.getElementById('rptKpiDept').value;
+    const bodyMonthly = document.getElementById('bodyKpiMonthly');
+    const bodyYearly = document.getElementById('bodyKpiYearly');
+    
+    if (!bodyMonthly || !bodyYearly) return;
+
+    bodyMonthly.innerHTML = '<tr><td colspan="13" class="text-center">Loading...</td></tr>';
+    bodyYearly.innerHTML = '<tr><td colspan="5" class="text-center">Loading...</td></tr>';
+
+    try {
+        const [karySnap, kpiSnap, pelSnap] = await Promise.all([
+            db.collection("hrd_karyawan").where("status", "==", "aktif").get(),
+            db.collection("hrd_kpi").get(),
+            db.collection("hrd_pelatihan").where("status", "==", "selesai").get()
+        ]);
+
+        const employees = [];
+        karySnap.forEach(d => {
+            const k = d.data();
+            if (!deptFilter || k.departemen === deptFilter) {
+                employees.push({ id: d.id, ...k });
+            }
+        });
+        employees.sort((a, b) => (a.nama || "").localeCompare(b.nama || ""));
+
+        const kpiData = {}; // name -> { month -> score }
+        kpiSnap.forEach(d => {
+            const p = d.data();
+            if (p.periode && p.periode.startsWith(year)) {
+                const month = parseInt(p.periode.split('-')[1]);
+                const name = (p.nama || "").toLowerCase().trim();
+                if (!kpiData[name]) kpiData[name] = {};
+                kpiData[name][month] = p.skor || p.skorMurni || 0;
+            }
+        });
+
+        const pelData = {}; // name -> { month -> count }
+        pelSnap.forEach(d => {
+            const p = d.data();
+            if (p.tanggal && p.tanggal.startsWith(year)) {
+                const month = parseInt(p.tanggal.split('-')[1]);
+                (p.peserta || []).forEach(nama => {
+                    const n = (nama || "").toLowerCase().trim();
+                    if (!pelData[n]) pelData[n] = {};
+                    pelData[n][month] = (pelData[n][month] || 0) + 1;
+                });
+            }
+        });
+
+        let hMonthly = "", hYearly = "";
+        employees.forEach(k => {
+            const nameLow = (k.nama || "").toLowerCase().trim();
+            const monthlyScores = kpiData[nameLow] || {};
+            const monthlyPel = pelData[nameLow] || {};
+
+            let rowM = `<tr><td class="fw-700">${escHtml(k.nama)}</td>`;
+            let totalKpi = 0, countKpi = 0, totalPel = 0;
+            
+            for (let m = 1; m <= 12; m++) {
+                const score = monthlyScores[m] || 0;
+                const pel = monthlyPel[m] || 0;
+                if (score > 0) {
+                    totalKpi += score;
+                    countKpi++;
+                }
+                totalPel += pel;
+                
+                let cell = `<div class="text-center" style="font-size: 0.8rem">`;
+                cell += score > 0 ? `<b style="color:var(--primary)">${score}</b>` : '<span style="color:#ccc">-</span>';
+                if (pel > 0) cell += `<br><small style="color:#d81b60">🎓 ${pel}</small>`;
+                cell += `</div>`;
+                rowM += `<td>${cell}</td>`;
+            }
+            rowM += `</tr>`;
+            hMonthly += rowM;
+
+            const avgKpi = countKpi > 0 ? Math.round(totalKpi / countKpi) : 0;
+            let grade = "-";
+            if (avgKpi >= 90) grade = "A";
+            else if (avgKpi >= 80) grade = "B";
+            else if (avgKpi >= 70) grade = "C";
+            else if (avgKpi >= 60) grade = "D";
+            else if (avgKpi > 0) grade = "E";
+
+            hYearly += `<tr>
+                <td class="fw-700">${escHtml(k.nama)}</td>
+                <td>${escHtml(k.departemen || "-")}</td>
+                <td class="text-center fw-700" style="color:var(--primary)">${avgKpi || "-"}</td>
+                <td class="text-center fw-700" style="color:#d81b60">${totalPel || "-"}</td>
+                <td class="text-center"><span class="badge badge-${grade === 'A' || grade === 'B' ? 'success' : grade === 'C' ? 'info' : 'danger'}">${grade}</span></td>
+            </tr>`;
+        });
+
+        bodyMonthly.innerHTML = hMonthly || '<tr><td colspan="13" class="text-center">Tidak ada data</td></tr>';
+        bodyYearly.innerHTML = hYearly || '<tr><td colspan="5" class="text-center">Tidak ada data</td></tr>';
+
+    } catch (err) {
+        console.error("loadKpiTrainingReport error:", err);
+        toast("Gagal memuat laporan", "danger");
+    }
 }
