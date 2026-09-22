@@ -39,10 +39,13 @@ async function renderPenggajian() {
 
   await loadGaji();
 
-  // Auto-sync if current month has no data yet
-  if (!isBOD && window._gajiData.length === 0) {
-      console.log("[PAYROLL] Auto-syncing current month...");
-      await syncAllPayrollData(true);
+  // Auto-sync if current month has no data yet (Use direct GET for reliable check)
+  if (!isBOD) {
+    const checkSnap = await db.collection('hrd_penggajian').where('periode', '==', bulan).limit(1).get();
+    if (checkSnap.empty) {
+        console.log("[PAYROLL] Auto-syncing current month...");
+        await syncAllPayrollData(true);
+    }
   }
 }
 
@@ -275,10 +278,17 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
       return;
     }
 
-    // Delete existing slips for this period
+    // Identify manually edited slips to preserve them
     const existSnapAll = await db.collection('hrd_penggajian').where('periode', '==', bulan).get();
+    const manualEditNames = new Set();
     for (const doc of existSnapAll.docs) {
-        await doc.ref.delete();
+        const data = doc.data();
+        if (data.manualEdit === true) {
+            manualEditNames.add((data.nama || '').toLowerCase().trim());
+        } else {
+            // Delete only non-manually-edited slips to allow regeneration
+            await doc.ref.delete();
+        }
     }
 
     // Load data masal
@@ -335,6 +345,11 @@ async function doGenerateAllGaji(forcedBulan, isAuto = false, forcedSelections =
       // Normalisasi Nama (Hapus spasi ganda, trim, lowercase)
       const namaRaw = (k.nama || '').trim();
       const namaLow = namaRaw.toLowerCase().replace(/\s+/g, ' ');
+
+      // Preservasi Manual Edit: Skip jika sudah ada data manual untuk periode ini
+      if (manualEditNames.has(namaLow)) {
+          continue;
+      }
 
       // ROOT FIX: Management Exemption (BOD, Grade BOD, or specifically named individuals)
       const isExempt = ( (k.role || '').toLowerCase() === 'bod' ||
@@ -748,6 +763,7 @@ async function simpanGaji() {
     kasbon: Number(document.getElementById('gjKasbon').value) || 0,
     pph21: window._gajiCalc?.pph21 || 0,
     totalBersih: window._gajiCalc?.total || 0,
+    manualEdit: true,
     createdAt: new Date().toISOString(),
   };
   if (!nama) return toast('Pilih karyawan dulu', 'warning');
@@ -1077,6 +1093,7 @@ async function updateGaji(id) {
     kasbon: Number(document.getElementById('egKasbon').value) || 0,
     pph21: Number(document.getElementById('egPPH').value) || 0,
     totalBersih: Number(document.getElementById('egTotal').value) || 0,
+    manualEdit: true,
     updatedAt: new Date().toISOString(),
   };
   await db.collection('hrd_penggajian').doc(id).update(data);
