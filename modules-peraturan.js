@@ -540,10 +540,10 @@ window.filterSuratTable = function() {
       <td class="text-xs color-gray" style="white-space:nowrap">${formatSuratDate(p.tanggal)}</td>
       <td>${docBtn}</td>
       <td>
-        <div class="flex gap-4">
-          <button class="btn btn-xs btn-info" onclick="window.modalDetailSurat('${p.id}')" title="Detail / View Surat">👁️ View</button>
-          <button class="btn btn-xs btn-warning" onclick="window.modalSurat('${p.id}')" title="Edit Surat">✏️ Edit</button>
-          <button class="btn btn-xs btn-danger" onclick="window.hapusSurat('${p.id}')" title="Hapus Surat">🗑️ Hapus</button>
+        <div class="flex gap-2 items-center" style="opacity:0.75">
+          <button style="background:none;border:none;padding:2px 4px;font-size:12px;cursor:pointer;line-height:1" onclick="window.modalDetailSurat('${p.id}')" title="Detail / View Surat">👁️</button>
+          <button style="background:none;border:none;padding:2px 4px;font-size:12px;cursor:pointer;line-height:1" onclick="window.modalSurat('${p.id}')" title="Edit Surat">✏️</button>
+          <button style="background:none;border:none;padding:2px 4px;font-size:12px;cursor:pointer;line-height:1" onclick="window.hapusSurat('${p.id}')" title="Hapus Surat">🗑️</button>
         </div>
       </td>
     </tr>`;
