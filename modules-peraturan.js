@@ -540,7 +540,11 @@ window.filterSuratTable = function() {
       <td class="text-xs color-gray" style="white-space:nowrap">${formatSuratDate(p.tanggal)}</td>
       <td>${docBtn}</td>
       <td>
-        <button class="btn btn-xs btn-info" onclick="window.modalDetailSurat('${p.id}')">👁️ Detail</button>
+        <div class="flex gap-4">
+          <button class="btn btn-xs btn-info" onclick="window.modalDetailSurat('${p.id}')" title="Detail / View Surat">👁️ View</button>
+          <button class="btn btn-xs btn-warning" onclick="window.modalSurat('${p.id}')" title="Edit Surat">✏️ Edit</button>
+          <button class="btn btn-xs btn-danger" onclick="window.hapusSurat('${p.id}')" title="Hapus Surat">🗑️ Hapus</button>
+        </div>
       </td>
     </tr>`;
   });
@@ -583,6 +587,8 @@ window.modalDetailSurat = function(id) {
     </div>
 
     <div class="flex gap-8 justify-end mt-16">
+      <button class="btn btn-warning" onclick="closeModalDirect(); window.modalSurat('${id}')">✏️ Edit Surat</button>
+      <button class="btn btn-danger" onclick="closeModalDirect(); window.hapusSurat('${id}')">🗑️ Hapus</button>
       ${p.dokumenUrl ? `<a href="${p.dokumenUrl}" target="_blank" class="btn btn-primary">📄 Buka Dokumen</a>` : ''}
       <button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>
     </div>
