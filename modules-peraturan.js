@@ -390,8 +390,15 @@ async function updatePeraturanFirestore(data) {
 
 // == GENERATOR & REGISTER NOMOR SURAT ==========================================-
 
+const DEFAULT_SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1si__qa9-nKmNzpx7JQIRosUf9tKn5jM2eiS2_V9UMPQ/edit";
+
 window._allSuratData = [];
 window._parsedImportSurat = [];
+
+window.openGoogleSheet = function() {
+  const url = localStorage.getItem('surat_spreadsheet_url') || DEFAULT_SPREADSHEET_URL;
+  window.open(url, '_blank');
+};
 
 window.renderSurat = async function() {
   const main = document.getElementById('mainContent');
@@ -401,7 +408,8 @@ window.renderSurat = async function() {
     <div class="page-title">
       <span>${renderBackButton()}✉️ Generator & Register Nomor Surat</span>
       <div class="flex gap-8" style="flex-wrap:wrap">
-        <button class="btn btn-outline btn-sm" onclick="window.modalImportSurat()">📥 Import Excel / CSV</button>
+        <button class="btn btn-success btn-sm" onclick="window.modalSyncGoogleSheet()">⚡ Sync Google Spreadsheet</button>
+        <button class="btn btn-outline btn-sm" onclick="window.openGoogleSheet()">🔗 Buka Spreadsheet</button>
         <button class="btn btn-outline btn-sm" onclick="window.exportSuratExcel()">📤 Export Excel</button>
         <button class="btn btn-primary btn-sm" onclick="window.modalSurat()">+ Generate / Input Surat</button>
       </div>
@@ -902,6 +910,152 @@ window.eksekusiImportSurat = async function() {
     if (btn) {
       btn.disabled = false;
       btn.innerText = '🚀 Impor Data ke System';
+    }
+  }
+};
+
+window.modalSyncGoogleSheet = function() {
+  const currentUrl = localStorage.getItem('surat_spreadsheet_url') || DEFAULT_SPREADSHEET_URL;
+
+  openModal(`
+    <div class="modal-title">📊 Sinkronisasi Google Spreadsheet</div>
+    <div class="card mb-12 text-xs" style="background:#f8f9ff;border-left:4px solid var(--primary)">
+      <b>Google Spreadsheet Terhubung:</b><br>
+      • Sheet ID: <code>1si__qa9-nKmNzpx7JQIRosUf9tKn5jM2eiS2_V9UMPQ</code><br>
+      • Tab Sheet: <code>NOMOR SURAT CODE</code><br>
+      • Klik <b>"⚡ Sync Sekarang"</b> untuk menarik & menyelaraskan seluruh data nomor surat dari Google Spreadsheet ke dalam sistem secara otomatis.
+    </div>
+
+    <div class="form-group mb-12">
+      <label>URL Google Spreadsheet (Publik / Anyone with link can view)</label>
+      <input class="form-control text-xs" id="suratSpreadsheetUrlInput" value="${escHtml(currentUrl)}">
+    </div>
+
+    <div class="flex gap-8 justify-end mt-16">
+      <button class="btn btn-success" id="btnSyncGSheet" onclick="window.eksekusiSyncGoogleSheet()">⚡ Sync Sekarang</button>
+      <button class="btn btn-outline" onclick="window.openGoogleSheet()">🔗 Buka Spreadsheet</button>
+      <button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>
+    </div>
+  `, true);
+};
+
+window.eksekusiSyncGoogleSheet = async function() {
+  const inputEl = document.getElementById('suratSpreadsheetUrlInput');
+  const url = inputEl?.value.trim() || DEFAULT_SPREADSHEET_URL;
+
+  const btn = document.getElementById('btnSyncGSheet');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = '⏳ Menghubungkan ke Google Spreadsheet...';
+  }
+
+  const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  if (!match || !match[1]) {
+    if (btn) { btn.disabled = false; btn.innerText = '⚡ Sync Sekarang'; }
+    return toast('URL Google Spreadsheet tidak valid', 'warning');
+  }
+
+  const spreadsheetId = match[1];
+  const exportCsvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
+
+  try {
+    const res = await fetch(exportCsvUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: Gagal mengunduh spreadsheet. Pastikan spreadsheet memiliki akses "Anyone with the link can view".`);
+    const csvText = await res.text();
+
+    const workbook = XLSX.read(csvText, { type: 'string' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+    if (!rawRows || rawRows.length <= 1) {
+      if (btn) { btn.disabled = false; btn.innerText = '⚡ Sync Sekarang'; }
+      return toast('Spreadsheet kosong atau tidak dapat dibaca', 'warning');
+    }
+
+    let headerIdx = 0;
+    for (let i = 0; i < Math.min(rawRows.length, 5); i++) {
+      const rowStr = (rawRows[i] || []).join(' ').toLowerCase();
+      if (rowStr.includes('nomor') || rowStr.includes('keterangan') || rowStr.includes('departemen')) {
+        headerIdx = i;
+        break;
+      }
+    }
+
+    const headers = (rawRows[headerIdx] || []).map(h => String(h || '').trim().toLowerCase());
+
+    const findCol = (keywords) => {
+      for (let idx = 0; idx < headers.length; idx++) {
+        if (keywords.some(k => headers[idx].includes(k))) return idx;
+      }
+      return -1;
+    };
+
+    const katCol = findCol(['kategori', 'category', 'divisi']) !== -1 ? findCol(['kategori', 'category', 'divisi']) : 0;
+    const deptCol = findCol(['departemen', 'dept', 'department']) !== -1 ? findCol(['departemen', 'dept', 'department']) : 1;
+    const ketCol = findCol(['keterangan', 'jenis', 'tipe']) !== -1 ? findCol(['keterangan', 'jenis', 'tipe']) : 2;
+    const nomorCol = findCol(['nomor', 'no.']) !== -1 ? findCol(['nomor', 'no.']) : 3;
+    const perihalCol = findCol(['probation', 'perihal', 'subject', 'ringkasan', 'judul']) !== -1 ? findCol(['probation', 'perihal', 'subject', 'ringkasan', 'judul']) : 4;
+    const tglCol = findCol(['tanggal', 'tgl', 'date']) !== -1 ? findCol(['tanggal', 'tgl', 'date']) : 5;
+
+    const parsed = [];
+    for (let i = headerIdx + 1; i < rawRows.length; i++) {
+      const row = rawRows[i];
+      if (!row || !row.length) continue;
+      const nomorVal = String(row[nomorCol] || '').trim();
+      const perihalVal = String(row[perihalCol] || '').trim();
+      const ketVal = String(row[ketCol] || '').trim();
+
+      if (!nomorVal && !perihalVal && !ketVal) continue;
+
+      parsed.push({
+        kategori: String(row[katCol] || 'OFFICE').trim().toUpperCase(),
+        departemen: String(row[deptCol] || 'HR').trim().toUpperCase(),
+        keterangan: ketVal || 'SURAT',
+        jenis: ketVal || 'SURAT',
+        nomor: nomorVal || '-',
+        perihal: perihalVal || '-',
+        tanggal: String(row[tglCol] || todayStr()).trim()
+      });
+    }
+
+    if (!parsed.length) {
+      if (btn) { btn.disabled = false; btn.innerText = '⚡ Sync Sekarang'; }
+      return toast('Tidak ada baris data valid di spreadsheet', 'warning');
+    }
+
+    if (btn) btn.innerText = `⏳ Menyimpan ${parsed.length} data ke Firestore...`;
+
+    const nowIso = new Date().toISOString();
+    const batchSize = 400;
+    let count = 0;
+
+    for (let i = 0; i < parsed.length; i += batchSize) {
+      const chunk = parsed.slice(i, i + batchSize);
+      const batch = db.batch();
+      chunk.forEach(item => {
+        const docRef = db.collection('hrd_surat').doc();
+        batch.set(docRef, {
+          ...item,
+          dibuatOleh: 'Google Spreadsheet Sync',
+          createdAt: nowIso,
+          updatedAt: nowIso
+        });
+        count++;
+      });
+      await batch.commit();
+    }
+
+    localStorage.setItem('surat_spreadsheet_url', url);
+    closeModalDirect();
+    toast(`🎉 Berhasil menyinkronkan ${count} data nomor surat dari Google Spreadsheet!`, 'success');
+    window.renderSurat();
+  } catch (err) {
+    console.error('Sync err:', err);
+    toast('Gagal Sync Google Spreadsheet: ' + err.message, 'error');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = '⚡ Sync Sekarang';
     }
   }
 };
