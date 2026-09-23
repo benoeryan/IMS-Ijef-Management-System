@@ -395,6 +395,25 @@ const DEFAULT_SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1si__qa9
 window._allSuratData = [];
 window._parsedImportSurat = [];
 
+function formatSuratDate(val) {
+  if (!val) return '-';
+  if (typeof val === 'number' || (!isNaN(val) && !String(val).includes('-') && !String(val).includes('/') && !String(val).includes(' '))) {
+    const num = Number(val);
+    if (num > 20000 && num < 60000) {
+      const dateObj = new Date(Math.round((num - 25569) * 86400 * 1000));
+      if (!isNaN(dateObj.getTime())) {
+        return dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+    }
+  }
+  const str = String(val).trim();
+  const d = new Date(str);
+  if (!isNaN(d.getTime()) && d.getFullYear() > 1990 && d.getFullYear() < 2100) {
+    return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  return str;
+}
+
 window.openGoogleSheet = function() {
   const url = localStorage.getItem('surat_spreadsheet_url') || DEFAULT_SPREADSHEET_URL;
   window.open(url, '_blank');
@@ -449,7 +468,7 @@ window.renderSurat = async function() {
               <th>Perihal / Ringkasan</th>
               <th>Tanggal</th>
               <th>Dokumen</th>
-              <th style="width:110px">Aksi</th>
+              <th style="width:90px">Aksi</th>
             </tr>
           </thead>
           <tbody id="tblSurat">
@@ -500,7 +519,7 @@ window.filterSuratTable = function() {
   if (!tbody) return;
 
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center color-gray">Belum ada data nomor surat. Klik "+ Generate / Input Surat" atau "Import Excel".</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center color-gray">Belum ada data nomor surat. Klik "⚡ Sync Google Spreadsheet" atau "+ Generate / Input Surat".</td></tr>';
     return;
   }
 
@@ -516,20 +535,58 @@ window.filterSuratTable = function() {
       <td><span class="badge ${katBadge}">${escHtml(p.kategori || 'OFFICE')}</span></td>
       <td class="fw-700 text-xs">${escHtml(p.departemen || '-')}</td>
       <td class="text-xs">${escHtml(p.keterangan || p.jenis || '-')}</td>
-      <td class="fw-700 color-primary" style="font-size:.85rem;word-break:break-all">${escHtml(p.nomor || '-')}</td>
+      <td class="fw-700 color-primary" style="font-size:.85rem;word-break:break-all;cursor:pointer" onclick="window.modalDetailSurat('${p.id}')" title="Klik untuk lihat detail">${escHtml(p.nomor || '-')}</td>
       <td class="text-xs" style="max-width:250px">${escHtml(p.perihal || '-')}</td>
-      <td class="text-xs color-gray" style="white-space:nowrap">${formatDate(p.tanggal)}</td>
+      <td class="text-xs color-gray" style="white-space:nowrap">${formatSuratDate(p.tanggal)}</td>
       <td>${docBtn}</td>
       <td>
-        <div class="flex gap-4">
-          <button class="btn btn-xs btn-info" onclick="window.modalSurat('${p.id}')">✏️</button>
-          <button class="btn btn-xs btn-danger" onclick="window.hapusSurat('${p.id}')">🗑️</button>
-        </div>
+        <button class="btn btn-xs btn-info" onclick="window.modalDetailSurat('${p.id}')">👁️ Detail</button>
       </td>
     </tr>`;
   });
 
   tbody.innerHTML = h;
+};
+
+window.modalDetailSurat = function(id) {
+  const p = (window._allSuratData || []).find(item => item.id === id);
+  if (!p) return toast('Data nomor surat tidak ditemukan', 'warning');
+
+  openModal(`
+    <div class="modal-title">📄 Detail Register Nomor Surat</div>
+    <div style="max-height:75vh;overflow-y:auto;padding-right:6px">
+      <div style="background:#f8f9ff;border-radius:10px;padding:14px 18px;border:1px solid #d0d9ff;margin-bottom:16px">
+        <div class="text-xs color-gray">Nomor Surat Resmi:</div>
+        <div class="fw-700 color-primary" style="font-size:1.15rem;word-break:break-all;margin-top:2px">${escHtml(p.nomor || '-')}</div>
+      </div>
+
+      <div class="card mb-12" style="border-left:4px solid var(--primary)">
+        <div class="grid-2 text-sm" style="gap:10px">
+          <div><b>Kategori / Divisi:</b> <span class="badge ${p.kategori === 'ACADEMIC' ? 'badge-primary' : 'badge-info'}">${escHtml(p.kategori || 'OFFICE')}</span></div>
+          <div><b>Departemen:</b> <b>${escHtml(p.departemen || '-')}</b></div>
+          <div><b>Jenis / Keterangan:</b> ${escHtml(p.keterangan || p.jenis || '-')}</div>
+          <div><b>Tanggal Surat:</b> ${formatSuratDate(p.tanggal)}</div>
+          <div style="grid-column: span 2"><b>Perihal / Ringkasan:</b><br><span style="color:#444;line-height:1.5">${escHtml(p.perihal || '-')}</span></div>
+          <div style="grid-column: span 2"><b>Dibuat / Sumber:</b> ${escHtml(p.dibuatOleh || '-')} ${p.createdAt ? '(' + formatDateTime(p.createdAt) + ')' : ''}</div>
+        </div>
+      </div>
+
+      <div class="card mb-12" style="border-left:4px solid var(--success)">
+        <div class="fw-700 color-primary mb-6 text-sm">📎 Dokumen Lampiran</div>
+        ${p.dokumenUrl ? `
+          <div class="flex justify-between items-center gap-8">
+            <div class="text-xs"><b>Nama File:</b> ${escHtml(p.dokumenNama || 'Dokumen Surat')}</div>
+            <a href="${p.dokumenUrl}" target="_blank" class="btn btn-sm btn-primary">📄 Buka / Unduh File Dokumen ↗️</a>
+          </div>
+        ` : `<div class="text-xs color-gray">Belum ada file dokumen yang diunggah untuk nomor surat ini.</div>`}
+      </div>
+    </div>
+
+    <div class="flex gap-8 justify-end mt-16">
+      ${p.dokumenUrl ? `<a href="${p.dokumenUrl}" target="_blank" class="btn btn-primary">📄 Buka Dokumen</a>` : ''}
+      <button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>
+    </div>
+  `, true);
 };
 
 window.modalSurat = async function(id) {
@@ -690,25 +747,6 @@ window.simpanSurat = async function(id) {
   }
 };
 
-window.hapusSurat = async function(id) {
-  if (!confirm('Yakin ingin menghapus data nomor surat ini?')) return;
-  try {
-    const doc = await db.collection('hrd_surat').doc(id).get();
-    if (doc.exists) {
-      const p = doc.data();
-      if (p.dokumenUrl) {
-        deleteFileFromStorage(p.dokumenUrl).catch(e => console.warn('Delete file err:', e));
-      }
-    }
-    await db.collection('hrd_surat').doc(id).delete();
-    toast('Data nomor surat dihapus', 'success');
-    window.renderSurat();
-  } catch (e) {
-    console.error('hapusSurat error:', e);
-    toast('Gagal menghapus: ' + e.message, 'error');
-  }
-};
-
 window.exportSuratExcel = function() {
   const list = window._allSuratData || [];
   if (!list.length) return toast('Belum ada data nomor surat untuk diexport', 'warning');
@@ -720,7 +758,7 @@ window.exportSuratExcel = function() {
     'Keterangan': p.keterangan || p.jenis || '-',
     'Nomor Surat': p.nomor || '-',
     'Perihal / Ringkasan': p.perihal || '-',
-    'Tanggal': p.tanggal || '-',
+    'Tanggal': formatSuratDate(p.tanggal),
     'Link Dokumen': p.dokumenUrl || '-'
   }));
 
@@ -729,189 +767,6 @@ window.exportSuratExcel = function() {
   XLSX.utils.book_append_sheet(wb, ws, 'NOMOR SURAT CODE');
   XLSX.writeFile(wb, `Register_Nomor_Surat_IJEF_${todayStr()}.xlsx`);
   toast('File Excel Register Nomor Surat disalin/diunduh', 'success');
-};
-
-window.modalImportSurat = function() {
-  window._parsedImportSurat = [];
-  openModal(`
-    <div class="modal-title">📥 Import Data Register Nomor Surat</div>
-    <div class="card mb-12 text-xs" style="background:#f8f9ff;border-left:4px solid var(--primary)">
-      <b>Panduan Format Excel / CSV:</b><br>
-      • Header kolom yang dikenali: <b>Kategori, Departemen, Keterangan, Nomor, Perihal, Tanggal</b><br>
-      • Contoh Kategori: <code>OFFICE</code>, <code>ACADEMIC</code><br>
-      • Contoh Departemen: <code>HR</code>, <code>FINANCE</code>, <code>LEGAL</code>, <code>STUDENTS</code><br>
-      • Format nomor contoh: <code>NOMOR : 001/Probation/HR-IJEF/IX/25</code>
-    </div>
-
-    <div class="form-group mb-12">
-      <label>Pilih File Excel / CSV (.xlsx, .xls, .csv)</label>
-      <input type="file" class="form-control" id="importSuratInput" accept=".xlsx, .xls, .csv" onchange="window.previewImportSurat(event)">
-    </div>
-
-    <div id="importSuratPreviewWrap" style="display:none">
-      <div class="fw-700 text-xs mb-4" id="importSuratCountText">Preview Data:</div>
-      <div class="table-wrap mb-12" style="max-height:220px;overflow-y:auto">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Kategori</th>
-              <th>Dept</th>
-              <th>Keterangan</th>
-              <th>Nomor</th>
-              <th>Perihal</th>
-              <th>Tanggal</th>
-            </tr>
-          </thead>
-          <tbody id="importSuratTbody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="flex gap-8 justify-end mt-16">
-      <button class="btn btn-primary" id="btnEksekusiImportSurat" onclick="window.eksekusiImportSurat()" disabled>🚀 Impor Data ke System</button>
-      <button class="btn btn-outline" onclick="closeModalDirect()">Batal</button>
-    </div>
-  `, true);
-};
-
-window.previewImportSurat = function(e) {
-  const file = e.target.files && e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    try {
-      const data = new Uint8Array(evt.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-      if (!rawRows || !rawRows.length) return toast('File Excel kosong', 'warning');
-
-      let headerIdx = 0;
-      for (let i = 0; i < Math.min(rawRows.length, 5); i++) {
-        const rowStr = (rawRows[i] || []).join(' ').toLowerCase();
-        if (rowStr.includes('nomor') || rowStr.includes('keterangan') || rowStr.includes('departemen')) {
-          headerIdx = i;
-          break;
-        }
-      }
-
-      const headers = (rawRows[headerIdx] || []).map(h => String(h || '').trim().toLowerCase());
-
-      const findCol = (keywords) => {
-        for (let idx = 0; idx < headers.length; idx++) {
-          if (keywords.some(k => headers[idx].includes(k))) return idx;
-        }
-        return -1;
-      };
-
-      const katCol = findCol(['kategori', 'category', 'divisi']) !== -1 ? findCol(['kategori', 'category', 'divisi']) : 1;
-      const deptCol = findCol(['departemen', 'dept', 'department']) !== -1 ? findCol(['departemen', 'dept', 'department']) : 2;
-      const ketCol = findCol(['keterangan', 'jenis', 'tipe']) !== -1 ? findCol(['keterangan', 'jenis', 'tipe']) : 3;
-      const nomorCol = findCol(['nomor', 'no.']) !== -1 ? findCol(['nomor', 'no.']) : 4;
-      const perihalCol = findCol(['perihal', 'probation', 'subject', 'ringkasan', 'judul']) !== -1 ? findCol(['perihal', 'probation', 'subject', 'ringkasan', 'judul']) : 5;
-      const tglCol = findCol(['tanggal', 'tgl', 'date']) !== -1 ? findCol(['tanggal', 'tgl', 'date']) : 6;
-
-      const parsed = [];
-      for (let i = headerIdx + 1; i < rawRows.length; i++) {
-        const row = rawRows[i];
-        if (!row || !row.length) continue;
-        const nomorVal = String(row[nomorCol] || '').trim();
-        const perihalVal = String(row[perihalCol] || '').trim();
-        const ketVal = String(row[ketCol] || '').trim();
-
-        if (!nomorVal && !perihalVal && !ketVal) continue;
-
-        parsed.push({
-          kategori: String(row[katCol] || 'OFFICE').trim().toUpperCase(),
-          departemen: String(row[deptCol] || 'HR').trim().toUpperCase(),
-          keterangan: ketVal || 'SURAT',
-          jenis: ketVal || 'SURAT',
-          nomor: nomorVal || 'No/IJEF/2026',
-          perihal: perihalVal || '-',
-          tanggal: String(row[tglCol] || todayStr()).trim()
-        });
-      }
-
-      window._parsedImportSurat = parsed;
-
-      const previewWrap = document.getElementById('importSuratPreviewWrap');
-      const countText = document.getElementById('importSuratCountText');
-      const tbody = document.getElementById('importSuratTbody');
-      const btn = document.getElementById('btnEksekusiImportSurat');
-
-      if (previewWrap) previewWrap.style.display = 'block';
-      if (countText) countText.innerText = `Preview Data (${parsed.length} baris siap diimpor):`;
-
-      let h = '';
-      parsed.slice(0, 10).forEach((p, idx) => {
-        h += `<tr>
-          <td class="text-xs">${idx + 1}</td>
-          <td class="text-xs">${escHtml(p.kategori)}</td>
-          <td class="text-xs">${escHtml(p.departemen)}</td>
-          <td class="text-xs">${escHtml(p.keterangan)}</td>
-          <td class="text-xs fw-700">${escHtml(p.nomor)}</td>
-          <td class="text-xs">${escHtml(p.perihal)}</td>
-          <td class="text-xs">${escHtml(p.tanggal)}</td>
-        </tr>`;
-      });
-      if (tbody) tbody.innerHTML = h;
-      if (btn) btn.disabled = parsed.length === 0;
-
-      toast(`Berhasil membaca ${parsed.length} data dari file Excel`, 'success');
-    } catch (err) {
-      console.error('Error parse Excel:', err);
-      toast('Gagal membaca file Excel: ' + err.message, 'error');
-    }
-  };
-  reader.readAsArrayBuffer(file);
-};
-
-window.eksekusiImportSurat = async function() {
-  const data = window._parsedImportSurat || [];
-  if (!data.length) return toast('Tidak ada data untuk diimpor', 'warning');
-
-  const btn = document.getElementById('btnEksekusiImportSurat');
-  if (btn) {
-    btn.disabled = true;
-    btn.innerText = '⏳ Mengimpor data ke Firestore...';
-  }
-
-  try {
-    let successCount = 0;
-    const nowIso = new Date().toISOString();
-    const batchSize = 400;
-
-    for (let i = 0; i < data.length; i += batchSize) {
-      const chunk = data.slice(i, i + batchSize);
-      const batch = db.batch();
-      chunk.forEach(item => {
-        const docRef = db.collection('hrd_surat').doc();
-        batch.set(docRef, {
-          ...item,
-          dibuatOleh: currentUser?.nama || 'Import System',
-          createdAt: nowIso,
-          updatedAt: nowIso
-        });
-        successCount++;
-      });
-      await batch.commit();
-    }
-
-    closeModalDirect();
-    toast(`🎉 Berhasil mengimpor ${successCount} data nomor surat!`, 'success');
-    window.renderSurat();
-  } catch (err) {
-    console.error('Gagal impor:', err);
-    toast('Gagal mengimpor data: ' + err.message, 'error');
-    if (btn) {
-      btn.disabled = false;
-      btn.innerText = '🚀 Impor Data ke System';
-    }
-  }
 };
 
 window.modalSyncGoogleSheet = function() {
@@ -984,38 +839,39 @@ window.eksekusiSyncGoogleSheet = async function() {
 
     const headers = (rawRows[headerIdx] || []).map(h => String(h || '').trim().toLowerCase());
 
-    const findCol = (keywords) => {
-      for (let idx = 0; idx < headers.length; idx++) {
-        if (keywords.some(k => headers[idx].includes(k))) return idx;
-      }
-      return -1;
-    };
+    let katCol = 0, deptCol = 1, ketCol = 2, nomorCol = 3, perihalCol = 4, tglCol = 5;
 
-    const katCol = findCol(['kategori', 'category', 'divisi']) !== -1 ? findCol(['kategori', 'category', 'divisi']) : 0;
-    const deptCol = findCol(['departemen', 'dept', 'department']) !== -1 ? findCol(['departemen', 'dept', 'department']) : 1;
-    const ketCol = findCol(['keterangan', 'jenis', 'tipe']) !== -1 ? findCol(['keterangan', 'jenis', 'tipe']) : 2;
-    const nomorCol = findCol(['nomor', 'no.']) !== -1 ? findCol(['nomor', 'no.']) : 3;
-    const perihalCol = findCol(['probation', 'perihal', 'subject', 'ringkasan', 'judul']) !== -1 ? findCol(['probation', 'perihal', 'subject', 'ringkasan', 'judul']) : 4;
-    const tglCol = findCol(['tanggal', 'tgl', 'date']) !== -1 ? findCol(['tanggal', 'tgl', 'date']) : 5;
+    headers.forEach((h, idx) => {
+      if (h.includes('kategori') || h.includes('divisi') || h === 'f') katCol = idx;
+      else if (h.includes('dept') || h.includes('departemen')) deptCol = idx;
+      else if (h.includes('keterangan nomor')) ketCol = idx;
+      else if (h === 'probation' || h.includes('nomor surat') || (h.includes('nomor') && !h.includes('keterangan'))) nomorCol = idx;
+      else if (h === 'keterangan' || h.includes('perihal') || h.includes('ringkasan') || h.includes('subject')) perihalCol = idx;
+      else if (h.includes('tanggal') || h.includes('date') || h === 'tgl') tglCol = idx;
+    });
 
     const parsed = [];
     for (let i = headerIdx + 1; i < rawRows.length; i++) {
       const row = rawRows[i];
       if (!row || !row.length) continue;
+
+      const katVal = String(row[katCol] || 'OFFICE').trim().toUpperCase();
+      const deptVal = String(row[deptCol] || 'HR').trim().toUpperCase();
+      const ketVal = String(row[ketCol] || '').trim();
       const nomorVal = String(row[nomorCol] || '').trim();
       const perihalVal = String(row[perihalCol] || '').trim();
-      const ketVal = String(row[ketCol] || '').trim();
+      const tglVal = String(row[tglCol] || '').trim();
 
       if (!nomorVal && !perihalVal && !ketVal) continue;
 
       parsed.push({
-        kategori: String(row[katCol] || 'OFFICE').trim().toUpperCase(),
-        departemen: String(row[deptCol] || 'HR').trim().toUpperCase(),
+        kategori: katVal || 'OFFICE',
+        departemen: deptVal || 'HR',
         keterangan: ketVal || 'SURAT',
         jenis: ketVal || 'SURAT',
         nomor: nomorVal || '-',
         perihal: perihalVal || '-',
-        tanggal: String(row[tglCol] || todayStr()).trim()
+        tanggal: tglVal || todayStr()
       });
     }
 
@@ -1025,6 +881,16 @@ window.eksekusiSyncGoogleSheet = async function() {
     }
 
     if (btn) btn.innerText = `⏳ Menyimpan ${parsed.length} data ke Firestore...`;
+
+    // Clear existing hrd_surat before syncing
+    const oldSnap = await db.collection('hrd_surat').get();
+    const deleteBatchSize = 400;
+    const oldDocs = oldSnap.docs;
+    for (let i = 0; i < oldDocs.length; i += deleteBatchSize) {
+      const delBatch = db.batch();
+      oldDocs.slice(i, i + deleteBatchSize).forEach(doc => delBatch.delete(doc.ref));
+      await delBatch.commit();
+    }
 
     const nowIso = new Date().toISOString();
     const batchSize = 400;
