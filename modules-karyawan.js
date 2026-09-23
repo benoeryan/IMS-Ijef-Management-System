@@ -1292,9 +1292,9 @@ async function renderPipeline() {
             <div class="fw-700" style="font-size:.88rem;line-height:1.2">${escHtml(p.nama || '-')}</div>
             <div class="text-xs color-gray">${escHtml(p.posisi || '-')}</div>
           </div>
-          <div class="flex gap-4" style="flex-shrink:0">
-            <button class="btn btn-xs btn-info" style="padding:2px 6px;font-size:.7rem" onclick="modalKandidat('${p.id}')" title="Edit Kandidat">✏️</button>
-            <button class="btn btn-xs btn-danger" style="padding:2px 6px;font-size:.7rem" onclick="hapusDoc('hrd_kandidat','${p.id}','pipeline')" title="Hapus Kandidat">🗑️</button>
+          <div class="flex gap-2" style="flex-shrink:0;opacity:0.6">
+            <button style="background:none;border:none;padding:2px;font-size:11px;cursor:pointer;line-height:1" onclick="modalKandidat('${p.id}')" title="Edit Kandidat">✏️</button>
+            <button style="background:none;border:none;padding:2px;font-size:11px;cursor:pointer;line-height:1" onclick="hapusDoc('hrd_kandidat','${p.id}','pipeline')" title="Hapus Kandidat">🗑️</button>
           </div>
         </div>
         ${discTag}
