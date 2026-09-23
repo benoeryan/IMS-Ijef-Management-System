@@ -388,7 +388,520 @@ async function updatePeraturanFirestore(data) {
     }
 }
 
-// == GENERATOR SURAT ==========================================-
-window.renderSurat = async function(){const main=document.getElementById('mainContent');main.innerHTML=`<div class="page-title"><span>✉️ Generator Surat</span><button class="btn btn-primary btn-sm" onclick="window.modalSurat()">+ Generate</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nomor</th><th>Jenis</th><th>Perihal</th><th>Tanggal</th></tr></thead><tbody id="tblSurat"></tbody></table></div></div>`;const snap=await db.collection('hrd_surat').get();let h='';if(snap.empty)h='<tr><td colspan="4" class="text-center">Belum ada</td></tr>';else snap.forEach(d=>{const p=d.data();h+=`<tr><td class="fw-700">${escHtml(p.nomor)}</td><td>${escHtml(p.jenis)}</td><td>${escHtml(p.perihal)}</td><td>${formatDate(p.tanggal)}</td></tr>`;});document.getElementById('tblSurat').innerHTML=h;}
-window.modalSurat = async function(){const snap=await db.collection('hrd_surat').get();const seq=String(snap.size+1).padStart(3,'0');const now=new Date();const mo=String(now.getMonth()+1).padStart(2,'0');openModal(`<div class="modal-title">Generate Nomor Surat</div><div class="form-group"><label>Jenis</label><select class="form-control" id="srJenis"><option value="SK">SK</option><option value="SP">SP</option><option value="SPK">SPK</option><option value="SR">Referensi</option><option value="SKet">Keterangan</option></select></div><div class="form-group"><label>Perihal</label><input class="form-control" id="srPerihal"></div><div class="form-group"><label>Preview</label><input class="form-control" readonly value="${seq}/[JENIS]/IJEF/${mo}/${now.getFullYear()}" id="srPreview"></div><button class="btn btn-primary" onclick="window.simpanSurat('${seq}','${mo}','${now.getFullYear()}')">Generate</button>`);}
-window.simpanSurat = async function(seq,mo,yr){const jenis=document.getElementById('srJenis').value;const nomor=`${seq}/${jenis}/IJEF/${mo}/${yr}`;await db.collection('hrd_surat').add({nomor,jenis,perihal:document.getElementById('srPerihal').value,tanggal:todayStr(),dibuatOleh:currentUser.nama,createdAt:new Date().toISOString()});closeModalDirect();toast('Nomor surat digenerate','success');window.renderSurat();}
+// == GENERATOR & REGISTER NOMOR SURAT ==========================================-
+
+window._allSuratData = [];
+window._parsedImportSurat = [];
+
+window.renderSurat = async function() {
+  const main = document.getElementById('mainContent');
+  if (!main) return;
+
+  main.innerHTML = `
+    <div class="page-title">
+      <span>${renderBackButton()}✉️ Generator & Register Nomor Surat</span>
+      <div class="flex gap-8" style="flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="window.modalImportSurat()">📥 Import Excel / CSV</button>
+        <button class="btn btn-outline btn-sm" onclick="window.exportSuratExcel()">📤 Export Excel</button>
+        <button class="btn btn-primary btn-sm" onclick="window.modalSurat()">+ Generate / Input Surat</button>
+      </div>
+    </div>
+
+    <div class="card mb-16">
+      <div class="card-header mb-12" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div class="card-title">📋 Data Register Nomor Surat</div>
+        <div class="flex gap-8" style="flex-wrap:wrap">
+          <input class="form-control text-xs" id="srSearch" placeholder="🔍 Cari nomor, perihal, dept..." oninput="window.filterSuratTable()" style="max-width:200px">
+          <select class="form-control text-xs" id="srFltKategori" onchange="window.filterSuratTable()" style="max-width:140px">
+            <option value="">Semua Kategori</option>
+            <option value="OFFICE">OFFICE</option>
+            <option value="ACADEMIC">ACADEMIC</option>
+          </select>
+          <select class="form-control text-xs" id="srFltDept" onchange="window.filterSuratTable()" style="max-width:140px">
+            <option value="">Semua Departemen</option>
+            <option value="HR">HR</option>
+            <option value="FINANCE">FINANCE</option>
+            <option value="LEGAL">LEGAL</option>
+            <option value="STUDENTS">STUDENTS</option>
+            <option value="GENERAL AFFAIRS">GENERAL AFFAIRS</option>
+            <option value="IT">IT</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px">No</th>
+              <th>Kategori</th>
+              <th>Departemen</th>
+              <th>Jenis / Keterangan</th>
+              <th>Nomor Surat</th>
+              <th>Perihal / Ringkasan</th>
+              <th>Tanggal</th>
+              <th>Dokumen</th>
+              <th style="width:110px">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblSurat">
+            <tr><td colspan="9" class="text-center color-gray">Memuat data nomor surat...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  try {
+    const snap = await db.collection('hrd_surat').get();
+    window._allSuratData = [];
+    snap.forEach((d) => {
+      window._allSuratData.push({ id: d.id, ...d.data() });
+    });
+    window._allSuratData.sort((a, b) => (b.tanggal || b.createdAt || '').localeCompare(a.tanggal || a.createdAt || ''));
+    window.filterSuratTable();
+  } catch (e) {
+    console.error('Error load hrd_surat:', e);
+    const tbody = document.getElementById('tblSurat');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="text-center color-danger">Gagal memuat data: ${escHtml(e.message)}</td></tr>`;
+  }
+};
+
+window.filterSuratTable = function() {
+  const q = (document.getElementById('srSearch')?.value || '').toLowerCase().trim();
+  const kat = document.getElementById('srFltKategori')?.value || '';
+  const dept = document.getElementById('srFltDept')?.value || '';
+
+  const filtered = (window._allSuratData || []).filter((item) => {
+    if (kat && (item.kategori || '').toUpperCase() !== kat.toUpperCase()) return false;
+    if (dept && (item.departemen || '').toUpperCase() !== dept.toUpperCase()) return false;
+    if (q) {
+      const matchText = [
+        item.nomor || '',
+        item.perihal || '',
+        item.departemen || '',
+        item.kategori || '',
+        item.keterangan || item.jenis || ''
+      ].join(' ').toLowerCase();
+      if (!matchText.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const tbody = document.getElementById('tblSurat');
+  if (!tbody) return;
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center color-gray">Belum ada data nomor surat. Klik "+ Generate / Input Surat" atau "Import Excel".</td></tr>';
+    return;
+  }
+
+  let h = '';
+  filtered.forEach((p, idx) => {
+    const katBadge = p.kategori === 'ACADEMIC' ? 'badge-primary' : (p.kategori === 'OFFICE' ? 'badge-info' : 'badge-secondary');
+    const docBtn = p.dokumenUrl
+      ? `<a href="${p.dokumenUrl}" target="_blank" class="btn btn-xs btn-outline" style="padding:2px 6px;font-size:.72rem">📄 Lihat File</a>`
+      : `<span class="text-xs color-gray">-</span>`;
+
+    h += `<tr>
+      <td class="text-xs color-gray text-center">${idx + 1}</td>
+      <td><span class="badge ${katBadge}">${escHtml(p.kategori || 'OFFICE')}</span></td>
+      <td class="fw-700 text-xs">${escHtml(p.departemen || '-')}</td>
+      <td class="text-xs">${escHtml(p.keterangan || p.jenis || '-')}</td>
+      <td class="fw-700 color-primary" style="font-size:.85rem;word-break:break-all">${escHtml(p.nomor || '-')}</td>
+      <td class="text-xs" style="max-width:250px">${escHtml(p.perihal || '-')}</td>
+      <td class="text-xs color-gray" style="white-space:nowrap">${formatDate(p.tanggal)}</td>
+      <td>${docBtn}</td>
+      <td>
+        <div class="flex gap-4">
+          <button class="btn btn-xs btn-info" onclick="window.modalSurat('${p.id}')">✏️</button>
+          <button class="btn btn-xs btn-danger" onclick="window.hapusSurat('${p.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = h;
+};
+
+window.modalSurat = async function(id) {
+  let p = {};
+  if (id) {
+    const doc = await db.collection('hrd_surat').doc(id).get();
+    if (doc.exists) p = doc.data() || {};
+  } else {
+    const seqNum = String((window._allSuratData || []).length + 1).padStart(3, '0');
+    const now = new Date();
+    const mo = String(now.getMonth() + 1).padStart(2, '0');
+    const yr = String(now.getFullYear()).slice(-2);
+    p = {
+      kategori: 'OFFICE',
+      departemen: 'HR',
+      jenis: 'PROBATION',
+      keterangan: 'PROBATION',
+      nomor: `${seqNum}/Probation/HR-IJEF/${mo}/${yr}`,
+      tanggal: todayStr()
+    };
+  }
+
+  openModal(`
+    <div class="modal-title">${id ? 'Edit' : '+ Generate / Input'} Nomor Surat</div>
+    <div style="max-height:75vh;overflow-y:auto;padding-right:6px">
+      <div class="grid-2 mb-8">
+        <div class="form-group">
+          <label>Kategori / Divisi</label>
+          <select class="form-control" id="srKategori" onchange="window.updateNomorSuratPreview()">
+            <option value="OFFICE" ${p.kategori === 'OFFICE' ? 'selected' : ''}>OFFICE</option>
+            <option value="ACADEMIC" ${p.kategori === 'ACADEMIC' ? 'selected' : ''}>ACADEMIC</option>
+            <option value="LAINNYA" ${p.kategori === 'LAINNYA' ? 'selected' : ''}>LAINNYA</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Departemen</label>
+          <select class="form-control" id="srDept" onchange="window.updateNomorSuratPreview()">
+            <option value="HR" ${(p.departemen || '') === 'HR' ? 'selected' : ''}>HR (Human Resources)</option>
+            <option value="FINANCE" ${(p.departemen || '') === 'FINANCE' ? 'selected' : ''}>FINANCE</option>
+            <option value="LEGAL" ${(p.departemen || '') === 'LEGAL' ? 'selected' : ''}>LEGAL</option>
+            <option value="STUDENTS" ${(p.departemen || '') === 'STUDENTS' ? 'selected' : ''}>STUDENTS</option>
+            <option value="GENERAL AFFAIRS" ${(p.departemen || '') === 'GENERAL AFFAIRS' ? 'selected' : ''}>GENERAL AFFAIRS</option>
+            <option value="ACADEMIC" ${(p.departemen || '') === 'ACADEMIC' ? 'selected' : ''}>ACADEMIC</option>
+            <option value="IT" ${(p.departemen || '') === 'IT' ? 'selected' : ''}>IT</option>
+            <option value="MARKETING" ${(p.departemen || '') === 'MARKETING' ? 'selected' : ''}>MARKETING</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-2 mb-8">
+        <div class="form-group">
+          <label>Jenis / Keterangan Dokumen</label>
+          <input class="form-control" id="srKeterangan" value="${escHtml(p.keterangan || p.jenis || '')}" placeholder="Cth: PROBATION, MOU/PKS, SURAT EDARAN, SK, SKet..." oninput="window.updateNomorSuratPreview()">
+        </div>
+        <div class="form-group">
+          <label>Tanggal Surat</label>
+          <input type="date" class="form-control" id="srTanggal" value="${p.tanggal || todayStr()}">
+        </div>
+      </div>
+
+      <div class="form-group mb-8">
+        <label>Nomor Surat (Dapat disesuaikan / diedit manual) *</label>
+        <input class="form-control fw-700 color-primary" id="srNomor" value="${escHtml(p.nomor || '')}">
+      </div>
+
+      <div class="form-group mb-8">
+        <label>Perihal / Ringkasan / Penerima Surat *</label>
+        <textarea class="form-control" id="srPerihal" rows="3" placeholder="Deskripsi ringkas perihal atau judul surat...">${escHtml(p.perihal || '')}</textarea>
+      </div>
+
+      <div class="form-group mb-12">
+        <label>Upload Dokumen Surat (PDF / Docx / Gambar) ${p.dokumenUrl ? '<b>(Sudah Ada Dokumen)</b>' : ''}</label>
+        <input type="file" class="form-control" id="srFile" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip">
+        ${p.dokumenUrl ? `<div class="mt-4 text-xs"><a href="${p.dokumenUrl}" target="_blank" class="color-primary fw-700">📄 Lihat Dokumen Saat Ini (${escHtml(p.dokumenNama || 'File')})</a></div>` : ''}
+      </div>
+    </div>
+
+    <div class="flex gap-8 justify-end mt-16">
+      <button class="btn btn-primary" id="btnSimpanSurat" onclick="window.simpanSurat('${id || ''}')">💾 Simpan Nomor Surat</button>
+      <button class="btn btn-outline" onclick="closeModalDirect()">Batal</button>
+    </div>
+  `, true);
+};
+
+window.updateNomorSuratPreview = function() {
+  const srNomorInput = document.getElementById('srNomor');
+  if (!srNomorInput || srNomorInput.dataset.manualEdited === 'true') return;
+
+  const seq = String((window._allSuratData || []).length + 1).padStart(3, '0');
+  const ket = (document.getElementById('srKeterangan')?.value.trim() || 'PROBATION').replace(/\s+/g, '-');
+  const dept = (document.getElementById('srDept')?.value || 'HR');
+  const now = new Date();
+  const mo = String(now.getMonth() + 1).padStart(2, '0');
+  const yr = String(now.getFullYear()).slice(-2);
+
+  srNomorInput.value = `${seq}/${ket}/${dept}-IJEF/${mo}/${yr}`;
+};
+
+window.simpanSurat = async function(id) {
+  const nomor = document.getElementById('srNomor').value.trim();
+  const perihal = document.getElementById('srPerihal').value.trim();
+  if (!nomor) return toast('Nomor surat wajib diisi', 'warning');
+  if (!perihal) return toast('Perihal surat wajib diisi', 'warning');
+
+  const btn = document.getElementById('btnSimpanSurat');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = '⏳ Menyimpan...';
+  }
+
+  try {
+    let dokumenUrl = '';
+    let dokumenNama = '';
+    const fileInput = document.getElementById('srFile');
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      const file = fileInput.files[0];
+      if (btn) btn.innerText = '⏳ Mengunggah dokumen...';
+      const path = `dokumen_surat/${Date.now()}_${file.name}`;
+      dokumenUrl = await uploadFileToStorage(file, path);
+      dokumenNama = file.name;
+    }
+
+    const payload = {
+      kategori: document.getElementById('srKategori').value,
+      departemen: document.getElementById('srDept').value,
+      keterangan: document.getElementById('srKeterangan').value.trim(),
+      jenis: document.getElementById('srKeterangan').value.trim(),
+      nomor: nomor,
+      perihal: perihal,
+      tanggal: document.getElementById('srTanggal').value || todayStr(),
+      dibuatOleh: currentUser?.nama || 'Admin',
+      updatedAt: new Date().toISOString()
+    };
+
+    if (dokumenUrl) {
+      payload.dokumenUrl = dokumenUrl;
+      payload.dokumenNama = dokumenNama;
+    }
+
+    if (id) {
+      await db.collection('hrd_surat').doc(id).update(payload);
+      toast('Nomor surat berhasil diperbarui', 'success');
+    } else {
+      payload.createdAt = new Date().toISOString();
+      await db.collection('hrd_surat').add(payload);
+      toast('Nomor surat berhasil digenerate', 'success');
+    }
+
+    closeModalDirect();
+    window.renderSurat();
+  } catch (e) {
+    console.error('simpanSurat error:', e);
+    toast('Gagal menyimpan: ' + e.message, 'error');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = '💾 Simpan Nomor Surat';
+    }
+  }
+};
+
+window.hapusSurat = async function(id) {
+  if (!confirm('Yakin ingin menghapus data nomor surat ini?')) return;
+  try {
+    const doc = await db.collection('hrd_surat').doc(id).get();
+    if (doc.exists) {
+      const p = doc.data();
+      if (p.dokumenUrl) {
+        deleteFileFromStorage(p.dokumenUrl).catch(e => console.warn('Delete file err:', e));
+      }
+    }
+    await db.collection('hrd_surat').doc(id).delete();
+    toast('Data nomor surat dihapus', 'success');
+    window.renderSurat();
+  } catch (e) {
+    console.error('hapusSurat error:', e);
+    toast('Gagal menghapus: ' + e.message, 'error');
+  }
+};
+
+window.exportSuratExcel = function() {
+  const list = window._allSuratData || [];
+  if (!list.length) return toast('Belum ada data nomor surat untuk diexport', 'warning');
+
+  const exportData = list.map((p, idx) => ({
+    'No': idx + 1,
+    'Kategori': p.kategori || 'OFFICE',
+    'Departemen': p.departemen || '-',
+    'Keterangan': p.keterangan || p.jenis || '-',
+    'Nomor Surat': p.nomor || '-',
+    'Perihal / Ringkasan': p.perihal || '-',
+    'Tanggal': p.tanggal || '-',
+    'Link Dokumen': p.dokumenUrl || '-'
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'NOMOR SURAT CODE');
+  XLSX.writeFile(wb, `Register_Nomor_Surat_IJEF_${todayStr()}.xlsx`);
+  toast('File Excel Register Nomor Surat disalin/diunduh', 'success');
+};
+
+window.modalImportSurat = function() {
+  window._parsedImportSurat = [];
+  openModal(`
+    <div class="modal-title">📥 Import Data Register Nomor Surat</div>
+    <div class="card mb-12 text-xs" style="background:#f8f9ff;border-left:4px solid var(--primary)">
+      <b>Panduan Format Excel / CSV:</b><br>
+      • Header kolom yang dikenali: <b>Kategori, Departemen, Keterangan, Nomor, Perihal, Tanggal</b><br>
+      • Contoh Kategori: <code>OFFICE</code>, <code>ACADEMIC</code><br>
+      • Contoh Departemen: <code>HR</code>, <code>FINANCE</code>, <code>LEGAL</code>, <code>STUDENTS</code><br>
+      • Format nomor contoh: <code>NOMOR : 001/Probation/HR-IJEF/IX/25</code>
+    </div>
+
+    <div class="form-group mb-12">
+      <label>Pilih File Excel / CSV (.xlsx, .xls, .csv)</label>
+      <input type="file" class="form-control" id="importSuratInput" accept=".xlsx, .xls, .csv" onchange="window.previewImportSurat(event)">
+    </div>
+
+    <div id="importSuratPreviewWrap" style="display:none">
+      <div class="fw-700 text-xs mb-4" id="importSuratCountText">Preview Data:</div>
+      <div class="table-wrap mb-12" style="max-height:220px;overflow-y:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Kategori</th>
+              <th>Dept</th>
+              <th>Keterangan</th>
+              <th>Nomor</th>
+              <th>Perihal</th>
+              <th>Tanggal</th>
+            </tr>
+          </thead>
+          <tbody id="importSuratTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="flex gap-8 justify-end mt-16">
+      <button class="btn btn-primary" id="btnEksekusiImportSurat" onclick="window.eksekusiImportSurat()" disabled>🚀 Impor Data ke System</button>
+      <button class="btn btn-outline" onclick="closeModalDirect()">Batal</button>
+    </div>
+  `, true);
+};
+
+window.previewImportSurat = function(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      if (!rawRows || !rawRows.length) return toast('File Excel kosong', 'warning');
+
+      let headerIdx = 0;
+      for (let i = 0; i < Math.min(rawRows.length, 5); i++) {
+        const rowStr = (rawRows[i] || []).join(' ').toLowerCase();
+        if (rowStr.includes('nomor') || rowStr.includes('keterangan') || rowStr.includes('departemen')) {
+          headerIdx = i;
+          break;
+        }
+      }
+
+      const headers = (rawRows[headerIdx] || []).map(h => String(h || '').trim().toLowerCase());
+
+      const findCol = (keywords) => {
+        for (let idx = 0; idx < headers.length; idx++) {
+          if (keywords.some(k => headers[idx].includes(k))) return idx;
+        }
+        return -1;
+      };
+
+      const katCol = findCol(['kategori', 'category', 'divisi']) !== -1 ? findCol(['kategori', 'category', 'divisi']) : 1;
+      const deptCol = findCol(['departemen', 'dept', 'department']) !== -1 ? findCol(['departemen', 'dept', 'department']) : 2;
+      const ketCol = findCol(['keterangan', 'jenis', 'tipe']) !== -1 ? findCol(['keterangan', 'jenis', 'tipe']) : 3;
+      const nomorCol = findCol(['nomor', 'no.']) !== -1 ? findCol(['nomor', 'no.']) : 4;
+      const perihalCol = findCol(['perihal', 'probation', 'subject', 'ringkasan', 'judul']) !== -1 ? findCol(['perihal', 'probation', 'subject', 'ringkasan', 'judul']) : 5;
+      const tglCol = findCol(['tanggal', 'tgl', 'date']) !== -1 ? findCol(['tanggal', 'tgl', 'date']) : 6;
+
+      const parsed = [];
+      for (let i = headerIdx + 1; i < rawRows.length; i++) {
+        const row = rawRows[i];
+        if (!row || !row.length) continue;
+        const nomorVal = String(row[nomorCol] || '').trim();
+        const perihalVal = String(row[perihalCol] || '').trim();
+        const ketVal = String(row[ketCol] || '').trim();
+
+        if (!nomorVal && !perihalVal && !ketVal) continue;
+
+        parsed.push({
+          kategori: String(row[katCol] || 'OFFICE').trim().toUpperCase(),
+          departemen: String(row[deptCol] || 'HR').trim().toUpperCase(),
+          keterangan: ketVal || 'SURAT',
+          jenis: ketVal || 'SURAT',
+          nomor: nomorVal || 'No/IJEF/2026',
+          perihal: perihalVal || '-',
+          tanggal: String(row[tglCol] || todayStr()).trim()
+        });
+      }
+
+      window._parsedImportSurat = parsed;
+
+      const previewWrap = document.getElementById('importSuratPreviewWrap');
+      const countText = document.getElementById('importSuratCountText');
+      const tbody = document.getElementById('importSuratTbody');
+      const btn = document.getElementById('btnEksekusiImportSurat');
+
+      if (previewWrap) previewWrap.style.display = 'block';
+      if (countText) countText.innerText = `Preview Data (${parsed.length} baris siap diimpor):`;
+
+      let h = '';
+      parsed.slice(0, 10).forEach((p, idx) => {
+        h += `<tr>
+          <td class="text-xs">${idx + 1}</td>
+          <td class="text-xs">${escHtml(p.kategori)}</td>
+          <td class="text-xs">${escHtml(p.departemen)}</td>
+          <td class="text-xs">${escHtml(p.keterangan)}</td>
+          <td class="text-xs fw-700">${escHtml(p.nomor)}</td>
+          <td class="text-xs">${escHtml(p.perihal)}</td>
+          <td class="text-xs">${escHtml(p.tanggal)}</td>
+        </tr>`;
+      });
+      if (tbody) tbody.innerHTML = h;
+      if (btn) btn.disabled = parsed.length === 0;
+
+      toast(`Berhasil membaca ${parsed.length} data dari file Excel`, 'success');
+    } catch (err) {
+      console.error('Error parse Excel:', err);
+      toast('Gagal membaca file Excel: ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+};
+
+window.eksekusiImportSurat = async function() {
+  const data = window._parsedImportSurat || [];
+  if (!data.length) return toast('Tidak ada data untuk diimpor', 'warning');
+
+  const btn = document.getElementById('btnEksekusiImportSurat');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = '⏳ Mengimpor data ke Firestore...';
+  }
+
+  try {
+    let successCount = 0;
+    const nowIso = new Date().toISOString();
+    const batchSize = 400;
+
+    for (let i = 0; i < data.length; i += batchSize) {
+      const chunk = data.slice(i, i + batchSize);
+      const batch = db.batch();
+      chunk.forEach(item => {
+        const docRef = db.collection('hrd_surat').doc();
+        batch.set(docRef, {
+          ...item,
+          dibuatOleh: currentUser?.nama || 'Import System',
+          createdAt: nowIso,
+          updatedAt: nowIso
+        });
+        successCount++;
+      });
+      await batch.commit();
+    }
+
+    closeModalDirect();
+    toast(`🎉 Berhasil mengimpor ${successCount} data nomor surat!`, 'success');
+    window.renderSurat();
+  } catch (err) {
+    console.error('Gagal impor:', err);
+    toast('Gagal mengimpor data: ' + err.message, 'error');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = '🚀 Impor Data ke System';
+    }
+  }
+};
