@@ -1247,7 +1247,7 @@ async function simpanLowongan(id) {
 async function renderPipeline() {
   const main = document.getElementById('mainContent');
   if (!main) return;
-  const stages = ['applied', 'disc', 'psychology', 'health', 'interview', 'offering', 'hired'];
+  const stages = ['applied', 'disc', 'psychology', 'health', 'interview', 'offering', 'hired', 'rejected'];
   const stageLabels = {
     applied: '1. APPLIED / FORM PELAMAR',
     disc: '2. TEST DISC',
@@ -1255,7 +1255,8 @@ async function renderPipeline() {
     health: '4. TEST KESEHATAN',
     interview: '5. INTERVIEW',
     offering: '6. OFFERING',
-    hired: '7. HIRED'
+    hired: '7. HIRED',
+    rejected: '8. REJECTED / TIDAK LOLOS'
   };
   main.innerHTML = `<div class="page-title">
     <span>${renderBackButton()}🔄 Pipeline Kanban Rekrutmen</span>
@@ -1264,6 +1265,7 @@ async function renderPipeline() {
       <button class="btn btn-outline btn-sm" onclick="copyLinkDISC()">🧠 Copy Link Tes DISC</button>
       <button class="btn btn-outline btn-sm" onclick="copyLinkPsychology()">🧩 Copy Link Tes Psikologi</button>
       <button class="btn btn-outline btn-sm" onclick="copyLinkTestKesehatan()">🏥 Copy Link Test Kesehatan</button>
+      <button class="btn btn-primary btn-sm" onclick="modalKandidat()">+ Tambah Kandidat</button>
     </div>
   </div>
   <div id="pipelineWrap" style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>`;
@@ -1285,8 +1287,16 @@ async function renderPipeline() {
       const psychTag = p.psychologyScore !== undefined ? `<div class="text-xs fw-700 mt-2" style="color:#6a1b9a">🧩 Psikotes: ${p.psychologyScore} Poin</div>` : '';
       const healthTag = p.kesehatanStatus ? `<div class="text-xs mt-2">🏥 Health: ${getStatusBadgeKesehatan(p.kesehatanStatus)}</div>` : '';
       h += `<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:#fff">
-        <div class="fw-700" style="font-size:.88rem">${escHtml(p.nama || '-')}</div>
-        <div class="text-xs color-gray mb-4">${escHtml(p.posisi || '-')}</div>
+        <div class="flex justify-between items-start gap-4 mb-4">
+          <div>
+            <div class="fw-700" style="font-size:.88rem;line-height:1.2">${escHtml(p.nama || '-')}</div>
+            <div class="text-xs color-gray">${escHtml(p.posisi || '-')}</div>
+          </div>
+          <div class="flex gap-4" style="flex-shrink:0">
+            <button class="btn btn-xs btn-info" style="padding:2px 6px;font-size:.7rem" onclick="modalKandidat('${p.id}')" title="Edit Kandidat">✏️</button>
+            <button class="btn btn-xs btn-danger" style="padding:2px 6px;font-size:.7rem" onclick="hapusDoc('hrd_kandidat','${p.id}','pipeline')" title="Hapus Kandidat">🗑️</button>
+          </div>
+        </div>
         ${discTag}
         ${psychTag}
         ${healthTag}
@@ -1309,6 +1319,16 @@ async function updateKandidatStage(id, stage) {
 async function renderKandidat() {
   const main = document.getElementById('mainContent');
   if (!main) return;
+  const stageLabels = {
+    applied: '1. APPLIED / FORM PELAMAR',
+    disc: '2. TEST DISC',
+    psychology: '3. TEST PSIKOLOGI',
+    health: '4. TEST KESEHATAN',
+    interview: '5. INTERVIEW',
+    offering: '6. OFFERING',
+    hired: '7. HIRED',
+    rejected: '8. REJECTED / TIDAK LOLOS'
+  };
   main.innerHTML = `<div class="page-title">
     <span>${renderBackButton()}🧑‍💼 Kandidat</span>
     <div class="flex gap-8" style="flex-wrap:wrap">
@@ -1327,15 +1347,17 @@ async function renderKandidat() {
     const discInfo = p.discProfile ? `<span class="badge badge-info">🧠 ${escHtml(p.discProfile)}</span> ` : '';
     const psychInfo = p.psychologyScore !== undefined ? `<span class="badge" style="background:#f3e5f5;color:#6a1b9a">🧩 ${p.psychologyScore} Poin</span> ` : '';
     const healthInfo = p.kesehatanStatus ? getStatusBadgeKesehatan(p.kesehatanStatus) : '';
+    const stageName = stageLabels[p.stage] || (p.stage || 'applied').toUpperCase();
+    const badgeClass = p.stage === 'rejected' ? 'badge-danger' : (p.stage === 'hired' ? 'badge-success' : 'badge-primary');
     h += `<tr>
       <td class="fw-700">${escHtml(p.nama || '-')}</td>
       <td>${escHtml(p.posisi || '-')}</td>
       <td>${escHtml(p.kontak || p.email || '-')}</td>
-      <td><span class="badge badge-primary">${escHtml((p.stage || 'applied').toUpperCase())}</span></td>
+      <td><span class="badge ${badgeClass}">${escHtml(stageName)}</span></td>
       <td>${discInfo}${psychInfo}${healthInfo || '<span class="text-xs color-gray">-</span>'}</td>
       <td>
-        <button class="btn btn-xs btn-info" onclick="modalKandidat('${d.id}')">✏️</button>
-        <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kandidat','${d.id}','kandidat')">🗑️</button>
+        <button class="btn btn-xs btn-info" onclick="modalKandidat('${d.id}')">✏️ Edit</button>
+        <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kandidat','${d.id}','kandidat')">🗑️ Hapus</button>
       </td>
     </tr>`;
   });
@@ -1350,31 +1372,67 @@ function modalKandidat(id) {
 
 function showKandidatForm(id, p) {
   openModal(
-    `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Kandidat</div>
-    <div class="form-group"><label>Nama</label><input class="form-control" id="kdNama" value="${escHtml(p.nama || '')}"></div>
+    `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Data Kandidat</div>
+    <div class="form-group"><label>Nama Kandidat *</label><input class="form-control" id="kdNama" value="${escHtml(p.nama || '')}"></div>
     <div class="grid-2">
       <div class="form-group"><label>Posisi</label><input class="form-control" id="kdPosisi" value="${escHtml(p.posisi || '')}"></div>
       <div class="form-group"><label>Kontak/Email</label><input class="form-control" id="kdKontak" value="${escHtml(p.kontak || p.email || '')}"></div>
     </div>
-    <div class="form-group"><label>Stage</label><select class="form-control" id="kdStage"><option value="applied" ${p.stage === 'applied' ? 'selected' : ''}>Applied</option><option value="disc" ${p.stage === 'disc' ? 'selected' : ''}>DISC</option><option value="interview" ${p.stage === 'interview' ? 'selected' : ''}>Interview</option><option value="offering" ${p.stage === 'offering' ? 'selected' : ''}>Offering</option><option value="hired" ${p.stage === 'hired' ? 'selected' : ''}>Hired</option></select></div>
-    <button class="btn btn-primary" style="width:100%" onclick="simpanKandidat('${id || ''}')">💾 Simpan</button>`
+    <div class="form-group"><label>Stage Pipeline</label><select class="form-control" id="kdStage">
+      <option value="applied" ${p.stage === 'applied' ? 'selected' : ''}>1. APPLIED / FORM PELAMAR</option>
+      <option value="disc" ${p.stage === 'disc' ? 'selected' : ''}>2. TEST DISC</option>
+      <option value="psychology" ${p.stage === 'psychology' ? 'selected' : ''}>3. TEST PSIKOLOGI</option>
+      <option value="health" ${p.stage === 'health' ? 'selected' : ''}>4. TEST KESEHATAN</option>
+      <option value="interview" ${p.stage === 'interview' ? 'selected' : ''}>5. INTERVIEW</option>
+      <option value="offering" ${p.stage === 'offering' ? 'selected' : ''}>6. OFFERING</option>
+      <option value="hired" ${p.stage === 'hired' ? 'selected' : ''}>7. HIRED</option>
+      <option value="rejected" ${p.stage === 'rejected' ? 'selected' : ''}>8. REJECTED / TIDAK LOLOS</option>
+    </select></div>
+    <div class="grid-3">
+      <div class="form-group"><label>Profil DISC</label><input class="form-control" id="kdDisc" value="${escHtml(p.discProfile || '')}" placeholder="Cth: ADVISOR"></div>
+      <div class="form-group"><label>Skor Psikotes</label><input type="number" class="form-control" id="kdPsych" value="${p.psychologyScore !== undefined ? p.psychologyScore : ''}" placeholder="Cth: 74"></div>
+      <div class="form-group"><label>Status Kesehatan</label><select class="form-control" id="kdHealth">
+        <option value="">- Belum Tes -</option>
+        <option value="sehat" ${p.kesehatanStatus === 'sehat' ? 'selected' : ''}>Sehat / Memenuhi</option>
+        <option value="perlu_pemeriksaan" ${p.kesehatanStatus === 'perlu_pemeriksaan' ? 'selected' : ''}>Perlu Pemeriksaan Lanjut</option>
+        <option value="tidak_sehat" ${p.kesehatanStatus === 'tidak_sehat' ? 'selected' : ''}>Tidak Sehat</option>
+      </select></div>
+    </div>
+    <div class="form-group"><label>Catatan Admin (Opsional)</label><textarea class="form-control" id="kdCatatan" rows="2" placeholder="Catatan evaluasi kandidat...">${escHtml(p.catatan || '')}</textarea></div>
+    <button class="btn btn-primary mt-8" style="width:100%" onclick="simpanKandidat('${id || ''}')">💾 Simpan Data Kandidat</button>`
   );
 }
 
 async function simpanKandidat(id) {
+  const nama = document.getElementById('kdNama').value.trim();
+  if (!nama) return toast('Nama kandidat wajib diisi', 'warning');
+
+  const psychVal = document.getElementById('kdPsych')?.value;
   const data = {
-    nama: document.getElementById('kdNama').value.trim(),
+    nama: nama,
     posisi: document.getElementById('kdPosisi').value.trim(),
     kontak: document.getElementById('kdKontak').value.trim(),
     stage: document.getElementById('kdStage').value,
+    discProfile: document.getElementById('kdDisc')?.value.trim() || '',
+    kesehatanStatus: document.getElementById('kdHealth')?.value || '',
+    catatan: document.getElementById('kdCatatan')?.value.trim() || '',
     updatedAt: new Date().toISOString(),
   };
-  if (!data.nama) return toast('Nama wajib diisi', 'warning');
+
+  if (psychVal !== undefined && psychVal !== '') {
+    data.psychologyScore = Number(psychVal);
+  }
+
   if (id) await db.collection('hrd_kandidat').doc(id).update(data);
   else await db.collection('hrd_kandidat').add({ ...data, createdAt: new Date().toISOString() });
   closeModalDirect();
-  toast('Kandidat disimpan', 'success');
-  renderKandidat();
+  toast('Data kandidat berhasil disimpan', 'success');
+
+  if (document.getElementById('pipelineWrap')) {
+    renderPipeline();
+  } else {
+    renderKandidat();
+  }
 }
 
 window.renderStrukturOrg = renderStrukturOrg;
@@ -1568,6 +1626,7 @@ function filterTblPelamar() {
         <td>
           <div class="flex gap-4">
             <button class="btn btn-xs btn-info" onclick="modalDetailPelamar('${p.id}')">👁️ Detail</button>
+            <button class="btn btn-xs btn-warning" onclick="modalEditPelamar('${p.id}')">✏️ Edit</button>
             <button class="btn btn-xs btn-primary" onclick="cetakFormPelamar('${p.id}')">🖨️ Cetak</button>
             <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_pelamar','${p.id}','form-pelamar-mgmt')">🗑️</button>
           </div>
@@ -1613,7 +1672,10 @@ async function modalDetailPelamar(id) {
           <span class="badge ${p.kesehatanStatus ? 'badge-success' : 'badge-warning'}" style="font-size:.78rem;padding:5px 10px">
             🏥 Health: ${p.kesehatanStatus ? getStatusBadgeKesehatan(p.kesehatanStatus) : 'Belum Tes'}
           </span>
-          <button class="btn btn-xs btn-primary ml-8" onclick="cetakFormPelamar('${id}')">🖨️ Cetak Form</button>
+          <button class="btn btn-xs btn-warning ml-8" onclick="closeModalDirect(); modalEditPelamar('${id}')">✏️ Edit Pelamar</button>
+          <button class="btn btn-xs btn-primary" onclick="cetakFormPelamar('${id}')">🖨️ Cetak Form</button>
+        </div>
+      </div>
         </div>
       </div>
 
@@ -1758,12 +1820,117 @@ async function modalDetailPelamar(id) {
       </div>
 
       <div class="flex gap-8 justify-end mt-16">
+        <button class="btn btn-warning" onclick="closeModalDirect(); modalEditPelamar('${id}')">✏️ Edit Data Pelamar</button>
         <button class="btn btn-primary" onclick="cetakFormPelamar('${id}')">🖨️ Cetak Form Isian (PDF)</button>
         <button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>
       </div>
 
     </div>
   `, true);
+}
+
+async function modalEditPelamar(id) {
+  const doc = await db.collection('hrd_pelamar').doc(id).get();
+  if (!doc.exists) return toast('Data pelamar tidak ditemukan', 'warning');
+  const p = doc.data();
+
+  openModal(`
+    <div class="modal-title">✏️ Edit Data Pelamar — ${escHtml(p.nama)}</div>
+    <div style="max-height:75vh;overflow-y:auto;padding-right:6px">
+      <div class="fw-700 color-primary mb-8 text-sm">I. Informasi Utama Pelamar</div>
+      <div class="grid-2 mb-8">
+        <div class="form-group"><label>Nama Pelamar *</label><input class="form-control" id="edPlNama" value="${escHtml(p.nama || '')}"></div>
+        <div class="form-group"><label>Posisi Dilamar</label><input class="form-control" id="edPlPosisi" value="${escHtml(p.posisi || '')}"></div>
+      </div>
+      <div class="grid-2 mb-8">
+        <div class="form-group"><label>No. HP / WA</label><input class="form-control" id="edPlHp" value="${escHtml(p.telepon || '')}"></div>
+        <div class="form-group"><label>Email</label><input class="form-control" id="edPlEmail" value="${escHtml(p.email || '')}"></div>
+      </div>
+      <div class="grid-2 mb-8">
+        <div class="form-group"><label>NIK (KTP)</label><input class="form-control" id="edPlNik" value="${escHtml(p.nik || '')}"></div>
+        <div class="form-group"><label>Tempat Lahir</label><input class="form-control" id="edPlTempatLahir" value="${escHtml(p.tempatLahir || '')}"></div>
+      </div>
+      <div class="grid-2 mb-8">
+        <div class="form-group"><label>Tanggal Lahir</label><input type="date" class="form-control" id="edPlTglLahir" value="${p.tanggalLahir || ''}"></div>
+        <div class="form-group"><label>Jenis Kelamin</label><select class="form-control" id="edPlJk">
+          <option value="">- Pilih -</option>
+          <option value="Laki-laki" ${p.jenisKelamin === 'Laki-laki' ? 'selected' : ''}>Laki-laki</option>
+          <option value="Perempuan" ${p.jenisKelamin === 'Perempuan' ? 'selected' : ''}>Perempuan</option>
+        </select></div>
+      </div>
+      <div class="form-group mb-8"><label>Alamat Domisili / Sekarang</label><textarea class="form-control" id="edPlAlamat" rows="2">${escHtml(p.alamatSekarang || p.alamatTetap || '')}</textarea></div>
+
+      <div class="fw-700 color-primary mt-16 mb-8 text-sm">II. Hasil Tes & Status Assessment</div>
+      <div class="grid-3 mb-8">
+        <div class="form-group"><label>Profil DISC</label><input class="form-control" id="edPlDisc" value="${escHtml(p.discProfile || '')}" placeholder="Cth: ADVISOR"></div>
+        <div class="form-group"><label>Skor Psikotes</label><input type="number" class="form-control" id="edPlPsych" value="${p.psychologyScore !== undefined ? p.psychologyScore : ''}" placeholder="Cth: 74"></div>
+        <div class="form-group"><label>Status Kesehatan</label><select class="form-control" id="edPlHealth">
+          <option value="">- Belum Tes -</option>
+          <option value="sehat" ${p.kesehatanStatus === 'sehat' ? 'selected' : ''}>Sehat / Memenuhi</option>
+          <option value="perlu_pemeriksaan" ${p.kesehatanStatus === 'perlu_pemeriksaan' ? 'selected' : ''}>Perlu Pemeriksaan Lanjut</option>
+          <option value="tidak_sehat" ${p.kesehatanStatus === 'tidak_sehat' ? 'selected' : ''}>Tidak Sehat</option>
+        </select></div>
+      </div>
+    </div>
+    <div class="flex gap-8 justify-end mt-16">
+      <button class="btn btn-primary" onclick="simpanEditPelamar('${id}')">💾 Simpan Perubahan</button>
+      <button class="btn btn-outline" onclick="closeModalDirect()">Batal</button>
+    </div>
+  `, true);
+}
+
+async function simpanEditPelamar(id) {
+  const nama = document.getElementById('edPlNama').value.trim();
+  if (!nama) return toast('Nama pelamar wajib diisi', 'warning');
+
+  const payload = {
+    nama: nama,
+    posisi: document.getElementById('edPlPosisi').value.trim(),
+    telepon: document.getElementById('edPlHp').value.trim(),
+    email: document.getElementById('edPlEmail').value.trim(),
+    nik: document.getElementById('edPlNik').value.trim(),
+    tempatLahir: document.getElementById('edPlTempatLahir').value.trim(),
+    tanggalLahir: document.getElementById('edPlTglLahir').value,
+    jenisKelamin: document.getElementById('edPlJk').value,
+    alamatSekarang: document.getElementById('edPlAlamat').value.trim(),
+    discProfile: document.getElementById('edPlDisc').value.trim(),
+    kesehatanStatus: document.getElementById('edPlHealth').value,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const psychVal = document.getElementById('edPlPsych').value;
+  if (psychVal !== '') {
+    payload.psychologyScore = Number(psychVal);
+    payload.psychologyStatus = 'Selesai';
+  }
+  if (payload.discProfile) {
+    payload.discStatus = 'Selesai';
+  }
+
+  await db.collection('hrd_pelamar').doc(id).update(payload);
+
+  try {
+    const kSnap = await db.collection('hrd_kandidat').where('nama', '==', nama).get();
+    if (!kSnap.empty) {
+      kSnap.forEach(doc => {
+        db.collection('hrd_kandidat').doc(doc.id).update({
+          nama: payload.nama,
+          posisi: payload.posisi,
+          kontak: payload.telepon || payload.email,
+          discProfile: payload.discProfile || undefined,
+          psychologyScore: payload.psychologyScore !== undefined ? payload.psychologyScore : undefined,
+          kesehatanStatus: payload.kesehatanStatus || undefined,
+          updatedAt: new Date().toISOString()
+        });
+      });
+    }
+  } catch(e) {
+    console.warn('Gagal sync update ke hrd_kandidat:', e);
+  }
+
+  closeModalDirect();
+  toast('Data pelamar berhasil diperbarui', 'success');
+  if (typeof filterTblPelamar === 'function') filterTblPelamar();
 }
 
 async function cetakFormPelamar(id) {
@@ -1904,5 +2071,7 @@ window.copyCandidatePsychologyLink = copyCandidatePsychologyLink;
 window.copyCandidateHealthLink = copyCandidateHealthLink;
 window.renderFormPelamarMgmt = renderFormPelamarMgmt;
 window.modalDetailPelamar = modalDetailPelamar;
+window.modalEditPelamar = modalEditPelamar;
+window.simpanEditPelamar = simpanEditPelamar;
 window.cetakFormPelamar = cetakFormPelamar;
 
