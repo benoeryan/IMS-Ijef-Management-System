@@ -1642,6 +1642,16 @@ async function modalDetailPelamar(id) {
   if (!doc.exists) return toast('Data tidak ditemukan', 'warning');
   const p = doc.data();
 
+  // Fetch detailed psychology test result
+  let psychDoc = null;
+  try {
+    let pSnap = await db.collection('hrd_psychology_results').where('pelamarId', '==', id).get();
+    if (pSnap.empty && p.nama) {
+      pSnap = await db.collection('hrd_psychology_results').where('nama', '==', p.nama).get();
+    }
+    if (!pSnap.empty) psychDoc = pSnap.docs[0].data();
+  } catch (e) { console.warn('Fetch psych result err:', e); }
+
   const renderArrayTable = (arr, headers, keys) => {
     if (!arr || !arr.length) return '<p class="text-xs color-gray">- Tidak ada data -</p>';
     let ths = headers.map(h => `<th>${h}</th>`).join('');
@@ -1666,16 +1676,14 @@ async function modalDetailPelamar(id) {
           <span class="badge ${p.discProfile ? 'badge-success' : 'badge-warning'}" style="font-size:.78rem;padding:5px 10px">
             🧠 DISC: ${p.discProfile ? escHtml(p.discProfile) + ' (' + escHtml(p.discPattern || '') + ')' : 'Belum Tes'}
           </span>
-          <span class="badge" style="font-size:.78rem;padding:5px 10px;background:${p.psychologyScore !== undefined ? '#f3e5f5' : '#fff3e0'};color:${p.psychologyScore !== undefined ? '#6a1b9a' : '#f57f17'}">
-            🧩 Psikotes: ${p.psychologyScore !== undefined ? p.psychologyScore + ' Poin (' + escHtml(p.psychologyResult || '') + ')' : 'Belum Tes'}
+          <span class="badge" style="font-size:.78rem;padding:5px 10px;background:${(p.psychologyScore !== undefined || psychDoc) ? '#f3e5f5' : '#fff3e0'};color:${(p.psychologyScore !== undefined || psychDoc) ? '#6a1b9a' : '#f57f17'}">
+            🧩 Psikotes: ${p.psychologyScore ?? psychDoc?.totalScore ?? 0} Poin (${escHtml(p.psychologyResult || psychDoc?.recommendation || 'Belum Tes')})
           </span>
           <span class="badge ${p.kesehatanStatus ? 'badge-success' : 'badge-warning'}" style="font-size:.78rem;padding:5px 10px">
             🏥 Health: ${p.kesehatanStatus ? getStatusBadgeKesehatan(p.kesehatanStatus) : 'Belum Tes'}
           </span>
           <button class="btn btn-xs btn-warning ml-8" onclick="closeModalDirect(); modalEditPelamar('${id}')">✏️ Edit Pelamar</button>
           <button class="btn btn-xs btn-primary" onclick="cetakFormPelamar('${id}')">🖨️ Cetak Form</button>
-        </div>
-      </div>
         </div>
       </div>
 
@@ -1819,6 +1827,47 @@ async function modalDetailPelamar(id) {
         </div>
       </div>
 
+      <!-- SEKSI X: HASIL DETAIL TES PSIKOLOGI IJEF -->
+      <div class="card mb-12" style="border-left:4px solid #6a1b9a;background:#fcf8ff">
+        <div class="fw-700 mb-8" style="color:#6a1b9a;font-size:.95rem">X. HASIL DETAIL TES PSIKOLOGI CALON KARYAWAN</div>
+
+        <div class="flex justify-between items-center mb-12 flex-wrap gap-8">
+          <div>
+            <div class="text-xs color-gray">Rekomendasi Akhir Psikotes:</div>
+            <div class="fw-700" style="font-size:1rem;color:${((p.psychologyScore ?? psychDoc?.totalScore ?? 0) >= 60) ? '#2e7d32' : '#c62828'}">
+              ${escHtml(p.psychologyResult || psychDoc?.recommendation || 'Belum Ada Hasil')}
+            </div>
+          </div>
+          <span class="badge" style="background:#f3e5f5;color:#6a1b9a;font-size:.88rem;padding:6px 14px;font-weight:700">
+            Total Skor: ${p.psychologyScore ?? psychDoc?.totalScore ?? 0} / 100 Poin
+          </span>
+        </div>
+
+        <div class="text-xs fw-700 mb-6 color-gray">Rincian Nilai Per Sub-kategori Tes Psikologi:</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px" class="text-xs">
+          <div style="background:#fff;padding:8px 10px;border-radius:6px;border:1px solid #e1bee7">
+            <div class="color-gray">🗣️ Verbal & Bahasa</div>
+            <div class="fw-700 mt-2" style="font-size:.95rem;color:#6a1b9a">${psychDoc?.verbalScore !== undefined ? psychDoc.verbalScore + ' Poin' : '-'}</div>
+          </div>
+          <div style="background:#fff;padding:8px 10px;border-radius:6px;border:1px solid #e1bee7">
+            <div class="color-gray">🔢 Deret & Hitungan</div>
+            <div class="fw-700 mt-2" style="font-size:.95rem;color:#6a1b9a">${psychDoc?.hitunganScore !== undefined ? psychDoc.hitunganScore + ' Poin' : '-'}</div>
+          </div>
+          <div style="background:#fff;padding:8px 10px;border-radius:6px;border:1px solid #e1bee7">
+            <div class="color-gray">🧩 Logika & Penalaran</div>
+            <div class="fw-700 mt-2" style="font-size:.95rem;color:#6a1b9a">${psychDoc?.logikaScore !== undefined ? psychDoc.logikaScore + ' Poin' : '-'}</div>
+          </div>
+          <div style="background:#fff;padding:8px 10px;border-radius:6px;border:1px solid #e1bee7">
+            <div class="color-gray">🎯 Ketelitian Data</div>
+            <div class="fw-700 mt-2" style="font-size:.95rem;color:#6a1b9a">${psychDoc?.ketelitianScore !== undefined ? psychDoc.ketelitianScore + ' Poin' : '-'}</div>
+          </div>
+          <div style="background:#fff;padding:8px 10px;border-radius:6px;border:1px solid #e1bee7">
+            <div class="color-gray">📐 Kemampuan Spasial</div>
+            <div class="fw-700 mt-2" style="font-size:.95rem;color:#6a1b9a">${psychDoc?.spasialScore !== undefined ? psychDoc.spasialScore + ' Poin' : '-'}</div>
+          </div>
+        </div>
+      </div>
+
       <div class="flex gap-8 justify-end mt-16">
         <button class="btn btn-warning" onclick="closeModalDirect(); modalEditPelamar('${id}')">✏️ Edit Data Pelamar</button>
         <button class="btn btn-primary" onclick="cetakFormPelamar('${id}')">🖨️ Cetak Form Isian (PDF)</button>
@@ -1938,6 +1987,16 @@ async function cetakFormPelamar(id) {
   if (!doc.exists) return toast('Data tidak ditemukan', 'warning');
   const p = doc.data();
 
+  // Fetch psychology test details
+  let psychDoc = null;
+  try {
+    let pSnap = await db.collection('hrd_psychology_results').where('pelamarId', '==', id).get();
+    if (pSnap.empty && p.nama) {
+      pSnap = await db.collection('hrd_psychology_results').where('nama', '==', p.nama).get();
+    }
+    if (!pSnap.empty) psychDoc = pSnap.docs[0].data();
+  } catch (e) { console.warn(e); }
+
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>Form Isian Data Pelamar - ${escHtml(p.nama)}</title>
   <style>
@@ -2013,15 +2072,41 @@ async function cetakFormPelamar(id) {
     ${(p.pengalamanKerja && p.pengalamanKerja.length) ? p.pengalamanKerja.map(pk=>`<tr><td>${escHtml(pk.perusahaan)}</td><td>${escHtml(pk.tahun)}</td><td>${escHtml(pk.jabatan)}</td><td>${escHtml(pk.gaji)}</td><td>${escHtml(pk.alasan)}</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center">-</td></tr>'}
   </tbody></table>
 
-  <div class="sec-head">VIII. INTERN PERUSAHAAN & hasil tes assessment</div>
+  <div class="sec-head">VIII. INTERN PERUSAHAAN & HASIL TES ASSESSMENT</div>
   <table class="no-border">
     <tr><td width="35%">Gaji Minimal Diharapkan</td><td width="2%">:</td><td><b>${p.gajiDiharapkan ? formatCurrency(p.gajiDiharapkan) : '-'}</b></td></tr>
     <tr><td>Dapat Mulai Bekerja</td><td>:</td><td>${escHtml(p.tglMulaiKerja || '-')}</td></tr>
     <tr><td>Fasilitas Diharapkan</td><td>:</td><td>${escHtml(p.fasilitasDiharapkan || '-')}</td></tr>
     <tr><td>Bersedia Ditempatkan di Unit Lain</td><td>:</td><td>${escHtml(p.bersediaDitempatkan || '-')}</td></tr>
     <tr><td>1. Hasil Tes DISC</td><td>:</td><td><b>${escHtml(p.discProfile || 'Belum Tes')} (${escHtml(p.discPattern || '-')})</b></td></tr>
-    <tr><td>2. Hasil Tes Psikologi IJEF</td><td>:</td><td><b>${p.psychologyScore !== undefined ? p.psychologyScore + ' Poin — ' + escHtml(p.psychologyResult || '-') : 'Belum Tes'}</b></td></tr>
+    <tr><td>2. Hasil Tes Psikologi IJEF</td><td>:</td><td><b>${p.psychologyScore !== undefined ? p.psychologyScore + ' Poin — ' + escHtml(p.psychologyResult || '-') : (psychDoc?.totalScore !== undefined ? psychDoc.totalScore + ' Poin — ' + escHtml(psychDoc.recommendation || '-') : 'Belum Tes')}</b></td></tr>
     <tr><td>3. Hasil Test Kesehatan</td><td>:</td><td><b>${p.kesehatanStatus ? escHtml(p.kesehatanStatus.toUpperCase()) : 'Belum Tes'}</b></td></tr>
+  </table>
+
+  <br><b>Rincian Sub-kategori Nilai Tes Psikologi IJEF:</b>
+  <table>
+    <thead>
+      <tr>
+        <th style="text-align:center">Total Skor</th>
+        <th style="text-align:center">Verbal & Bahasa (Max 20)</th>
+        <th style="text-align:center">Deret & Hitungan (Max 40)</th>
+        <th style="text-align:center">Logika & Penalaran (Max 20)</th>
+        <th style="text-align:center">Ketelitian (Max 10)</th>
+        <th style="text-align:center">Spasial (Max 10)</th>
+        <th style="text-align:center">Rekomendasi Akhir</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="text-align:center"><b>${p.psychologyScore ?? psychDoc?.totalScore ?? '-'} / 100</b></td>
+        <td style="text-align:center">${psychDoc?.verbalScore !== undefined ? psychDoc.verbalScore + ' Poin' : '-'}</td>
+        <td style="text-align:center">${psychDoc?.hitunganScore !== undefined ? psychDoc.hitunganScore + ' Poin' : '-'}</td>
+        <td style="text-align:center">${psychDoc?.logikaScore !== undefined ? psychDoc.logikaScore + ' Poin' : '-'}</td>
+        <td style="text-align:center">${psychDoc?.ketelitianScore !== undefined ? psychDoc.ketelitianScore + ' Poin' : '-'}</td>
+        <td style="text-align:center">${psychDoc?.spasialScore !== undefined ? psychDoc.spasialScore + ' Poin' : '-'}</td>
+        <td style="text-align:center"><b>${escHtml(p.psychologyResult || psychDoc?.recommendation || '-')}</b></td>
+      </tr>
+    </tbody>
   </table>
 
   <div class="sign">
