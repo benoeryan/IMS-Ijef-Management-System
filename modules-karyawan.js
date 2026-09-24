@@ -1079,30 +1079,93 @@ async function toggleChecklistItemOnboarding(docId, index, isDone) {
   }
 }
 
-function modalOnboarding(id) {
-  if (id) db.collection('hrd_onboarding').doc(id).get().then((d) => showOnboardingForm(id, d.data() || {}));
-  else showOnboardingForm(null, {});
+async function modalOnboarding(id) {
+  try {
+    const [kSnap, docSnap] = await Promise.all([
+      db.collection('hrd_karyawan').get(),
+      id ? db.collection('hrd_onboarding').doc(id).get() : Promise.resolve(null)
+    ]);
+
+    const karyawanList = [];
+    kSnap.forEach(d => karyawanList.push({ id: d.id, ...d.data() }));
+
+    const p = docSnap && docSnap.exists ? { id: docSnap.id, ...docSnap.data() } : {};
+    showOnboardingForm(id, p, karyawanList);
+  } catch (e) {
+    console.error('modalOnboarding err:', e);
+    toast('Gagal memuat data onboarding', 'error');
+  }
 }
 
-function showOnboardingForm(id, p) {
+function showOnboardingForm(id, p, karyawanList = []) {
   const checklist = Array.isArray(p.checklist) && p.checklist.length ? p.checklist.map((x) => x.task).join('\n') : 'Orientasi perusahaan\nSetup akun kerja\nPengenalan tim\nReview SOP';
+
+  let opts = '<option value="">-- Pilih Karyawan Dari Database --</option>';
+  karyawanList.forEach(k => {
+    const isSel = (p.karyawanId && p.karyawanId === k.id) || (p.nama && p.nama.toLowerCase().trim() === (k.nama || '').toLowerCase().trim());
+    opts += `<option value="${k.id}" data-nama="${escHtml(k.nama || '')}" data-posisi="${escHtml(k.posisi || '')}" data-dept="${escHtml(k.departemen || '')}" ${isSel ? 'selected' : ''}>${escHtml(k.nama)} — ${escHtml(k.posisi || '-')} (${escHtml(k.departemen || '-')})</option>`;
+  });
+
   openModal(
     `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Onboarding</div>
-    <div class="form-group"><label>Nama Karyawan *</label><input class="form-control" id="obNama" value="${escHtml(p.nama || '')}"></div>
-    <div class="form-group"><label>Tanggal Mulai</label><input class="form-control" type="date" id="obTanggal" value="${p.tanggalMulai || todayStr()}"></div>
-    <div class="form-group"><label>Daftar Tugas Checklist (1 baris = 1 item tugas)</label><textarea class="form-control" id="obChecklist" rows="6">${escHtml(checklist)}</textarea></div>
-    <button class="btn btn-primary" style="width:100%" onclick="simpanOnboarding('${id || ''}')">💾 Simpan Onboarding</button>`
+    <div style="max-height:78vh;overflow-y:auto;padding-right:6px">
+      <div class="form-group mb-8">
+        <label>Pilih Karyawan dari Database *</label>
+        <select class="form-control" id="obKaryawanSelect" onchange="window.onSelectKaryawanOnboarding()">
+          ${opts}
+        </select>
+      </div>
+
+      <div class="grid-2 mb-8">
+        <div class="form-group"><label>Nama Karyawan *</label><input class="form-control" id="obNama" value="${escHtml(p.nama || '')}" placeholder="Otomatis dari pilihan karyawan..."></div>
+        <div class="form-group"><label>Tanggal Mulai</label><input class="form-control" type="date" id="obTanggal" value="${p.tanggalMulai || todayStr()}"></div>
+      </div>
+
+      <div class="grid-2 mb-8">
+        <div class="form-group"><label>Posisi (Otomatis)</label><input class="form-control" id="obPosisi" value="${escHtml(p.posisi || '')}" placeholder="Otomatis..." readonly style="background:#f0f0f0"></div>
+        <div class="form-group"><label>Departemen (Otomatis)</label><input class="form-control" id="obDepartemen" value="${escHtml(p.departemen || '')}" placeholder="Otomatis..." readonly style="background:#f0f0f0"></div>
+      </div>
+
+      <div class="form-group mb-12"><label>Daftar Tugas Checklist (1 baris = 1 item tugas)</label><textarea class="form-control" id="obChecklist" rows="6">${escHtml(checklist)}</textarea></div>
+    </div>
+
+    <button class="btn btn-primary mt-8" style="width:100%" onclick="simpanOnboarding('${id || ''}')">💾 Simpan Onboarding</button>`
   );
 }
 
+window.onSelectKaryawanOnboarding = function() {
+  const sel = document.getElementById('obKaryawanSelect');
+  if (!sel) return;
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !sel.value) return;
+
+  const nama = opt.dataset.nama || '';
+  const posisi = opt.dataset.posisi || '';
+  const dept = opt.dataset.dept || '';
+
+  const elNama = document.getElementById('obNama');
+  const elPosisi = document.getElementById('obPosisi');
+  const elDept = document.getElementById('obDepartemen');
+
+  if (elNama) elNama.value = nama;
+  if (elPosisi) elPosisi.value = posisi;
+  if (elDept) elDept.value = dept;
+};
+
 async function simpanOnboarding(id) {
+  const sel = document.getElementById('obKaryawanSelect');
+  const opt = sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+
   const data = {
     nama: document.getElementById('obNama').value.trim(),
+    posisi: document.getElementById('obPosisi')?.value.trim() || opt?.dataset?.posisi || '',
+    departemen: document.getElementById('obDepartemen')?.value.trim() || opt?.dataset?.dept || '',
+    karyawanId: sel?.value || '',
     tanggalMulai: document.getElementById('obTanggal').value,
     checklist: parseChecklistText(document.getElementById('obChecklist').value),
     updatedAt: new Date().toISOString(),
   };
-  if (!data.nama) return toast('Nama wajib diisi', 'warning');
+  if (!data.nama) return toast('Pilih atau isi nama karyawan', 'warning');
   if (id) {
     const old = (await db.collection('hrd_onboarding').doc(id).get()).data() || {};
     const oldMap = {};
@@ -1273,35 +1336,97 @@ async function toggleChecklistItemOffboarding(docId, index, isDone) {
   }
 }
 
-function modalOffboarding(id) {
-  if (id) db.collection('hrd_offboarding').doc(id).get().then((d) => showOffboardingForm(id, d.data() || {}));
-  else showOffboardingForm(null, {});
+async function modalOffboarding(id) {
+  try {
+    const [kSnap, docSnap] = await Promise.all([
+      db.collection('hrd_karyawan').get(),
+      id ? db.collection('hrd_offboarding').doc(id).get() : Promise.resolve(null)
+    ]);
+
+    const karyawanList = [];
+    kSnap.forEach(d => karyawanList.push({ id: d.id, ...d.data() }));
+
+    const p = docSnap && docSnap.exists ? { id: docSnap.id, ...docSnap.data() } : {};
+    showOffboardingForm(id, p, karyawanList);
+  } catch (e) {
+    console.error('modalOffboarding err:', e);
+    toast('Gagal memuat data offboarding', 'error');
+  }
 }
 
-function showOffboardingForm(id, p) {
+function showOffboardingForm(id, p, karyawanList = []) {
   const defaultChecklist = ['Serah terima tugas', 'Pengembalian aset', 'Deaktivasi akun', 'Exit interview', 'Surat referensi'];
   const checklist = Array.isArray(p.checklist) && p.checklist.length ? p.checklist.map((x) => x.task).join('\n') : defaultChecklist.join('\n');
+
+  let opts = '<option value="">-- Pilih Karyawan Dari Database --</option>';
+  karyawanList.forEach(k => {
+    const isSel = (p.karyawanId && p.karyawanId === k.id) || (p.nama && p.nama.toLowerCase().trim() === (k.nama || '').toLowerCase().trim());
+    opts += `<option value="${k.id}" data-nama="${escHtml(k.nama || '')}" data-posisi="${escHtml(k.posisi || '')}" data-dept="${escHtml(k.departemen || '')}" ${isSel ? 'selected' : ''}>${escHtml(k.nama)} — ${escHtml(k.posisi || '-')} (${escHtml(k.departemen || '-')})</option>`;
+  });
+
   openModal(
     `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Offboarding</div>
-    <div class="form-group"><label>Nama Karyawan *</label><input class="form-control" id="ofNama" value="${escHtml(p.nama || '')}"></div>
-    <div class="grid-2">
-      <div class="form-group"><label>Tanggal Keluar</label><input class="form-control" type="date" id="ofTanggal" value="${p.tanggalKeluar || todayStr()}"></div>
-      <div class="form-group"><label>Alasan</label><input class="form-control" id="ofAlasan" value="${escHtml(p.alasan || '')}"></div>
+    <div style="max-height:78vh;overflow-y:auto;padding-right:6px">
+      <div class="form-group mb-8">
+        <label>Pilih Karyawan dari Database *</label>
+        <select class="form-control" id="ofKaryawanSelect" onchange="window.onSelectKaryawanOffboarding()">
+          ${opts}
+        </select>
+      </div>
+
+      <div class="grid-2 mb-8">
+        <div class="form-group"><label>Nama Karyawan *</label><input class="form-control" id="ofNama" value="${escHtml(p.nama || '')}" placeholder="Otomatis dari pilihan karyawan..."></div>
+        <div class="form-group"><label>Tanggal Keluar</label><input class="form-control" type="date" id="ofTanggal" value="${p.tanggalKeluar || todayStr()}"></div>
+      </div>
+
+      <div class="grid-2 mb-8">
+        <div class="form-group"><label>Posisi (Otomatis)</label><input class="form-control" id="ofPosisi" value="${escHtml(p.posisi || '')}" readonly style="background:#f0f0f0"></div>
+        <div class="form-group"><label>Departemen (Otomatis)</label><input class="form-control" id="ofDepartemen" value="${escHtml(p.departemen || '')}" readonly style="background:#f0f0f0"></div>
+      </div>
+
+      <div class="form-group mb-8"><label>Alasan</label><input class="form-control" id="ofAlasan" value="${escHtml(p.alasan || '')}" placeholder="Cth: Resign, Habis Kontrak, dll"></div>
+
+      <div class="form-group mb-12"><label>Daftar Tugas Checklist (1 baris = 1 item tugas)</label><textarea class="form-control" id="ofChecklist" rows="5">${escHtml(checklist)}</textarea></div>
     </div>
-    <div class="form-group"><label>Daftar Tugas Checklist (1 baris = 1 item tugas)</label><textarea class="form-control" id="ofChecklist" rows="6">${escHtml(checklist)}</textarea></div>
-    <button class="btn btn-primary" style="width:100%" onclick="simpanOffboarding('${id || ''}')">💾 Simpan Offboarding</button>`
+
+    <button class="btn btn-primary mt-8" style="width:100%" onclick="simpanOffboarding('${id || ''}')">💾 Simpan Offboarding</button>`
   );
 }
 
+window.onSelectKaryawanOffboarding = function() {
+  const sel = document.getElementById('ofKaryawanSelect');
+  if (!sel) return;
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !sel.value) return;
+
+  const nama = opt.dataset.nama || '';
+  const posisi = opt.dataset.posisi || '';
+  const dept = opt.dataset.dept || '';
+
+  const elNama = document.getElementById('ofNama');
+  const elPosisi = document.getElementById('ofPosisi');
+  const elDept = document.getElementById('ofDepartemen');
+
+  if (elNama) elNama.value = nama;
+  if (elPosisi) elPosisi.value = posisi;
+  if (elDept) elDept.value = dept;
+};
+
 async function simpanOffboarding(id) {
+  const sel = document.getElementById('ofKaryawanSelect');
+  const opt = sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+
   const data = {
     nama: document.getElementById('ofNama').value.trim(),
+    posisi: document.getElementById('ofPosisi')?.value.trim() || opt?.dataset?.posisi || '',
+    departemen: document.getElementById('ofDepartemen')?.value.trim() || opt?.dataset?.dept || '',
+    karyawanId: sel?.value || '',
     tanggalKeluar: document.getElementById('ofTanggal').value,
     alasan: document.getElementById('ofAlasan').value.trim(),
     checklist: parseChecklistText(document.getElementById('ofChecklist').value),
     updatedAt: new Date().toISOString(),
   };
-  if (!data.nama) return toast('Nama wajib diisi', 'warning');
+  if (!data.nama) return toast('Pilih atau isi nama karyawan', 'warning');
   if (id) {
     const old = (await db.collection('hrd_offboarding').doc(id).get()).data() || {};
     const oldMap = {};
@@ -1781,8 +1906,11 @@ window.renderOnboarding = renderOnboarding;
 window.renderOffboarding = renderOffboarding;
 window.viewChecklistOnboarding = viewChecklistOnboarding;
 window.toggleChecklistItemOnboarding = toggleChecklistItemOnboarding;
+window.onSelectKaryawanOnboarding = onSelectKaryawanOnboarding;
 window.viewChecklistOffboarding = viewChecklistOffboarding;
 window.toggleChecklistItemOffboarding = toggleChecklistItemOffboarding;
+window.onSelectKaryawanOffboarding = onSelectKaryawanOffboarding;
+window.onSelectKaryawanJobdesk = onSelectKaryawanJobdesk;
 window.renderLowongan = renderLowongan;
 window.renderPipeline = renderPipeline;
 window.renderKandidat = renderKandidat;
