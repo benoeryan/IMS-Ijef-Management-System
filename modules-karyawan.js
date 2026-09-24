@@ -925,19 +925,158 @@ function parseChecklistText(raw) {
     .map((task) => ({ task, done: false }));
 }
 
+// == ONBOARDING WITH INTERACTIVE CHECKLIST =============================
+
 async function renderOnboarding() {
   const main = document.getElementById('mainContent');
   if (!main) return;
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🚀 Onboarding</span><button class="btn btn-primary btn-sm" onclick="modalOnboarding()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Tanggal Mulai</th><th>Progress</th><th>Aksi</th></tr></thead><tbody id="tblOnboarding"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title">
+    <span>${renderBackButton()}🚀 Onboarding</span>
+    <button class="btn btn-primary btn-sm" onclick="modalOnboarding()">+ Tambah Onboarding</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nama Karyawan</th>
+            <th>Tanggal Mulai</th>
+            <th>Progress Checklist</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tblOnboarding"></tbody>
+      </table>
+    </div>
+  </div>`;
+
   const snap = await db.collection('hrd_onboarding').orderBy('createdAt', 'desc').get();
   let h = '';
   snap.forEach((d) => {
     const p = d.data();
     const total = Array.isArray(p.checklist) ? p.checklist.length : 0;
     const done = Array.isArray(p.checklist) ? p.checklist.filter((x) => x.done).length : 0;
-    h += `<tr><td class="fw-700">${escHtml(p.nama || '-')}</td><td>${formatDate(p.tanggalMulai)}</td><td>${done}/${total}</td><td><button class="btn btn-xs btn-info" onclick="modalOnboarding('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_onboarding','${d.id}','onboarding')">🗑️</button></td></tr>`;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const badgeClass = done === total && total > 0 ? 'badge-success' : (done > 0 ? 'badge-info' : 'badge-warning');
+
+    h += `<tr>
+      <td class="fw-700">${escHtml(p.nama || '-')}</td>
+      <td>${formatDate(p.tanggalMulai)}</td>
+      <td>
+        <span class="badge ${badgeClass}" style="cursor:pointer;font-size:.8rem;padding:5px 10px" onclick="window.viewChecklistOnboarding('${d.id}')" title="Klik untuk ceklis tugas">
+          📋 ${done}/${total} (${pct}%)
+        </span>
+      </td>
+      <td>
+        <div class="flex gap-4">
+          <button class="btn btn-xs btn-info" onclick="window.viewChecklistOnboarding('${d.id}')">📋 Checklist</button>
+          <button class="btn btn-xs btn-warning" onclick="modalOnboarding('${d.id}')">✏️ Edit</button>
+          <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_onboarding','${d.id}','onboarding')">🗑️ Hapus</button>
+        </div>
+      </td>
+    </tr>`;
   });
-  document.getElementById('tblOnboarding').innerHTML = h || '<tr><td colspan="4" class="text-center">Belum ada data</td></tr>';
+  document.getElementById('tblOnboarding').innerHTML = h || '<tr><td colspan="4" class="text-center color-gray">Belum ada data onboarding</td></tr>';
+}
+
+async function viewChecklistOnboarding(id) {
+  const doc = await db.collection('hrd_onboarding').doc(id).get();
+  if (!doc.exists) return toast('Data onboarding tidak ditemukan', 'warning');
+  const p = doc.data() || {};
+  const checklist = Array.isArray(p.checklist) ? p.checklist : [];
+  const total = checklist.length;
+  const doneCount = checklist.filter(x => x.done).length;
+  const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+
+  let itemsHtml = '';
+  if (!total) {
+    itemsHtml = '<p class="text-sm color-gray text-center py-12">Belum ada item checklist. Klik "Edit" untuk menambah tugas.</p>';
+  } else {
+    checklist.forEach((item, idx) => {
+      itemsHtml += `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:${item.done ? '#f0fdf4' : '#fff'};border:1px solid ${item.done ? '#86efac' : '#e5e7eb'};border-radius:8px;margin-bottom:8px">
+          <input type="checkbox" id="ob_chk_${idx}" ${item.done ? 'checked' : ''} onchange="window.toggleChecklistItemOnboarding('${id}', ${idx}, this.checked)" style="width:20px;height:20px;cursor:pointer;accent-color:var(--primary)">
+          <label for="ob_chk_${idx}" style="cursor:pointer;flex-grow:1;font-size:.9rem;text-decoration:${item.done ? 'line-through' : 'none'};color:${item.done ? '#166534' : '#1f2937'};font-weight:${item.done ? '400' : '600'}">
+            ${escHtml(item.task)}
+          </label>
+          <span class="badge ${item.done ? 'badge-success' : 'badge-secondary'}" style="font-size:.72rem">
+            ${item.done ? '✓ Selesai' : 'Belum'}
+          </span>
+        </div>
+      `;
+    });
+  }
+
+  openModal(`
+    <div class="modal-title">📋 Checklist Onboarding — ${escHtml(p.nama)}</div>
+    <div style="max-height:75vh;overflow-y:auto;padding-right:6px">
+
+      <div class="card mb-16" style="background:#f8f9ff;border-left:4px solid var(--primary);padding:14px">
+        <div class="flex justify-between items-center mb-8">
+          <div>
+            <div class="fw-700 color-primary" style="font-size:1.05rem">${escHtml(p.nama)}</div>
+            <div class="text-xs color-gray">Tanggal Mulai: <b>${formatDate(p.tanggalMulai)}</b></div>
+          </div>
+          <div class="text-right">
+            <div class="fw-700 color-primary" style="font-size:1.1rem" id="obProgressPctText">${doneCount}/${total} (${pct}%)</div>
+            <div class="text-xs color-gray">Progres Tugas</div>
+          </div>
+        </div>
+
+        <div style="background:#e5e7eb;border-radius:10px;height:10px;overflow:hidden;width:100%">
+          <div id="obProgressBar" style="background:var(--primary);height:100%;width:${pct}%;transition:width 0.3s"></div>
+        </div>
+      </div>
+
+      <div class="fw-700 text-sm mb-8">Ceklis Tugas Onboarding:</div>
+      <div id="obChecklistItemsWrap">${itemsHtml}</div>
+    </div>
+
+    <div class="flex gap-8 justify-end mt-16">
+      <button class="btn btn-warning" onclick="closeModalDirect(); modalOnboarding('${id}')">✏️ Edit Tugas</button>
+      <button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>
+    </div>
+  `, true);
+}
+
+async function toggleChecklistItemOnboarding(docId, index, isDone) {
+  try {
+    const ref = db.collection('hrd_onboarding').doc(docId);
+    const doc = await ref.get();
+    if (!doc.exists) return;
+    const p = doc.data() || {};
+    const checklist = Array.isArray(p.checklist) ? [...p.checklist] : [];
+    if (checklist[index]) {
+      checklist[index].done = isDone;
+    }
+
+    await ref.update({
+      checklist: checklist,
+      updatedAt: new Date().toISOString()
+    });
+
+    const doneCount = checklist.filter(x => x.done).length;
+    const total = checklist.length;
+    const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+
+    const pctText = document.getElementById('obProgressPctText');
+    const bar = document.getElementById('obProgressBar');
+    if (pctText) pctText.innerText = `${doneCount}/${total} (${pct}%)`;
+    if (bar) bar.style.width = `${pct}%`;
+
+    const label = document.querySelector(`label[for="ob_chk_${index}"]`);
+    if (label) {
+      label.style.textDecoration = isDone ? 'line-through' : 'none';
+      label.style.color = isDone ? '#166534' : '#1f2937';
+      label.style.fontWeight = isDone ? '400' : '600';
+    }
+
+    toast(isDone ? `✅ Tugas "${checklist[index]?.task}" ditandai selesai!` : `Tugas "${checklist[index]?.task}" ditandai belum selesai`, isDone ? 'success' : 'info');
+    renderOnboarding();
+  } catch (e) {
+    console.error('toggleChecklistItemOnboarding err:', e);
+    toast('Gagal memperbarui checklist', 'error');
+  }
 }
 
 function modalOnboarding(id) {
@@ -949,10 +1088,10 @@ function showOnboardingForm(id, p) {
   const checklist = Array.isArray(p.checklist) && p.checklist.length ? p.checklist.map((x) => x.task).join('\n') : 'Orientasi perusahaan\nSetup akun kerja\nPengenalan tim\nReview SOP';
   openModal(
     `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Onboarding</div>
-    <div class="form-group"><label>Nama</label><input class="form-control" id="obNama" value="${escHtml(p.nama || '')}"></div>
+    <div class="form-group"><label>Nama Karyawan *</label><input class="form-control" id="obNama" value="${escHtml(p.nama || '')}"></div>
     <div class="form-group"><label>Tanggal Mulai</label><input class="form-control" type="date" id="obTanggal" value="${p.tanggalMulai || todayStr()}"></div>
-    <div class="form-group"><label>Checklist (1 baris = 1 item)</label><textarea class="form-control" id="obChecklist" rows="6">${escHtml(checklist)}</textarea></div>
-    <button class="btn btn-primary" style="width:100%" onclick="simpanOnboarding('${id || ''}')">💾 Simpan</button>`
+    <div class="form-group"><label>Daftar Tugas Checklist (1 baris = 1 item tugas)</label><textarea class="form-control" id="obChecklist" rows="6">${escHtml(checklist)}</textarea></div>
+    <button class="btn btn-primary" style="width:100%" onclick="simpanOnboarding('${id || ''}')">💾 Simpan Onboarding</button>`
   );
 }
 
@@ -974,23 +1113,164 @@ async function simpanOnboarding(id) {
     await db.collection('hrd_onboarding').add({ ...data, createdAt: new Date().toISOString() });
   }
   closeModalDirect();
-  toast('Onboarding disimpan', 'success');
+  toast('Data onboarding disimpan', 'success');
   renderOnboarding();
 }
+
+// == OFFBOARDING WITH INTERACTIVE CHECKLIST ============================
 
 async function renderOffboarding() {
   const main = document.getElementById('mainContent');
   if (!main) return;
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📦 Offboarding</span><button class="btn btn-primary btn-sm" onclick="modalOffboarding()">+ Tambah</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Tanggal Keluar</th><th>Checklist</th><th>Alasan</th><th>Aksi</th></tr></thead><tbody id="tblOffboarding"></tbody></table></div></div>`;
+  main.innerHTML = `<div class="page-title">
+    <span>${renderBackButton()}📦 Offboarding</span>
+    <button class="btn btn-primary btn-sm" onclick="modalOffboarding()">+ Tambah Offboarding</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nama Karyawan</th>
+            <th>Tanggal Keluar</th>
+            <th>Progress Checklist</th>
+            <th>Alasan</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tblOffboarding"></tbody>
+      </table>
+    </div>
+  </div>`;
+
   const snap = await db.collection('hrd_offboarding').orderBy('createdAt', 'desc').get();
   let h = '';
   snap.forEach((d) => {
     const p = d.data();
     const total = Array.isArray(p.checklist) ? p.checklist.length : 0;
     const done = Array.isArray(p.checklist) ? p.checklist.filter((x) => x.done).length : 0;
-    h += `<tr><td class="fw-700">${escHtml(p.nama || '-')}</td><td>${formatDate(p.tanggalKeluar)}</td><td>${done}/${total}</td><td>${escHtml(p.alasan || '-')}</td><td><button class="btn btn-xs btn-info" onclick="modalOffboarding('${d.id}')">✏️</button> <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_offboarding','${d.id}','offboarding')">🗑️</button></td></tr>`;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const badgeClass = done === total && total > 0 ? 'badge-success' : (done > 0 ? 'badge-info' : 'badge-warning');
+
+    h += `<tr>
+      <td class="fw-700">${escHtml(p.nama || '-')}</td>
+      <td>${formatDate(p.tanggalKeluar)}</td>
+      <td>
+        <span class="badge ${badgeClass}" style="cursor:pointer;font-size:.8rem;padding:5px 10px" onclick="window.viewChecklistOffboarding('${d.id}')" title="Klik untuk ceklis tugas">
+          📋 ${done}/${total} (${pct}%)
+        </span>
+      </td>
+      <td>${escHtml(p.alasan || '-')}</td>
+      <td>
+        <div class="flex gap-4">
+          <button class="btn btn-xs btn-info" onclick="window.viewChecklistOffboarding('${d.id}')">📋 Checklist</button>
+          <button class="btn btn-xs btn-warning" onclick="modalOffboarding('${d.id}')">✏️ Edit</button>
+          <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_offboarding','${d.id}','offboarding')">🗑️ Hapus</button>
+        </div>
+      </td>
+    </tr>`;
   });
-  document.getElementById('tblOffboarding').innerHTML = h || '<tr><td colspan="5" class="text-center">Belum ada data</td></tr>';
+  document.getElementById('tblOffboarding').innerHTML = h || '<tr><td colspan="5" class="text-center color-gray">Belum ada data offboarding</td></tr>';
+}
+
+async function viewChecklistOffboarding(id) {
+  const doc = await db.collection('hrd_offboarding').doc(id).get();
+  if (!doc.exists) return toast('Data offboarding tidak ditemukan', 'warning');
+  const p = doc.data() || {};
+  const checklist = Array.isArray(p.checklist) ? p.checklist : [];
+  const total = checklist.length;
+  const doneCount = checklist.filter(x => x.done).length;
+  const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+
+  let itemsHtml = '';
+  if (!total) {
+    itemsHtml = '<p class="text-sm color-gray text-center py-12">Belum ada item checklist. Klik "Edit" untuk menambah tugas.</p>';
+  } else {
+    checklist.forEach((item, idx) => {
+      itemsHtml += `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:${item.done ? '#f0fdf4' : '#fff'};border:1px solid ${item.done ? '#86efac' : '#e5e7eb'};border-radius:8px;margin-bottom:8px">
+          <input type="checkbox" id="of_chk_${idx}" ${item.done ? 'checked' : ''} onchange="window.toggleChecklistItemOffboarding('${id}', ${idx}, this.checked)" style="width:20px;height:20px;cursor:pointer;accent-color:var(--primary)">
+          <label for="of_chk_${idx}" style="cursor:pointer;flex-grow:1;font-size:.9rem;text-decoration:${item.done ? 'line-through' : 'none'};color:${item.done ? '#166534' : '#1f2937'};font-weight:${item.done ? '400' : '600'}">
+            ${escHtml(item.task)}
+          </label>
+          <span class="badge ${item.done ? 'badge-success' : 'badge-secondary'}" style="font-size:.72rem">
+            ${item.done ? '✓ Selesai' : 'Belum'}
+          </span>
+        </div>
+      `;
+    });
+  }
+
+  openModal(`
+    <div class="modal-title">📋 Checklist Offboarding — ${escHtml(p.nama)}</div>
+    <div style="max-height:75vh;overflow-y:auto;padding-right:6px">
+
+      <div class="card mb-16" style="background:#f8f9ff;border-left:4px solid var(--primary);padding:14px">
+        <div class="flex justify-between items-center mb-8">
+          <div>
+            <div class="fw-700 color-primary" style="font-size:1.05rem">${escHtml(p.nama)}</div>
+            <div class="text-xs color-gray">Tanggal Keluar: <b>${formatDate(p.tanggalKeluar)}</b> | Alasan: <b>${escHtml(p.alasan || '-')}</b></div>
+          </div>
+          <div class="text-right">
+            <div class="fw-700 color-primary" style="font-size:1.1rem" id="ofProgressPctText">${doneCount}/${total} (${pct}%)</div>
+            <div class="text-xs color-gray">Progres Tugas</div>
+          </div>
+        </div>
+
+        <div style="background:#e5e7eb;border-radius:10px;height:10px;overflow:hidden;width:100%">
+          <div id="ofProgressBar" style="background:var(--primary);height:100%;width:${pct}%;transition:width 0.3s"></div>
+        </div>
+      </div>
+
+      <div class="fw-700 text-sm mb-8">Ceklis Tugas Offboarding:</div>
+      <div id="ofChecklistItemsWrap">${itemsHtml}</div>
+    </div>
+
+    <div class="flex gap-8 justify-end mt-16">
+      <button class="btn btn-warning" onclick="closeModalDirect(); modalOffboarding('${id}')">✏️ Edit Tugas</button>
+      <button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>
+    </div>
+  `, true);
+}
+
+async function toggleChecklistItemOffboarding(docId, index, isDone) {
+  try {
+    const ref = db.collection('hrd_offboarding').doc(docId);
+    const doc = await ref.get();
+    if (!doc.exists) return;
+    const p = doc.data() || {};
+    const checklist = Array.isArray(p.checklist) ? [...p.checklist] : [];
+    if (checklist[index]) {
+      checklist[index].done = isDone;
+    }
+
+    await ref.update({
+      checklist: checklist,
+      updatedAt: new Date().toISOString()
+    });
+
+    const doneCount = checklist.filter(x => x.done).length;
+    const total = checklist.length;
+    const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+
+    const pctText = document.getElementById('ofProgressPctText');
+    const bar = document.getElementById('ofProgressBar');
+    if (pctText) pctText.innerText = `${doneCount}/${total} (${pct}%)`;
+    if (bar) bar.style.width = `${pct}%`;
+
+    const label = document.querySelector(`label[for="of_chk_${index}"]`);
+    if (label) {
+      label.style.textDecoration = isDone ? 'line-through' : 'none';
+      label.style.color = isDone ? '#166534' : '#1f2937';
+      label.style.fontWeight = isDone ? '400' : '600';
+    }
+
+    toast(isDone ? `✅ Tugas "${checklist[index]?.task}" ditandai selesai!` : `Tugas "${checklist[index]?.task}" ditandai belum selesai`, isDone ? 'success' : 'info');
+    renderOffboarding();
+  } catch (e) {
+    console.error('toggleChecklistItemOffboarding err:', e);
+    toast('Gagal memperbarui checklist', 'error');
+  }
 }
 
 function modalOffboarding(id) {
@@ -1003,13 +1283,13 @@ function showOffboardingForm(id, p) {
   const checklist = Array.isArray(p.checklist) && p.checklist.length ? p.checklist.map((x) => x.task).join('\n') : defaultChecklist.join('\n');
   openModal(
     `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Offboarding</div>
-    <div class="form-group"><label>Nama</label><input class="form-control" id="ofNama" value="${escHtml(p.nama || '')}"></div>
+    <div class="form-group"><label>Nama Karyawan *</label><input class="form-control" id="ofNama" value="${escHtml(p.nama || '')}"></div>
     <div class="grid-2">
       <div class="form-group"><label>Tanggal Keluar</label><input class="form-control" type="date" id="ofTanggal" value="${p.tanggalKeluar || todayStr()}"></div>
       <div class="form-group"><label>Alasan</label><input class="form-control" id="ofAlasan" value="${escHtml(p.alasan || '')}"></div>
     </div>
-    <div class="form-group"><label>Checklist (1 baris = 1 item)</label><textarea class="form-control" id="ofChecklist" rows="6">${escHtml(checklist)}</textarea></div>
-    <button class="btn btn-primary" style="width:100%" onclick="simpanOffboarding('${id || ''}')">💾 Simpan</button>`
+    <div class="form-group"><label>Daftar Tugas Checklist (1 baris = 1 item tugas)</label><textarea class="form-control" id="ofChecklist" rows="6">${escHtml(checklist)}</textarea></div>
+    <button class="btn btn-primary" style="width:100%" onclick="simpanOffboarding('${id || ''}')">💾 Simpan Offboarding</button>`
   );
 }
 
@@ -1032,7 +1312,7 @@ async function simpanOffboarding(id) {
     await db.collection('hrd_offboarding').add({ ...data, createdAt: new Date().toISOString() });
   }
   closeModalDirect();
-  toast('Offboarding disimpan', 'success');
+  toast('Data offboarding disimpan', 'success');
   renderOffboarding();
 }
 
@@ -1499,6 +1779,10 @@ window.renderStrukturOrg = renderStrukturOrg;
 window.renderJobdeskMgmt = renderJobdeskMgmt;
 window.renderOnboarding = renderOnboarding;
 window.renderOffboarding = renderOffboarding;
+window.viewChecklistOnboarding = viewChecklistOnboarding;
+window.toggleChecklistItemOnboarding = toggleChecklistItemOnboarding;
+window.viewChecklistOffboarding = viewChecklistOffboarding;
+window.toggleChecklistItemOffboarding = toggleChecklistItemOffboarding;
 window.renderLowongan = renderLowongan;
 window.renderPipeline = renderPipeline;
 window.renderKandidat = renderKandidat;
