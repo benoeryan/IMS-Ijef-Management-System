@@ -1132,26 +1132,65 @@ async function viewJobdesk(id) {
     }
 }
 
+function getJobdeskFullText(p) {
+  if (!p) return '';
+  if (p.rincian) return p.rincian;
+  if (p.jobdesk) return p.jobdesk;
+  if (p.deskripsi) return p.deskripsi;
+  const parts = [];
+  if (p.tanggungJawab) parts.push('📌 Tanggung Jawab:\n' + (Array.isArray(p.tanggungJawab) ? p.tanggungJawab.join('\n') : p.tanggungJawab));
+  if (p.kpi) parts.push('📈 KPI / Target:\n' + (Array.isArray(p.kpi) ? p.kpi.join('\n') : p.kpi));
+  if (p.kualifikasi) parts.push('🎓 Kualifikasi:\n' + (Array.isArray(p.kualifikasi) ? p.kualifikasi.join('\n') : p.kualifikasi));
+  return parts.join('\n\n');
+}
+
 function modalJobdesk(id) {
   if (id) db.collection('hrd_jobdesk').doc(id).get().then((d) => showJobdeskForm(id, d.data() || {}));
   else showJobdeskForm(null, {});
 }
 
 function showJobdeskForm(id, p) {
+  const fullHistoryText = getJobdeskFullText(p);
+
   openModal(
     `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Jobdesk</div>
-    <div class="grid-2">
-      <div class="form-group"><label>Nama Karyawan</label><input class="form-control" id="jdNama" value="${escHtml(p.nama || '')}"></div>
+    <div class="grid-2 mb-8">
+      <div class="form-group"><label>Nama Karyawan *</label><input class="form-control" id="jdNama" value="${escHtml(p.nama || '')}"></div>
       <div class="form-group"><label>User ID</label><input class="form-control" id="jdUserId" value="${escHtml(p.userId || '')}" placeholder="opsional"></div>
     </div>
-    <div class="grid-2">
+    <div class="grid-2 mb-8">
       <div class="form-group"><label>Posisi</label><input class="form-control" id="jdPosisi" value="${escHtml(p.posisi || '')}"></div>
       <div class="form-group"><label>Departemen</label><input class="form-control" id="jdDepartemen" value="${escHtml(p.departemen || '')}"></div>
     </div>
-    <div class="form-group"><label>Rincian Jobdesk</label><textarea class="form-control" id="jdRincian" rows="6">${escHtml(p.rincian || p.jobdesk || '')}</textarea></div>
-    <button class="btn btn-primary" style="width:100%" onclick="simpanJobdesk('${id || ''}')">💾 Simpan</button>`
+
+    ${id && fullHistoryText ? `
+      <div class="card mb-12" style="background:#f8f9ff;border-left:4px solid var(--primary);padding:10px 12px">
+        <div class="flex justify-between items-center mb-6">
+          <div class="fw-700 text-xs color-primary">📜 History / Detail Jobdesk Terdaftar saat ini:</div>
+          <button type="button" class="btn btn-xs btn-outline" onclick="window.salinHistoryJobdeskToTextarea()">📋 Muat Ulang History ke Form</button>
+        </div>
+        <div class="text-xs" style="white-space:pre-wrap;line-height:1.6;max-height:140px;overflow-y:auto;background:#fff;padding:8px 10px;border-radius:6px;border:1px solid #d0d9ff;color:#333">${escHtml(fullHistoryText)}</div>
+      </div>
+    ` : ''}
+
+    <div class="form-group mb-12">
+      <label>Rincian Jobdesk (Dapat diedit & ditambah)</label>
+      <textarea class="form-control" id="jdRincian" rows="7" placeholder="Tuliskan rincian jobdesk, tanggung jawab, dan target KPI...">${escHtml(fullHistoryText)}</textarea>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%" onclick="simpanJobdesk('${id || ''}')">💾 Simpan Jobdesk</button>`
   );
+
+  window._currentJobdeskHistoryText = fullHistoryText;
 }
+
+window.salinHistoryJobdeskToTextarea = function() {
+  const el = document.getElementById('jdRincian');
+  if (el && window._currentJobdeskHistoryText) {
+    el.value = window._currentJobdeskHistoryText;
+    toast('History jobdesk berhasil dimuat ulang ke form edit', 'info');
+  }
+};
 
 async function simpanJobdesk(id) {
   const data = {
