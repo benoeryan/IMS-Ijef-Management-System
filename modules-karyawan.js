@@ -1132,65 +1132,83 @@ async function viewJobdesk(id) {
     }
 }
 
-function getJobdeskFullText(p) {
-  if (!p) return '';
-  if (p.rincian) return p.rincian;
-  if (p.jobdesk) return p.jobdesk;
-  if (p.deskripsi) return p.deskripsi;
-  const parts = [];
-  if (p.tanggungJawab) parts.push('📌 Tanggung Jawab:\n' + (Array.isArray(p.tanggungJawab) ? p.tanggungJawab.join('\n') : p.tanggungJawab));
-  if (p.kpi) parts.push('📈 KPI / Target:\n' + (Array.isArray(p.kpi) ? p.kpi.join('\n') : p.kpi));
-  if (p.kualifikasi) parts.push('🎓 Kualifikasi:\n' + (Array.isArray(p.kualifikasi) ? p.kualifikasi.join('\n') : p.kualifikasi));
-  return parts.join('\n\n');
-}
+async function modalJobdesk(id) {
+  if (!id) return showJobdeskForm(null, {});
 
-function modalJobdesk(id) {
-  if (id) db.collection('hrd_jobdesk').doc(id).get().then((d) => showJobdeskForm(id, d.data() || {}));
-  else showJobdeskForm(null, {});
+  try {
+    const doc = await db.collection('hrd_jobdesk').doc(id).get();
+    if (!doc.exists) return toast('Data jobdesk tidak ditemukan', 'warning');
+    const p = { id: doc.id, ...doc.data() };
+
+    // Resolve employee details (nama, posisi, departemen) if missing on jobdesk doc
+    let karyawanData = {};
+    if (p.karyawanId) {
+      const kDoc = await db.collection('hrd_karyawan').doc(p.karyawanId).get();
+      if (kDoc.exists) karyawanData = kDoc.data() || {};
+    }
+    if (!karyawanData.nama && p.userId) {
+      const uDoc = await db.collection('hrd_users').doc(p.userId).get();
+      if (uDoc.exists && uDoc.data().linkedKaryawan) {
+        const kDoc = await db.collection('hrd_karyawan').doc(uDoc.data().linkedKaryawan).get();
+        if (kDoc.exists) karyawanData = kDoc.data() || {};
+      }
+      if (!karyawanData.nama) {
+        const kDoc = await db.collection('hrd_karyawan').doc(p.userId).get();
+        if (kDoc.exists) karyawanData = kDoc.data() || {};
+      }
+    }
+    if (!karyawanData.nama && p.nama) {
+      const kSnap = await db.collection('hrd_karyawan').where('nama', '==', p.nama).limit(1).get();
+      if (!kSnap.empty) karyawanData = kSnap.docs[0].data() || {};
+    }
+
+    if (!p.nama) p.nama = karyawanData.nama || '';
+    if (!p.posisi) p.posisi = karyawanData.posisi || '';
+    if (!p.departemen) p.departemen = karyawanData.departemen || '';
+
+    showJobdeskForm(id, p);
+  } catch (e) {
+    console.error('modalJobdesk err:', e);
+    toast('Gagal memuat jobdesk', 'error');
+  }
 }
 
 function showJobdeskForm(id, p) {
-  const fullHistoryText = getJobdeskFullText(p);
+  const rincianText = p.rincian || p.jobdesk || p.deskripsi || '';
+  const tjText = Array.isArray(p.tanggungJawab) ? p.tanggungJawab.join('\n') : (p.tanggungJawab || '');
+  const kpiText = Array.isArray(p.kpi) ? p.kpi.join('\n') : (p.kpi || '');
 
   openModal(
     `<div class="modal-title">${id ? 'Edit' : 'Tambah'} Jobdesk</div>
-    <div class="grid-2 mb-8">
-      <div class="form-group"><label>Nama Karyawan *</label><input class="form-control" id="jdNama" value="${escHtml(p.nama || '')}"></div>
-      <div class="form-group"><label>User ID</label><input class="form-control" id="jdUserId" value="${escHtml(p.userId || '')}" placeholder="opsional"></div>
-    </div>
-    <div class="grid-2 mb-8">
-      <div class="form-group"><label>Posisi</label><input class="form-control" id="jdPosisi" value="${escHtml(p.posisi || '')}"></div>
-      <div class="form-group"><label>Departemen</label><input class="form-control" id="jdDepartemen" value="${escHtml(p.departemen || '')}"></div>
-    </div>
-
-    ${id && fullHistoryText ? `
-      <div class="card mb-12" style="background:#f8f9ff;border-left:4px solid var(--primary);padding:10px 12px">
-        <div class="flex justify-between items-center mb-6">
-          <div class="fw-700 text-xs color-primary">📜 History / Detail Jobdesk Terdaftar saat ini:</div>
-          <button type="button" class="btn btn-xs btn-outline" onclick="window.salinHistoryJobdeskToTextarea()">📋 Muat Ulang History ke Form</button>
-        </div>
-        <div class="text-xs" style="white-space:pre-wrap;line-height:1.6;max-height:140px;overflow-y:auto;background:#fff;padding:8px 10px;border-radius:6px;border:1px solid #d0d9ff;color:#333">${escHtml(fullHistoryText)}</div>
+    <div style="max-height:78vh;overflow-y:auto;padding-right:6px">
+      <div class="grid-2 mb-8">
+        <div class="form-group"><label>Nama Karyawan *</label><input class="form-control" id="jdNama" value="${escHtml(p.nama || '')}"></div>
+        <div class="form-group"><label>User ID</label><input class="form-control" id="jdUserId" value="${escHtml(p.userId || '')}" placeholder="opsional"></div>
       </div>
-    ` : ''}
+      <div class="grid-2 mb-8">
+        <div class="form-group"><label>Posisi</label><input class="form-control" id="jdPosisi" value="${escHtml(p.posisi || '')}"></div>
+        <div class="form-group"><label>Departemen</label><input class="form-control" id="jdDepartemen" value="${escHtml(p.departemen || '')}"></div>
+      </div>
 
-    <div class="form-group mb-12">
-      <label>Rincian Jobdesk (Dapat diedit & ditambah)</label>
-      <textarea class="form-control" id="jdRincian" rows="7" placeholder="Tuliskan rincian jobdesk, tanggung jawab, dan target KPI...">${escHtml(fullHistoryText)}</textarea>
+      <div class="form-group mb-8">
+        <label>📝 Rincian Pekerjaan</label>
+        <textarea class="form-control" id="jdRincian" rows="4" placeholder="Deskripsi ringkas rincian pekerjaan...">${escHtml(rincianText)}</textarea>
+      </div>
+
+      <div class="form-group mb-8">
+        <label>✅ Tanggung Jawab</label>
+        <textarea class="form-control" id="jdTanggungJawab" rows="5" placeholder="Tuliskan daftar tanggung jawab (1. ..., 2. ...)...">${escHtml(tjText)}</textarea>
+      </div>
+
+      <div class="form-group mb-12">
+        <label>📈 KPI / Target</label>
+        <textarea class="form-control" id="jdKpi" rows="4" placeholder="Tuliskan target KPI (- target A, - target B...)...">${escHtml(kpiText)}</textarea>
+      </div>
     </div>
 
-    <button class="btn btn-primary" style="width:100%" onclick="simpanJobdesk('${id || ''}')">💾 Simpan Jobdesk</button>`
+    <button class="btn btn-primary mt-8" style="width:100%" onclick="simpanJobdesk('${id || ''}')">💾 Simpan Jobdesk</button>`
   );
-
-  window._currentJobdeskHistoryText = fullHistoryText;
 }
-
-window.salinHistoryJobdeskToTextarea = function() {
-  const el = document.getElementById('jdRincian');
-  if (el && window._currentJobdeskHistoryText) {
-    el.value = window._currentJobdeskHistoryText;
-    toast('History jobdesk berhasil dimuat ulang ke form edit', 'info');
-  }
-};
 
 async function simpanJobdesk(id) {
   const data = {
@@ -1199,6 +1217,8 @@ async function simpanJobdesk(id) {
     posisi: document.getElementById('jdPosisi').value.trim(),
     departemen: document.getElementById('jdDepartemen').value.trim(),
     rincian: document.getElementById('jdRincian').value.trim(),
+    tanggungJawab: document.getElementById('jdTanggungJawab').value.trim(),
+    kpi: document.getElementById('jdKpi').value.trim(),
     updatedAt: new Date().toISOString(),
   };
   if (!data.nama) return toast('Nama wajib diisi', 'warning');
@@ -1228,6 +1248,7 @@ async function simpanJobdesk(id) {
   } catch (e) {
     console.warn('Gagal resolve relasi jobdesk:', e);
   }
+
   if (resolvedKaryawanId) data.karyawanId = resolvedKaryawanId;
   if (id) await db.collection('hrd_jobdesk').doc(id).update(data);
   else await db.collection('hrd_jobdesk').add({ ...data, createdAt: new Date().toISOString() });
