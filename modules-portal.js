@@ -144,9 +144,8 @@ async function renderPortal() {
   const pInboxEl = document.getElementById("pInbox");
   if (pInboxEl) pInboxEl.textContent = inboxCount;
 
-  if (hasAccess(3) || currentUser.role === 'admin') {
-      loadBirthdayReminders();
-  }
+  // Load birthday reminders for ALL accounts (Staff, Leader, Manager, Head, BOD, Admin)
+  loadBirthdayReminders();
 
   // Daily task today
   const today = todayStr();
@@ -1906,7 +1905,7 @@ async function simpanPortalSetting() {
 
 /**
  * Birthday reminder for employees
- * Only visible to Level 3+ (Manager, Head, BOD) and Admin
+ * Visible to ALL user accounts (Staff, Leader, Manager, Head, BOD, Admin)
  */
 async function loadBirthdayReminders() {
     const el = document.getElementById('portalBirthdaySection');
@@ -1929,17 +1928,19 @@ async function loadBirthdayReminders() {
                     const bMonth = parseInt(parts[1]) - 1;
                     const bDay = parseInt(parts[2]);
 
-                    // Hitung tanggal ulang tahun terdekat (bisa tahun ini atau tahun depan jika sudah lewat)
+                    // Hitung tanggal ulang tahun terdekat (tahun ini atau tahun depan)
                     let bDate = new Date(now.getFullYear(), bMonth, bDay);
-                    let diffDays = Math.ceil((bDate.getTime() - todayTime) / (1000 * 60 * 60 * 24));
+                    bDate.setHours(0, 0, 0, 0);
+                    let diffDays = Math.round((bDate.getTime() - todayTime) / (1000 * 60 * 60 * 24));
 
                     if (diffDays < 0) {
                         bDate = new Date(now.getFullYear() + 1, bMonth, bDay);
-                        diffDays = Math.ceil((bDate.getTime() - todayTime) / (1000 * 60 * 60 * 24));
+                        bDate.setHours(0, 0, 0, 0);
+                        diffDays = Math.round((bDate.getTime() - todayTime) / (1000 * 60 * 60 * 24));
                     }
 
-                    // Ingatkan jika dalam 7 hari ke depan (H-7 s/d Hari H)
-                    if (diffDays >= 0 && diffDays <= 7) {
+                    // Ingatkan HANYA pada H-7 (tepat 7 hari sebelumnya) dan Hari H (H-0 / Hari ini)
+                    if (diffDays === 0 || diffDays === 7) {
                         bdays.push({ ...k, day: bDay, month: bMonth, daysLeft: diffDays });
                     }
                 }
@@ -1947,23 +1948,23 @@ async function loadBirthdayReminders() {
         });
 
         if (bdays.length === 0) {
-            el.innerHTML = ""; // Sembunyikan jika tidak ada yang ultah dekat
+            el.innerHTML = ""; // Sembunyikan jika tidak ada yang ultah di Hari H atau H-7
             return;
         }
 
-        // Urutkan berdasarkan yang paling dekat (H-0, H-1, dst)
+        // Urutkan berdasarkan yang paling dekat (Hari H duluan, lalu H-7)
         bdays.sort((a, b) => a.daysLeft - b.daysLeft);
 
         let h = `<div class="card" style="border-left:4px solid #f06292; background: linear-gradient(to right, #fff, #fff5f8)">
-            <div class="card-title mb-12" style="color:#d81b60">🎂 Pengingat Ulang Tahun (7 Hari ke Depan)</div>
+            <div class="card-title mb-12" style="color:#d81b60">🎂 Pengingat Ulang Tahun (Hari H & H-7)</div>
             <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:12px">`;
 
         bdays.forEach(k => {
             const isToday = k.daysLeft === 0;
-            const label = isToday ? '✨ HARI INI!' : (k.daysLeft === 1 ? 'Besok' : `H-${k.daysLeft}`);
+            const label = isToday ? '✨ HARI INI!' : '🎉 H-7 (7 Hari Lagi)';
             const style = isToday
                 ? 'background:#fce4ec; border:2px solid #f06292; transform: scale(1.02)'
-                : 'background:#fff; border:1px solid #eee';
+                : 'background:#fff; border:1px solid #f8bbd0';
 
             h += `<div style="padding:12px; border-radius:12px; ${style}; transition: all .2s" class="birthday-item">
                 <div class="flex gap-12 align-center">
