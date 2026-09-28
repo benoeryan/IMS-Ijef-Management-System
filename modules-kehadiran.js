@@ -3287,13 +3287,60 @@ function evidenZoomFit() {
   updateZoomTransform();
 }
 
-function viewEviden(encodedData) {
+async function viewEviden(encodedData) {
   try {
     const file = JSON.parse(decodeURIComponent(encodedData));
     const isImage = file.type && file.type.startsWith("image/");
     const isPdf =
       (file.type && file.type === "application/pdf") ||
       (file.name && file.name.toLowerCase().endsWith(".pdf"));
+
+    let isBillingError = false;
+    let billingErrorMsg = "";
+
+    // Detect Firebase Storage GCP Billing 402 error before rendering
+    if (file.data && file.data.includes("firebasestorage.googleapis.com")) {
+      try {
+        const checkRes = await fetch(file.data, { method: "GET", headers: { "Range": "bytes=0-100" } });
+        if (checkRes.status === 402) {
+          isBillingError = true;
+          const errJson = await checkRes.json().catch(() => ({}));
+          billingErrorMsg = errJson?.error?.message || "The billing account for the owning project is disabled in state delinquent";
+        }
+      } catch (checkErr) {
+        console.warn("Storage check err:", checkErr);
+      }
+    }
+
+    if (isBillingError) {
+      openModal(`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div class="fw-700 color-danger" style="font-size:1rem">⚠️ Kendala Akses File Storage (GCP Billing Error 402)</div>
+          <button class="btn btn-xs btn-outline" onclick="closeModalDirect()">✕</button>
+        </div>
+        <div class="card mb-12" style="border-left:4px solid #c62828;background:#fff5f5;padding:16px">
+          <div class="fw-700 color-danger mb-6" style="font-size:.95rem">
+            🚫 File "${escHtml(file.name || "Dokumen")}" Tidak Dapat Ditarik dari Firebase Storage
+          </div>
+          <p class="text-sm" style="color:#444;line-height:1.6;margin-bottom:12px">
+            <b>Penyebab Utama Error (HTTP Status 402):</b><br>
+            <code style="background:#f8d7da;color:#721c24;padding:6px 10px;border-radius:4px;display:block;margin-top:4px;word-break:break-all">${escHtml(billingErrorMsg)}</code>
+          </p>
+          <div class="text-xs color-gray" style="line-height:1.6">
+            <b>💡 Cara Mengatasi untuk Administrator:</b><br>
+            • 💳 <b>Google Cloud Billing Non-Aktif</b>: Buka <b>Google Cloud Console / Firebase Console</b> untuk project <code>test-kesehatan-ijef-corp-7c278</code> dan aktifkan/perbarui Billing Account yang terhubung.<br>
+            • ✏️ <b>Atau Upload Ulang Dokumen</b>: Masuk ke menu Edit Legalitas / Edit Dokumen untuk mengunggah file dokumen yang baru.
+          </div>
+          <div class="flex gap-8 mt-16" style="flex-wrap:wrap">
+            <a href="https://console.firebase.google.com/" target="_blank" class="btn btn-sm btn-primary">🌐 Buka Firebase Console ↗️</a>
+            <a href="${file.data}" target="_blank" class="btn btn-sm btn-outline">🔗 Coba Buka Link Langsung</a>
+            <button class="btn btn-sm btn-outline" onclick="closeModalDirect()">Tutup</button>
+          </div>
+        </div>
+      `, true);
+      return;
+    }
+
     let content = "";
     if (isImage) {
       content = `<div class="zoom-controls">
@@ -3310,7 +3357,16 @@ function viewEviden(encodedData) {
         <span class="text-xs" style="color:#999">💡 Scroll untuk zoom • Drag untuk geser • Double-tap reset</span>
       </div>`;
     } else if (isPdf) {
-      content = `<iframe src="${file.data}" style="width:100%;height:70vh;border:none;border-radius:8px"></iframe>`;
+      content = `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f8f9ff;border-radius:8px;margin-bottom:12px;border:1px solid #d0d9ff">
+          <div class="text-xs color-primary fw-700">📄 ${escHtml(file.name || "Dokumen PDF")}</div>
+          <div class="flex gap-8">
+            <a href="${file.data}" target="_blank" class="btn btn-xs btn-primary">📂 Buka di Tab Baru ↗️</a>
+            <a href="${file.data}" download="${escHtml(file.name || "dokumen.pdf")}" class="btn btn-xs btn-outline">⬇️ Download</a>
+          </div>
+        </div>
+        <iframe src="${file.data}" style="width:100%;height:65vh;border:none;border-radius:8px"></iframe>
+      `;
     } else {
       const ext = (file.name || "").split(".").pop().toUpperCase();
       const icon =
