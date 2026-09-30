@@ -570,8 +570,12 @@ exports.autoQueueDailyReportWa = functions.pubsub
     const cfgSnap = await db.collection('hrd_settings').doc('perusahaan').get();
     const cfg = cfgSnap.exists ? cfgSnap.data() || {} : {};
 
-    const enabled = typeof cfg.waAutoReportEnabled === 'boolean' ? cfg.waAutoReportEnabled : true;
-    if (!enabled) return null;
+    // Check if auto report is explicitly enabled
+    const enabled = Boolean(cfg.waAutoReportEnabled === true || cfg.waAutoReportEnabled === 1 || cfg.waAutoReportEnabled === "1");
+    if (!enabled) {
+      functions.logger.info(`[Scheduler] Auto report disabled in settings (${cfg.waAutoReportEnabled}). Skipping.`);
+      return null;
+    }
 
     const targetNumbers = getConfiguredWaRecipients(cfg);
     if (!targetNumbers.length) return null;
@@ -592,8 +596,9 @@ exports.autoQueueDailyReportWa = functions.pubsub
 
     functions.logger.info(`[Scheduler] Checking Daily Report at ${nowParts.date} ${nowParts.time} (min: ${nowMinute}) vs Target: ${targetTimeStr} (min: ${targetMinute})`);
 
-    if (nowMinute < targetMinute) {
-        functions.logger.info(`[Scheduler] Too early. Skipping.`);
+    // Ensure we only trigger within a tight 45-minute window after targetMinute (e.g. 20:00 - 20:45 WIB)
+    if (nowMinute < targetMinute || nowMinute > targetMinute + 45) {
+        functions.logger.info(`[Scheduler] Outside target schedule window (${nowMinute} vs target ${targetMinute}). Skipping late execution.`);
         return null;
     }
 
