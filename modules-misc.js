@@ -1704,6 +1704,8 @@ async function simpanDataPerusahaan() {
     .collection("hrd_settings")
     .doc("perusahaan")
     .set(data, { merge: true });
+  delete window._registeredWaNumbers;
+  delete window._registeredWaNumber;
   // Update PWA manifest icon if logo exists
   if (data.logo) updateAppIcon(data.logo);
   toast("Data perusahaan disimpan", "success");

@@ -113,8 +113,6 @@ function parseWhatsAppNumbers(raw) {
 }
 
 async function getRegisteredWhatsAppNumbers() {
-  if (typeof window._registeredWaNumbers !== "undefined")
-    return window._registeredWaNumbers;
   try {
     const snap = await db.collection("hrd_settings").doc("perusahaan").get();
     const data = snap.exists ? snap.data() || {} : {};
@@ -141,11 +139,79 @@ async function getRegisteredWhatsAppNumber() {
   return numbers[0] || "";
 }
 
+async function getWaGatewayConfig() {
+  try {
+    const snap = await db.collection("hrd_settings").doc("perusahaan").get();
+    const data = snap.exists ? snap.data() || {} : {};
+    let rawList = data.whatsappList || data.whatsapp || data.whatsApp || data.wa || data.telepon || "";
+    let numbers = parseWhatsAppNumbers(rawList);
+    if (!numbers.length) numbers = ["62818900821"];
+
+    return {
+      provider: (data.waProvider || "fonnte").toLowerCase(),
+      apiUrl: data.waApiUrl || "https://api.fonnte.com/send",
+      apiToken: (data.waApiToken || "").trim(),
+      targetNumbers: numbers
+    };
+  } catch (e) {
+    console.warn("Error load WA Gateway config:", e);
+    return {
+      provider: "fonnte",
+      apiUrl: "https://api.fonnte.com/send",
+      apiToken: "",
+      targetNumbers: ["62818900821"]
+    };
+  }
+}
+
+async function sendWaDirectGateway(messageText, customNumbers) {
+  const cfg = await getWaGatewayConfig();
+  const targets = (customNumbers && customNumbers.length) ? customNumbers : cfg.targetNumbers;
+
+  if (!targets || !targets.length) {
+    throw new Error("Nomor WhatsApp tujuan belum terdaftar di Pengaturan Perusahaan");
+  }
+
+  if (!cfg.apiToken) {
+    throw new Error("WA API Token belum diisi di Pengaturan Perusahaan (Manajemen Akun)");
+  }
+
+  const results = [];
+  for (const num of targets) {
+    try {
+      const formData = new FormData();
+      formData.append("target", num);
+      formData.append("message", messageText);
+      formData.append("countryCode", "62");
+
+      const res = await fetch(cfg.apiUrl || "https://api.fonnte.com/send", {
+        method: "POST",
+        headers: {
+          "Authorization": cfg.apiToken
+        },
+        body: formData
+      });
+
+      const resJson = await res.json().catch(() => ({ status: false, reason: "Response non-JSON dari gateway" }));
+      results.push({ number: num, success: resJson.status === true, response: resJson });
+    } catch (err) {
+      console.warn(`[WA Direct] Failed sending to ${num}:`, err.message);
+      results.push({ number: num, success: false, error: err.message });
+    }
+  }
+
+  return results;
+}
+
 function buildWhatsAppShareUrl(message, phoneNumber) {
   const text = encodeURIComponent(message || "");
-  return phoneNumber
-    ? `https://wa.me/${phoneNumber}?text=${text}`
-    : `https://wa.me/?text=${text}`;
+  let cleanNumber = (phoneNumber || "").replace(/[^0-9]/g, "");
+  if (cleanNumber.startsWith("0")) {
+    cleanNumber = "62" + cleanNumber.slice(1);
+  }
+  return cleanNumber
+    ? `https://api.whatsapp.com/send?phone=${cleanNumber}&text=${text}`
+    : `https://api.whatsapp.com/send?text=${text}`;
 }
 
 // == FCM (Firebase Cloud Messaging) Push Notifications ==================
@@ -287,7 +353,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.6.39";
+const APP_VERSION = "16.6.40";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [

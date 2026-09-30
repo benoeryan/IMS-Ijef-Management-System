@@ -3851,7 +3851,6 @@ async function shareReportWAManual() {
   var waNumbers = await getRegisteredWhatsAppNumbers();
   var target = waNumbers[0] || "";
 
-  // Use a temporary textarea to copy text to clipboard for better sharing experience
   try {
       await navigator.clipboard.writeText(text);
       toast("Teks laporan disalin ke clipboard", "info");
@@ -3866,37 +3865,44 @@ async function shareReportWA() {
   if (!text) {
     return toast("Tidak ada data untuk di-share", "warning");
   }
-  var waNumbers = await getRegisteredWhatsAppNumbers();
-  if (!waNumbers.length) {
-    return toast(
-      "Nomor WhatsApp admin belum terdaftar di Data Perusahaan.",
-      "warning",
-    );
-  }
-  try {
-    toast("⏳ Mengirim ke antrian gateway...", "info");
-    const batch = db.batch();
-    for (const waNumber of waNumbers) {
-      const ref = db.collection("hrd_wa_outbox").doc();
-      batch.set(ref, {
-        targetNumber: waNumber,
-        message: text,
-        type: "daily_report_summary_manual",
-        requestedBy: currentUser?.nama || "user",
-        requestedById: currentUser?.id || "",
-        createdAt: new Date().toISOString(),
-        status: "queued",
-      });
-    }
-    await batch.commit();
 
-    toast(
-      "✅ Berhasil! Report masuk antrian gateway ke " + waNumbers.length + " nomor.",
-      "success",
-    );
-  } catch (e) {
-    console.warn("[WA Outbox] Queue failed:", e.message);
-    toast("Gateway bermasalah. Menggunakan share manual...", "warning");
+  toast("⏳ Menghubungkan ke WA Gateway (Fonnte)...", "info");
+
+  try {
+    const results = await sendWaDirectGateway(text);
+
+    // Save history log in hrd_wa_outbox
+    try {
+      const batch = db.batch();
+      for (const res of results) {
+        const ref = db.collection("hrd_wa_outbox").doc();
+        batch.set(ref, {
+          targetNumber: res.number,
+          message: text,
+          type: "daily_report_summary_manual",
+          requestedBy: currentUser?.nama || "user",
+          requestedById: currentUser?.id || "",
+          createdAt: new Date().toISOString(),
+          status: res.success ? "sent" : "failed",
+          response: res.response || res.error || null,
+        });
+      }
+      await batch.commit();
+    } catch (e1) {
+      console.warn("Outbox log err:", e1);
+    }
+
+    const successItems = results.filter(r => r.success);
+    if (successItems.length > 0) {
+      toast(`✅ Berhasil! Laporan dikirim via WA Gateway (Fonnte) ke ${successItems.length} nomor.`, "success");
+    } else {
+      const firstErr = results[0]?.response?.reason || results[0]?.response?.detail || results[0]?.error || "Fonnte Gagal Kirim";
+      toast(`⚠️ Fonnte Gateway: ${firstErr}. Mengalihkan ke Share WA manual...`, "warning");
+      shareReportWAManual();
+    }
+  } catch (err) {
+    console.error("[WA Gateway Error]:", err);
+    toast(`⚠️ Kendala WA Gateway: ${err.message}. Mengalihkan ke Share WA manual...`, "warning");
     shareReportWAManual();
   }
 }
