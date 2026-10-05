@@ -2543,9 +2543,10 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
     let totalH = 0, totalT = 0, totalD = 0, totalK = 0, totalL = 0, totalLembur = 0, totalLemburJam = 0;
 
     filteredUsers.forEach((u) => {
+      const namaLow = (u.nama || '').toLowerCase().trim();
       const uNorm = normName(u.nama);
       const uLinkedUserId = karyawanToUserMap[u.id];
-      const nmKey = (u.nama || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+      const nmKey = namaLow.replace(/[^a-z0-9]/g, '');
 
       const checkKeys = [
         u.id,
@@ -2655,8 +2656,8 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
 
       h += `<td class="fw-700 text-center">${ut}</td>`;
       h += `<td class="fw-700 text-center" style="color:#7b1fa2">${userLemburJamTotal > 0 ? userLemburJamTotal.toFixed(1) + 'j' : '-'}</td>`;
-      const kpiScore = kpiMap[namaLow] || '-';
-      const trainCount = trainingMap[namaLow] || '-';
+      const kpiScore = kpiMap[namaLow] || kpiMap[uNorm] || '-';
+      const trainCount = trainingMap[namaLow] || trainingMap[uNorm] || '-';
       h += `<td class="text-center fw-700">${kpiScore}</td>`;
       h += `<td class="text-center fw-700" title="Pelatihan selesai bulan ini">${trainCount}</td>`;
       h += `<td>${hasAccess(6) ? `<button class="btn btn-xs btn-info" onclick="editAbsenKaryawan('${u.id}','${(u.nama || '').replace(/'/g, "\\'")}','${bulan}')">✏️</button>` : ''}</td></tr>`;
