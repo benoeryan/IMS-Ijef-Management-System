@@ -1177,6 +1177,7 @@ async function doClockIn() {
   const shift = await getActiveShift();
   await db.collection('hrd_absensi').add({
     userId: currentUser.id,
+    karyawanId: currentUser.linkedKaryawan || '',
     nama: currentUser.nama,
     departemen: currentUser.departemen || '',
     tanggal: todayStr(),
@@ -1350,6 +1351,7 @@ async function doClockOut() {
 
   await db.collection('hrd_absensi').add({
     userId: currentUser.id,
+    karyawanId: currentUser.linkedKaryawan || '',
     nama: currentUser.nama,
     departemen: currentUser.departemen || '',
     tanggal: todayStr(),
@@ -1547,6 +1549,7 @@ async function doStartBreak() {
   const now = new Date();
   await db.collection('hrd_absensi').add({
     userId: currentUser.id,
+    karyawanId: currentUser.linkedKaryawan || '',
     nama: currentUser.nama,
     departemen: currentUser.departemen || '',
     tanggal: todayStr(),
@@ -1564,6 +1567,7 @@ async function doEndBreak() {
   const now = new Date();
   await db.collection('hrd_absensi').add({
     userId: currentUser.id,
+    karyawanId: currentUser.linkedKaryawan || '',
     nama: currentUser.nama,
     departemen: currentUser.departemen || '',
     tanggal: todayStr(),
@@ -2237,6 +2241,7 @@ async function submitAbsenDinas() {
   const now = new Date();
   await db.collection('hrd_absensi').add({
     userId: currentUser.id,
+    karyawanId: currentUser.linkedKaryawan || '',
     nama: currentUser.nama,
     departemen: currentUser.departemen || '',
     tanggal: todayStr(),
@@ -2335,6 +2340,7 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
       sppdSnap,
       kpiSnap,
       pelatihanSnap,
+      hrdUsersSnap,
     ] = await Promise.all([
       db.collection('hrd_karyawan').where('status', '==', 'aktif').get(),
       db.collection('hrd_absensi').get(),
@@ -2346,7 +2352,22 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
       db.collection('hrd_perjalanan_dinas').get().catch(() => ({ forEach: () => {} })),
       db.collection('hrd_kpi').where('periode', '==', bulan).get(),
       db.collection('hrd_pelatihan').where('status', '==', 'selesai').get(),
+      db.collection('hrd_users').get().catch(() => ({ forEach: () => {} })),
     ]);
+
+    const userToKaryawanMap = {};
+    const karyawanToUserMap = {};
+    if (hrdUsersSnap && hrdUsersSnap.forEach) {
+      hrdUsersSnap.forEach((d) => {
+        const data = d.data() || {};
+        if (data.linkedKaryawan) {
+          userToKaryawanMap[d.id] = data.linkedKaryawan;
+          karyawanToUserMap[data.linkedKaryawan] = d.id;
+        }
+      });
+    }
+
+    const normName = (str) => (str || '').toLowerCase().replace(/\s+/g, ' ').trim();
 
     const sett = settDoc.exists ? settDoc.data() : {};
     const flex = sett.flexTime || { enabled: true, durasiKerja: 8, durasiIstirahat: 1 };
@@ -2362,8 +2383,10 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
       const c = d.data();
       if (c.status !== 'approved' && c.status !== 'disetujui') return;
       if (!c.mulai || !c.selesai) return;
+      const cNorm = normName(c.nama);
       const nm = (c.nama || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-      const uids = [c.userId, (c.nama || '').toLowerCase().trim(), nm].filter(Boolean);
+      const linkedKaryId = c.karyawanId || userToKaryawanMap[c.userId];
+      const uids = [c.userId, c.karyawanId, linkedKaryId, cNorm, nm].filter(Boolean);
       const parseDateSafe = (dStr) => {
          if (!dStr) return new Date();
          if (dStr.includes('-') && dStr.length === 10) return new Date(dStr + 'T12:00:00');
@@ -2418,7 +2441,9 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
     overtimeSnap.forEach((d) => {
       const o = d.data();
       if (!o.tanggal || o.tanggal < startDate || o.tanggal > endDate || (o.status !== 'approved' && !o.approvedAt)) return;
-      const uids = [o.userId, (o.nama || '').toLowerCase().trim()].filter(Boolean);
+      const oNorm = normName(o.nama);
+      const linkedKaryId = o.karyawanId || userToKaryawanMap[o.userId];
+      const uids = [o.userId, o.karyawanId, linkedKaryId, oNorm].filter(Boolean);
       const dur = parseFloat(o.durasi) || 0;
       uids.forEach(uid => {
           if (!otMap[uid]) otMap[uid] = {};
@@ -2432,7 +2457,9 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
         const startD = dl.tanggalMulai || dl.tanggal;
         const endD = dl.tanggalSelesai || dl.tanggal;
         if (!startD) return;
-        const uids = [dl.userId, (dl.nama || '').toLowerCase().trim()].filter(Boolean);
+        const dNorm = normName(dl.nama);
+        const linkedKaryId = dl.karyawanId || userToKaryawanMap[dl.userId];
+        const uids = [dl.userId, dl.karyawanId, linkedKaryId, dNorm].filter(Boolean);
         const endDt = new Date((endD || startD) + 'T00:00:00');
         for (let dt = new Date(startD + 'T00:00:00'); dt <= endDt; dt.setDate(dt.getDate() + 1)) {
           const ds = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
@@ -2466,7 +2493,7 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
 
     const users = [];
     usersSnap.forEach((d) => users.push({ id: d.id, ...d.data() }));
-    const filteredUsers = (!hasAccess(3)) ? users.filter(u => u.nama?.toLowerCase() === currentUser.nama?.toLowerCase() || u.id === currentUser.id) : users;
+    const filteredUsers = (!hasAccess(3)) ? users.filter(u => normName(u.nama) === normName(currentUser.nama) || u.id === currentUser.id || u.id === currentUser.linkedKaryawan) : users;
 
     const absenMap = {};
     const jamKerjaMap = {};
@@ -2476,7 +2503,9 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
     absenSnap.forEach((d) => {
       const p = d.data();
       if (!p.tanggal || p.tanggal < startDate || p.tanggal > endDate) return;
-      const uids = [p.userId, (p.nama || '').toLowerCase().trim()].filter(Boolean);
+      const pNorm = normName(p.nama);
+      const linkedKaryId = p.karyawanId || userToKaryawanMap[p.userId];
+      const uids = [p.userId, p.karyawanId, linkedKaryId, pNorm].filter(Boolean);
       uids.forEach(uid => {
           if (!absenMap[uid]) absenMap[uid] = {};
           if (!jamKerjaMap[uid]) jamKerjaMap[uid] = {};
@@ -2514,20 +2543,54 @@ async function _doLoadRekapGridContent(bulan, mode, gridEl) {
     let totalH = 0, totalT = 0, totalD = 0, totalK = 0, totalL = 0, totalLembur = 0, totalLemburJam = 0;
 
     filteredUsers.forEach((u) => {
-      const namaLow = (u.nama || '').toLowerCase().trim();
-      const userAbsen = { ...(absenMap[u.id] || {}), ...(absenMap[namaLow] || {}) };
-      const userJamKerja = { ...(jamKerjaMap[u.id] || {}), ...(jamKerjaMap[namaLow] || {}) };
-      const nmKey = namaLow.replace(/[^a-z0-9]/g, '');
-      const userLemburMap2 = { ...(lemburMap[u.id] || {}), ...(lemburMap[namaLow] || {}), ...(lemburMap[nmKey] || {}) };
-      const userCuti = { ...(cutiMap[u.id] || {}), ...(cutiMap[namaLow] || {}), ...(cutiMap[nmKey] || {}) };
-      const userDinas = { ...(dinasLuarMap[u.id] || {}), ...(dinasLuarMap[namaLow] || {}), ...(dinasLuarMap[nmKey] || {}) };
-      const userDinasKet = { ...(dinasAbsenKetMap[u.id] || {}), ...(dinasAbsenKetMap[namaLow] || {}) };
-      const userOT = { ...(otMap[u.id] || {}), ...(otMap[namaLow] || {}) };
+      const uNorm = normName(u.nama);
+      const uLinkedUserId = karyawanToUserMap[u.id];
+      const nmKey = (u.nama || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+
+      const checkKeys = [
+        u.id,
+        uLinkedUserId,
+        u.userId,
+        uNorm,
+        nmKey
+      ].filter(Boolean);
+
+      const getMergedData = (sourceMap) => {
+        const res = {};
+        checkKeys.forEach(k => {
+          if (sourceMap[k]) Object.assign(res, sourceMap[k]);
+        });
+        Object.keys(sourceMap).forEach(mKey => {
+          if (typeof mKey === 'string' && mKey.length > 5 && uNorm.length > 5) {
+            if (mKey.includes(uNorm) || uNorm.includes(mKey)) {
+              Object.assign(res, sourceMap[mKey]);
+            }
+          }
+        });
+        return res;
+      };
+
+      const userAbsen = getMergedData(absenMap);
+      const userJamKerja = getMergedData(jamKerjaMap);
+      const userLemburMap2 = getMergedData(lemburMap);
+      const userCuti = getMergedData(cutiMap);
+      const userDinas = getMergedData(dinasLuarMap);
+      const userDinasKet = getMergedData(dinasAbsenKetMap);
+      const userOT = getMergedData(otMap);
 
       const userRawAbsen = absenSnap.docs.filter(d => {
           const p = d.data();
-          return (p.userId === u.id || (p.nama && p.nama.toLowerCase() === namaLow)) &&
-                 p.tanggal >= startDate && p.tanggal <= endDate;
+          if (!p.tanggal || p.tanggal < startDate || p.tanggal > endDate) return false;
+          const pNorm = normName(p.nama);
+          const pLinkedKaryId = p.karyawanId || userToKaryawanMap[p.userId];
+
+          return (
+            p.userId === u.id ||
+            (uLinkedUserId && p.userId === uLinkedUserId) ||
+            p.karyawanId === u.id ||
+            (pLinkedKaryId && pLinkedKaryId === u.id) ||
+            (pNorm && uNorm && (pNorm === uNorm || (uNorm.length > 5 && pNorm.includes(uNorm)) || (pNorm.length > 5 && uNorm.includes(pNorm))))
+          );
       }).map(d => d.data());
 
       h += `<tr><td class="text-sm fw-700">${escHtml(u.nama)}</td>`;
@@ -2886,16 +2949,28 @@ async function editAbsenKaryawan(userId, nama, bulan) {
     dinas = 0,
     lembur = 0;
   let records = [];
+  const namaNorm = (nama || '').toLowerCase().replace(/\s+/g, ' ').trim();
   try {
-    const snap = await db.collection('hrd_absensi').get();
+    const [snap, hrdUsersSnap] = await Promise.all([
+      db.collection('hrd_absensi').get(),
+      db.collection('hrd_users').get().catch(() => ({ forEach: () => {} }))
+    ]);
+    const userToKaryMap = {};
+    if (hrdUsersSnap && hrdUsersSnap.forEach) {
+      hrdUsersSnap.forEach((d) => {
+        const uData = d.data() || {};
+        if (uData.linkedKaryawan) userToKaryMap[d.id] = uData.linkedKaryawan;
+      });
+    }
     snap.forEach((d) => {
       const p = d.data();
+      const pNorm = (p.nama || '').toLowerCase().replace(/\s+/g, ' ').trim();
+      const pKaryId = p.karyawanId || userToKaryMap[p.userId];
+      const isMatch = p.userId === userId || pKaryId === userId || p.nama === nama || (pNorm && namaNorm && (pNorm === namaNorm || (namaNorm.length > 5 && pNorm.includes(namaNorm)) || (pNorm.length > 5 && namaNorm.includes(pNorm))));
       if (
         p.tanggal >= startDate &&
         p.tanggal <= endDate &&
-        (p.userId === userId ||
-          p.nama === nama ||
-          (p.nama || '').toLowerCase() === nama.toLowerCase())
+        isMatch
       ) {
         records.push({ id: d.id, ...p });
         if (p.tipe === 'masuk') masuk++;
@@ -3105,16 +3180,25 @@ async function hapusAbsenHari() {
   if (!confirm(`Hapus semua absensi ${tgl} untuk karyawan ini?`)) return;
   const userId = window._editAbsenUserId;
   const nama = window._editAbsenNama || '';
-  const snap = await db.collection('hrd_absensi').get();
+  const namaNorm = (nama || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const [snap, hrdUsersSnap] = await Promise.all([
+    db.collection('hrd_absensi').get(),
+    db.collection('hrd_users').get().catch(() => ({ forEach: () => {} }))
+  ]);
+  const userToKaryMap = {};
+  if (hrdUsersSnap && hrdUsersSnap.forEach) {
+    hrdUsersSnap.forEach((d) => {
+      const uData = d.data() || {};
+      if (uData.linkedKaryawan) userToKaryMap[d.id] = uData.linkedKaryawan;
+    });
+  }
   const toDelete = [];
   snap.forEach((d) => {
     const p = d.data();
-    if (
-      p.tanggal === tgl &&
-      (p.userId === userId ||
-        p.nama === nama ||
-        (p.nama || '').toLowerCase() === nama.toLowerCase())
-    )
+    const pNorm = (p.nama || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const pKaryId = p.karyawanId || userToKaryMap[p.userId];
+    const isMatch = p.userId === userId || pKaryId === userId || p.nama === nama || (pNorm && namaNorm && (pNorm === namaNorm || (namaNorm.length > 5 && pNorm.includes(namaNorm)) || (pNorm.length > 5 && namaNorm.includes(pNorm))));
+    if (p.tanggal === tgl && isMatch)
       toDelete.push(d.ref);
   });
   if (!toDelete.length) return toast('Tidak ada data di tanggal ini', 'info');
