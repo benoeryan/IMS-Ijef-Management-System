@@ -1969,42 +1969,49 @@ async function loadDailyTasks(filter, skipAutoRender = false) {
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
     const dateLimit = sixMonthsAgo.toISOString().split("T")[0];
 
-    const unsub = db.collection("hrd_daily_tasks")
-      .where("tanggal", ">=", dateLimit)
-      .onSnapshot((snap) => {
-        _dailyTaskData = [];
-        for (const d of snap.docs) {
-          const t = d.data();
-          const taskDept = (t.departemen || "").toLowerCase().trim();
-          const ownerName = normalizePersonName(getTaskOwnerDisplayName(t));
-          const ownerMatchesMe = doesTaskBelongToUser(t);
-          const assignedByMe = wasTaskAssignedByUser(t);
-          const isReport = isDailyReportEntry(t);
+    const processSnapData = (snap) => {
+      _dailyTaskData = [];
+      for (const d of snap.docs) {
+        const t = d.data();
+        const taskDept = (t.departemen || "").toLowerCase().trim();
+        const ownerName = normalizePersonName(getTaskOwnerDisplayName(t));
+        const ownerMatchesMe = doesTaskBelongToUser(t);
+        const assignedByMe = wasTaskAssignedByUser(t);
+        const isReport = isDailyReportEntry(t);
 
-          let isVisible = false;
-          if (
-            hasHeadLevelAccess() ||
-            currentUser.id === "admin" ||
-            currentUser.role === "admin"
-          ) {
+        let isVisible = false;
+        if (
+          hasHeadLevelAccess() ||
+          currentUser.id === "admin" ||
+          currentUser.role === "admin"
+        ) {
+          isVisible = true;
+        } else {
+          if (ownerMatchesMe || assignedByMe) {
             isVisible = true;
-          } else {
-            if (ownerMatchesMe || assignedByMe) {
-              isVisible = true;
-            } else if (isReport) {
-              if (hasAccess(3)) {
-                if (taskDept === myDept || !taskDept) isVisible = true;
-              } else if (hasAccess(2)) {
-                if (directSubNames.includes(ownerName) || taskDept === myDept)
-                  isVisible = true;
-              }
+          } else if (isReport) {
+            if (hasAccess(3)) {
+              if (taskDept === myDept || !taskDept) isVisible = true;
+            } else if (hasAccess(2)) {
+              if (directSubNames.includes(ownerName) || taskDept === myDept)
+                isVisible = true;
             }
           }
-
-          if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
         }
 
-        _renderDailyTaskListContent(filter, todayStr());
+        if (isVisible) _dailyTaskData.push({ id: d.id, ...t });
+      }
+
+      _renderDailyTaskListContent(filter, todayStr());
+    };
+
+    const unsub = db.collection("hrd_daily_tasks")
+      .where("tanggal", ">=", dateLimit)
+      .onSnapshot(processSnapData, (err) => {
+        console.warn("Daily tasks date limit query fallback:", err);
+        db.collection("hrd_daily_tasks").limit(1000).onSnapshot(processSnapData, (e2) => {
+          console.error("Daily tasks fallback error:", e2);
+        });
       });
 
     if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
@@ -5249,10 +5256,22 @@ async function _setupWeeklyReportsListeners() {
         oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
         const dateLimit = oneYearAgo.toISOString().split("T")[0];
 
-        const handleUpdate = (snap1, snap2) => {
+        const handleUpdate = () => {
             let items = [];
-            snap1.forEach(d => items.push({ id: d.id, col: "hrd_daily_tasks", ...d.data() }));
-            snap2.forEach(d => items.push({ id: d.id, col: "hrd_weekly_reports", ...d.data() }));
+            const taskReports = s1.length > 0 ? s1 : (_dailyTaskData || []).filter(t => isDailyReportEntry(t));
+            taskReports.forEach(d => items.push({ col: "hrd_daily_tasks", ...d }));
+            if (s2 && s2.length > 0) {
+                s2.forEach(d => items.push({ col: "hrd_weekly_reports", ...d }));
+            }
+
+            // Deduplicate items
+            const seenKeys = new Set();
+            items = items.filter(it => {
+                const key = (it.col || "hrd_daily_tasks") + "::" + (it.id || Math.random());
+                if (seenKeys.has(key)) return false;
+                seenKeys.add(key);
+                return true;
+            });
 
             if (!hasAccess(3) && !hasHeadLevelAccess()) {
                 const isAcademic = myDept.includes("academic") || myDept.includes("akademik");
@@ -5271,21 +5290,37 @@ async function _setupWeeklyReportsListeners() {
         };
 
         let s1 = [], s2 = [];
-        const trigger = () => handleUpdate(s1, s2);
+        const trigger = () => handleUpdate();
+
+        // Populate initial s1 from _dailyTaskData if available
+        if (_dailyTaskData && _dailyTaskData.length > 0) {
+            s1 = _dailyTaskData.filter(t => isDailyReportEntry(t));
+            trigger();
+        }
 
         // Listen to daily tasks (reports only)
         const unsub1 = db.collection("hrd_daily_tasks")
-            .where("type", "==", "report")
             .where("tanggal", ">=", dateLimit)
-            .onSnapshot(snap => { s1 = snap; trigger(); });
+            .onSnapshot(snap => {
+                s1 = snap.docs.filter(d => isDailyReportEntry(d.data())).map(d => ({ id: d.id, ...d.data() }));
+                trigger();
+            }, () => {
+                db.collection("hrd_daily_tasks").limit(1000).onSnapshot(snap => {
+                    s1 = snap.docs.filter(d => isDailyReportEntry(d.data())).map(d => ({ id: d.id, ...d.data() }));
+                    trigger();
+                });
+            });
 
-        // Broaden hrd_weekly_reports query: use 'bulan' as fallback filter or fetch all recent
+        // Broaden hrd_weekly_reports query
         const unsub2 = db.collection("hrd_weekly_reports")
-            .where("bulan", ">=", dateLimit.substring(0, 7))
-            .onSnapshot(snap => { s2 = snap; trigger(); },
-            () => {
-                // Fallback for very old data or missing 'bulan' index
-                db.collection("hrd_weekly_reports").limit(500).onSnapshot(snap => { s2 = snap; trigger(); });
+            .onSnapshot(snap => {
+                s2 = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                trigger();
+            }, () => {
+                db.collection("hrd_weekly_reports").limit(1000).onSnapshot(snap => {
+                    s2 = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    trigger();
+                });
             });
 
         if (typeof unsubscribers !== 'undefined') {
