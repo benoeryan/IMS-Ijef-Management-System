@@ -2338,17 +2338,42 @@ async function modalAddTask() {
     // Leader/Manager/Head can assign tasks to subordinates
     try {
       const usersSnap = await db.collection("hrd_users").get();
-      const myDept = (currentUser.departemen || "").toLowerCase().trim();
-      const isManager = (currentUser.role || "") === "manager";
+
+      // Collect all departments for currentUser (primary + secondary/additional)
+      const userDepts = [];
+      if (currentUser.departemen) userDepts.push((currentUser.departemen || "").toLowerCase().trim());
+      if (Array.isArray(currentUser.departemenTambahan)) {
+        currentUser.departemenTambahan.forEach(d => {
+          if (d) userDepts.push(String(d).toLowerCase().trim());
+        });
+      } else if (currentUser.departemenTambahan) {
+        userDepts.push(String(currentUser.departemenTambahan).toLowerCase().trim());
+      }
+
+      const isIrsan = (currentUser.nama || "").toLowerCase().includes("irsan janwar");
+      const isAgusP = (currentUser.nama || "").toLowerCase().includes("agus puriyanto");
+      if (isIrsan || isAgusP) {
+        if (!userDepts.includes("academic")) userDepts.push("academic");
+        if (!userDepts.includes("office")) userDepts.push("office");
+      }
+
+      const isManager = ["manager", "head", "bod"].includes((currentUser.role || "").toLowerCase()) || isIrsan || isAgusP;
       let checkboxes = "";
       for (const d of usersSnap.docs) {
         var u = d.data();
         if (u.status !== "nonaktif" && d.id !== currentUser.id) {
-          // Only show same division members
-          if (myDept && (u.departemen || "").toLowerCase().trim() !== myDept)
-            continue;
+          const uDept = (u.departemen || "").toLowerCase().trim();
+          const uExtraDepts = Array.isArray(u.departemenTambahan)
+            ? u.departemenTambahan.map(x => String(x).toLowerCase().trim())
+            : (u.departemenTambahan ? [String(u.departemenTambahan).toLowerCase().trim()] : []);
+
+          // Match department
+          const isMatchDept = userDepts.length === 0 || userDepts.some(dept => uDept.includes(dept) || uExtraDepts.some(ed => ed.includes(dept)));
+
+          if (!isMatchDept && !isIrsan && !isAgusP) continue;
+
           const uRole = u.role || "-";
-          const uDept = u.departemen || "-";
+          const displayDept = u.departemen || "-";
           checkboxes +=
             '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">';
           checkboxes +=
@@ -2363,15 +2388,15 @@ async function modalAddTask() {
             ' <span style="color:#999;font-size:.75rem">(' +
             escHtml(uRole) +
             " \u2022 " +
-            escHtml(uDept) +
+            escHtml(displayDept) +
             ")</span></span></label>";
         }
       }
       const labelTitle = isManager
-        ? "Tugaskan Ke (Staff / Leader)"
+        ? "Tugaskan Ke (Staff / Leader / Divisi)"
         : "Tugaskan Ke (Anggota Tim)";
-      const noteText = isManager
-        ? "Hanya menampilkan anggota divisi yang sama"
+      const noteText = userDepts.length
+        ? "Menampilkan anggota divisi tanggung jawab Anda (" + userDepts.map(x => x.toUpperCase()).join(", ") + ")"
         : "Centang satu atau lebih anggota tim";
       assignHtml = '<div class="form-group"><label>' + labelTitle + "</label>";
       assignHtml +=
@@ -4183,8 +4208,26 @@ window.onDailyReportMateriChange = function () {
 };
 
 function getReportCategoryOptions() {
-  const dept = (currentUser.departemen || "").toUpperCase().trim();
-  const cats = REPORT_CATEGORIES[dept] || REPORT_CATEGORIES["OFFICE"] || [];
+  const userDepts = [(currentUser.departemen || "").toUpperCase().trim()];
+  if (Array.isArray(currentUser.departemenTambahan)) {
+    currentUser.departemenTambahan.forEach(d => userDepts.push(String(d).toUpperCase().trim()));
+  }
+  const isIrsan = (currentUser.nama || "").toLowerCase().includes("irsan janwar");
+  const isAgusP = (currentUser.nama || "").toLowerCase().includes("agus puriyanto");
+  if (isIrsan || isAgusP) {
+    userDepts.push("ACADEMIC", "OFFICE");
+  }
+
+  let cats = [];
+  userDepts.forEach(d => {
+    const list = REPORT_CATEGORIES[d] || [];
+    list.forEach(c => { if (!cats.includes(c)) cats.push(c); });
+  });
+
+  if (!cats.length) {
+    cats = [...(REPORT_CATEGORIES["OFFICE"] || []), ...(REPORT_CATEGORIES["ACADEMIC"] || [])];
+  }
+
   let opts = '<option value="">-- Pilih Kategori --</option>';
   for (const c of cats) {
     opts += `<option value="${c}">${c}</option>`;
