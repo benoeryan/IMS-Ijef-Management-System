@@ -3582,13 +3582,19 @@ async function _loadReportSummaryForDate(dateVal) {
   // Apply division filter
   let reports = allReports;
   if (_reportSummaryDivisionFilter === "academic") {
-    reports = allReports.filter(
-      (r) => (r.departemen || "").toUpperCase() === "ACADEMIC",
-    );
+    reports = allReports.filter((r) => {
+      const mainDept = (r.departemen || "").toUpperCase();
+      const extraDepts = Array.isArray(r.departemenTambahan) ? r.departemenTambahan.map(x => String(x).toUpperCase()) : [];
+      const isIrsan = (r.targetUserName || r.nama || "").toLowerCase().includes("irsan janwar");
+      return mainDept.includes("ACADEMIC") || extraDepts.some(d => d.includes("ACADEMIC")) || isIrsan;
+    });
   } else if (_reportSummaryDivisionFilter === "office") {
-    reports = allReports.filter(
-      (r) => (r.departemen || "").toUpperCase() === "OFFICE",
-    );
+    reports = allReports.filter((r) => {
+      const mainDept = (r.departemen || "").toUpperCase();
+      const extraDepts = Array.isArray(r.departemenTambahan) ? r.departemenTambahan.map(x => String(x).toUpperCase()) : [];
+      const isIrsan = (r.targetUserName || r.nama || "").toLowerCase().includes("irsan janwar");
+      return mainDept.includes("OFFICE") || extraDepts.some(d => d.includes("OFFICE")) || isIrsan;
+    });
   }
 
   let htmlContent = "";

@@ -227,10 +227,34 @@ async function showKaryawanForm(id, p) {
     db.collection('hrd_cabang').get(),
   ]);
 
-  let dOpts = '<option value="">-- Pilih Departemen --</option>';
+  let dOpts = '<option value="">-- Pilih Departemen Utama --</option>';
+  const allDeptNames = ['ACADEMIC', 'OFFICE'];
   depts.forEach((d) => {
       const name = d.data().nama;
       dOpts += `<option value="${name}" ${p.departemen === name ? 'selected' : ''}>${name}</option>`;
+      if (name && !allDeptNames.map(x => x.toUpperCase()).includes(name.toUpperCase())) {
+          allDeptNames.push(name);
+      }
+  });
+
+  const currentTambahan = Array.isArray(p.departemenTambahan)
+      ? p.departemenTambahan.map(x => String(x).toUpperCase().trim())
+      : (p.departemenTambahan ? [String(p.departemenTambahan).toUpperCase().trim()] : []);
+
+  // For Irsan Janwar Wibawa, default include ACADEMIC if not explicitly saved
+  if ((p.nama || '').toLowerCase().includes('irsan janwar') && !currentTambahan.length) {
+      currentTambahan.push('ACADEMIC');
+  }
+
+  let deptCheckboxes = '';
+  allDeptNames.forEach(deptName => {
+      const isChecked = currentTambahan.includes(deptName.toUpperCase().trim());
+      deptCheckboxes += `
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;background:#fff;padding:6px 12px;border-radius:6px;border:1px solid #d0d9ff">
+              <input type="checkbox" name="kyDeptTambahan" value="${escAttr(deptName)}" ${isChecked ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--primary)">
+              <b>${escHtml(deptName)}</b>
+          </label>
+      `;
   });
 
   let pOpts = '<option value="">-- Pilih Posisi --</option>';
@@ -274,8 +298,15 @@ async function showKaryawanForm(id, p) {
           <div class="form-group"><label>Nama Lengkap</label><input class="form-control" id="kyNama" value="${escHtml(p.nama || '')}"></div>
         </div>
         <div class="grid-2">
-          <div class="form-group"><label>Departemen</label><select class="form-control" id="kyDept">${dOpts}</select></div>
+          <div class="form-group"><label>Departemen Utama</label><select class="form-control" id="kyDept">${dOpts}</select></div>
           <div class="form-group"><label>Posisi</label><select class="form-control" id="kyPos">${pOpts}</select></div>
+        </div>
+        <div class="form-group mb-12">
+          <label class="fw-700 color-primary text-xs">🏢 Tanggung Jawab Divisi / Departemen Tambahan (Multi-Role)</label>
+          <div style="background:#f8f9ff;padding:10px;border-radius:8px;border:1px solid #d0d9ff;display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+            ${deptCheckboxes}
+          </div>
+          <p class="text-xs color-gray mt-4">Centang divisi tambahan (misal: <b>ACADEMIC</b>) untuk memberikan tanggung jawab, hak akses laporan, approval, dan cakupan isi divisi akademik pada karyawan ini.</p>
         </div>
         <div class="grid-2">
           <div class="form-group"><label>Tipe Karyawan</label><select class="form-control" id="kyTipe"><option value="PKWTT" ${p.tipeKaryawan === 'PKWTT' ? 'selected' : ''}>PKWTT (Tetap)</option><option value="PKWT" ${p.tipeKaryawan === 'PKWT' ? 'selected' : ''}>PKWT (Kontrak)</option><option value="PROBATION" ${p.tipeKaryawan === 'PROBATION' ? 'selected' : ''}>PROBATION</option><option value="FREELANCE" ${p.tipeKaryawan === 'FREELANCE' ? 'selected' : ''}>FREELANCE</option></select></div>
@@ -427,10 +458,14 @@ function previewKaryawanFoto(input) {
 }
 
 async function simpanKaryawan(id) {
+  const deptTambahanEls = document.querySelectorAll('input[name="kyDeptTambahan"]:checked');
+  const departemenTambahan = Array.from(deptTambahanEls).map(el => el.value);
+
   const data = {
     nip: document.getElementById('kyNip').value.trim(),
     nama: document.getElementById('kyNama').value.trim(),
     departemen: document.getElementById('kyDept').value,
+    departemenTambahan: departemenTambahan,
     posisi: document.getElementById('kyPos').value,
     tipeKaryawan: document.getElementById('kyTipe').value,
     status: document.getElementById('kyStatus').value,
@@ -480,8 +515,41 @@ async function simpanKaryawan(id) {
   if (!data.nama || !data.nip) return toast('Nama & NIP wajib diisi', 'warning');
 
   try {
-    if (id) await db.collection('hrd_karyawan').doc(id).update(data);
-    else await db.collection('hrd_karyawan').add({ ...data, createdAt: new Date().toISOString() });
+    let savedDocId = id;
+    if (id) {
+      await db.collection('hrd_karyawan').doc(id).update(data);
+    } else {
+      const docRef = await db.collection('hrd_karyawan').add({ ...data, createdAt: new Date().toISOString() });
+      savedDocId = docRef.id;
+    }
+
+    // Sync department and additional divisions to user account
+    try {
+      const userSnap = await db.collection('hrd_users').get();
+      userSnap.forEach(async (uDoc) => {
+        const uData = uDoc.data();
+        const matchId = uData.linkedKaryawan === savedDocId;
+        const matchNama = (uData.nama || '').toLowerCase().trim() === data.nama.toLowerCase().trim();
+        const matchNip = uData.nip && data.nip && uData.nip === data.nip;
+        if (matchId || matchNama || matchNip) {
+          await db.collection('hrd_users').doc(uDoc.id).update({
+            departemen: data.departemen,
+            departemenTambahan: data.departemenTambahan,
+            posisi: data.posisi,
+            gradeJabatan: data.gradeJabatan,
+            updatedAt: new Date().toISOString()
+          });
+          if (currentUser.id === uDoc.id) {
+            currentUser.departemen = data.departemen;
+            currentUser.departemenTambahan = data.departemenTambahan;
+            localStorage.setItem('hrd_session', JSON.stringify(currentUser));
+          }
+        }
+      });
+    } catch (uErr) {
+      console.warn("User sync err:", uErr);
+    }
+
     closeModalDirect();
     toast('Data karyawan berhasil disimpan', 'success');
     renderKaryawan();

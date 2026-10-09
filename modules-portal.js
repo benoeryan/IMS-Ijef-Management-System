@@ -243,11 +243,17 @@ async function loadPortalTeamReport(targetId, filterStateKey) {
     var filteredReports = reports;
     if (portalDivFilter === "academic") {
       filteredReports = reports.filter(function (r) {
-        return (r.departemen || "").toUpperCase().includes("ACADEMIC");
+        var mainDept = (r.departemen || "").toUpperCase();
+        var extraDepts = Array.isArray(r.departemenTambahan) ? r.departemenTambahan.map(function(x){ return String(x).toUpperCase(); }) : [];
+        var isIrsan = (r.targetUserName || r.nama || "").toLowerCase().includes("irsan janwar");
+        return mainDept.includes("ACADEMIC") || extraDepts.some(function(d){ return d.includes("ACADEMIC"); }) || isIrsan;
       });
     } else if (portalDivFilter === "office") {
       filteredReports = reports.filter(function (r) {
-        return (r.departemen || "").toUpperCase().includes("OFFICE");
+        var mainDept = (r.departemen || "").toUpperCase();
+        var extraDepts = Array.isArray(r.departemenTambahan) ? r.departemenTambahan.map(function(x){ return String(x).toUpperCase(); }) : [];
+        var isIrsan = (r.targetUserName || r.nama || "").toLowerCase().includes("irsan janwar");
+        return mainDept.includes("OFFICE") || extraDepts.some(function(d){ return d.includes("OFFICE"); }) || isIrsan;
       });
     }
     var tabHtml =
