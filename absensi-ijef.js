@@ -2270,6 +2270,7 @@ async function submitAbsenDinas() {
 // ==============================================================
 
 function renderRekapAbsensi(container) {
+  const canDownload = canDownloadRekapAbsen();
   container.innerHTML = `<div class="card">
     <div class="card-header">
       <div class="card-title">📊 Rekap Absensi</div>
@@ -2281,6 +2282,7 @@ function renderRekapAbsensi(container) {
         <input class="form-control" type="month" id="rekapBulan" value="${monthStr()}" onchange="loadRekapGrid()" style="max-width:140px">
         <button class="btn btn-sm btn-info" onclick="loadRekapGrid()">🔍</button>
         ${hasAccess(6) ? '<button class="btn btn-sm btn-success" onclick="modalGenerateAbsensi()">⚡ Generate Periode</button>' : ''}
+        ${canDownload ? '<button class="btn btn-sm btn-warning" onclick="modalRekapAbsenKumulatif()">📊 Download Rekap Kumulatif</button>' : ''}
       </div>
     </div>
     <div id="rekapGrid">Loading...</div>
@@ -3443,3 +3445,148 @@ async function doGenerateAbsensi() {
     btn.innerHTML = '⚡ Generate Sekarang';
   }
 }
+
+function canDownloadRekapAbsen() {
+  if (!currentUser) return false;
+  if (hasAccess(6) || currentUser.role === 'admin' || currentUser.role === 'bod' || currentUser.role === 'head' || currentUser.role === 'manager') return true;
+  const nama = (currentUser.nama || "").toLowerCase().trim();
+  const allowed = [
+    "maharani ali",
+    "irsan janwar wibawa",
+    "irsan janwar"
+  ];
+  if (allowed.some(n => nama.includes(n))) return true;
+  const dept = (currentUser.departemen || "").toLowerCase();
+  if (dept.includes("hr") || dept.includes("hrd")) return true;
+  return false;
+}
+
+function modalRekapAbsenKumulatif() {
+  if (!canDownloadRekapAbsen()) {
+    return toast("Anda tidak memiliki izin untuk mendownload rekap absensi kumulatif", "warning");
+  }
+  const currentMonth = monthStr();
+  openModal(`
+    <div class="modal-title">📊 Download Rekap Absensi Kumulatif (Excel)</div>
+    <p class="text-sm mb-16" style="color:#666">Pilih rentang bulan untuk mengunduh rekap absensi kumulatif seluruh karyawan:</p>
+    <div class="grid-2 mb-16">
+      <div class="form-group"><label>Dari Bulan</label><input class="form-control" type="month" id="absCumStart" value="${currentMonth}"></div>
+      <div class="form-group"><label>Sampai Bulan</label><input class="form-control" type="month" id="absCumEnd" value="${currentMonth}"></div>
+    </div>
+    <div class="flex gap-8 justify-end">
+      <button class="btn btn-primary" onclick="processCumulativeRekapAbsenDownload()">📊 Download Excel</button>
+      <button class="btn btn-outline" onclick="closeModalDirect()">Batal</button>
+    </div>
+  `, true);
+}
+
+async function processCumulativeRekapAbsenDownload() {
+  const startM = document.getElementById('absCumStart')?.value;
+  const endM = document.getElementById('absCumEnd')?.value;
+  if (!startM || !endM) return toast('Pilih rentang bulan dengan benar', 'warning');
+  if (startM > endM) return toast('Bulan awal tidak boleh lebih besar dari bulan akhir', 'warning');
+
+  closeModalDirect();
+  try {
+    toast("⏳ Menyiapkan data rekap absensi kumulatif...", "info");
+
+    const [karySnap, absSnap] = await Promise.all([
+      db.collection('hrd_karyawan').where('status', '==', 'aktif').get(),
+      db.collection('hrd_absensi').get()
+    ]);
+
+    const employees = [];
+    karySnap.forEach(d => employees.push({ id: d.id, ...d.data() }));
+    employees.sort((a, b) => (a.nama || "").localeCompare(b.nama || ""));
+
+    if (!employees.length) {
+      return toast("Tidak ada data karyawan aktif", "warning");
+    }
+
+    const attendanceMap = {};
+    absSnap.forEach(doc => {
+      const a = doc.data();
+      const nama = (a.nama || "").toLowerCase().trim();
+      const tanggal = a.tanggal || (a.timestamp ? a.timestamp.substring(0, 10) : "");
+      if (nama && tanggal) {
+        if (!attendanceMap[nama]) attendanceMap[nama] = {};
+        attendanceMap[nama][tanggal] = a.status || a.keterangan || "Hadir";
+      }
+    });
+
+    const rows = [];
+    employees.forEach((emp, idx) => {
+      const empNama = emp.nama || "-";
+      const empNamaLow = empNama.toLowerCase().trim();
+      const empDept = emp.departemen || "-";
+      const empPos = emp.posisi || "-";
+
+      let totalHadir = 0;
+      let totalTerlambat = 0;
+      let totalKurangJam = 0;
+      let totalIzin = 0;
+      let totalSakit = 0;
+      let totalCuti = 0;
+      let totalDinas = 0;
+      let totalMangkir = 0;
+
+      const empRecords = attendanceMap[empNamaLow] || {};
+      Object.keys(empRecords).forEach(dt => {
+        const dtMonth = dt.substring(0, 7);
+        if (dtMonth >= startM && dtMonth <= endM) {
+          const st = (empRecords[dt] || "").toLowerCase();
+          if (st.includes('hadir') || st.includes('lengkap') || st === 'v' || st === '✓') totalHadir++;
+          else if (st.includes('terlambat')) totalTerlambat++;
+          else if (st.includes('kurang')) totalKurangJam++;
+          else if (st.includes('izin')) totalIzin++;
+          else if (st.includes('sakit')) totalSakit++;
+          else if (st.includes('cuti')) totalCuti++;
+          else if (st.includes('dinas')) totalDinas++;
+          else if (st.includes('mangkir') || st.includes('alpha') || st === 'x') totalMangkir++;
+          else totalHadir++;
+        }
+      });
+
+      rows.push({
+        "No": idx + 1,
+        "NIP": emp.nip || "-",
+        "Nama Karyawan": empNama,
+        "Departemen": empDept,
+        "Posisi": empPos,
+        "Periode Rentang": `${startM} s.d. ${endM}`,
+        "Hadir / Lengkap": totalHadir,
+        "Terlambat": totalTerlambat,
+        "Kurang Jam": totalKurangJam,
+        "Izin": totalIzin,
+        "Sakit": totalSakit,
+        "Cuti": totalCuti,
+        "Dinas Luar": totalDinas,
+        "Mangkir / Tanpa Ket.": totalMangkir,
+        "Total Kehadiran Tercatat": totalHadir + totalTerlambat + totalKurangJam + totalIzin + totalSakit + totalCuti + totalDinas
+      });
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Absen Kumulatif");
+
+    const maxLen = {};
+    rows.forEach(r => {
+      Object.keys(r).forEach(k => {
+        const val = String(r[k] !== undefined && r[k] !== null ? r[k] : "");
+        maxLen[k] = Math.max(maxLen[k] || k.length, val.length);
+      });
+    });
+    worksheet['!cols'] = Object.keys(maxLen).map(k => ({ wch: Math.min(Math.max(maxLen[k] + 3, 10), 30) }));
+
+    XLSX.writeFile(workbook, `Rekap_Absensi_Kumulatif_${startM}_sd_${endM}.xlsx`);
+    toast(`✅ Rekap absensi kumulatif (${startM} s.d. ${endM}) berhasil diunduh ke Excel!`, "success");
+  } catch (e) {
+    console.error("processCumulativeRekapAbsenDownload err:", e);
+    toast("Gagal mendownload rekap absensi: " + e.message, "error");
+  }
+}
+
+window.canDownloadRekapAbsen = canDownloadRekapAbsen;
+window.modalRekapAbsenKumulatif = modalRekapAbsenKumulatif;
+window.processCumulativeRekapAbsenDownload = processCumulativeRekapAbsenDownload;
