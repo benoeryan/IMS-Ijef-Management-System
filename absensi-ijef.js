@@ -2296,14 +2296,14 @@ async function loadRekapGrid() {
   const mode = document.getElementById('rekapMode')?.value || 'calendar';
   const gridEl = document.getElementById('rekapGrid');
   if (!gridEl) return;
-  gridEl.innerHTML = 'Memuat data...';
+  gridEl.innerHTML = '<div style="text-align:center;padding:20px;color:#666">⏳ Memuat rekap absensi...</div>';
 
-  // Real-time listener for current month attendance
-  const unsub = db.collection('hrd_absensi').onSnapshot(() => {
-      _doLoadRekapGridContent(bulan, mode, gridEl);
-  });
-
-  if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
+  try {
+    await _doLoadRekapGridContent(bulan, mode, gridEl);
+  } catch (err) {
+    console.error("loadRekapGrid err:", err);
+    gridEl.innerHTML = `<div class="badge badge-danger" style="padding:10px">Gagal memuat rekap: ${err.message}</div>`;
+  }
 }
 
 async function _doLoadRekapGridContent(bulan, mode, gridEl) {
