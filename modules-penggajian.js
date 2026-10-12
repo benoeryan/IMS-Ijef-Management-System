@@ -1930,68 +1930,118 @@ async function loadTaxKaryList() {
 }
 
 async function downloadPayrollReport(type) {
+  if (type === 'cumulative') {
+    const currentMonth = document.getElementById('filterBulanGaji')?.value || monthStr();
+    openModal(`
+      <div class="modal-title">📊 Download Excel Kumulatif Penggajian</div>
+      <p class="text-sm mb-16" style="color:#666">Pilih rentang bulan untuk laporan kumulatif penggajian dalam format Excel:</p>
+      <div class="grid-2 mb-16">
+        <div class="form-group"><label>Dari Bulan</label><input class="form-control" type="month" id="cumStartMonth" value="${currentMonth}"></div>
+        <div class="form-group"><label>Sampai Bulan</label><input class="form-control" type="month" id="cumEndMonth" value="${currentMonth}"></div>
+      </div>
+      <div class="flex gap-8 justify-end">
+        <button class="btn btn-primary" onclick="processCumulativeDownload()">📊 Download Excel</button>
+        <button class="btn btn-outline" onclick="closeModalDirect()">Batal</button>
+      </div>
+    `, true);
+    return;
+  }
+
+  // Monthly download
   try {
     toast("⏳ Menyiapkan data excel...", "info");
-    let query = db.collection('hrd_penggajian');
-    let titlePrefix = "Rekap_Penggajian";
-
     const bulan = document.getElementById('filterBulanGaji')?.value || monthStr();
-    if (type === 'monthly') {
-      query = query.where('periode', '==', bulan);
-      titlePrefix = `Penggajian_${bulan}`;
-    } else {
-      titlePrefix = `Penggajian_Kumulatif_Semua_Bulan`;
-    }
-
+    const query = db.collection('hrd_penggajian').where('periode', '==', bulan);
     const snap = await query.get();
     if (snap.empty) {
-      return toast("Tidak ada data penggajian untuk diexport", "warning");
+      return toast("Tidak ada data penggajian untuk periode " + bulan, "warning");
     }
-
-    const rows = [];
-    snap.forEach((doc, idx) => {
-      const p = doc.data();
-      rows.push({
-        "No": idx + 1,
-        "Periode": p.periode || "-",
-        "NIP": p.nip || "-",
-        "Nama Karyawan": p.nama || "-",
-        "Departemen": p.departemen || "-",
-        "Posisi": p.posisi || "-",
-        "Gaji Pokok (Rp)": Number(p.gajiPokok || 0),
-        "Tunjangan (Rp)": Number(p.tunjangan || 0),
-        "Insentif (Rp)": Number(p.insentif || 0),
-        "Reimburse (Rp)": Number(p.reimbursement || 0),
-        "Lembur (Rp)": Number(p.lembur || 0),
-        "Potongan (Rp)": Number(p.potongan || 0),
-        "Kasbon / Loan (Rp)": Number(p.kasbon || 0),
-        "PPH21 (Rp)": Number(p.pph21 || 0),
-        "THP / Take Home Pay (Rp)": Number(p.totalBersih || 0)
-      });
-    });
-
-    // Sort by periode desc, then nama asc
-    rows.sort((a, b) => (b.Periode || "").localeCompare(a.Periode || "") || (a["Nama Karyawan"] || "").localeCompare(b["Nama Karyawan"]));
-
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Penggajian");
-
-    // Auto-fit column widths
-    const maxLen = {};
-    rows.forEach(r => {
-      Object.keys(r).forEach(k => {
-        const val = String(r[k] !== undefined && r[k] !== null ? r[k] : "");
-        maxLen[k] = Math.max(maxLen[k] || k.length, val.length);
-      });
-    });
-    worksheet['!cols'] = Object.keys(maxLen).map(k => ({ wch: Math.min(Math.max(maxLen[k] + 3, 10), 30) }));
-
-    XLSX.writeFile(workbook, `${titlePrefix}.xlsx`);
-    toast(`✅ ${rows.length} data penggajian berhasil diunduh ke Excel!`, "success");
+    generateExcelFromSnap(snap, `Penggajian_${bulan}`);
   } catch (e) {
-    console.error("downloadPayrollReport err:", e);
-    toast("Gagal mendownload laporan: " + e.message, "error");
+    toast("Gagal mendownload: " + e.message, "error");
   }
 }
+
+async function processCumulativeDownload() {
+  const startM = document.getElementById('cumStartMonth')?.value;
+  const endM = document.getElementById('cumEndMonth')?.value;
+  if (!startM || !endM) return toast('Pilih rentang bulan dengan benar', 'warning');
+  if (startM > endM) return toast('Bulan awal tidak boleh lebih besar dari bulan akhir', 'warning');
+
+  closeModalDirect();
+  try {
+    toast("⏳ Menyiapkan data kumulatif...", "info");
+    const snap = await db.collection('hrd_penggajian').get();
+    if (snap.empty) {
+      return toast("Tidak ada data penggajian", "warning");
+    }
+
+    const filteredDocs = [];
+    snap.forEach(doc => {
+      const p = doc.data();
+      const per = p.periode || "";
+      if (per >= startM && per <= endM) {
+        filteredDocs.push(doc);
+      }
+    });
+
+    if (!filteredDocs.length) {
+      return toast(`Tidak ada data penggajian antara ${startM} s.d ${endM}`, "warning");
+    }
+
+    generateExcelFromDocs(filteredDocs, `Penggajian_Kumulatif_${startM}_sd_${endM}`);
+  } catch (e) {
+    toast("Gagal mendownload kumulatif: " + e.message, "error");
+  }
+}
+
+function generateExcelFromDocs(docs, titlePrefix) {
+  const rows = [];
+  docs.forEach((doc, idx) => {
+    const p = doc.data();
+    rows.push({
+      "No": idx + 1,
+      "Periode": p.periode || "-",
+      "NIP": p.nip || "-",
+      "Nama Karyawan": p.nama || "-",
+      "Departemen": p.departemen || "-",
+      "Posisi": p.posisi || "-",
+      "Gaji Pokok (Rp)": Number(p.gajiPokok || 0),
+      "Tunjangan (Rp)": Number(p.tunjangan || 0),
+      "Insentif (Rp)": Number(p.insentif || 0),
+      "Reimburse (Rp)": Number(p.reimbursement || 0),
+      "Lembur (Rp)": Number(p.lembur || 0),
+      "Potongan (Rp)": Number(p.potongan || 0),
+      "Kasbon / Loan (Rp)": Number(p.kasbon || 0),
+      "PPH21 (Rp)": Number(p.pph21 || 0),
+      "THP / Take Home Pay (Rp)": Number(p.totalBersih || 0)
+    });
+  });
+
+  rows.sort((a, b) => (b.Periode || "").localeCompare(a.Periode || "") || (a["Nama Karyawan"] || "").localeCompare(b["Nama Karyawan"]));
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Penggajian");
+
+  const maxLen = {};
+  rows.forEach(r => {
+    Object.keys(r).forEach(k => {
+      const val = String(r[k] !== undefined && r[k] !== null ? r[k] : "");
+      maxLen[k] = Math.max(maxLen[k] || k.length, val.length);
+    });
+  });
+  worksheet['!cols'] = Object.keys(maxLen).map(k => ({ wch: Math.min(Math.max(maxLen[k] + 3, 10), 30) }));
+
+  XLSX.writeFile(workbook, `${titlePrefix}.xlsx`);
+  toast(`✅ ${rows.length} data penggajian berhasil diunduh ke Excel!`, "success");
+}
+
+function generateExcelFromSnap(snap, titlePrefix) {
+  const docs = [];
+  snap.forEach(d => docs.push(d));
+  generateExcelFromDocs(docs, titlePrefix);
+}
+
 window.downloadPayrollReport = downloadPayrollReport;
+window.processCumulativeDownload = processCumulativeDownload;
