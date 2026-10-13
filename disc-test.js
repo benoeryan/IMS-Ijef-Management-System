@@ -1134,9 +1134,29 @@ async function finishTest() {
     </div>
   `;
 
-  const result = calcDISC();
-  await saveResult(result);
-  renderResult(result);
+  let saved = false;
+  const timeoutId = setTimeout(() => {
+    if (!saved) {
+      console.warn("Save DISC timeout fallback triggered");
+      saved = true;
+      renderResult(calcDISC());
+    }
+  }, 8000);
+
+  try {
+    const result = calcDISC();
+    await saveResult(result);
+    saved = true;
+    clearTimeout(timeoutId);
+    renderResult(result);
+  } catch (err) {
+    console.error("finishTest err:", err);
+    if (!saved) {
+      saved = true;
+      clearTimeout(timeoutId);
+      renderResult(calcDISC());
+    }
+  }
 }
 
 function calcDISC() {
