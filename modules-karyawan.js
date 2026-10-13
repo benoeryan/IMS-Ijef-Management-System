@@ -2112,14 +2112,51 @@ async function renderFormPelamarMgmt() {
     </div>
   `;
 
-  // Real-time listener on hrd_pelamar
+  let kandidatMap = {};
+  db.collection('hrd_kandidat').onSnapshot((kSnap) => {
+    kandidatMap = {};
+    kSnap.forEach(d => {
+      const k = d.data();
+      if (k.nama) kandidatMap[k.nama.toLowerCase().trim()] = k;
+      if (k.pelamarId) kandidatMap[k.pelamarId] = k;
+    });
+    if (window._rawPelamarSnap) {
+      processPelamarData(window._rawPelamarSnap, kandidatMap);
+    }
+  });
+
   const unsub = db.collection('hrd_pelamar').onSnapshot((snap) => {
-    window._allPelamarData = [];
-    snap.forEach((d) => window._allPelamarData.push({ id: d.id, ...d.data() }));
-    window._allPelamarData.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-    filterTblPelamar();
+    window._rawPelamarSnap = snap;
+    processPelamarData(snap, kandidatMap);
   });
   if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
+}
+
+function processPelamarData(snap, kandidatMap = {}) {
+  window._allPelamarData = [];
+  snap.forEach((d) => {
+    const p = { id: d.id, ...d.data() };
+    const pNamaLow = (p.nama || "").toLowerCase().trim();
+    const kand = kandidatMap[p.id] || kandidatMap[pNamaLow] || {};
+
+    if (!p.discProfile && kand.discProfile) {
+      p.discProfile = kand.discProfile;
+      p.discStatus = 'Selesai';
+      p.discScore = kand.discScore;
+    }
+    if (!p.kesehatanStatus && kand.kesehatanStatus) {
+      p.kesehatanStatus = kand.kesehatanStatus;
+    }
+    if (p.psychologyScore === undefined && kand.psychologyScore !== undefined) {
+      p.psychologyScore = kand.psychologyScore;
+      p.psychologyStatus = 'Selesai';
+    }
+
+    window._allPelamarData.push(p);
+  });
+
+  window._allPelamarData.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  filterTblPelamar();
 }
 
 function filterTblPelamar() {
