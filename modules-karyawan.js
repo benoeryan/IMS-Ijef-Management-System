@@ -1873,15 +1873,68 @@ async function renderKandidat() {
     </div>
   </div>
   <div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Posisi</th><th>Kontak</th><th>Stage Pipeline</th><th>Hasil Tes (DISC / Psikologi / Kesehatan)</th><th>Aksi</th></tr></thead><tbody id="tblKandidat"></tbody></table></div></div>`;
-  const snap = await db.collection('hrd_kandidat').orderBy('createdAt', 'desc').get();
+
+  const [kSnap, pSnap] = await Promise.all([
+    db.collection('hrd_kandidat').get(),
+    db.collection('hrd_pelamar').get()
+  ]);
+
+  const kandidatMap = {};
+  const kandidatDocs = [];
+  kSnap.forEach((d) => {
+    const k = { id: d.id, ...d.data() };
+    kandidatDocs.push(k);
+    if (k.nama) kandidatMap[k.nama.toLowerCase().trim()] = k;
+    if (k.pelamarId) kandidatMap[k.pelamarId] = k;
+  });
+
+  pSnap.forEach((d) => {
+    const p = { id: d.id, ...d.data() };
+    const pNamaLow = (p.nama || "").toLowerCase().trim();
+    if (pNamaLow && !kandidatMap[pNamaLow] && !kandidatMap[p.id]) {
+      let stage = 'applied';
+      if (p.discProfile || p.discStatus === 'Selesai') stage = 'disc';
+      if (p.psychologyScore !== undefined || p.psychologyStatus === 'Selesai') stage = 'psychology';
+      if (p.kesehatanStatus) stage = 'health';
+
+      kandidatDocs.push({
+        id: 'pelamar_' + p.id,
+        pelamarId: p.id,
+        nama: p.nama,
+        posisi: p.posisi || '-',
+        kontak: p.telepon || p.email || '-',
+        stage: stage,
+        discProfile: p.discProfile || '',
+        psychologyScore: p.psychologyScore,
+        kesehatanStatus: p.kesehatanStatus || '',
+        createdAt: p.createdAt || new Date().toISOString()
+      });
+    } else {
+      const existing = kandidatMap[p.id] || kandidatMap[pNamaLow];
+      if (existing) {
+        if (!existing.discProfile && p.discProfile) existing.discProfile = p.discProfile;
+        if (!existing.kesehatanStatus && p.kesehatanStatus) existing.kesehatanStatus = p.kesehatanStatus;
+        if (existing.psychologyScore === undefined && p.psychologyScore !== undefined) existing.psychologyScore = p.psychologyScore;
+      }
+    }
+  });
+
+  kandidatDocs.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
   let h = '';
-  snap.forEach((d) => {
-    const p = d.data();
+  kandidatDocs.forEach((p) => {
     const discInfo = p.discProfile ? `<span class="badge badge-info">🧠 ${escHtml(p.discProfile)}</span> ` : '';
     const psychInfo = p.psychologyScore !== undefined ? `<span class="badge" style="background:#f3e5f5;color:#6a1b9a">🧩 ${p.psychologyScore} Poin</span> ` : '';
     const healthInfo = p.kesehatanStatus ? getStatusBadgeKesehatan(p.kesehatanStatus) : '';
     const stageName = stageLabels[p.stage] || (p.stage || 'applied').toUpperCase();
     const badgeClass = p.stage === 'rejected' ? 'badge-danger' : (p.stage === 'hired' ? 'badge-success' : 'badge-primary');
+
+    const editAction = p.pelamarId && p.id.startsWith('pelamar_')
+      ? `<button class="btn btn-xs btn-info" onclick="modalEditPelamar('${p.pelamarId}')">✏️ Edit Pelamar</button>`
+      : `<button class="btn btn-xs btn-info" onclick="modalKandidat('${p.id}')">✏️ Edit</button>`;
+
+    const deleteAction = p.id.startsWith('pelamar_') ? '' : `<button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kandidat','${p.id}','kandidat')">🗑️ Hapus</button>`;
+
     h += `<tr>
       <td class="fw-700">${escHtml(p.nama || '-')}</td>
       <td>${escHtml(p.posisi || '-')}</td>
@@ -1889,8 +1942,8 @@ async function renderKandidat() {
       <td><span class="badge ${badgeClass}">${escHtml(stageName)}</span></td>
       <td>${discInfo}${psychInfo}${healthInfo || '<span class="text-xs color-gray">-</span>'}</td>
       <td>
-        <button class="btn btn-xs btn-info" onclick="modalKandidat('${d.id}')">✏️ Edit</button>
-        <button class="btn btn-xs btn-danger" onclick="hapusDoc('hrd_kandidat','${d.id}','kandidat')">🗑️ Hapus</button>
+        ${editAction}
+        ${deleteAction}
       </td>
     </tr>`;
   });
