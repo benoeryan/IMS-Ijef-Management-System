@@ -1238,13 +1238,54 @@ async function saveResult(r) {
 
     const isCalon = testState.mode !== 'evaluasi';
     if (isCalon) {
+      let pelamarId = testState.pelamarId || '';
+
+      // If pelamarId is missing, find or create hrd_pelamar by name
+      try {
+        if (!pelamarId && testState.nama) {
+          const pSnap = await db.collection('hrd_pelamar').where('nama', '==', testState.nama).get();
+          if (!pSnap.empty) {
+            pelamarId = pSnap.docs[0].id;
+            testState.pelamarId = pelamarId;
+          } else {
+            const newP = await db.collection('hrd_pelamar').add({
+              nama: testState.nama,
+              posisi: testState.posisi || '',
+              telepon: testState.kontak || '',
+              email: testState.kontak || '',
+              jenisKelamin: testState.jenisKelamin || '',
+              usia: testState.usia || '',
+              createdAt: new Date().toISOString()
+            });
+            pelamarId = newP.id;
+            testState.pelamarId = pelamarId;
+          }
+        }
+      } catch (pFindErr) {
+        console.warn("Find/Create pelamar err:", pFindErr);
+      }
+
+      // Update hrd_pelamar record
+      if (pelamarId) {
+        try {
+          await db.collection('hrd_pelamar').doc(pelamarId).update({
+            discStatus: 'Selesai',
+            discPattern: r.pattern,
+            discProfile: r.profile.name,
+            discScore: kpiScore,
+            discDoneAt: new Date().toISOString()
+          });
+        } catch (err) {
+          console.warn('Update pelamar failed:', err);
+        }
+      }
+
       let healthTestId = '';
       try {
-        // Find existing health test by pelamarId or nama without requiring composite index
         let hSnap;
-        if (testState.pelamarId) {
+        if (pelamarId) {
           hSnap = await db.collection('hrd_test_kesehatan')
-            .where('pelamarId', '==', testState.pelamarId)
+            .where('pelamarId', '==', pelamarId)
             .get();
         } else {
           hSnap = await db.collection('hrd_test_kesehatan')
@@ -1261,7 +1302,7 @@ async function saveResult(r) {
             posisi: testState.posisi || '',
             tipe: 'calon',
             status: 'pending',
-            pelamarId: testState.pelamarId || '',
+            pelamarId: pelamarId || '',
             kontak: testState.kontak || '',
             tanggal: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
             createdAt: new Date().toISOString()
@@ -1269,12 +1310,26 @@ async function saveResult(r) {
           healthTestId = newH.id;
         }
         testState.healthTestId = healthTestId;
+
+        if (pelamarId) {
+          await db.collection('hrd_pelamar').doc(pelamarId).update({ healthTestId });
+        }
       } catch (hErr) {
         console.warn('Auto create health test error:', hErr);
       }
 
       try {
-        await db.collection('hrd_kandidat').add({
+        let existingKand = null;
+        if (pelamarId) {
+          const kSnap = await db.collection('hrd_kandidat').where('pelamarId', '==', pelamarId).get();
+          if (!kSnap.empty) existingKand = kSnap.docs[0];
+        }
+        if (!existingKand && testState.nama) {
+          const kSnap = await db.collection('hrd_kandidat').where('nama', '==', testState.nama).get();
+          if (!kSnap.empty) existingKand = kSnap.docs[0];
+        }
+
+        const kandidatPayload = {
           nama: testState.nama,
           email: testState.kontak || '',
           posisi: testState.posisi,
@@ -1286,28 +1341,21 @@ async function saveResult(r) {
           usia: testState.usia,
           jenisKelamin: testState.jenisKelamin,
           kontak: testState.kontak || '',
-          pelamarId: testState.pelamarId || '',
+          pelamarId: pelamarId || '',
           healthTestId: healthTestId,
-          createdAt: new Date().toISOString(),
-        });
-      } catch (kErr) {
-        console.warn('Auto create kandidat error:', kErr);
-      }
+          updatedAt: new Date().toISOString(),
+        };
 
-      // Update hrd_pelamar record if linked
-      if (testState.pelamarId) {
-        try {
-          await db.collection('hrd_pelamar').doc(testState.pelamarId).update({
-            discStatus: 'Selesai',
-            discPattern: r.pattern,
-            discProfile: r.profile.name,
-            discScore: kpiScore,
-            discDoneAt: new Date().toISOString(),
-            healthTestId: healthTestId
+        if (existingKand) {
+          await db.collection('hrd_kandidat').doc(existingKand.id).update(kandidatPayload);
+        } else {
+          await db.collection('hrd_kandidat').add({
+            ...kandidatPayload,
+            createdAt: new Date().toISOString(),
           });
-        } catch (err) {
-          console.warn('Update pelamar failed:', err);
         }
+      } catch (kErr) {
+        console.warn('Auto create/update kandidat error:', kErr);
       }
 
       toast('Tes DISC Selesai! Mengalihkan ke Tes Psikologi...', 'success');
@@ -1315,9 +1363,9 @@ async function saveResult(r) {
       toast('Hasil tes berhasil disimpan', 'success');
     }
   } catch (e) {
-    console.error(e);
-    toast('Gagal menyimpan', 'error');
+    console.error("saveResult err:", e);
   }
+}
 }
 
 function renderResult(r) {
