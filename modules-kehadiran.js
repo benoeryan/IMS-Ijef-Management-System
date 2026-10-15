@@ -92,14 +92,15 @@ async function renderCuti() {
     items.forEach((p) => {
       // Filter based on role
       if (hasAccess(3) && !isAdmin) {
+        const pDept = deptMapCuti[(p.nama || "").toLowerCase()] || (p.departemen || "").toLowerCase().trim();
+        const isIrsanOrAgus = (currentUser.nama || "").toLowerCase().includes("irsan janwar") || (currentUser.nama || "").toLowerCase().includes("agus puriyanto");
         if (isBOD) {
           // BOD: only head-level
           const grade = gradeMapCuti[(p.nama || "").toLowerCase()] || "";
           if (!grade.includes("head")) return;
         } else if (!hasAccess(4)) {
-          // Manager (level 3): own department + departemenTambahan
-          const pDept = deptMapCuti[(p.nama || "").toLowerCase()] || "";
-          if (pDept && !userHasDepartmentAccess(pDept)) return;
+          // Manager (level 3): own department + departemenTambahan + Irsan/Agus
+          if (!isIrsanOrAgus && pDept && !userHasDepartmentAccess(pDept)) return;
         }
         // HEAD (level 4) and GM: see all departments
       }
@@ -853,13 +854,14 @@ async function renderOvertime() {
         const pDept =
           deptMapOT[(p.nama || "").toLowerCase()] ||
           (p.departemen || "").toLowerCase().trim();
+        const isIrsanOrAgus = (currentUser.nama || "").toLowerCase().includes("irsan janwar") || (currentUser.nama || "").toLowerCase().includes("agus puriyanto");
         if (isBOD) {
           // BOD: only head-level
           const grade = gradeMapOT[(p.nama || "").toLowerCase()] || "";
           if (!grade.includes("head")) return;
         } else if (!hasAccess(4)) {
-          // Manager (level 3): own department + departemenTambahan
-          if (pDept && !userHasDepartmentAccess(pDept)) return;
+          // Manager (level 3): own department + departemenTambahan + Irsan/Agus
+          if (!isIrsanOrAgus && pDept && !userHasDepartmentAccess(pDept)) return;
         }
         // HEAD (level 4) and GM: see all departments
       }
