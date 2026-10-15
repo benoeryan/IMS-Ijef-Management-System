@@ -12,12 +12,15 @@ async function renderCuti() {
       `;
   }
 
+  const isIrsanOrAgus = (currentUser.nama || "").toLowerCase().includes("irsan janwar") || (currentUser.nama || "").toLowerCase().includes("agus puriyanto");
+  const canSeeAllCuti = hasAccess(3) || isIrsanOrAgus || isHRDAdmin();
+
   main.innerHTML = `<div class="page-title"><span>${renderBackButton()}🏖️ Cuti / Izin / WFH</span><div class="flex gap-8 flex-wrap" style="justify-content:flex-end">${adminBtns}<button class="btn btn-primary btn-sm" onclick="modalCuti()">+ Pengajuan pribadi</button></div></div>
-    ${hasAccess(3) ? '<div class="card mb-16"><div class="card-title mb-8">📊 Sisa Jatah Cuti Karyawan</div><div id="cutiQuotaList">Loading...</div></div>' : ""}
+    ${canSeeAllCuti ? '<div class="card mb-16"><div class="card-title mb-8">📊 Sisa Jatah Cuti Karyawan</div><div id="cutiQuotaList">Loading...</div></div>' : ""}
     <div class="card"><div class="card-title mb-8">📋 Daftar Pengajuan</div><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Keterangan</th><th>Tanggal</th><th>Durasi</th><th>Sisa Cuti</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblCuti"></tbody></table></div></div>`;
   // Load data
   const [cutiSnap, karySnap, flows] = await Promise.all([
-    !hasAccess(3)
+    !canSeeAllCuti
       ? db.collection("hrd_cuti").where("userId", "==", currentUser.id).get()
       : db.collection("hrd_cuti").get(),
     db.collection("hrd_karyawan").where("status", "==", "aktif").get(),
@@ -817,9 +820,11 @@ async function updateCuti(id) {
 async function renderOvertime() {
   const main = document.getElementById("mainContent");
   main.innerHTML = `<div class="page-title"><span>${renderBackButton()}⏰ Overtime</span><button class="btn btn-primary btn-sm" onclick="modalOvertime()">+ Pengajuan</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tanggal</th><th>Jam</th><th>Durasi</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tblOT"></tbody></table></div></div>`;
+  const isIrsanOrAgus = (currentUser.nama || "").toLowerCase().includes("irsan janwar") || (currentUser.nama || "").toLowerCase().includes("agus puriyanto");
+  const canSeeAllOT = hasAccess(3) || isIrsanOrAgus || isHRDAdmin();
+
   let snap;
-  if (!hasAccess(3)) {
-    // Staff/Leader: only own overtime
+  if (!canSeeAllOT) {
     snap = await db
       .collection("hrd_overtime")
       .where("userId", "==", currentUser.id)
