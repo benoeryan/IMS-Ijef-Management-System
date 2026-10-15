@@ -139,7 +139,7 @@ async function renderCuti() {
         .toLowerCase()
         .trim();
       const myName = (currentUser.nama || "").toLowerCase().trim();
-      const isMyTurn = isAdmin || currentApprover === myName;
+      const isMyTurn = isUserAllowedToApprove(currentApprover);
 
       const canApprove = isPending && hasAccess(3) && isMyTurn;
       const canEdit = (p.userId === currentUser.id && isPending) || hasAccess(6);
@@ -557,9 +557,9 @@ async function viewCutiDetail(id) {
       .toLowerCase()
       .trim();
     const myName = (currentUser.nama || "").toLowerCase().trim();
-    const isMyTurn = hasAccess(6) || currentApprover === myName;
+    const isMyTurn = isUserAllowedToApprove(currentApprover);
 
-    if (isMyTurn && hasAccess(3)) {
+    if (isMyTurn) {
       approveBtns = `
           <button class="btn btn-danger" onclick="approveItem('hrd_cuti','${id}','rejected')">❌ Tolak</button>
           <button class="btn btn-success" onclick="approveItem('hrd_cuti','${id}','approved')">✅ Setujui</button>`;
@@ -890,9 +890,9 @@ async function renderOvertime() {
         .toLowerCase()
         .trim();
       const myName = (currentUser.nama || "").toLowerCase().trim();
-      const isMyTurn = isAdmin || currentApprover === myName;
+      const isMyTurn = isUserAllowedToApprove(currentApprover);
 
-      const canApprove = isPending && hasAccess(3) && isMyTurn;
+      const canApprove = isPending && isMyTurn;
       const pendingInfo = pendingApproverHtml(
         flows,
         p,

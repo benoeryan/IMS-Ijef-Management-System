@@ -353,7 +353,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.6.55";
+const APP_VERSION = "16.6.56";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -1490,6 +1490,23 @@ function normalizePersonName(name) {
 function isSameName(name1, name2) {
   if (!name1 || !name2) return false;
   return normalizePersonName(name1) === normalizePersonName(name2);
+}
+
+function isUserAllowedToApprove(currentApprover) {
+  if (!currentUser) return false;
+  if (hasAccess(6) || currentUser.role === 'admin' || currentUser.role === 'bod') return true;
+
+  const myName = (currentUser.nama || "").toLowerCase().trim();
+  const approver = (currentApprover || "").toLowerCase().trim();
+
+  if (isSameName(approver, myName)) return true;
+
+  const isIrsan = myName.includes("irsan janwar");
+  if (isIrsan && approver.includes("agus puriyanto")) {
+    return true;
+  }
+
+  return false;
 }
 
 function getTaskOwnerDisplayName(task) {
