@@ -353,7 +353,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.6.52";
+const APP_VERSION = "16.6.53";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -764,6 +764,32 @@ function isHRDAdmin() {
   if (allowedNames.some(n => nama.includes(n))) return true;
   if (dept.includes('hr') || dept.includes('legal') || dept.includes('human resource') || dept.includes('hrd')) return true;
   return false;
+}
+
+function userHasDepartmentAccess(targetDept) {
+  if (!currentUser) return false;
+  if (hasAccess(6) || currentUser.role === 'admin' || currentUser.role === 'bod' || hasAccess(4)) return true;
+
+  const allowedDepts = [];
+  if (currentUser.departemen) allowedDepts.push((currentUser.departemen || "").toLowerCase().trim());
+  if (Array.isArray(currentUser.departemenTambahan)) {
+    currentUser.departemenTambahan.forEach(d => { if (d) allowedDepts.push(String(d).toLowerCase().trim()); });
+  } else if (currentUser.departemenTambahan) {
+    allowedDepts.push(String(currentUser.departemenTambahan).toLowerCase().trim());
+  }
+
+  const nama = (currentUser.nama || "").toLowerCase().trim();
+  const isIrsan = nama.includes("irsan janwar");
+  const isAgusP = nama.includes("agus puriyanto");
+  if (isIrsan || isAgusP) {
+    if (!allowedDepts.includes("academic")) allowedDepts.push("academic");
+    if (!allowedDepts.includes("office")) allowedDepts.push("office");
+  }
+
+  const target = (targetDept || "").toLowerCase().trim();
+  if (!target) return true;
+
+  return allowedDepts.some(d => target.includes(d) || d.includes(target));
 }
 
 function renderLogin() {
