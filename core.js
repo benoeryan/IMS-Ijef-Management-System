@@ -4,14 +4,26 @@
 // ============================================================
 console.log("IMS Core Initializing...");
 
+// Firebase config for IJEF Corp (production)
+// const firebaseConfig = {
+//   apiKey: "AIzaSyAWlNi_iBOWxZBD6E20aHOSrRpPsirDdOM",
+//   authDomain: "test-kesehatan-ijef-corp-7c278.firebaseapp.com",
+//   projectId: "test-kesehatan-ijef-corp-7c278",
+//   storageBucket: "test-kesehatan-ijef-corp-7c278.firebasestorage.app",
+//   messagingSenderId: "48180557823",
+//   appId: "1:48180557823:web:47ea8db8126737dbc0d9ca",
+// };
+
+// Firebase config for IJEF Corp (development)
 const firebaseConfig = {
-  apiKey: "AIzaSyAWlNi_iBOWxZBD6E20aHOSrRpPsirDdOM",
-  authDomain: "test-kesehatan-ijef-corp-7c278.firebaseapp.com",
-  projectId: "test-kesehatan-ijef-corp-7c278",
-  storageBucket: "test-kesehatan-ijef-corp-7c278.firebasestorage.app",
-  messagingSenderId: "48180557823",
-  appId: "1:48180557823:web:47ea8db8126737dbc0d9ca",
-};
+  apiKey: "AIzaSyDUEJX1ftmysOTY1HBe3W7PsDWncPGuEwo",
+  authDomain: "ijef-dev-73165.firebaseapp.com",
+  projectId: "ijef-dev-73165",
+  storageBucket: "ijef-dev-73165.appspot.com",
+  messagingSenderId: "226084568947",
+  appId: "1:226084568947:web:bff9684bfb22d870ff8f06"
+}
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
