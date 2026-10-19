@@ -4,6 +4,13 @@
 // ============================================================
 console.log("IMS Core Initializing...");
 
+// Unlock screen orientation on mobile/tablet if supported
+if (window.screen && window.screen.orientation && typeof window.screen.orientation.unlock === 'function') {
+  try {
+    window.screen.orientation.unlock();
+  } catch (e) {}
+}
+
 const firebaseConfig = {
   apiKey: "AIzaSyAWlNi_iBOWxZBD6E20aHOSrRpPsirDdOM",
   authDomain: "test-kesehatan-ijef-corp-7c278.firebaseapp.com",
@@ -353,7 +360,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.6.56";
+const APP_VERSION = "16.6.57";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
