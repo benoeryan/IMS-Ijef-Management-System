@@ -102,8 +102,10 @@ async function renderCuti() {
           const grade = gradeMapCuti[(p.nama || "").toLowerCase()] || "";
           if (!grade.includes("head")) return;
         } else if (!hasAccess(4)) {
+        } else if (!hasAccess(4)) {
           // Manager (level 3): own department + departemenTambahan + Irsan/Agus
-          if (!isIrsanOrAgus && pDept && !userHasDepartmentAccess(pDept)) return;
+          if (!isIrsanOrAgus && pDept && !matchesUserDepartment(currentUser, pDept)) return;
+        }
         }
         // HEAD (level 4) and GM: see all departments
       }
@@ -865,8 +867,10 @@ async function renderOvertime() {
           const grade = gradeMapOT[(p.nama || "").toLowerCase()] || "";
           if (!grade.includes("head")) return;
         } else if (!hasAccess(4)) {
+        } else if (!hasAccess(4)) {
           // Manager (level 3): own department + departemenTambahan + Irsan/Agus
-          if (!isIrsanOrAgus && pDept && !userHasDepartmentAccess(pDept)) return;
+          if (!isIrsanOrAgus && pDept && !matchesUserDepartment(currentUser, pDept)) return;
+        }
         }
         // HEAD (level 4) and GM: see all departments
       }
@@ -1412,7 +1416,7 @@ async function renderPenalty() {
       )
         .toLowerCase()
         .trim();
-      return pDept === myDept || (p.nama || "").toLowerCase().trim() === myNama;
+      return matchesUserDepartment(currentUser, pDept) || (p.nama || "").toLowerCase().trim() === myNama;
     });
   }
   // Admin (level 6): sees all — no filter
@@ -1425,7 +1429,7 @@ async function renderPenalty() {
       if (!hasAccess(4)) {
         if ((k.nama || "").toLowerCase().trim() !== myNama) continue;
       } else {
-        if ((k.departemen || "").toLowerCase().trim() !== myDept) continue;
+        if (!matchesUserDepartment(currentUser, k.departemen)) continue;
       }
     }
     summary[k.nama] = {

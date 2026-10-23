@@ -13,6 +13,7 @@ async function renderPortal() {
       const freshData = freshDoc.data();
       if (freshData.profilePic) currentUser.profilePic = freshData.profilePic;
       if (freshData.departemen) currentUser.departemen = freshData.departemen;
+      if (freshData.secondaryDept) currentUser.secondaryDept = freshData.secondaryDept;
       if (freshData.posisi) currentUser.posisi = freshData.posisi;
       localStorage.setItem("hrd_session", JSON.stringify(currentUser));
     }

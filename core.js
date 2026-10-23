@@ -742,6 +742,30 @@ function hasHeadLevelAccess() {
   );
 }
 
+function getUserDepartments(userObj) {
+  const u = userObj || (typeof currentUser !== 'undefined' ? currentUser : {}) || {};
+  const primary = (u.departemen || u.dept || "").toLowerCase().trim();
+  const secondary = (u.secondaryDept || u.departemenLain || u.tanggungJawabDivisi || u.divisi || "").toLowerCase().trim();
+  const rawList = [primary, secondary].filter(Boolean);
+  const depts = new Set();
+  rawList.forEach(d => {
+    d.split(/[,;/]+/).forEach(s => {
+      const trimmed = s.trim();
+      if (trimmed) depts.add(trimmed);
+    });
+  });
+  return Array.from(depts);
+}
+
+function matchesUserDepartment(userObj, itemDept) {
+  if (!itemDept) return true;
+  const target = (itemDept || "").toLowerCase().trim();
+  if (!target) return true;
+  const userDepts = getUserDepartments(userObj);
+  if (userDepts.length === 0) return true;
+  return userDepts.some(d => d === target || d.includes(target) || target.includes(d));
+}
+
 function canSeeRekrutmen() {
   if (hasAccess(6)) return true; // Admin
   const nama = (currentUser?.nama || "").toLowerCase().trim();
@@ -897,6 +921,16 @@ function renderApp() {
       if (d.departemen && d.departemen !== currentUser.departemen) {
         currentUser.departemen = d.departemen;
         changed = true;
+      }
+      if (d.secondaryDept && d.secondaryDept !== currentUser.secondaryDept) {
+        currentUser.secondaryDept = d.secondaryDept;
+        changed = true;
+      }
+      // Ensure IRSAN JANWAR WIBAWA has ACADEMIC responsibility assigned
+      if ((currentUser.id === "icei" || (currentUser.nama || "").toLowerCase().includes("irsan janwar")) && (!currentUser.secondaryDept || !currentUser.secondaryDept.includes("ACADEMIC"))) {
+        currentUser.secondaryDept = "ACADEMIC";
+        changed = true;
+        db.collection("hrd_users").doc(currentUser.id).update({ secondaryDept: "ACADEMIC" }).catch(() => {});
       }
       if (d.posisi && d.posisi !== currentUser.posisi) {
         currentUser.posisi = d.posisi;

@@ -1789,7 +1789,8 @@ async function showAkunForm(id, p) {
     </div>
     <div class="grid-2"><div class="form-group"><label>Username</label><input class="form-control" id="akUser" value="${escHtml(id || "")}" data-old-id="${escHtml(id || "")}"></div><div class="form-group"><label>Password</label><input class="form-control" id="akPass" value="${escHtml(p.password || "")}"></div></div>
     <div class="grid-2"><div class="form-group"><label>Nama</label><input class="form-control" id="akNama" value="${escHtml(p.nama || "")}"></div><div class="form-group"><label>Role</label><select class="form-control" id="akRole"><option value="staff" ${p.role === "staff" || p.role === "karyawan" ? "selected" : ""}>Staff</option><option value="leader" ${p.role === "leader" ? "selected" : ""}>Leader</option><option value="manager" ${p.role === "manager" ? "selected" : ""}>Manager</option><option value="head" ${p.role === "head" ? "selected" : ""}>Head</option><option value="bod" ${p.role === "bod" ? "selected" : ""}>BOD / Founder</option><option value="admin" ${p.role === "admin" || p.role === "superadmin" ? "selected" : ""}>Admin (Full Access)</option></select></div></div>
-    <div class="grid-2"><div class="form-group"><label>Departemen</label><input class="form-control" id="akDept" value="${escHtml(p.departemen || "")}"></div><div class="form-group"><label>Status</label><select class="form-control" id="akStatus"><option value="aktif" ${p.status === "aktif" ? "selected" : ""}>Aktif</option><option value="nonaktif" ${p.status === "nonaktif" ? "selected" : ""}>Nonaktif</option></select></div></div>
+    <div class="grid-2"><div class="form-group"><label>Departemen Utama</label><input class="form-control" id="akDept" value="${escHtml(p.departemen || "")}"></div><div class="form-group"><label>Departemen Tambahan / Tanggung Jawab Divisi</label><select class="form-control" id="akSecondaryDept"><option value="">-- Tidak ada --</option><option value="ACADEMIC" ${p.secondaryDept === "ACADEMIC" || (p.secondaryDept && p.secondaryDept.includes("ACADEMIC")) ? "selected" : ""}>ACADEMIC (Akademik)</option><option value="OFFICE" ${p.secondaryDept === "OFFICE" || (p.secondaryDept && p.secondaryDept.includes("OFFICE")) ? "selected" : ""}>OFFICE (Manajemen)</option><option value="ACADEMIC, OFFICE" ${p.secondaryDept === "ACADEMIC, OFFICE" || (p.secondaryDept && p.secondaryDept.includes("ACADEMIC") && p.secondaryDept.includes("OFFICE")) ? "selected" : ""}>ACADEMIC & OFFICE (Dua Divisi)</option></select></div></div>
+    <div class="form-group"><label>Status</label><select class="form-control" id="akStatus"><option value="aktif" ${p.status === "aktif" ? "selected" : ""}>Aktif</option><option value="nonaktif" ${p.status === "nonaktif" ? "selected" : ""}>Nonaktif</option></select></div>
     <div class="form-group" style="background:#f9f9f9;padding:12px;border-radius:8px;border-left:4px solid var(--primary)"><label style="color:var(--primary)">🔗 Sambungkan ke Data Karyawan</label><input class="form-control mb-8" id="akLinkedSearch" placeholder="🔍 Ketik nama untuk mencari..." oninput="filterLinkedKary()"><select class="form-control" id="akLinkedKary" size="10" style="height:auto;max-height:250px">${karyOpts}</select><div class="text-xs mt-8" style="color:#666">Hanya karyawan aktif. Ketik nama untuk filter, lalu pilih dari daftar.</div></div>
     <div class="flex gap-8 mt-16"><button class="btn btn-primary" onclick="simpanAkun('${id || ""}')">💾 Simpan</button>${id ? `<button class="btn btn-danger" onclick="hapusDoc('hrd_users','${id}','akun')">🗑️ Hapus</button>` : ""}</div>`,
     true,
@@ -1842,11 +1843,13 @@ async function simpanAkun(id) {
   const newUsername = document.getElementById("akUser").value.trim();
   if (!newUsername) return toast("Username wajib", "warning");
   const linkedKary = document.getElementById("akLinkedKary")?.value || "";
+  const secondaryDept = document.getElementById("akSecondaryDept")?.value || "";
   const data = {
     password: document.getElementById("akPass").value,
     nama: document.getElementById("akNama").value,
     role: document.getElementById("akRole").value,
     departemen: document.getElementById("akDept").value,
+    secondaryDept: secondaryDept,
     status: document.getElementById("akStatus").value,
     linkedKaryawan: linkedKary,
     username: newUsername,
