@@ -2031,6 +2031,7 @@ window.onSelectKaryawanOnboarding = onSelectKaryawanOnboarding;
 window.viewChecklistOffboarding = viewChecklistOffboarding;
 window.toggleChecklistItemOffboarding = toggleChecklistItemOffboarding;
 window.onSelectKaryawanOffboarding = onSelectKaryawanOffboarding;
+function onSelectKaryawanJobdesk() {}
 window.onSelectKaryawanJobdesk = onSelectKaryawanJobdesk;
 window.renderLowongan = renderLowongan;
 window.renderPipeline = renderPipeline;
