@@ -865,10 +865,8 @@ async function renderOvertime() {
           const grade = gradeMapOT[(p.nama || "").toLowerCase()] || "";
           if (!grade.includes("head")) return;
         } else if (!hasAccess(4)) {
-        } else if (!hasAccess(4)) {
           // Manager (level 3): own department + departemenTambahan + Irsan/Agus
           if (!isIrsanOrAgus && pDept && !matchesUserDepartment(currentUser, pDept)) return;
-        }
         }
         // HEAD (level 4) and GM: see all departments
       }
