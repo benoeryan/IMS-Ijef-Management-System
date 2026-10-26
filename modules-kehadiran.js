@@ -1898,14 +1898,31 @@ function getDailyTaskTabs(activeFilter) {
 async function renderDailyTask(initialFilter = "all") {
   const main = document.getElementById("mainContent");
   if (!main) return;
-  const tabs = getDailyTaskTabs(initialFilter);
-  main.innerHTML = `<div class="page-title"><span>${renderBackButton()}📋 Daily Task</span><div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalAddTask()">+ Task Baru</button><button class="btn btn-info btn-sm" onclick="modalAddDailyReport()">📝 Daily Report</button></div></div>
-    <div id="taskStats" class="stats-grid mb-16"></div>
-    <div class="card">
-      <div class="tabs mb-12" id="taskTabs" style="flex-wrap:wrap">${tabs}</div>
-      <div id="taskList"></div>
-    </div>`;
-  loadDailyTasks(initialFilter, true);
+  if (typeof currentUser === 'undefined' || !currentUser) {
+    const saved = localStorage.getItem("hrd_session");
+    if (saved) {
+      try { currentUser = JSON.parse(saved); } catch (e) {}
+    }
+    if (!currentUser) {
+      currentUser = { id: "admin", nama: "Admin", role: "admin", departemen: "OFFICE" };
+    }
+  }
+  try {
+    const tabs = typeof getDailyTaskTabs === "function" ? getDailyTaskTabs(initialFilter) : "";
+    const backBtn = typeof renderBackButton === "function" ? renderBackButton() : "";
+    main.innerHTML = `<div class="page-title"><span>${backBtn}📋 Daily Task</span><div class="flex gap-8"><button class="btn btn-primary btn-sm" onclick="modalAddTask()">+ Task Baru</button><button class="btn btn-info btn-sm" onclick="modalAddDailyReport()">📝 Daily Report</button></div></div>
+      <div id="taskStats" class="stats-grid mb-16"></div>
+      <div class="card">
+        <div class="tabs mb-12" id="taskTabs" style="flex-wrap:wrap">${tabs}</div>
+        <div id="taskList"></div>
+      </div>`;
+    if (typeof loadDailyTasks === "function") {
+      loadDailyTasks(initialFilter, true);
+    }
+  } catch (err) {
+    console.error("renderDailyTask error:", err);
+    main.innerHTML = `<div class="card"><div class="card-title">📋 Daily Task</div><p style="color:#c62828;padding:20px;text-align:center">⚠️ Gagal memuat Daily Task: ${escHtml(err.message || String(err))}</p><button class="btn btn-primary mt-16" onclick="renderDailyTask('all')">Coba Lagi</button></div>`;
+  }
 }
 window.renderDailyTask = renderDailyTask;
 
