@@ -221,11 +221,20 @@ async function showKaryawanForm(id, p) {
   window._kyCvFile = p.cvFile || null;
   window._kyOtherFiles = p.otherFiles || [];
 
-  const [depts, posisi, cabang] = await Promise.all([
+  const [depts, posisi, cabang, karySnap] = await Promise.all([
     db.collection('hrd_departemen').get(),
     db.collection('hrd_posisi').get(),
     db.collection('hrd_cabang').get(),
+    db.collection('hrd_karyawan').where('status', '==', 'aktif').get(),
   ]);
+
+  let atasanOpts = '<option value="">-- Pilih Atasan Langsung --</option>';
+  karySnap.forEach(d => {
+    const k = d.data();
+    if (k.nama && k.nama !== p.nama) {
+      atasanOpts += `<option value="${escAttr(k.nama)}" ${p.atasan === k.nama ? 'selected' : ''}>${escHtml(k.nama)} — ${escHtml(k.posisi || k.departemen || '-')}</option>`;
+    }
+  });
 
   let dOpts = '<option value="">-- Pilih Departemen Utama --</option>';
   const allDeptNames = ['ACADEMIC', 'OFFICE'];
@@ -309,11 +318,17 @@ async function showKaryawanForm(id, p) {
           <p class="text-xs color-gray mt-4">Centang divisi tambahan (misal: <b>ACADEMIC</b>) untuk memberikan tanggung jawab, hak akses laporan, approval, dan cakupan isi divisi akademik pada karyawan ini.</p>
         </div>
         <div class="grid-2">
+          <div class="form-group"><label>Atasan Langsung</label><select class="form-control" id="kyAtasan">${atasanOpts}</select></div>
+          <div class="form-group"><label>Cabang</label><select class="form-control" id="kyCabang">${cOpts}</select></div>
+        </div>
+        <div class="grid-2">
           <div class="form-group"><label>Tipe Karyawan</label><select class="form-control" id="kyTipe"><option value="PKWTT" ${p.tipeKaryawan === 'PKWTT' ? 'selected' : ''}>PKWTT (Tetap)</option><option value="PKWT" ${p.tipeKaryawan === 'PKWT' ? 'selected' : ''}>PKWT (Kontrak)</option><option value="PROBATION" ${p.tipeKaryawan === 'PROBATION' ? 'selected' : ''}>PROBATION</option><option value="FREELANCE" ${p.tipeKaryawan === 'FREELANCE' ? 'selected' : ''}>FREELANCE</option></select></div>
           <div class="form-group"><label>Status Kerja</label><select class="form-control" id="kyStatus"><option value="aktif" ${p.status === 'aktif' ? 'selected' : ''}>Aktif</option><option value="nonaktif" ${p.status === 'nonaktif' ? 'selected' : ''}>Nonaktif</option></select></div>
         </div>
         <div class="grid-2">
           <div class="form-group"><label>Tanggal Masuk</label><input class="form-control" type="date" id="kyMasuk" value="${p.tanggalMasuk || ''}"></div>
+          <div class="form-group"><label>Grade Jabatan</label><input class="form-control" id="kyGrade" value="${escHtml(p.gradeJabatan || '')}" placeholder="Staff, Leader, Manager, dll"></div>
+        </div>
           <div class="form-group"><label>Grade Jabatan</label><input class="form-control" id="kyGrade" value="${escHtml(p.gradeJabatan || '')}" placeholder="Staff, Leader, Manager, dll"></div>
         </div>
 
@@ -467,6 +482,7 @@ async function simpanKaryawan(id) {
     departemen: document.getElementById('kyDept').value,
     departemenTambahan: departemenTambahan,
     posisi: document.getElementById('kyPos').value,
+    atasan: document.getElementById('kyAtasan').value,
     tipeKaryawan: document.getElementById('kyTipe').value,
     status: document.getElementById('kyStatus').value,
     tanggalMasuk: document.getElementById('kyMasuk').value,
