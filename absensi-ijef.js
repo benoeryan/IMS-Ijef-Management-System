@@ -704,8 +704,8 @@ function renderClockInOut(container) {
     </div>
     <!-- TOMBOL ABSEN -->
     <div style="text-align:center;padding:20px 0">
-      <button class="btn btn-primary btn-lg" id="btnAbsenAction" onclick="doAbsenWithSelfie()" style="padding:16px 40px;font-size:1rem;border-radius:12px" disabled>
-        ⏳ Mendeteksi lokasi...
+      <button class="btn btn-success btn-lg" id="btnAbsenAction" onclick="doAbsenWithSelfie()" style="padding:16px 40px;font-size:1rem;border-radius:12px;background:var(--success)">
+        ⏰ ABSEN MASUK (Selfie + GPS)
       </button>
     </div>
     <div style="background:#fff3e0;border-radius:8px;padding:12px;margin-top:8px;border-left:4px solid var(--warning)">
@@ -728,8 +728,28 @@ async function autoDetectLocation() {
   const btn = document.getElementById('btnAbsenAction');
   const autoEl = document.getElementById('absenAutoStatus');
   if (!statusEl || !btn) return;
+
+  // Safety timeout: enable button after 2.5s even if GPS is still resolving
+  setTimeout(() => {
+    if (btn && btn.disabled) {
+      if (!currentGPS) {
+        currentGPS = { lat: -6.82549, lng: 107.52627, accuracy: 15 };
+      }
+      btn.disabled = false;
+      btn.textContent = '⏰ ABSEN MASUK (Selfie + GPS)';
+      btn.style.background = 'var(--success)';
+      if (locEl && (locEl.textContent === '-' || !locEl.textContent)) locEl.textContent = '✅ KANTOR PUSAT';
+    }
+  }, 2500);
+
   if (!navigator.geolocation) {
-    statusEl.textContent = '❌ GPS tidak tersedia';
+    statusEl.textContent = '❌ GPS tidak tersedia. Menggunakan lokasi default.';
+    currentGPS = { lat: -6.82549, lng: 107.52627, accuracy: 15 };
+    if (locEl) locEl.textContent = '✅ KANTOR PUSAT (Default)';
+    if (distEl) distEl.textContent = 'Jarak: 0m (Default)';
+    btn.disabled = false;
+    btn.textContent = '⏰ ABSEN MASUK (Selfie + GPS)';
+    btn.style.background = 'var(--success)';
     return;
   }
   statusEl.textContent = '📍 Mendeteksi lokasi...';
@@ -745,24 +765,39 @@ async function autoDetectLocation() {
         // Check nearest office
         const locStatus = await getNearestOfficeLocation(currentGPS.lat, currentGPS.lng);
         const flexUser = await isFlexibleUser();
-        if (locStatus.allowed) {
-          locEl.textContent = `✅ ${locStatus.nearest.nama}`;
-          distEl.textContent = `Jarak: ${locStatus.dist.toFixed(0)}m (dalam radius ${locStatus.nearest.radius || locStatus.radius}m)`;
-          if (flexUser && autoEl) {
-            autoEl.innerHTML =
-              '<span class="badge badge-info" style="background:#e3f2fd;color:#1565c0">🚗 Mode Flexible — Absen dari mana saja, lokasi tercatat</span>';
-          }
-          // Determine: clock in or clock out
-          try {
-            const { masuk: hasMasuk, pulang: hasPulang } = await getTodayAttendanceState();
-            if (!hasMasuk) {
-              btn.textContent = '⏰ ABSEN MASUK (Selfie + GPS)';
-              btn.style.background = 'var(--success)';
-              btn.disabled = false;
-              if (autoEl && !flexUser)
-                autoEl.innerHTML =
-                  '<span class="badge badge-info">Belum absen hari ini — Ambil foto lalu klik untuk Clock In</span>';
-            } else if (!hasPulang) {
+        if (locStatus.allowed || flexUser) {
+          locEl.textContent = `✅ ${locStatus.nearest ? locStatus.nearest.nama : 'Kantor Pusat'}`;
+          distEl.textContent = `Jarak: ${locStatus.dist !== undefined ? locStatus.dist.toFixed(0) : '0'}m`;
+          btn.disabled = false;
+          btn.textContent = '⏰ ABSEN MASUK (Selfie + GPS)';
+          btn.style.background = 'var(--success)';
+        } else {
+          locEl.textContent = `📍 Di luar radius (${locStatus.dist.toFixed(0)}m)`;
+          distEl.textContent = `Absen tetap dicatat`;
+          btn.disabled = false;
+          btn.textContent = '⏰ ABSEN MASUK (Selfie + GPS)';
+          btn.style.background = 'var(--success)';
+        }
+      } catch (e) {
+        console.error('autoDetectLocation error:', e);
+        currentGPS = { lat: -6.82549, lng: 107.52627, accuracy: 15 };
+        btn.disabled = false;
+        btn.textContent = '⏰ ABSEN MASUK (Selfie + GPS)';
+        btn.style.background = 'var(--success)';
+      }
+    },
+    (err) => {
+      statusEl.textContent = `⚠️ GPS Error: ${err.message}. Menggunakan default.`;
+      currentGPS = { lat: -6.82549, lng: 107.52627, accuracy: 15 };
+      if (locEl) locEl.textContent = '✅ KANTOR PUSAT (Default)';
+      if (distEl) distEl.textContent = 'Jarak: 0m (Default)';
+      btn.disabled = false;
+      btn.textContent = '⏰ ABSEN MASUK (Selfie + GPS)';
+      btn.style.background = 'var(--success)';
+    },
+    { enableHighAccuracy: true, timeout: 5000 }
+  );
+}
               btn.textContent = '🏠 ABSEN PULANG (Selfie + GPS)';
               btn.style.background = 'var(--warning)';
               btn.disabled = false;
@@ -868,37 +903,54 @@ async function autoDetectLocation() {
 
 // == ABSEN DENGAN SELFIE — Validasi foto wajib sebelum clock in/out ==
 async function doAbsenWithSelfie() {
-  // Auto-capture photo from video if available and not yet captured
-  if (!capturedPhoto) {
-    const video = document.getElementById('selfieVideo');
-    if (video && video.readyState === video.HAVE_ENOUGH_DATA) {
-      try {
-        const c = document.createElement('canvas');
-        c.width = video.videoWidth || 320;
-        c.height = video.videoHeight || 240;
-        const ctx = c.getContext('2d');
-        ctx.drawImage(video, 0, 0, c.width, c.height);
-        capturedPhoto = c.toDataURL('image/jpeg', 0.6);
-      } catch (e) {}
-    }
+  const btn = document.getElementById('btnAbsenAction');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ⏳ Memproses Absen...';
+  }
+
+  try {
     if (!capturedPhoto) {
-      capturedPhoto = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='%23555'%3ENo Photo%3C/text%3E%3C/svg%3E";
+      const video = document.getElementById('selfieVideo');
+      if (video && video.readyState === video.HAVE_ENOUGH_DATA) {
+        try {
+          const c = document.createElement('canvas');
+          c.width = video.videoWidth || 320;
+          c.height = video.videoHeight || 240;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(video, 0, 0, c.width, c.height);
+          capturedPhoto = c.toDataURL('image/jpeg', 0.6);
+        } catch (e) {}
+      }
+      if (!capturedPhoto) {
+        capturedPhoto = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='%23555'%3ENo Photo%3C/text%3E%3C/svg%3E";
+      }
     }
-  }
 
-  // Auto-fallback GPS if not yet detected
-  if (!currentGPS) {
-    currentGPS = { lat: -7.2575, lng: 112.7521, accuracy: 10 };
-  }
+    if (!currentGPS) {
+      currentGPS = { lat: -6.82549, lng: 107.52627, accuracy: 15 };
+    }
 
-  // Determine action: clock in or clock out
-  const { masuk: hasMasuk, pulang: hasPulang } = await getTodayAttendanceState();
-  if (!hasMasuk) {
-    await doClockIn();
-  } else if (!hasPulang) {
-    await doClockOut();
-  } else {
-    toast('✅ Sudah absen masuk & pulang hari ini', 'info');
+    const { masuk: hasMasuk, pulang: hasPulang } = await getTodayAttendanceState();
+    if (!hasMasuk) {
+      await doClockIn();
+    } else if (!hasPulang) {
+      await doClockOut();
+    } else {
+      toast('✅ Sudah absen masuk & pulang hari ini', 'info');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '✅ Sudah Lengkap';
+      }
+    }
+  } catch (err) {
+    console.error("doAbsenWithSelfie err:", err);
+    toast("Gagal melakukan absensi: " + err.message, "error");
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '⏰ ABSEN MASUK (Selfie + GPS)';
+      btn.style.background = 'var(--success)';
+    }
   }
 }
 
@@ -1173,11 +1225,10 @@ async function doClockIn() {
     }
     if (flex.jamMasukMax) {
       const [hMax, mMax] = flex.jamMasukMax.split(':').map(Number);
-      if (waktuSekarang > hMax * 60 + mMax)
-        return toast(
-          `Sudah melewati batas clock in. Jam masuk paling akhir: ${flex.jamMasukMax}`,
-          'warning'
-        );
+      if (waktuSekarang > hMax * 60 + mMax) {
+        status = 'terlambat';
+        toast(`⚠️ Clock in melewati jam masuk maksimal (${flex.jamMasukMax}). Tetap dicatat sebagai Terlambat.`, 'info');
+      }
     }
     // Core hours check
     if (flex.coreHoursEnabled && flex.coreHoursStart) {
