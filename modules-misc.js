@@ -3044,12 +3044,24 @@ async function generateAllApprovalFlows() {
       if (steps.length && steps[0].role) {
         const step1Pos = (steps[0].role || "").toLowerCase();
         if (!step1Pos.includes("head") && !step1Pos.includes("general")) {
-          const head = karyawan.find(
+          let head = karyawan.find(
             (a) =>
               (a.posisi || "").toLowerCase().includes("head") &&
+              a.status === "aktif" &&
               (a.departemen || "").toLowerCase() ===
                 (k.departemen || "").toLowerCase(),
           );
+          if (!head) {
+            head = karyawan.find(
+              (a) =>
+                (a.posisi || "").toLowerCase().includes("head") &&
+                a.status === "aktif"
+            ) || karyawan.find(
+              (a) =>
+                (a.nama || "").toLowerCase().includes("irsan janwar") &&
+                a.status === "aktif"
+            );
+          }
           pushUniqueStep(steps, head, k.nama);
         }
       }
