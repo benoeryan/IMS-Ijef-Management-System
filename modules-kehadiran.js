@@ -2381,7 +2381,8 @@ async function modalAddTask() {
         if (!userDepts.includes("office")) userDepts.push("office");
       }
 
-      const isManager = ["manager", "head", "bod"].includes((currentUser.role || "").toLowerCase()) || isIrsan || isAgusP;
+      const isHeadOrManager = hasHeadLevelAccess() || hasAccess(3) || hasAccess(6) || ["manager", "head", "bod"].includes((currentUser.role || "").toLowerCase());
+      const isManager = isHeadOrManager || isIrsan || isAgusP;
       let checkboxes = "";
       for (const d of usersSnap.docs) {
         var u = d.data();
@@ -2392,9 +2393,9 @@ async function modalAddTask() {
             : (u.departemenTambahan ? [String(u.departemenTambahan).toLowerCase().trim()] : []);
 
           // Match department
-          const isMatchDept = userDepts.length === 0 || userDepts.some(dept => uDept.includes(dept) || uExtraDepts.some(ed => ed.includes(dept)));
+          const isMatchDept = isHeadOrManager || userDepts.length === 0 || userDepts.some(dept => uDept.includes(dept) || uExtraDepts.some(ed => ed.includes(dept)));
 
-          if (!isMatchDept && !isIrsan && !isAgusP) continue;
+          if (!isMatchDept && !isIrsan && !isAgusP && !isHeadOrManager) continue;
 
           const uRole = u.role || "-";
           const displayDept = u.departemen || "-";
