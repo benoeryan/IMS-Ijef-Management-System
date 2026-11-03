@@ -3739,10 +3739,13 @@ function startDiscEvalForKaryawan() {
 }
 
 async function loadDiscHist() {
-  const snap = await db.collection("hrd_disc_results").get();
-  window._dData = [];
-  snap.forEach((d) => window._dData.push({ id: d.id, ...d.data() }));
-  fltDisc();
+  const unsub = db.collection("hrd_disc_results").onSnapshot((snap) => {
+    window._dData = [];
+    snap.forEach((d) => window._dData.push({ id: d.id, ...d.data() }));
+    window._dData.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    fltDisc();
+  });
+  if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
 }
 function fltDisc() {
   const q = (document.getElementById("dSrc")?.value || "").toLowerCase(),

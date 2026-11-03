@@ -2188,9 +2188,12 @@ async function renderFormPelamarMgmt() {
   db.collection('hrd_disc_results').onSnapshot((discSnap) => {
     discResultsMap = {};
     discSnap.forEach(d => {
-      const disc = d.data();
-      if (disc.nama) {
-        discResultsMap[disc.nama.toLowerCase().trim()] = disc;
+      const disc = { id: d.id, ...d.data() };
+      const normN = (disc.nama || "").toLowerCase().replace(/\s+/g, " ").trim();
+      if (normN) {
+        if (!discResultsMap[normN] || (disc.createdAt || "").localeCompare(discResultsMap[normN].createdAt || "") > 0) {
+          discResultsMap[normN] = disc;
+        }
       }
     });
     if (window._rawPelamarSnap) {
