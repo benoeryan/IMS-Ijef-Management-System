@@ -2183,6 +2183,21 @@ async function renderFormPelamarMgmt() {
   `;
 
   let kandidatMap = {};
+  let discResultsMap = {};
+
+  db.collection('hrd_disc_results').onSnapshot((discSnap) => {
+    discResultsMap = {};
+    discSnap.forEach(d => {
+      const disc = d.data();
+      if (disc.nama) {
+        discResultsMap[disc.nama.toLowerCase().trim()] = disc;
+      }
+    });
+    if (window._rawPelamarSnap) {
+      processPelamarData(window._rawPelamarSnap, kandidatMap, discResultsMap);
+    }
+  });
+
   db.collection('hrd_kandidat').onSnapshot((kSnap) => {
     kandidatMap = {};
     kSnap.forEach(d => {
@@ -2191,28 +2206,38 @@ async function renderFormPelamarMgmt() {
       if (k.pelamarId) kandidatMap[k.pelamarId] = k;
     });
     if (window._rawPelamarSnap) {
-      processPelamarData(window._rawPelamarSnap, kandidatMap);
+      processPelamarData(window._rawPelamarSnap, kandidatMap, discResultsMap);
     }
   });
 
   const unsub = db.collection('hrd_pelamar').onSnapshot((snap) => {
     window._rawPelamarSnap = snap;
-    processPelamarData(snap, kandidatMap);
+    processPelamarData(snap, kandidatMap, discResultsMap);
   });
   if (typeof unsubscribers !== 'undefined') unsubscribers.push(unsub);
 }
 
-function processPelamarData(snap, kandidatMap = {}) {
+function processPelamarData(snap, kandidatMap = {}, discResultsMap = {}) {
   window._allPelamarData = [];
+  window._kandidatMap = kandidatMap;
+  window._discResultsMap = discResultsMap;
+
   snap.forEach((d) => {
     const p = { id: d.id, ...d.data() };
     const pNamaLow = (p.nama || "").toLowerCase().trim();
     const kand = kandidatMap[p.id] || kandidatMap[pNamaLow] || {};
+    const discRes = discResultsMap[pNamaLow] || {};
 
     if (!p.discProfile && kand.discProfile) {
       p.discProfile = kand.discProfile;
       p.discStatus = 'Selesai';
       p.discScore = kand.discScore;
+    }
+    if (!p.discProfile && discRes.profileName) {
+      p.discProfile = discRes.profileName;
+      p.discStatus = 'Selesai';
+      p.discPattern = discRes.pattern;
+      p.discScore = discRes.kpiScore;
     }
     if (!p.kesehatanStatus && kand.kesehatanStatus) {
       p.kesehatanStatus = kand.kesehatanStatus;
