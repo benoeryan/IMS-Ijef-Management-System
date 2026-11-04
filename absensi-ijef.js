@@ -798,43 +798,6 @@ async function autoDetectLocation() {
     { enableHighAccuracy: true, timeout: 5000 }
   );
 }
-          locEl.textContent = `❌ Di luar radius kantor`;
-          distEl.textContent = locStatus.nearest
-            ? `Jarak: ${locStatus.dist.toFixed(0)}m (radius max: ${locStatus.nearest.radius || locStatus.radius}m)`
-            : 'Tidak ada lokasi kantor terdaftar';
-          btn.textContent = '❌ Tidak Bisa Absen';
-          btn.disabled = true;
-          btn.style.background = 'var(--danger)';
-          if (autoEl)
-            autoEl.innerHTML =
-              '<span class="badge badge-danger">Anda berada di luar radius lokasi kantor yang terdaftar</span>';
-        }
-      } catch (e) {
-        console.error('Error autoDetectLocation:', e);
-        statusEl.textContent = `❌ Error: ${e.message}`;
-        btn.textContent = '🔄 Coba Lagi';
-        btn.disabled = false;
-        btn.style.background = 'var(--primary)';
-        btn.onclick = () => autoDetectLocation();
-      }
-    },
-    (err) => {
-      let msg = err.message;
-      if (err.code === 1) { // PERMISSION_DENIED
-        msg = "Izin Lokasi Ditolak. Harap aktifkan GPS & Izin Lokasi di browser/pengaturan HP Anda agar bisa absen.";
-      }
-      statusEl.textContent = '❌ ' + msg;
-      btn.textContent = '📍 Coba Lagi';
-      btn.disabled = false;
-      btn.onclick = () => autoDetectLocation();
-
-      if (err.code === 1) {
-        toast("Harap aktifkan Izin Lokasi di pengaturan Browser/HP Anda", "error");
-      }
-    },
-    { enableHighAccuracy: true, timeout: 10000 }
-  );
-}
 
 // == ABSEN DENGAN SELFIE — Validasi foto wajib sebelum clock in/out ==
 async function doAbsenWithSelfie() {
