@@ -360,7 +360,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.6.61";
+const APP_VERSION = "16.6.62";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -2143,51 +2143,55 @@ function showInAppNotification(title, message, link) {
 let _notifUnsubscribe = [];
 async function updateNotifBadge() {
   if (!currentUser) return;
-
-  // Initialize real-time listener if not already done
-  if (_notifUnsubscribe.length === 0) {
-    const q1 = db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.id);
-    const q2 = db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.role);
-    const q3 = db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.nama);
-    const q4 = db.collection("hrd_notifikasi").where("targetUser", "==", (currentUser.posisi || ""));
-
-    const handleSnapshot = (snap) => {
-      let hasNewAdded = false;
-
-      snap.docChanges().forEach(change => {
-          if (change.type === "added" && change.doc.data().read === false) {
-              hasNewAdded = true;
+  try {
+    // Initialize real-time listener if not already done
+    if (_notifUnsubscribe.length === 0) {
+      const handleSnapshot = (snap) => {
+        let hasNewAdded = false;
+        try {
+          snap.docChanges().forEach(change => {
+              if (change.type === "added" && change.doc.data().read === false) {
+                  hasNewAdded = true;
+              }
+          });
+          if (hasNewAdded) {
+              playNotificationSound();
           }
-      });
+        } catch (err) {}
+        _calculateTotalUnread();
+      };
 
-      if (hasNewAdded) {
-          console.log("[Notif] New notification detected, playing sound...");
-          playNotificationSound();
-      }
-
-      _calculateTotalUnread();
-    };
-
-    _notifUnsubscribe.push(q1.onSnapshot(handleSnapshot));
-    _notifUnsubscribe.push(q2.onSnapshot(handleSnapshot));
-    _notifUnsubscribe.push(q3.onSnapshot(handleSnapshot));
-    _notifUnsubscribe.push(q4.onSnapshot(handleSnapshot));
+      const q1 = db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.id);
+      _notifUnsubscribe.push(q1.onSnapshot(handleSnapshot, () => {}));
+    }
+  } catch (e) {
+    console.warn("updateNotifBadge err:", e);
   }
 }
 
 async function _calculateTotalUnread() {
-  const [s1, s2, s3, s4] = await Promise.all([
-    db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.id).where("read", "==", false).get(),
-    db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.role).where("read", "==", false).get(),
-    db.collection("hrd_notifikasi").where("targetUser", "==", currentUser.nama).where("read", "==", false).get(),
-    db.collection("hrd_notifikasi").where("targetUser", "==", (currentUser.posisi || "")).where("read", "==", false).get(),
-  ]);
+  if (!currentUser) return;
+  try {
+    const targets = [currentUser.id, currentUser.role, currentUser.nama, currentUser.posisi].filter(Boolean);
+    let totalUnread = 0;
+    const seenIds = new Set();
+    for (const t of targets) {
+      const snap = await db.collection("hrd_notifikasi").where("targetUser", "==", t).get();
+      snap.forEach(doc => {
+        if (!seenIds.has(doc.id)) {
+          seenIds.add(doc.id);
+          if (doc.data().read === false) totalUnread++;
+        }
+      });
+    }
 
-  const count = s1.size + s2.size + s3.size + s4.size;
-  const badge = document.getElementById("notifCount");
-  if (badge) {
-    badge.textContent = count;
-    badge.style.display = count > 0 ? "block" : "none";
+    const badge = document.getElementById("notifCount");
+    if (badge) {
+      badge.textContent = totalUnread;
+      badge.style.display = totalUnread > 0 ? "block" : "none";
+    }
+  } catch (e) {
+    console.warn("_calculateTotalUnread err:", e);
   }
 }
 
