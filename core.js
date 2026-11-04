@@ -360,7 +360,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.6.64";
+const APP_VERSION = "16.6.65";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -603,71 +603,89 @@ function checkAppVersion() {
 }
 
 async function initApp() {
-  checkAppVersion();
+  try {
+    checkAppVersion();
 
-  // Check if public portal (calon karyawan), form pelamar, or psychology test via hash
-  if (
-    window.location.hash === "#psychology-test" ||
-    window.location.hash.startsWith("#psychology-test") ||
-    window.location.hash === "#tes-psikologi" ||
-    window.location.hash.startsWith("#tes-psikologi")
-  ) {
-    if (typeof renderPublicPsychologyTest === "function") {
-      renderPublicPsychologyTest();
-    } else {
-      window.location.href = "psychology-test.html";
+    // Check if public portal (calon karyawan), form pelamar, or psychology test via hash
+    if (
+      window.location.hash === "#psychology-test" ||
+      window.location.hash.startsWith("#psychology-test") ||
+      window.location.hash === "#tes-psikologi" ||
+      window.location.hash.startsWith("#tes-psikologi")
+    ) {
+      if (typeof renderPublicPsychologyTest === "function") {
+        renderPublicPsychologyTest();
+      } else {
+        window.location.href = "psychology-test.html";
+      }
+      return;
     }
-    return;
-  }
 
-  if (
-    window.location.hash === "#form-pelamar" ||
-    window.location.hash.startsWith("#form-pelamar") ||
-    window.location.hash === "#pelamar" ||
-    window.location.hash.startsWith("#pelamar")
-  ) {
-    if (typeof renderPublicFormPelamar === "function") {
-      renderPublicFormPelamar();
-    } else {
-      window.location.href = "form-pelamar.html";
+    if (
+      window.location.hash === "#form-pelamar" ||
+      window.location.hash.startsWith("#form-pelamar") ||
+      window.location.hash === "#pelamar" ||
+      window.location.hash.startsWith("#pelamar")
+    ) {
+      if (typeof renderPublicFormPelamar === "function") {
+        renderPublicFormPelamar();
+      } else {
+        window.location.href = "form-pelamar.html";
+      }
+      return;
     }
-    return;
-  }
 
-  if (
-    window.location.hash === "#calon" ||
-    window.location.hash.startsWith("#calon-")
-  ) {
-    renderPublicPortalCalon();
-    return;
-  }
-  // Shared portal link → arahkan ke login (tidak tampilkan data langsung)
-  // Setelah login, user otomatis masuk ke portal mereka
-  if (window.location.hash.startsWith("#portal-karyawan-")) {
-    // Simpan info bahwa user datang dari shared link, lalu tampilkan login
-    window._sharedPortalUser = window.location.hash.replace(
-      "#portal-karyawan-",
-      "",
-    );
-    window.location.hash = "";
-  }
-  await seedDefaultAccounts();
-  const saved = localStorage.getItem("hrd_session");
-  if (saved) {
+    if (
+      window.location.hash === "#calon" ||
+      window.location.hash.startsWith("#calon-")
+    ) {
+      renderPublicPortalCalon();
+      return;
+    }
+
+    if (window.location.hash.startsWith("#portal-karyawan-")) {
+      window._sharedPortalUser = window.location.hash.replace(
+        "#portal-karyawan-",
+        "",
+      );
+      window.location.hash = "";
+    }
+
     try {
-      currentUser = JSON.parse(saved);
-      const adminRoles = ["admin", "bod", "head", "manager"];
-      currentPage = adminRoles.includes(currentUser.role)
-        ? "dashboard"
-        : "portal";
-      ensureStorageAuth().catch((e) => {
-        console.warn("[StorageAuth] init skipped:", e.code || e.message);
-      });
-      renderApp();
-    } catch (e) {
+      await seedDefaultAccounts();
+    } catch (seedErr) {
+      console.warn("Seed default accounts skipped:", seedErr);
+    }
+
+    const saved = localStorage.getItem("hrd_session");
+    if (saved) {
+      try {
+        currentUser = JSON.parse(saved);
+        const adminRoles = ["admin", "bod", "head", "manager"];
+        currentPage = adminRoles.includes(currentUser.role)
+          ? "dashboard"
+          : "portal";
+        ensureStorageAuth().catch((e) => {
+          console.warn("[StorageAuth] init skipped:", e.code || e.message);
+        });
+        renderApp();
+      } catch (e) {
+        renderLogin();
+      }
+    } else {
       renderLogin();
     }
-  } else renderLogin();
+  } catch (err) {
+    console.error("Critical initApp error:", err);
+    try {
+      renderLogin();
+    } catch (fallbackErr) {
+      const appEl = document.getElementById("app");
+      if (appEl) {
+        appEl.innerHTML = `<div style="padding:40px;text-align:center"><h3>Gagal Memuat Aplikasi</h3><p>${escHtml(err.message || "")}</p><button onclick="localStorage.clear();location.reload()" class="btn btn-primary mt-16">Reset & Muat Ulang</button></div>`;
+      }
+    }
+  }
 }
 
 async function seedDefaultAccounts() {
