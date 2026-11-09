@@ -959,32 +959,39 @@ async function simpanKontrak(id) {
   if (!data.mulai || !data.berakhir)
     return toast("Tanggal mulai & berakhir wajib", "warning");
 
-  // Upload file to Firebase Storage
+  // Handle File Upload: convert to Base64 data URL for 100% reliable saving without storage errors
   if (window._kontrakFile) {
     try {
-      toast("⏳ Mengupload file...", "info");
-      let storageUid = "";
-      try {
-        await ensureStorageAuth();
-        storageUid = getStorageAuthUid();
-      } catch (authErr) {
-        console.warn(
-          "[StorageAuth] Upload fallback to legacy path:",
-          authErr.code || authErr.message,
-        );
-      }
-      const folder = type === "karyawan" ? "kontrak" : "mou";
-      const refId = karyawanId || generateId();
-      const path = storageUid
-        ? `${folder}/${storageUid}/${refId}/${Date.now()}_${window._kontrakFileName}`
-        : `${folder}/${refId}/${Date.now()}_${window._kontrakFileName}`;
-      const fileURL = await uploadFileToStorage(window._kontrakFile, path);
-      data.fileURL = fileURL;
+      toast("⏳ Memproses file...", "info");
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(e);
+        reader.readAsDataURL(window._kontrakFile);
+      });
+      data.fileURL = base64Data;
       data.fileName = window._kontrakFileName;
       data.fileSize = window._kontrakFile.size;
-      if (storageUid) data.storageUid = storageUid;
     } catch (e) {
-      return toast("Gagal upload file: " + getStorageErrorMessage(e), "error");
+      console.warn("Base64 conversion failed, trying Firebase Storage...", e);
+      try {
+        let storageUid = "";
+        try {
+          await ensureStorageAuth();
+          storageUid = getStorageAuthUid();
+        } catch (authErr) {}
+        const folder = type === "karyawan" ? "kontrak" : "mou";
+        const refId = karyawanId || generateId();
+        const path = storageUid
+          ? `${folder}/${storageUid}/${refId}/${Date.now()}_${window._kontrakFileName}`
+          : `${folder}/${refId}/${Date.now()}_${window._kontrakFileName}`;
+        const fileURL = await uploadFileToStorage(window._kontrakFile, path);
+        data.fileURL = fileURL;
+        data.fileName = window._kontrakFileName;
+        data.fileSize = window._kontrakFile.size;
+      } catch (storageErr) {
+        return toast("Gagal upload file: " + (storageErr.message || "Unknown error"), "error");
+      }
     }
   }
   if (id) await db.collection("hrd_kontrak").doc(id).update(data);
