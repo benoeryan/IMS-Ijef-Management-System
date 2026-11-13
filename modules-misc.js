@@ -1788,28 +1788,136 @@ async function showAkunForm(id, p) {
   karyData.forEach((k) => {
     karyOpts += `<option value="${k.id}" ${p.linkedKaryawan === k.id ? "selected" : ""}>${escHtml(k.nama)} (${escHtml(k.nip)} — ${escHtml(k.departemen)})</option>`;
   });
-  const allModules = [
-    { key: 'dashboard', label: '🏠 Beranda & Utama' },
-    { key: 'perusahaan', label: '🏢 Perusahaan (Dept, Posisi)' },
-    { key: 'karyawan', label: '👥 Karyawan & Organisasi' },
-    { key: 'rekrutmen', label: '🔍 Rekrutmen & Pelamar' },
-    { key: 'kehadiran', label: '📍 Kehadiran, Absensi & Cuti' },
-    { key: 'keuangan', label: '💰 Keuangan & Penggajian' },
-    { key: 'kinerja', label: '📈 Kinerja, KPI & DISC' },
-    { key: 'legal', label: '📄 Legal & Aset' },
-    { key: 'komunikasi', label: '💬 Komunikasi & Chat' },
-    { key: 'pengaturan', label: '⚙️ Pengaturan & Approval' }
+  const rbacMenuGroups = [
+    {
+      title: "🏠 Beranda & Utama",
+      items: [
+        { key: "dashboard", label: "Beranda / Dashboard" },
+        { key: "approval-center", label: "Approval Center" },
+        { key: "notifikasi", label: "Notifikasi" },
+        { key: "pengumuman", label: "Pengumuman" }
+      ]
+    },
+    {
+      title: "🏢 Perusahaan",
+      items: [
+        { key: "departemen", label: "Departemen" },
+        { key: "posisi", label: "Posisi" },
+        { key: "cabang", label: "Cabang" }
+      ]
+    },
+    {
+      title: "👥 Karyawan",
+      items: [
+        { key: "karyawan", label: "Data Karyawan" },
+        { key: "struktur-org", label: "Struktur Org" },
+        { key: "jobdesk-mgmt", label: "Kelola Jobdesk" },
+        { key: "onboarding", label: "Onboarding" },
+        { key: "offboarding", label: "Offboarding" },
+        { key: "test-kesehatan", label: "Test Kesehatan" }
+      ]
+    },
+    {
+      title: "🔍 Rekrutmen",
+      items: [
+        { key: "lowongan", label: "Lowongan" },
+        { key: "pipeline", label: "Pipeline Kanban" },
+        { key: "kandidat", label: "Kandidat" },
+        { key: "form-pelamar-mgmt", label: "Form Data Pelamar" }
+      ]
+    },
+    {
+      title: "📍 Kehadiran",
+      items: [
+        { key: "absensi", label: "Absensi IJEF" },
+        { key: "cuti", label: "Cuti / Izin / WFH" },
+        { key: "overtime", label: "Overtime" },
+        { key: "perjalanan-dinas", label: "Perjalanan Dinas" },
+        { key: "hari-libur", label: "Hari Libur" },
+        { key: "penalty", label: "Penalty Point" },
+        { key: "daily-task", label: "Daily Task" },
+        { key: "kaizen", label: "FORM KAIZEN" }
+      ]
+    },
+    {
+      title: "💰 Keuangan",
+      items: [
+        { key: "penggajian", label: "Penggajian" },
+        { key: "tax-calc", label: "Tax & BPJS" },
+        { key: "insentif", label: "Insentif" },
+        { key: "reimbursement", label: "Reimbursement" },
+        { key: "kasbon", label: "Kasbon & Loan" },
+        { key: "tunjangan", label: "Tunjangan" },
+        { key: "laporan-keuangan", label: "Laporan Keuangan" }
+      ]
+    },
+    {
+      title: "📈 Kinerja",
+      items: [
+        { key: "kpi", label: "KPI & Penilaian" },
+        { key: "pelatihan", label: "Pelatihan" },
+        { key: "disc-test", label: "DISC Test" }
+      ]
+    },
+    {
+      title: "📄 Legal & Aset",
+      items: [
+        { key: "kontrak", label: "Manajemen Kontrak" },
+        { key: "legal-perizinan", label: "Legalitas & Perizinan" },
+        { key: "legal-kajian", label: "Kajian Hukum / Tiket" },
+        { key: "legal-sengketa", label: "Sengketa & Kasus" },
+        { key: "asset", label: "Asset" },
+        { key: "peraturan", label: "Peraturan" },
+        { key: "surat", label: "Generator Surat" }
+      ]
+    },
+    {
+      title: "💬 Komunikasi",
+      items: [
+        { key: "meeting", label: "Meeting & Invite" },
+        { key: "chat", label: "Obrolan Divisi" },
+        { key: "broadcast", label: "Broadcast" },
+        { key: "inbox", label: "Inbox Saya" }
+      ]
+    },
+    {
+      title: "⚙️ Pengaturan & Lainnya",
+      items: [
+        { key: "akun", label: "Manajemen Akun" },
+        { key: "approval-mgmt", label: "Approval Mgmt" },
+        { key: "system-admin", label: "Reset & Backup" },
+        { key: "qr-share", label: "QR & PWA" },
+        { key: "panduan", label: "Panduan Sistem" }
+      ]
+    }
   ];
 
-  const userModules = Array.isArray(p.allowedModules) ? p.allowedModules : allModules.map(m => m.key);
-  let moduleCheckboxes = '';
-  allModules.forEach(mod => {
-    const checked = userModules.includes(mod.key) ? 'checked' : '';
-    moduleCheckboxes += `
-      <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff;border-radius:6px;border:1px solid #d0d9ff;font-size:.85rem;cursor:pointer">
-        <input type="checkbox" name="akModules" value="${mod.key}" ${checked} style="width:16px;height:16px;accent-color:var(--primary)">
-        <b>${mod.label}</b>
-      </label>
+  const allSubMenus = rbacMenuGroups.flatMap(g => g.items.map(i => i.key));
+  const userModules = Array.isArray(p.allowedModules) ? p.allowedModules : allSubMenus;
+
+  let rbacHtml = '';
+  rbacMenuGroups.forEach(group => {
+    let groupCheckboxes = '';
+    group.items.forEach(item => {
+      const checked = userModules.includes(item.key) ? 'checked' : '';
+      groupCheckboxes += `
+        <label style="display:flex;align-items:center;gap:6px;font-size:.8rem;cursor:pointer;padding:4px 6px;background:#fff;border-radius:4px;border:1px solid #e0e0e0">
+          <input type="checkbox" name="akModules" value="${item.key}" ${checked} style="width:14px;height:14px;accent-color:var(--primary)">
+          <span>${escHtml(item.label)}</span>
+        </label>
+      `;
+    });
+
+    rbacHtml += `
+      <div style="background:#f8f9ff;padding:10px;border-radius:8px;border:1px solid #d0d9ff;margin-bottom:8px">
+        <div class="fw-700 text-xs color-primary mb-6" style="display:flex;justify-content:space-between;align-items:center">
+          <span>${group.title}</span>
+          <button type="button" class="btn btn-xs btn-outline" onclick="toggleRbacGroup(this)" style="font-size:.7rem;padding:2px 6px">Pilih Semua</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px">
+          ${groupCheckboxes}
+        </div>
+      </div>
     `;
   });
 
@@ -1826,11 +1934,11 @@ async function showAkunForm(id, p) {
       <div class="form-group"><label>Status</label><select class="form-control" id="akStatus"><option value="aktif" ${p.status === "aktif" ? "selected" : ""}>Aktif</option><option value="nonaktif" ${p.status === "nonaktif" ? "selected" : ""}>Nonaktif</option></select></div>
 
       <div class="form-group mb-12">
-        <label class="fw-700 color-primary text-xs">🛡️ RBAC: Hak Akses Modul / Menu Tampilan</label>
-        <div style="background:#f8f9ff;padding:12px;border-radius:8px;border:1px solid #d0d9ff;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
-          ${moduleCheckboxes}
+        <label class="fw-700 color-primary text-xs">🛡️ RBAC: Hak Akses Spesifik Sub-Menu</label>
+        <div style="max-height:300px;overflow-y:auto;padding-right:4px">
+          ${rbacHtml}
         </div>
-        <div class="text-xs color-gray mt-4">Centang menu/modul apa saja yang diizinkan untuk ditampilkan dan diakses pada akun ini.</div>
+        <div class="text-xs color-gray mt-4">Centang sub-menu spesifik yang diizinkan untuk ditampilkan dan diakses pada akun ini.</div>
       </div>
 
       <div class="form-group" style="background:#f9f9f9;padding:12px;border-radius:8px;border-left:4px solid var(--primary)"><label style="color:var(--primary)">🔗 Sambungkan ke Data Karyawan (Auto-Sync Posisi, Jabatan, & Atasan)</label><input class="form-control mb-8" id="akLinkedSearch" placeholder="🔍 Ketik nama untuk mencari..." oninput="filterLinkedKary()"><select class="form-control" id="akLinkedKary" size="6" style="height:auto;max-height:180px">${karyOpts}</select><div class="text-xs mt-8" style="color:#666">Sistem otomatis membaca posisi, jabatan, dan atasan dari karyawan yang dipilih.</div></div>
@@ -1838,6 +1946,17 @@ async function showAkunForm(id, p) {
     <div class="flex gap-8 mt-16"><button class="btn btn-primary" onclick="simpanAkun('${id || ""}')">💾 Simpan Akun</button>${id ? `<button class="btn btn-danger" onclick="hapusDoc('hrd_users','${id}','akun')">🗑️ Hapus</button>` : ""}</div>`,
     true,
   );
+}
+
+function toggleRbacGroup(btn) {
+  const container = btn.closest('div').nextElementSibling;
+  if (!container) return;
+  const cbs = container.querySelectorAll('input[type="checkbox"]');
+  const allChecked = Array.from(cbs).every(c => c.checked);
+  cbs.forEach(c => c.checked = !allChecked);
+  btn.textContent = allChecked ? "Pilih Semua" : "Batalkan Semua";
+}
+window.toggleRbacGroup = toggleRbacGroup;
 }
 
 function previewAkunAvatar(input) {
