@@ -360,7 +360,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.6.72";
+const APP_VERSION = "16.6.73";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -847,8 +847,7 @@ function renderLogin() {
     ? `<img src="${logo}" style="width:72px;height:72px;border-radius:50%;margin:0 auto 12px;display:block;object-fit:contain">`
     : "";
   document.getElementById("app").innerHTML = `
-  <div class="login-page"><div class="login-box" style="position:relative">
-    <button class="btn btn-xs btn-outline mb-16" onclick="window.location.href='/'" style="display:inline-flex;align-items:center;gap:4px">← Kembali</button>
+  <div class="login-page"><div class="login-box">
     ${logoHtml}
     <h2 style="color:#c62828">IMS</h2><p class="subtitle">IJEF Management System</p>
     <div class="form-group"><label>Username</label><input type="text" class="form-control" id="loginUser" placeholder="Username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()"></div>
@@ -1021,7 +1020,7 @@ function buildNavItems(isPortalUser) {
     ]);
     return nav;
   }
-  // ADMIN / BOD / HEAD / MANAGER dashboard (Streamlined & Clean)
+  // ADMIN / BOD / HEAD / MANAGER dashboard
   let nav = "";
   nav += navGroup("🏠 Utama", [
     ["dashboard", "🏠", "Beranda"],
@@ -1029,28 +1028,37 @@ function buildNavItems(isPortalUser) {
     ["notifikasi", "🔔", "Notifikasi"],
     ["pengumuman", "📢", "Pengumuman"],
   ]);
-
-  let karyawanItems = [
+  nav += navGroup("🏢 Perusahaan", [
+    ["departemen", "🏢", "Departemen"],
+    ["posisi", "💼", "Posisi"],
+    ["cabang", "🏛️", "Cabang"],
+  ]);
+  nav += navGroup("👥 Karyawan", [
     ["karyawan", "👥", "Data Karyawan"],
-    ["departemen", "🏢", "Departemen & Posisi"],
-    ["jobdesk-mgmt", "📋", "Jobdesk Karyawan"],
-    ["onboarding", "🚀", "Onboarding & Offboarding"],
-  ];
-  if (canSeeRekrutmen()) {
-    karyawanItems.push(["kandidat", "🧑‍💼", "Rekrutmen Kandidat"]);
-    karyawanItems.push(["form-pelamar-mgmt", "📋", "Form Data Pelamar"]);
-  }
-  nav += navGroup("👥 Karyawan & SDM", karyawanItems);
-
-  nav += navGroup("📍 Kehadiran & Operasional", [
+    ["struktur-org", "🌳", "Struktur Org"],
+    ["jobdesk-mgmt", "📋", "Kelola Jobdesk"],
+    ["onboarding", "🚀", "Onboarding"],
+    ["offboarding", "📦", "Offboarding"],
+    ["test-kesehatan", "🏥", "Test Kesehatan"],
+  ]);
+  // Specific users/roles get Rekrutmen
+  if (canSeeRekrutmen())
+    nav += navGroup("🔍 Rekrutmen", [
+      ["lowongan", "📝", "Lowongan"],
+      ["pipeline", "🔄", "Pipeline Kanban"],
+      ["kandidat", "🧑‍💼", "Kandidat"],
+      ["form-pelamar-mgmt", "📋", "Form Data Pelamar"],
+    ]);
+  nav += navGroup("📍 Kehadiran", [
     ["absensi", "📍", "Absensi IJEF"],
-    ["cuti", "🏖️", "Cuti / Izin / WFH"],
+    ["cuti", "🏖️", "Cuti/Izin/WFH"],
     ["overtime", "⏰", "Overtime"],
     ["perjalanan-dinas", "✈️", "Perjalanan Dinas"],
+    ["hari-libur", "📅", "Hari Libur"],
+    ["penalty", "⚠️", "Penalty Point"],
     ["daily-task", "📋", "Daily Task"],
     ["kaizen", "⚡", "FORM KAIZEN"],
   ]);
-
   const _lkSidebarUsers = [
     "muhammad agus ryanda",
     "siti sofuroh",
@@ -1060,42 +1068,66 @@ function buildNavItems(isPortalUser) {
   const _showLaporanKeuangan = _lkSidebarUsers.includes(
     (currentUser.nama || "").toLowerCase(),
   );
-  let keuanganItems = [
-    ["penggajian", "💰", "Penggajian"],
-    ["tax-calc", "🧮", "Tax & BPJS"],
-    ["insentif", "🏆", "Insentif"],
-    ["reimbursement", "🧾", "Reimbursement"],
-    ["kasbon", "💳", "Kasbon & Loan"],
-    ["kpi", "📈", "KPI & Kinerja"],
-  ];
-  if (_showLaporanKeuangan || currentUser.role === "bod") {
-    keuanganItems.push(["laporan-keuangan", "📊", "Laporan Keuangan"]);
-  }
-  nav += navGroup("💰 Keuangan & Kinerja", keuanganItems);
-
-  if (hasAccess(3)) {
-    nav += navGroup("📄 Legal & Aset", [
-      ["kontrak", "📄", "Manajemen Kontrak"],
-      ["legal-perizinan", "⚖️", "Legalitas & Perizinan"],
-      ["asset", "💻", "Asset / Inventaris"],
-      ["peraturan", "📜", "Peraturan Perusahaan"],
-    ]);
-  }
-
-  let settingItems = [
+  nav += navGroup(
+    "💰 Keuangan",
+    currentUser.role === "bod"
+      ? [
+          ["penggajian", "💰", "Penggajian"],
+          ["laporan-keuangan", "📊", "Laporan Keuangan"],
+        ]
+      : _showLaporanKeuangan
+        ? [
+            ["penggajian", "💰", "Penggajian"],
+            ["tax-calc", "🧮", "Tax & BPJS"],
+            ["insentif", "🏆", "Insentif"],
+            ["reimbursement", "🧾", "Reimbursement"],
+            ["kasbon", "💳", "Kasbon & Loan"],
+            ["tunjangan", "🎁", "Tunjangan"],
+            ["laporan-keuangan", "📊", "Laporan Keuangan"],
+          ]
+        : [
+            ["penggajian", "💰", "Penggajian"],
+            ["tax-calc", "🧮", "Tax & BPJS"],
+            ["insentif", "🏆", "Insentif"],
+            ["reimbursement", "🧾", "Reimbursement"],
+            ["kasbon", "💳", "Kasbon & Loan"],
+            ["tunjangan", "🎁", "Tunjangan"],
+          ],
+  );
+  nav += navGroup("📈 Kinerja", [
+    ["kpi", "📈", "KPI & Penilaian"],
+    ["pelatihan", "🎓", "Pelatihan"],
+    ["disc-test", "🧠", "DISC Test"],
+  ]);
+  // Manager+ gets Legal & Aset
+  if (hasAccess(3))
+    nav += navGroup(
+      "📄 Legal & Aset",
+      currentUser.role === "bod"
+        ? [["kontrak", "📄", "Kontrak"]]
+        : [
+            ["kontrak", "📄", "Manajemen Kontrak"],
+            ["legal-perizinan", "⚖️", "Legalitas & Perizinan"],
+            ["legal-kajian", "🔨", "Kajian Hukum / Tiket"],
+            ["legal-sengketa", "⚠️", "Sengketa & Kasus"],
+            ["asset", "💻", "Asset"],
+            ["peraturan", "📜", "Peraturan"],
+            ["surat", "✉️", "Generator Surat"],
+          ],
+    );
+  nav += navGroup("💬 Komunikasi", [
     ["meeting", "📅", "Meeting & Invite"],
     ["chat", "💬", "Obrolan Divisi"],
-    ["portal-share", "🔗", "Download Aplikasi"],
-  ];
+    ["broadcast", "📡", "Broadcast"],
+    ["inbox", "📥", "Inbox Saya"],
+  ]);
+  // Manager+ gets QR & PWA, Admin gets full settings
+  if (hasAccess(3))
+    nav += navGroup("🔗 Portal", [["portal-share", "🔗", "Download Aplikasi"]]);
   if (hasAccess(6)) {
-    settingItems.push(["akun", "👤", "Manajemen Akun"]);
-    settingItems.push(["approval-mgmt", "⚙️", "Approval Mgmt"]);
-    settingItems.push(["system-admin", "🔧", "Reset & Backup"]);
-  }
-  settingItems.push(["panduan", "📖", "Panduan Sistem"]);
-  nav += navGroup("⚙️ Pengaturan & Lainnya", settingItems);
-
-  return nav;
+    nav += navGroup("⚙️ Pengaturan", [
+      ["akun", "👤", "Manajemen Akun"],
+      ["approval-mgmt", "⚙️", "Approval Mgmt"],
       ["system-admin", "🔧", "Reset & Backup"],
       ["qr-share", "📱", "QR & PWA"],
       ["panduan", "📖", "Panduan Sistem"],
