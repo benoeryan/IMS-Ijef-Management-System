@@ -1788,18 +1788,54 @@ async function showAkunForm(id, p) {
   karyData.forEach((k) => {
     karyOpts += `<option value="${k.id}" ${p.linkedKaryawan === k.id ? "selected" : ""}>${escHtml(k.nama)} (${escHtml(k.nip)} — ${escHtml(k.departemen)})</option>`;
   });
+  const allModules = [
+    { key: 'dashboard', label: '🏠 Beranda & Utama' },
+    { key: 'perusahaan', label: '🏢 Perusahaan (Dept, Posisi)' },
+    { key: 'karyawan', label: '👥 Karyawan & Organisasi' },
+    { key: 'rekrutmen', label: '🔍 Rekrutmen & Pelamar' },
+    { key: 'kehadiran', label: '📍 Kehadiran, Absensi & Cuti' },
+    { key: 'keuangan', label: '💰 Keuangan & Penggajian' },
+    { key: 'kinerja', label: '📈 Kinerja, KPI & DISC' },
+    { key: 'legal', label: '📄 Legal & Aset' },
+    { key: 'komunikasi', label: '💬 Komunikasi & Chat' },
+    { key: 'pengaturan', label: '⚙️ Pengaturan & Approval' }
+  ];
+
+  const userModules = Array.isArray(p.allowedModules) ? p.allowedModules : allModules.map(m => m.key);
+  let moduleCheckboxes = '';
+  allModules.forEach(mod => {
+    const checked = userModules.includes(mod.key) ? 'checked' : '';
+    moduleCheckboxes += `
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff;border-radius:6px;border:1px solid #d0d9ff;font-size:.85rem;cursor:pointer">
+        <input type="checkbox" name="akModules" value="${mod.key}" ${checked} style="width:16px;height:16px;accent-color:var(--primary)">
+        <b>${mod.label}</b>
+      </label>
+    `;
+  });
+
   openModal(
     `<div class="modal-title">${id ? "Edit" : "Tambah"} Akun</div>
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
-      <div id="akAvatarPreview" style="width:64px;height:64px;border-radius:50%;border:2px solid var(--accent);overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f5f5f5;font-size:1.5rem;cursor:pointer" onclick="document.getElementById('akAvatarFile').click()">${p.profilePic ? `<img src="${p.profilePic}" style="width:100%;height:100%;object-fit:cover">` : (p.nama || "?").charAt(0)}</div>
-      <div><input type="file" id="akAvatarFile" accept="image/png,image/jpeg" style="display:none" onchange="previewAkunAvatar(this)"><button class="btn btn-sm btn-primary" onclick="document.getElementById('akAvatarFile').click()">📷 Foto Profil</button><div class="text-xs mt-4" style="color:#999">Upload foto untuk identifikasi user</div></div>
+    <div style="max-height:80vh; overflow-y:auto; padding-right:6px">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+        <div id="akAvatarPreview" style="width:64px;height:64px;border-radius:50%;border:2px solid var(--accent);overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f5f5f5;font-size:1.5rem;cursor:pointer" onclick="document.getElementById('akAvatarFile').click()">${p.profilePic ? `<img src="${p.profilePic}" style="width:100%;height:100%;object-fit:cover">` : (p.nama || "?").charAt(0)}</div>
+        <div><input type="file" id="akAvatarFile" accept="image/png,image/jpeg" style="display:none" onchange="previewAkunAvatar(this)"><button class="btn btn-sm btn-primary" onclick="document.getElementById('akAvatarFile').click()">📷 Foto Profil</button><div class="text-xs mt-4" style="color:#999">Upload foto untuk identifikasi user</div></div>
+      </div>
+      <div class="grid-2"><div class="form-group"><label>Username</label><input class="form-control" id="akUser" value="${escHtml(id || "")}" data-old-id="${escHtml(id || "")}"></div><div class="form-group"><label>Password</label><input class="form-control" id="akPass" value="${escHtml(p.password || "")}"></div></div>
+      <div class="grid-2"><div class="form-group"><label>Nama</label><input class="form-control" id="akNama" value="${escHtml(p.nama || "")}"></div><div class="form-group"><label>Role</label><select class="form-control" id="akRole"><option value="staff" ${p.role === "staff" || p.role === "karyawan" ? "selected" : ""}>Staff</option><option value="leader" ${p.role === "leader" ? "selected" : ""}>Leader</option><option value="manager" ${p.role === "manager" ? "selected" : ""}>Manager</option><option value="head" ${p.role === "head" ? "selected" : ""}>Head</option><option value="bod" ${p.role === "bod" ? "selected" : ""}>BOD / Founder</option><option value="admin" ${p.role === "admin" || p.role === "superadmin" ? "selected" : ""}>Admin (Full Access)</option></select></div></div>
+      <div class="grid-2"><div class="form-group"><label>Departemen Utama</label><input class="form-control" id="akDept" value="${escHtml(p.departemen || "")}"></div><div class="form-group"><label>Departemen Tambahan / Tanggung Jawab Divisi</label><select class="form-control" id="akSecondaryDept"><option value="">-- Tidak ada --</option><option value="ACADEMIC" ${p.secondaryDept === "ACADEMIC" || (p.secondaryDept && p.secondaryDept.includes("ACADEMIC")) ? "selected" : ""}>ACADEMIC (Akademik)</option><option value="OFFICE" ${p.secondaryDept === "OFFICE" || (p.secondaryDept && p.secondaryDept.includes("OFFICE")) ? "selected" : ""}>OFFICE (Manajemen)</option><option value="ACADEMIC, OFFICE" ${p.secondaryDept === "ACADEMIC, OFFICE" || (p.secondaryDept && p.secondaryDept.includes("ACADEMIC") && p.secondaryDept.includes("OFFICE")) ? "selected" : ""}>ACADEMIC & OFFICE (Dua Divisi)</option></select></div></div>
+      <div class="form-group"><label>Status</label><select class="form-control" id="akStatus"><option value="aktif" ${p.status === "aktif" ? "selected" : ""}>Aktif</option><option value="nonaktif" ${p.status === "nonaktif" ? "selected" : ""}>Nonaktif</option></select></div>
+
+      <div class="form-group mb-12">
+        <label class="fw-700 color-primary text-xs">🛡️ RBAC: Hak Akses Modul / Menu Tampilan</label>
+        <div style="background:#f8f9ff;padding:12px;border-radius:8px;border:1px solid #d0d9ff;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+          ${moduleCheckboxes}
+        </div>
+        <div class="text-xs color-gray mt-4">Centang menu/modul apa saja yang diizinkan untuk ditampilkan dan diakses pada akun ini.</div>
+      </div>
+
+      <div class="form-group" style="background:#f9f9f9;padding:12px;border-radius:8px;border-left:4px solid var(--primary)"><label style="color:var(--primary)">🔗 Sambungkan ke Data Karyawan (Auto-Sync Posisi, Jabatan, & Atasan)</label><input class="form-control mb-8" id="akLinkedSearch" placeholder="🔍 Ketik nama untuk mencari..." oninput="filterLinkedKary()"><select class="form-control" id="akLinkedKary" size="6" style="height:auto;max-height:180px">${karyOpts}</select><div class="text-xs mt-8" style="color:#666">Sistem otomatis membaca posisi, jabatan, dan atasan dari karyawan yang dipilih.</div></div>
     </div>
-    <div class="grid-2"><div class="form-group"><label>Username</label><input class="form-control" id="akUser" value="${escHtml(id || "")}" data-old-id="${escHtml(id || "")}"></div><div class="form-group"><label>Password</label><input class="form-control" id="akPass" value="${escHtml(p.password || "")}"></div></div>
-    <div class="grid-2"><div class="form-group"><label>Nama</label><input class="form-control" id="akNama" value="${escHtml(p.nama || "")}"></div><div class="form-group"><label>Role</label><select class="form-control" id="akRole"><option value="staff" ${p.role === "staff" || p.role === "karyawan" ? "selected" : ""}>Staff</option><option value="leader" ${p.role === "leader" ? "selected" : ""}>Leader</option><option value="manager" ${p.role === "manager" ? "selected" : ""}>Manager</option><option value="head" ${p.role === "head" ? "selected" : ""}>Head</option><option value="bod" ${p.role === "bod" ? "selected" : ""}>BOD / Founder</option><option value="admin" ${p.role === "admin" || p.role === "superadmin" ? "selected" : ""}>Admin (Full Access)</option></select></div></div>
-    <div class="grid-2"><div class="form-group"><label>Departemen Utama</label><input class="form-control" id="akDept" value="${escHtml(p.departemen || "")}"></div><div class="form-group"><label>Departemen Tambahan / Tanggung Jawab Divisi</label><select class="form-control" id="akSecondaryDept"><option value="">-- Tidak ada --</option><option value="ACADEMIC" ${p.secondaryDept === "ACADEMIC" || (p.secondaryDept && p.secondaryDept.includes("ACADEMIC")) ? "selected" : ""}>ACADEMIC (Akademik)</option><option value="OFFICE" ${p.secondaryDept === "OFFICE" || (p.secondaryDept && p.secondaryDept.includes("OFFICE")) ? "selected" : ""}>OFFICE (Manajemen)</option><option value="ACADEMIC, OFFICE" ${p.secondaryDept === "ACADEMIC, OFFICE" || (p.secondaryDept && p.secondaryDept.includes("ACADEMIC") && p.secondaryDept.includes("OFFICE")) ? "selected" : ""}>ACADEMIC & OFFICE (Dua Divisi)</option></select></div></div>
-    <div class="form-group"><label>Status</label><select class="form-control" id="akStatus"><option value="aktif" ${p.status === "aktif" ? "selected" : ""}>Aktif</option><option value="nonaktif" ${p.status === "nonaktif" ? "selected" : ""}>Nonaktif</option></select></div>
-    <div class="form-group" style="background:#f9f9f9;padding:12px;border-radius:8px;border-left:4px solid var(--primary)"><label style="color:var(--primary)">🔗 Sambungkan ke Data Karyawan</label><input class="form-control mb-8" id="akLinkedSearch" placeholder="🔍 Ketik nama untuk mencari..." oninput="filterLinkedKary()"><select class="form-control" id="akLinkedKary" size="10" style="height:auto;max-height:250px">${karyOpts}</select><div class="text-xs mt-8" style="color:#666">Hanya karyawan aktif. Ketik nama untuk filter, lalu pilih dari daftar.</div></div>
-    <div class="flex gap-8 mt-16"><button class="btn btn-primary" onclick="simpanAkun('${id || ""}')">💾 Simpan</button>${id ? `<button class="btn btn-danger" onclick="hapusDoc('hrd_users','${id}','akun')">🗑️ Hapus</button>` : ""}</div>`,
+    <div class="flex gap-8 mt-16"><button class="btn btn-primary" onclick="simpanAkun('${id || ""}')">💾 Simpan Akun</button>${id ? `<button class="btn btn-danger" onclick="hapusDoc('hrd_users','${id}','akun')">🗑️ Hapus</button>` : ""}</div>`,
     true,
   );
 }
@@ -1851,6 +1887,10 @@ async function simpanAkun(id) {
   if (!newUsername) return toast("Username wajib", "warning");
   const linkedKary = document.getElementById("akLinkedKary")?.value || "";
   const secondaryDept = document.getElementById("akSecondaryDept")?.value || "";
+
+  const moduleEls = document.querySelectorAll('input[name="akModules"]:checked');
+  const allowedModules = Array.from(moduleEls).map(el => el.value);
+
   const data = {
     password: document.getElementById("akPass").value,
     nama: document.getElementById("akNama").value,
@@ -1859,6 +1899,7 @@ async function simpanAkun(id) {
     secondaryDept: secondaryDept,
     status: document.getElementById("akStatus").value,
     linkedKaryawan: linkedKary,
+    allowedModules: allowedModules,
     username: newUsername,
     updatedAt: new Date().toISOString(),
   };
@@ -1872,8 +1913,11 @@ async function simpanAkun(id) {
         const kData = kDoc.data();
         data.nama = kData.nama || data.nama;
         data.departemen = kData.departemen || data.departemen;
-        data.nip = kData.nip || newUsername;
+        data.departemenTambahan = kData.departemenTambahan || [];
         data.posisi = kData.posisi || "";
+        data.gradeJabatan = kData.gradeJabatan || "";
+        data.atasan = kData.atasan || "";
+        data.nip = kData.nip || newUsername;
       }
     }
     if (oldId && oldId !== newUsername) {
