@@ -1957,7 +1957,6 @@ function toggleRbacGroup(btn) {
   btn.textContent = allChecked ? "Pilih Semua" : "Batalkan Semua";
 }
 window.toggleRbacGroup = toggleRbacGroup;
-}
 
 function previewAkunAvatar(input) {
   const file = input.files[0];
