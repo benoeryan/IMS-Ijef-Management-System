@@ -4234,9 +4234,6 @@ window.onDailyReportMateriChange = function () {
 
 function getReportCategoryOptions() {
   const userDepts = [];
-  if (typeof getUserDepartments === 'function') {
-    getUserDepartments(currentUser).forEach(d => userDepts.push(d.toUpperCase()));
-  }
   if (currentUser?.departemen) userDepts.push(currentUser.departemen.toUpperCase().trim());
   if (currentUser?.dept) userDepts.push(currentUser.dept.toUpperCase().trim());
   if (Array.isArray(currentUser?.departemenTambahan)) {
@@ -4247,9 +4244,9 @@ function getReportCategoryOptions() {
 
   const isIrsan = (currentUser?.nama || "").toLowerCase().includes("irsan janwar");
   const isAgusP = (currentUser?.nama || "").toLowerCase().includes("agus puriyanto");
-  const isHilmi = (currentUser?.nama || "").toLowerCase().includes("muhammad ihsan hilmi") || (currentUser?.nama || "").toLowerCase().includes("hilmi");
-  if (isIrsan || isAgusP || isHilmi) {
-    userDepts.push("ACADEMIC", "OFFICE");
+  if (isIrsan || isAgusP) {
+    if (!userDepts.includes("ACADEMIC")) userDepts.push("ACADEMIC");
+    if (!userDepts.includes("OFFICE")) userDepts.push("OFFICE");
   }
 
   let cats = [];
@@ -4263,7 +4260,7 @@ function getReportCategoryOptions() {
   });
 
   if (!cats.length) {
-    cats = [...(REPORT_CATEGORIES["ACADEMIC"] || []), ...(REPORT_CATEGORIES["OFFICE"] || [])];
+    cats = REPORT_CATEGORIES["ACADEMIC"] || ["SISWA", "TSK-JOB", "SENSEI", "CURRICULUM"];
   }
 
   let opts = '<option value="">-- Pilih Kategori --</option>';
