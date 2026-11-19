@@ -1910,11 +1910,11 @@ async function showAkunForm(id, p) {
 
     rbacHtml += `
       <div style="background:#f8f9ff;padding:10px;border-radius:8px;border:1px solid #d0d9ff;margin-bottom:8px">
-        <div class="fw-700 text-xs color-primary mb-6" style="display:flex;justify-content:space-between;align-items:center">
-          <span>${group.title}</span>
-          <button type="button" class="btn btn-xs btn-outline" onclick="toggleRbacGroup(this)" style="font-size:.7rem;padding:2px 6px">Pilih Semua</button>
+        <div class="fw-700 text-xs color-primary mb-6" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleRbacAccordion(this)">
+          <span>${group.title} ▾</span>
+          <button type="button" class="btn btn-xs btn-outline" onclick="event.stopPropagation();toggleRbacGroup(this)" style="font-size:.7rem;padding:2px 6px">Pilih Semua</button>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px">
+        <div class="rbac-sub-items" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;margin-top:6px">
           ${groupCheckboxes}
         </div>
       </div>
@@ -1957,6 +1957,14 @@ function toggleRbacGroup(btn) {
   btn.textContent = allChecked ? "Pilih Semua" : "Batalkan Semua";
 }
 window.toggleRbacGroup = toggleRbacGroup;
+
+function toggleRbacAccordion(headerEl) {
+  const container = headerEl.nextElementSibling;
+  if (!container) return;
+  const isHidden = container.style.display === "none";
+  container.style.display = isHidden ? "grid" : "none";
+}
+window.toggleRbacAccordion = toggleRbacAccordion;
 
 function previewAkunAvatar(input) {
   const file = input.files[0];
