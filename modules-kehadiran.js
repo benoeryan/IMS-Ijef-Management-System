@@ -4233,24 +4233,37 @@ window.onDailyReportMateriChange = function () {
 };
 
 function getReportCategoryOptions() {
-  const userDepts = [(currentUser.departemen || "").toUpperCase().trim()];
-  if (Array.isArray(currentUser.departemenTambahan)) {
-    currentUser.departemenTambahan.forEach(d => userDepts.push(String(d).toUpperCase().trim()));
+  const userDepts = [];
+  if (typeof getUserDepartments === 'function') {
+    getUserDepartments(currentUser).forEach(d => userDepts.push(d.toUpperCase()));
   }
-  const isIrsan = (currentUser.nama || "").toLowerCase().includes("irsan janwar");
-  const isAgusP = (currentUser.nama || "").toLowerCase().includes("agus puriyanto");
-  if (isIrsan || isAgusP) {
+  if (currentUser?.departemen) userDepts.push(currentUser.departemen.toUpperCase().trim());
+  if (currentUser?.dept) userDepts.push(currentUser.dept.toUpperCase().trim());
+  if (Array.isArray(currentUser?.departemenTambahan)) {
+    currentUser.departemenTambahan.forEach(d => userDepts.push(String(d).toUpperCase().trim()));
+  } else if (currentUser?.departemenTambahan) {
+    userDepts.push(String(currentUser.departemenTambahan).toUpperCase().trim());
+  }
+
+  const isIrsan = (currentUser?.nama || "").toLowerCase().includes("irsan janwar");
+  const isAgusP = (currentUser?.nama || "").toLowerCase().includes("agus puriyanto");
+  const isHilmi = (currentUser?.nama || "").toLowerCase().includes("muhammad ihsan hilmi") || (currentUser?.nama || "").toLowerCase().includes("hilmi");
+  if (isIrsan || isAgusP || isHilmi) {
     userDepts.push("ACADEMIC", "OFFICE");
   }
 
   let cats = [];
   userDepts.forEach(d => {
-    const list = REPORT_CATEGORIES[d] || [];
-    list.forEach(c => { if (!cats.includes(c)) cats.push(c); });
+    Object.keys(REPORT_CATEGORIES).forEach(key => {
+      if (d.includes(key) || key.includes(d)) {
+        const list = REPORT_CATEGORIES[key] || [];
+        list.forEach(c => { if (!cats.includes(c)) cats.push(c); });
+      }
+    });
   });
 
   if (!cats.length) {
-    cats = [...(REPORT_CATEGORIES["OFFICE"] || []), ...(REPORT_CATEGORIES["ACADEMIC"] || [])];
+    cats = [...(REPORT_CATEGORIES["ACADEMIC"] || []), ...(REPORT_CATEGORIES["OFFICE"] || [])];
   }
 
   let opts = '<option value="">-- Pilih Kategori --</option>';
