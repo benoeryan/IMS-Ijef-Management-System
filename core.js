@@ -360,7 +360,7 @@ async function cleanupFCMToken(userId) {
 }
 
 const ROLES = { admin: 6, bod: 5, head: 4, manager: 3, leader: 2, staff: 1 };
-const APP_VERSION = "16.6.76";
+const APP_VERSION = "16.6.77";
 
 // Indonesian National Holidays 2025
 const HARI_LIBUR_NASIONAL_2025 = [
@@ -1141,10 +1141,23 @@ function buildNavItems(isPortalUser) {
   return nav;
 }
 
+function canAccessPage(page) {
+  if (!currentUser) return false;
+  if (hasAccess(6) || currentUser.role === 'admin' || currentUser.role === 'bod') return true;
+  if (!currentUser.allowedModules || !Array.isArray(currentUser.allowedModules)) return true;
+
+  if (["portal", "dashboard", "notifikasi", "pengumuman", "panduan"].includes(page)) return true;
+
+  const normalized = page.startsWith('portal-') ? page.replace('portal-', '') : page;
+  return currentUser.allowedModules.includes(page) || currentUser.allowedModules.includes(normalized);
+}
+
 function navGroup(title, items) {
-  const hasActive = items.some(([page]) => currentPage === page);
+  const allowedItems = items.filter(([page]) => canAccessPage(page));
+  if (!allowedItems.length) return "";
+  const hasActive = allowedItems.some(([page]) => currentPage === page);
   let html = `<div class="nav-group"><div class="nav-group-title" onclick="toggleNavGroup(this)"><span>${title}</span><span class="nav-arrow${hasActive ? " open" : ""}">⌵</span></div><div class="nav-group-items"${hasActive ? "" : ' style="display:none"'}>`;
-  items.forEach(([page, icon, label]) => {
+  allowedItems.forEach(([page, icon, label]) => {
     html += `<div class="nav-item${currentPage === page ? " active" : ""}" onclick="navigateTo('${page}')"><span class="icon">${icon}</span><span>${label}</span></div>`;
   });
   return html + "</div></div>";
@@ -1263,9 +1276,16 @@ function runPageResourceCleanup(reason) {
 
 function navigateTo(page) {
   runPageResourceCleanup("navigate");
+  const adminRoles = ["admin", "bod", "head", "manager"];
+  const isPortalUser = !adminRoles.includes(currentUser?.role || "");
+  if (!canAccessPage(page)) {
+    toast("Akses ke menu/sub-menu ini dibatasi oleh Administrator (RBAC)", "error");
+    navigateTo(isPortalUser ? "portal" : "dashboard");
+    return;
+  }
   if (["lowongan", "pipeline", "kandidat"].includes(page) && !canSeeRekrutmen()) {
     toast("Akses menu Rekrutmen ditolak", "error");
-    navigateTo("dashboard");
+    navigateTo(isPortalUser ? "portal" : "dashboard");
     return;
   }
   if (currentPage !== page) {
