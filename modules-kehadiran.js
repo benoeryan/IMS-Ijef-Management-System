@@ -558,8 +558,9 @@ async function viewCutiDetail(id) {
       .trim();
     const myName = (currentUser.nama || "").toLowerCase().trim();
     const isMyTurn = isUserAllowedToApprove(currentApprover);
+    const canApproveDetail = isMyTurn && (hasAccess(3) || hasAccess(6) || currentUser.role === 'admin' || currentUser.role === 'bod');
 
-    if (isMyTurn) {
+    if (canApproveDetail) {
       approveBtns = `
           <button class="btn btn-danger" onclick="approveItem('hrd_cuti','${id}','rejected')">❌ Tolak</button>
           <button class="btn btn-success" onclick="approveItem('hrd_cuti','${id}','approved')">✅ Setujui</button>`;
