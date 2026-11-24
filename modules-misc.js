@@ -1929,13 +1929,27 @@ async function showAkunForm(id, p) {
         <div><input type="file" id="akAvatarFile" accept="image/png,image/jpeg" style="display:none" onchange="previewAkunAvatar(this)"><button class="btn btn-sm btn-primary" onclick="document.getElementById('akAvatarFile').click()">📷 Foto Profil</button><div class="text-xs mt-4" style="color:#999">Upload foto untuk identifikasi user</div></div>
       </div>
       <div class="grid-2"><div class="form-group"><label>Username</label><input class="form-control" id="akUser" value="${escHtml(id || "")}" data-old-id="${escHtml(id || "")}"></div><div class="form-group"><label>Password</label><input class="form-control" id="akPass" value="${escHtml(p.password || "")}"></div></div>
-      <div class="grid-2"><div class="form-group"><label>Nama</label><input class="form-control" id="akNama" value="${escHtml(p.nama || "")}"></div><div class="form-group"><label>Role</label><select class="form-control" id="akRole"><option value="staff" ${p.role === "staff" || p.role === "karyawan" ? "selected" : ""}>Staff</option><option value="leader" ${p.role === "leader" ? "selected" : ""}>Leader</option><option value="manager" ${p.role === "manager" ? "selected" : ""}>Manager</option><option value="head" ${p.role === "head" ? "selected" : ""}>Head</option><option value="bod" ${p.role === "bod" ? "selected" : ""}>BOD / Founder</option><option value="admin" ${p.role === "admin" || p.role === "superadmin" ? "selected" : ""}>Admin (Full Access)</option></select></div></div>
+      <div class="grid-2">
+        <div class="form-group"><label>Nama</label><input class="form-control" id="akNama" value="${escHtml(p.nama || "")}"></div>
+        <div class="form-group">
+          <label>Role <span style="font-size:.7rem;color:var(--primary)">⚡ Auto-Template RBAC</span></label>
+          <select class="form-control" id="akRole" onchange="applyRoleDefaultRbac()">
+            <option value="staff" ${p.role === "staff" || p.role === "karyawan" ? "selected" : ""}>Staff</option>
+            <option value="leader" ${p.role === "leader" ? "selected" : ""}>Leader</option>
+            <option value="manager" ${p.role === "manager" ? "selected" : ""}>Manager</option>
+            <option value="head" ${p.role === "head" ? "selected" : ""}>Head</option>
+            <option value="bod" ${p.role === "bod" ? "selected" : ""}>BOD / Founder</option>
+            <option value="admin" ${p.role === "admin" || p.role === "superadmin" ? "selected" : ""}>Admin (Full Access)</option>
+          </select>
+          <div id="akRoleGuideText" style="background:#f0f4ff;padding:6px 10px;border-radius:6px;font-size:.75rem;color:#1565c0;margin-top:6px;line-height:1.4"></div>
+        </div>
+      </div>
       <div class="grid-2"><div class="form-group"><label>Departemen Utama</label><input class="form-control" id="akDept" value="${escHtml(p.departemen || "")}"></div><div class="form-group"><label>Departemen Tambahan / Tanggung Jawab Divisi</label><select class="form-control" id="akSecondaryDept"><option value="">-- Tidak ada --</option><option value="ACADEMIC" ${p.secondaryDept === "ACADEMIC" || (p.secondaryDept && p.secondaryDept.includes("ACADEMIC")) ? "selected" : ""}>ACADEMIC (Akademik)</option><option value="OFFICE" ${p.secondaryDept === "OFFICE" || (p.secondaryDept && p.secondaryDept.includes("OFFICE")) ? "selected" : ""}>OFFICE (Manajemen)</option><option value="ACADEMIC, OFFICE" ${p.secondaryDept === "ACADEMIC, OFFICE" || (p.secondaryDept && p.secondaryDept.includes("ACADEMIC") && p.secondaryDept.includes("OFFICE")) ? "selected" : ""}>ACADEMIC & OFFICE (Dua Divisi)</option></select></div></div>
       <div class="form-group"><label>Status</label><select class="form-control" id="akStatus"><option value="aktif" ${p.status === "aktif" ? "selected" : ""}>Aktif</option><option value="nonaktif" ${p.status === "nonaktif" ? "selected" : ""}>Nonaktif</option></select></div>
 
       <div class="form-group mb-12">
-        <label class="fw-700 color-primary text-xs">🛡️ RBAC: Hak Akses Spesifik Sub-Menu</label>
-        <div style="max-height:300px;overflow-y:auto;padding-right:4px">
+        <label class="fw-700 color-primary text-xs">🛡️ RBAC: Hak Akses Spesifik Sub-Menu (Klik judul untuk expand/collapse)</label>
+        <div style="max-height:280px;overflow-y:auto;padding-right:4px">
           ${rbacHtml}
         </div>
         <div class="text-xs color-gray mt-4">Centang sub-menu spesifik yang diizinkan untuk ditampilkan dan diakses pada akun ini.</div>
@@ -1946,6 +1960,7 @@ async function showAkunForm(id, p) {
     <div class="flex gap-8 mt-16"><button class="btn btn-primary" onclick="simpanAkun('${id || ""}')">💾 Simpan Akun</button>${id ? `<button class="btn btn-danger" onclick="hapusDoc('hrd_users','${id}','akun')">🗑️ Hapus</button>` : ""}</div>`,
     true,
   );
+  setTimeout(applyRoleDefaultRbac, 100);
 }
 
 function toggleRbacGroup(btn) {
@@ -4806,3 +4821,40 @@ async function loadKpiTrainingReport() {
         toast("Gagal memuat laporan", "danger");
     }
 }
+
+function applyRoleDefaultRbac() {
+  const role = document.getElementById("akRole")?.value || "staff";
+  const checkboxes = document.querySelectorAll('input[name="akModules"]');
+
+  const roleTemplates = {
+    staff: ["dashboard", "portal", "portal-absensi", "portal-cuti", "portal-overtime", "daily-task", "kaizen", "portal-gaji", "portal-reimburse", "portal-kasbon", "portal-jobdesk", "portal-disc", "portal-kpi", "portal-test-kesehatan", "portal-dokumen", "portal-struktur", "portal-libur", "portal-peraturan", "portal-pengumuman", "portal-broadcast", "portal-meeting", "inbox", "chat", "notifikasi", "panduan"],
+    leader: ["dashboard", "portal", "approval-center", "portal-absensi", "portal-cuti", "portal-overtime", "daily-task", "kaizen", "portal-gaji", "portal-reimburse", "portal-kasbon", "portal-jobdesk", "portal-disc", "portal-kpi", "portal-test-kesehatan", "portal-dokumen", "portal-struktur", "portal-libur", "portal-peraturan", "portal-pengumuman", "portal-broadcast", "portal-meeting", "inbox", "chat", "notifikasi", "panduan"],
+    manager: ["dashboard", "approval-center", "notifikasi", "pengumuman", "karyawan", "departemen", "jobdesk-mgmt", "onboarding", "offboarding", "absensi", "cuti", "overtime", "perjalanan-dinas", "hari-libur", "penalty", "daily-task", "kaizen", "penggajian", "tax-calc", "insentif", "reimbursement", "kasbon", "tunjangan", "kpi", "pelatihan", "disc-test", "kontrak", "legal-perizinan", "asset", "peraturan", "meeting", "chat", "broadcast", "inbox", "portal-share", "panduan"],
+    head: ["dashboard", "approval-center", "notifikasi", "pengumuman", "karyawan", "departemen", "jobdesk-mgmt", "onboarding", "offboarding", "lowongan", "pipeline", "kandidat", "form-pelamar-mgmt", "absensi", "cuti", "overtime", "perjalanan-dinas", "hari-libur", "penalty", "daily-task", "kaizen", "penggajian", "tax-calc", "insentif", "reimbursement", "kasbon", "tunjangan", "laporan-keuangan", "kpi", "pelatihan", "disc-test", "kontrak", "legal-perizinan", "asset", "peraturan", "surat", "meeting", "chat", "broadcast", "inbox", "portal-share", "panduan"],
+    bod: ["dashboard", "approval-center", "notifikasi", "pengumuman", "karyawan", "departemen", "penggajian", "laporan-keuangan", "kpi", "pelatihan", "disc-test", "kontrak", "meeting", "chat", "broadcast", "inbox", "portal-share", "panduan"],
+    admin: []
+  };
+
+  const allowed = roleTemplates[role] || [];
+  checkboxes.forEach(cb => {
+    if (role === 'admin' || role === 'superadmin') {
+      cb.checked = true;
+    } else {
+      cb.checked = allowed.includes(cb.value) || allowed.includes(cb.value.replace('portal-', ''));
+    }
+  });
+
+  const guideEl = document.getElementById("akRoleGuideText");
+  if (guideEl) {
+    const guides = {
+      staff: "💡 <b>Role Staff:</b> Akses standar ke Portal Karyawan, Absensi, Cuti/Izin, Slip Gaji, Jobdesk, dan Daily Task tanpa hak approval manajemen.",
+      leader: "💡 <b>Role Leader:</b> Akses seperti Staff ditambah hak akses <b>Approval Center</b> untuk menyetujui tugas/izin bawahan langsung.",
+      manager: "💡 <b>Role Manager:</b> Akses pengawasan departemen penuh meliputi Data Karyawan, Absensi, Cuti, Overtime, Keuangan/Penggajian, Kinerja, dan Legal.",
+      head: "💡 <b>Role Head:</b> Akses lintas divisi senior meliputi Rekrutmen, Karyawan, Kehadiran, Keuangan, Kinerja, Laporan Keuangan, dan Legal & Aset.",
+      bod: "💡 <b>Role BOD / Founder:</b> Akses eksekutif monitoring ringkasan perusahaan, Approval Center, Laporan Keuangan, Penggajian, Kinerja, dan Kontrak.",
+      admin: "💡 <b>Role Admin:</b> Akses penuh ke seluruh modul sistem (Full Access termasuk Manajemen Akun, Backup, & Approval Mgmt)."
+    };
+    guideEl.innerHTML = guides[role] || "";
+  }
+}
+window.applyRoleDefaultRbac = applyRoleDefaultRbac;
